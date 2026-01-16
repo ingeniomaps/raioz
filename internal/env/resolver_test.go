@@ -77,7 +77,7 @@ func TestResolveEnvFiles(t *testing.T) {
 				deps.Env.UseGlobal = true
 			}
 
-			paths, err := ResolveEnvFiles(ws, deps, "test-service", tt.envFiles)
+			paths, err := ResolveEnvFiles(ws, deps, "test-service", tt.envFiles, "")
 			if err != nil {
 				t.Errorf("ResolveEnvFiles() error = %v", err)
 				return

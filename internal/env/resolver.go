@@ -13,13 +13,104 @@ import (
 	pathvalidate "raioz/internal/path"
 )
 
+// ResolveProjectEnv resolves project.env configuration.
+// If project.env is ["."], uses .env in project directory as primary (read-only if exists).
+// If .env doesn't exist, creates it normally.
+// projectDir is the directory where .raioz.json is located.
+func ResolveProjectEnv(ws *workspace.Workspace, deps *config.Deps, projectDir string) (string, error) {
+	if deps.Project.Env == nil {
+		return "", nil
+	}
+
+	// If project.env is an object (direct variables), create/update project.env file
+	if deps.Project.Env.IsObject && deps.Project.Env.Variables != nil {
+		envDir := filepath.Join(ws.EnvDir, "projects", deps.Project.Name)
+		envPath := filepath.Join(envDir, "project.env")
+
+		// Ensure directory exists
+		if err := os.MkdirAll(envDir, 0700); err != nil {
+			return "", fmt.Errorf("failed to create env directory: %w", err)
+		}
+
+		// Load existing variables if file exists
+		existingVars := make(map[string]string)
+		if _, err := os.Stat(envPath); err == nil {
+			loaded, err := loadSingleFile(envPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to load existing project.env: %w", err)
+			}
+			existingVars = loaded
+		}
+
+		// Merge: new variables override existing ones
+		for key, value := range deps.Project.Env.Variables {
+			existingVars[key] = value
+		}
+
+		// Write merged variables to file
+		file, err := os.OpenFile(envPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if err != nil {
+			return "", fmt.Errorf("failed to create project.env file: %w", err)
+		}
+		defer file.Close()
+
+		keys := make([]string, 0, len(existingVars))
+		for key := range existingVars {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			value := existingVars[key]
+			escapedValue := value
+			if strings.Contains(value, " ") || strings.Contains(value, "$") || strings.Contains(value, "\"") {
+				escapedValue = fmt.Sprintf("\"%s\"", strings.ReplaceAll(value, "\"", "\\\""))
+			}
+			if _, err := fmt.Fprintf(file, "%s=%s\n", key, escapedValue); err != nil {
+				return "", fmt.Errorf("failed to write to project.env: %w", err)
+			}
+		}
+
+		return envPath, nil
+	}
+
+	// If project.env is an array, check for special case ["."]
+	envFiles := deps.Project.Env.GetFilePaths()
+	if len(envFiles) == 1 && envFiles[0] == "." {
+		// Special case: use .env in project directory as primary
+		localEnvPath := filepath.Join(projectDir, ".env")
+		if _, err := os.Stat(localEnvPath); err == nil {
+			// .env exists in project directory - use it as primary (read-only)
+			return localEnvPath, nil
+		}
+		// .env doesn't exist - will be created normally by template generation or other processes
+		return "", nil
+	}
+
+	// For other array values, resolve normally (without projectEnvPath to avoid recursion)
+	if len(envFiles) > 0 {
+		resolvedPaths, err := ResolveEnvFiles(ws, deps, "", envFiles, "")
+		if err != nil {
+			return "", err
+		}
+		if len(resolvedPaths) > 0 {
+			return resolvedPaths[0], nil
+		}
+	}
+
+	return "", nil
+}
+
 // ResolveEnvFiles resolves and returns paths to env files for a service or infra.
-// Returns paths in order of precedence: global -> project -> service
+// Returns paths in order of precedence: global -> project.env -> project -> service
+// Special case: if envFile is ".", it uses the serviceName as the env file name
+// projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
 func ResolveEnvFiles(
 	ws *workspace.Workspace,
 	deps *config.Deps,
 	serviceName string,
 	envFiles []string,
+	projectEnvPath string,
 ) ([]string, error) {
 	var resolvedPaths []string
 
@@ -31,7 +122,13 @@ func ResolveEnvFiles(
 		}
 	}
 
-	// 2. Project-specific env files
+	// 2. Project.env file (if project.env is ["."] and .env exists in project directory)
+	// This has highest precedence after global
+	if projectEnvPath != "" {
+		resolvedPaths = append(resolvedPaths, projectEnvPath)
+	}
+
+	// 3. Project-specific env files (from env.files)
 	for _, envFile := range deps.Env.Files {
 		var envPath string
 		var err error
@@ -83,10 +180,14 @@ func ResolveEnvFiles(
 			}
 		} else {
 			// Service name only - check project-specific first, then shared as fallback
-			serviceName := envFile
+			// Special case: "." means use the service name from context
+			envServiceName := envFile
+			if envFile == "." {
+				envServiceName = serviceName
+			}
 
 			// First: try project-specific location: projects/{project}/services/{service}.env
-			projectSpecificPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", deps.Project.Name, "services", serviceName+".env"))
+			projectSpecificPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", deps.Project.Name, "services", envServiceName+".env"))
 			if err != nil {
 				return nil, fmt.Errorf("invalid env file path '%s': %w", envFile, err)
 			}
@@ -101,7 +202,7 @@ func ResolveEnvFiles(
 
 			// Fallback: try shared location: services/{service}.env
 			if !found {
-				sharedPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("services", serviceName+".env"))
+				sharedPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("services", envServiceName+".env"))
 				if err != nil {
 					return nil, fmt.Errorf("invalid env file path '%s': %w", envFile, err)
 				}
@@ -220,7 +321,7 @@ func ResolveEnvFileForService(
 		return "", nil
 	}
 
-	resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, envFiles)
+	resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, envFiles, "")
 	if err != nil {
 		return "", err
 	}

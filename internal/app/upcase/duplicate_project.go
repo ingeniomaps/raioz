@@ -28,8 +28,15 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 		return nil
 	}
 
+	// Load config to get workspace name
+	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	workspaceName := deps.GetWorkspaceName()
+
 	// Check if project is running from workspace
-	ws, err := uc.deps.Workspace.Resolve(projectName)
+	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		// Workspace doesn't exist or can't be resolved, no duplicate
 		return nil

@@ -40,7 +40,8 @@ type ContainerInspect struct {
 		StartedAt string `json:"StartedAt"`
 	} `json:"State"`
 	Config struct {
-		Image string `json:"Image"`
+		Image string   `json:"Image"`
+		Env   []string `json:"Env"`
 	} `json:"Config"`
 	Image string `json:"Image"` // image digest
 }

@@ -68,18 +68,98 @@ func (e *EnvValue) GetVariables() map[string]string {
 	return e.Variables
 }
 
+// NetworkConfig represents a network configuration that can be either:
+// - A string (network name): "mi-red"
+// - An object with name and subnet: {"name": "mi-red", "subnet": "150.150.0.0/16"}
+type NetworkConfig struct {
+	Name   string // Network name (always present)
+	Subnet string // Optional subnet (CIDR notation, e.g., "150.150.0.0/16")
+	IsObject bool // True if this was deserialized as an object
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for NetworkConfig
+func (n *NetworkConfig) UnmarshalJSON(data []byte) error {
+	if n == nil {
+		return fmt.Errorf("cannot unmarshal into nil NetworkConfig pointer")
+	}
+
+	// Try to unmarshal as string first (backward compatibility)
+	var name string
+	if err := json.Unmarshal(data, &name); err == nil {
+		n.Name = name
+		n.Subnet = ""
+		n.IsObject = false
+		return nil
+	}
+
+	// If not a string, try as object
+	var obj struct {
+		Name   string `json:"name"`
+		Subnet string `json:"subnet"`
+	}
+	if err := json.Unmarshal(data, &obj); err == nil {
+		if obj.Name == "" {
+			return fmt.Errorf("network object must have a 'name' field")
+		}
+		n.Name = obj.Name
+		n.Subnet = obj.Subnet
+		n.IsObject = true
+		return nil
+	}
+
+	return fmt.Errorf("network must be either a string (network name) or an object with 'name' and optional 'subnet' fields")
+}
+
+// MarshalJSON implements custom JSON marshaling for NetworkConfig
+func (n NetworkConfig) MarshalJSON() ([]byte, error) {
+	if !n.IsObject || n.Subnet == "" {
+		return json.Marshal(n.Name)
+	}
+	return json.Marshal(map[string]string{
+		"name":   n.Name,
+		"subnet": n.Subnet,
+	})
+}
+
+// GetName returns the network name
+func (n *NetworkConfig) GetName() string {
+	return n.Name
+}
+
+// GetSubnet returns the subnet if configured, or empty string
+func (n *NetworkConfig) GetSubnet() string {
+	return n.Subnet
+}
+
+// HasSubnet returns true if a subnet is configured
+func (n *NetworkConfig) HasSubnet() bool {
+	return n.Subnet != ""
+}
+
 type Deps struct {
-	SchemaVersion string             `json:"schemaVersion"`
-	Project       Project            `json:"project"`
-	Services      map[string]Service `json:"services"`
-	Infra         map[string]Infra   `json:"infra"`
-	Env           EnvConfig          `json:"env"`
+	SchemaVersion      string             `json:"schemaVersion"`
+	Workspace          string             `json:"workspace,omitempty"` // Optional workspace name. If not specified, uses Project.Name as workspace
+	Project            Project            `json:"project"`
+	Services           map[string]Service `json:"services"`
+	Infra              map[string]Infra   `json:"infra"`
+	Env                EnvConfig          `json:"env"`
+	ProjectComposePath string             `json:"projectComposePath,omitempty"` // Path to project's docker-compose.yml (if exists)
+}
+
+// GetWorkspaceName returns the workspace name for this project
+// If Workspace is specified at root level, returns it. Otherwise, returns Project.Name.
+func (d *Deps) GetWorkspaceName() string {
+	if d.Workspace != "" {
+		return d.Workspace
+	}
+	return d.Project.Name
 }
 
 type Project struct {
 	Name     string            `json:"name"`
-	Network  string            `json:"network"`
-	Commands *ProjectCommands   `json:"commands,omitempty"`
+	Network  NetworkConfig     `json:"network"`
+	Commands *ProjectCommands  `json:"commands,omitempty"`
+	Env      *EnvValue         `json:"env,omitempty"` // Project-level env files or variables
 }
 
 type ProjectCommands struct {
@@ -123,12 +203,12 @@ type ServiceCommands struct {
 }
 
 type SourceConfig struct {
-	Kind    string `json:"kind"`              // git | image
+	Kind    string `json:"kind"`              // git | image | local
 	Repo    string `json:"repo"`              // Required if kind == "git"
 	Branch  string `json:"branch"`            // Required if kind == "git"
 	Image   string `json:"image"`             // Required if kind == "image"
 	Tag     string `json:"tag"`               // Required if kind == "image"
-	Path    string `json:"path"`              // Required if kind == "git"
+	Path    string `json:"path"`              // Required if kind == "git" or "local"
 	Access  string `json:"access,omitempty"`  // "readonly" | "editable" (default: "editable", only for git)
 	Command string `json:"command,omitempty"` // Command to run directly on host (without Docker)
 	Runtime string `json:"runtime,omitempty"` // Runtime type for host execution (optional)
@@ -142,14 +222,16 @@ type DockerConfig struct {
 	Dockerfile string   `json:"dockerfile,omitempty"`
 	Command    string   `json:"command,omitempty"` // Command to run inside Docker container (for wrapper mode)
 	Runtime    string   `json:"runtime,omitempty"` // Runtime type for Docker wrapper mode (node, go, python, etc.)
+	IP         string   `json:"ip,omitempty"`       // Static IP address in the network (e.g., "150.150.0.10")
 }
 
 type Infra struct {
 	Image   string    `json:"image"`
-	Tag     string    `json:"tag"`
-	Ports   []string  `json:"ports"`
-	Volumes []string  `json:"volumes"`
-	Env     *EnvValue `json:"env,omitempty"` // Can be array of strings (file paths) or object (variables)
+	Tag     string    `json:"tag,omitempty"`
+	Ports   []string  `json:"ports,omitempty"`   // Optional: can be null or empty array
+	Volumes []string  `json:"volumes,omitempty"` // Optional: can be null or empty array
+	Env     *EnvValue `json:"env,omitempty"`     // Can be array of strings (file paths) or object (variables)
+	IP      string    `json:"ip,omitempty"`      // Static IP address in the network (e.g., "150.150.0.10")
 }
 
 func LoadDeps(path string) (*Deps, []string, error) {

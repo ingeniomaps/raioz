@@ -22,13 +22,15 @@ var EnvTemplateNames = []string{
 }
 
 // GenerateEnvFromTemplate generates a .env file from a template if found
-// and injects variables from resolved env files (global, project, service)
+// and injects variables from resolved env files (global, project.env, project, service)
+// projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
 func GenerateEnvFromTemplate(
 	ws *workspace.Workspace,
 	deps *config.Deps,
 	serviceName string,
 	servicePath string,
 	svc config.Service,
+	projectEnvPath string,
 ) error {
 	// Find template file
 	var templatePath string
@@ -42,6 +44,14 @@ func GenerateEnvFromTemplate(
 
 	// If no template found, skip
 	if templatePath == "" {
+		return nil
+	}
+
+	// Special case: if project.env is ["."] and .env exists in project directory,
+	// don't generate .env from template (use existing .env as primary)
+	if projectEnvPath != "" && serviceName == deps.Project.Name {
+		// This is the project itself, and project.env is ["."] with existing .env
+		// Don't generate from template - use existing .env
 		return nil
 	}
 
@@ -66,7 +76,13 @@ func GenerateEnvFromTemplate(
 		}
 	}
 
-	// 2. Project-specific env files
+	// 2. Project.env file (if project.env is ["."] and .env exists in project directory)
+	// This has highest precedence after global
+	if projectEnvPath != "" {
+		allResolvedPaths = append(allResolvedPaths, projectEnvPath)
+	}
+
+	// 3. Project-specific env files (from env.files)
 	for _, envFile := range deps.Env.Files {
 		var envPath string
 		var err error
@@ -109,7 +125,7 @@ func GenerateEnvFromTemplate(
 			// If env is an array, resolve all files
 			serviceEnvFiles := svc.Env.GetFilePaths()
 			if len(serviceEnvFiles) > 0 {
-				resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, serviceEnvFiles)
+				resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, serviceEnvFiles, projectEnvPath)
 				if err == nil {
 					allResolvedPaths = append(allResolvedPaths, resolvedPaths...)
 				}

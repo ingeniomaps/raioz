@@ -16,7 +16,7 @@ func (uc *UseCase) createConfig(projectName string, networkName string) (*config
 		SchemaVersion: "1.0",
 		Project: config.Project{
 			Name:    projectName,
-			Network: networkName,
+			Network: config.NetworkConfig{Name: networkName, IsObject: false},
 		},
 		Services: make(map[string]config.Service),
 		Infra:    make(map[string]config.Infra),

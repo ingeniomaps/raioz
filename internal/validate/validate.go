@@ -123,7 +123,8 @@ func validateProject(deps *config.Deps) error {
 				"Example: {\"project\": {\"name\": \"my-project\", ...}}",
 		)
 	}
-	if deps.Project.Network == "" {
+	networkName := deps.Project.Network.GetName()
+	if networkName == "" {
 		return errors.New(
 			errors.ErrCodeMissingField,
 			"Project network is required",
@@ -146,33 +147,36 @@ func validateProject(deps *config.Deps) error {
 	}
 
 	// Validate network name follows naming convention
-	if err := docker.ValidateNetworkName(deps.Project.Network); err != nil {
+	if err := docker.ValidateNetworkName(networkName); err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidField,
 			fmt.Sprintf("Project network name validation failed: %v", err),
 		).WithSuggestion(
 			"Network name must be a valid Docker network name. "+
 				"Use lowercase letters, numbers, hyphens, and underscores only.",
-		).WithContext("network_name", deps.Project.Network).WithError(err)
+		).WithContext("network_name", networkName).WithError(err)
 	}
 
 	return nil
 }
 
 func validateServices(deps *config.Deps) error {
-	// Allow 0 services if project.commands is defined
+	// Allow 0 services if project.commands is defined or if there's infrastructure
 	hasProjectCommands := deps.Project.Commands != nil && (
 		deps.Project.Commands.Up != "" ||
 		(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
 		(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))
+	hasInfra := len(deps.Infra) > 0
 
-	if len(deps.Services) == 0 && !hasProjectCommands {
+	if len(deps.Services) == 0 && !hasProjectCommands && !hasInfra {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,
-			"No services or project commands configured",
+			"No services, infrastructure, or project commands configured",
 		).WithSuggestion(
-			"Add at least one service to the 'services' section, or configure 'project.commands.up' in your .raioz.json file. "+
-				"Services define the components of your project, or you can use project commands to run the project directly.",
+			"Add at least one service to the 'services' section, configure infrastructure in the 'infra' section, "+
+				"or configure 'project.commands.up' in your .raioz.json file. "+
+				"Services define the components of your project, infrastructure provides supporting services, "+
+				"or you can use project commands to run the project directly.",
 		)
 	}
 
@@ -380,12 +384,32 @@ func validateServices(deps *config.Deps) error {
 						"Example: {\"source\": {\"kind\": \"image\", \"tag\": \"latest\", ...}}",
 				).WithContext("service_name", name)
 			}
+		} else if svc.Source.Kind == "local" {
+			if svc.Source.Path == "" {
+				return errors.New(
+					errors.ErrCodeMissingField,
+					fmt.Sprintf("Service '%s': local source requires 'path' field", name),
+				).WithSuggestion(
+					"Add a 'path' field to the service's source configuration with the local path. "+
+						"Example: {\"source\": {\"kind\": \"local\", \"path\": \".\", ...}}",
+				).WithContext("service_name", name)
+			}
+			// If source.command is specified, service runs on host (no docker config needed)
+			if svc.Source.Command != "" {
+				// Host execution - no docker validation needed
+				continue
+			}
+			// If commands are specified (and no docker), service runs on host (no docker config needed)
+			if svc.Commands != nil && svc.Docker == nil {
+				// Host execution with commands - no docker validation needed
+				continue
+			}
 		} else {
 			return errors.New(
 				errors.ErrCodeInvalidField,
 				fmt.Sprintf("Service '%s': invalid source kind '%s'", name, svc.Source.Kind),
 			).WithSuggestion(
-				"Set 'source.kind' to either 'git' (for Git-based services) or 'image' (for Docker image-based services).",
+				"Set 'source.kind' to either 'git' (for Git-based services), 'image' (for Docker image-based services), or 'local' (for local path-based services).",
 			).WithContext("service_name", name).WithContext("source_kind", svc.Source.Kind)
 		}
 
@@ -409,6 +433,19 @@ func validateServices(deps *config.Deps) error {
 }
 
 func validateInfra(deps *config.Deps) error {
+	// Validate each infra service
+	for name, infra := range deps.Infra {
+		// Check if image is empty (schema validation should catch this, but provide clearer message)
+		if infra.Image == "" {
+			return errors.New(
+				errors.ErrCodeMissingField,
+				fmt.Sprintf("Infra '%s': 'image' field is required and cannot be empty", name),
+			).WithSuggestion(
+				fmt.Sprintf("Add a valid 'image' field to infra '%s'. "+
+					"Example: {\"infra\": {\"%s\": {\"image\": \"postgres\", \"tag\": \"15\"}}}", name, name),
+			).WithContext("infra_name", name)
+		}
+	}
 	for name, infra := range deps.Infra {
 		// Validate infra name follows naming convention
 		if err := docker.ValidateName(name, docker.MaxContainerNameLength); err != nil {

@@ -39,15 +39,31 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps
 	output.PrintProgressDone("All Docker images verified and ready")
 
 	// Ensure Docker network exists before generating compose
-	output.PrintProgress(fmt.Sprintf("Ensuring Docker network '%s'...", deps.Project.Network))
-	logging.DebugWithContext(ctx, "Ensuring Docker network", "network", deps.Project.Network)
-	if err := docker.EnsureNetworkWithContext(ctx, deps.Project.Network); err != nil {
-		logging.ErrorWithContext(ctx, "Failed to ensure Docker network", "network", deps.Project.Network, "error", err.Error())
-		output.PrintProgressError(fmt.Sprintf("Failed to ensure Docker network '%s'", deps.Project.Network))
-		return errors.New(errors.ErrCodeNetworkError, "Failed to ensure Docker network").WithSuggestion("Check Docker daemon status and permissions. " + "Ensure you have permission to create Docker networks. " + "Try running 'docker network ls' to verify Docker is working.").WithContext("network", deps.Project.Network).WithError(err)
+	networkName := deps.Project.Network.GetName()
+	networkSubnet := deps.Project.Network.GetSubnet()
+
+	networkConfig := docker.NetworkConfig{
+		Name:   networkName,
+		Subnet: networkSubnet,
 	}
-	logging.DebugWithContext(ctx, "Docker network ready", "network", deps.Project.Network)
-	output.PrintProgressDone(fmt.Sprintf("Docker network '%s' ready", deps.Project.Network))
+
+	// Determine if we should ask for confirmation
+	// Ask confirmation if network is configured as simple string (backward compatible behavior)
+	askConfirmation := !deps.Project.Network.IsObject || networkSubnet == ""
+
+	output.PrintProgress(fmt.Sprintf("Ensuring Docker network '%s'...", networkName))
+	if networkSubnet != "" {
+		output.PrintInfo(fmt.Sprintf("   Subnet: %s", networkSubnet))
+	}
+	logging.DebugWithContext(ctx, "Ensuring Docker network", "network", networkName, "subnet", networkSubnet, "askConfirmation", askConfirmation)
+
+	if err := docker.EnsureNetworkWithConfigAndContext(ctx, networkConfig, askConfirmation); err != nil {
+		logging.ErrorWithContext(ctx, "Failed to ensure Docker network", "network", networkName, "error", err.Error())
+		output.PrintProgressError(fmt.Sprintf("Failed to ensure Docker network '%s'", networkName))
+		return errors.New(errors.ErrCodeNetworkError, "Failed to ensure Docker network").WithSuggestion("Check Docker daemon status and permissions. " + "Ensure you have permission to create Docker networks. " + "Try running 'docker network ls' to verify Docker is working.").WithContext("network", networkName).WithError(err)
+	}
+	logging.DebugWithContext(ctx, "Docker network ready", "network", networkName)
+	output.PrintProgressDone(fmt.Sprintf("Docker network '%s' ready", networkName))
 
 	// Collect named volumes to show informative messages
 	var allVolumes []string
@@ -61,19 +77,28 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps
 	for _, infra := range deps.Infra {
 		allVolumes = append(allVolumes, infra.Volumes...)
 	}
-	namedVolumes, err := docker.ExtractNamedVolumes(allVolumes)
+	originalNamedVolumes, err := docker.ExtractNamedVolumes(allVolumes)
 	if err != nil {
 		return errors.New(errors.ErrCodeVolumeError, "Failed to extract named volumes from configuration").WithSuggestion("Check your volume configuration format. " + "Named volumes should follow the format 'volume_name:/path/in/container'.").WithError(err)
 	}
-	for i, volName := range namedVolumes {
-		output.PrintProgressStep(i+1, len(namedVolumes), fmt.Sprintf("Ensuring Docker volume '%s'", volName))
+	// Normalize volume names with project prefix
+	normalizedVolumes := make([]string, 0, len(originalNamedVolumes))
+	for _, volName := range originalNamedVolumes {
+		normalizedName, err := docker.NormalizeVolumeName(deps.Project.Name, volName)
+		if err != nil {
+			return errors.New(errors.ErrCodeVolumeError, fmt.Sprintf("Failed to normalize volume name '%s'", volName)).WithSuggestion("Check that volume names follow Docker naming conventions.").WithError(err)
+		}
+		normalizedVolumes = append(normalizedVolumes, normalizedName)
+	}
+	for i, volName := range normalizedVolumes {
+		output.PrintProgressStep(i+1, len(normalizedVolumes), fmt.Sprintf("Ensuring Docker volume '%s'", volName))
 		if err := docker.EnsureVolumeWithContext(ctx, volName); err != nil {
 			output.PrintProgressError(fmt.Sprintf("Failed to ensure Docker volume '%s'", volName))
 			return errors.New(errors.ErrCodeVolumeError, fmt.Sprintf("Failed to ensure Docker volume '%s'", volName)).WithSuggestion("Check Docker daemon status and permissions. " + "Ensure you have permission to create Docker volumes. " + "Try running 'docker volume ls' to verify Docker is working.").WithContext("volume", volName).WithError(err)
 		}
 	}
-	if len(namedVolumes) > 0 {
-		output.PrintProgressDone(fmt.Sprintf("All %d Docker volume(s) ready", len(namedVolumes)))
+	if len(normalizedVolumes) > 0 {
+		output.PrintProgressDone(fmt.Sprintf("All %d Docker volume(s) ready", len(normalizedVolumes)))
 	}
 
 	return nil

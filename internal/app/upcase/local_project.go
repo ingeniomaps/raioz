@@ -12,6 +12,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/env"
 	"raioz/internal/errors"
+	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -221,20 +222,30 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 	}
 
 	// For 'up' command, check and handle duplicate project (running from workspace)
+	// Only check if this is a local project with ONLY commands (no services/infra)
+	// If it has services/infra, it's already running from workspace and there's no duplicate
 	if commandType == "up" {
-		if err := uc.checkAndHandleDuplicateProject(ctx, deps.Project.Name, configPath); err != nil {
-			// Check if it's a user cancellation
-			if strings.Contains(err.Error(), "user cancelled") {
-				// User cancelled, return error to stop execution
-				return errors.New(
-					errors.ErrCodeWorkspaceError,
-					"Operation cancelled by user",
-				).WithSuggestion(
-					"The workspace project remains running. To start the local project, first stop the workspace project with 'raioz down'.",
-				)
+		// Check if this project has services or infra
+		hasServices := len(deps.Services) > 0
+		hasInfra := len(deps.Infra) > 0
+
+		// Only check for duplicate if it's a command-only project (no services/infra)
+		// If it has services/infra, it's already being managed by the workspace flow
+		if !hasServices && !hasInfra {
+			if err := uc.checkAndHandleDuplicateProject(ctx, deps.Project.Name, configPath); err != nil {
+				// Check if it's a user cancellation
+				if strings.Contains(err.Error(), "user cancelled") {
+					// User cancelled, return error to stop execution
+					return errors.New(
+						errors.ErrCodeWorkspaceError,
+						"Operation cancelled by user",
+					).WithSuggestion(
+						"The workspace project remains running. To start the local project, first stop the workspace project with 'raioz down'.",
+					)
+				}
+				logging.WarnWithContext(ctx, "Failed to check/handle duplicate project", "error", err.Error())
+				// Continue anyway - might be a false positive
 			}
-			logging.WarnWithContext(ctx, "Failed to check/handle duplicate project", "error", err.Error())
-			// Continue anyway - might be a false positive
 		}
 	}
 
@@ -295,7 +306,9 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		}
 		// Type assert to *workspace.Workspace
 		if wsConcrete, ok := ws.(*workspacepkg.Workspace); ok {
-			if err := env.GenerateEnvFromTemplate(wsConcrete, deps, deps.Project.Name, projectDir, dummyService); err != nil {
+			// Resolve project.env for local project
+			projectEnvPath, _ := env.ResolveProjectEnv(wsConcrete, deps, projectDir)
+			if err := env.GenerateEnvFromTemplate(wsConcrete, deps, deps.Project.Name, projectDir, dummyService, projectEnvPath); err != nil {
 				logging.WarnWithContext(ctx, "Failed to generate .env from template for local project", "error", err.Error())
 				// Continue anyway - template generation is optional
 			}
@@ -322,8 +335,26 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		return err
 	}
 
-	// If command was "up" and executed successfully, save to global state
+	// If command was "up" and executed successfully, detect and save project docker-compose.yml
 	if commandType == "up" {
+		// Detect project docker-compose.yml
+		projectComposePath := host.DetectComposePath(projectDir, command, "")
+		if projectComposePath != "" {
+			// Save project compose path to state
+			deps.ProjectComposePath = projectComposePath
+			// Save updated state
+			if ws != nil {
+				if wsConcrete, ok := ws.(*workspacepkg.Workspace); ok {
+					if err := state.Save(wsConcrete, deps); err != nil {
+						logging.WarnWithContext(ctx, "Failed to save project compose path to state", "error", err.Error())
+					} else {
+						logging.DebugWithContext(ctx, "Project docker-compose.yml detected and saved",
+							"compose_path", projectComposePath,
+						)
+					}
+				}
+			}
+		}
 		if err := uc.saveProjectCommandState(ctx, deps, projectDir); err != nil {
 			// Log but don't fail - state saving is optional
 			logging.WarnWithContext(ctx, "Failed to save project command state", "error", err.Error())

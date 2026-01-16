@@ -11,7 +11,8 @@ import (
 )
 
 // generateEnvFilesFromTemplates generates .env files from templates for all services
-func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace) error {
+// projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
+func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectEnvPath string) error {
 	// Convert interfaces.Workspace to concrete workspace.Workspace
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 
@@ -31,7 +32,7 @@ func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *conf
 		servicePath := workspacepkg.GetServicePath(wsConcrete, name, svc)
 
 		// Generate .env from template
-		if err := env.GenerateEnvFromTemplate(wsConcrete, deps, name, servicePath, svc); err != nil {
+		if err := env.GenerateEnvFromTemplate(wsConcrete, deps, name, servicePath, svc, projectEnvPath); err != nil {
 			logging.WarnWithContext(ctx, "Failed to generate .env from template", "service", name, "error", err.Error())
 			// Continue with other services
 		} else {

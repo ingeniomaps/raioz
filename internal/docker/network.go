@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"raioz/internal/config"
 	exectimeout "raioz/internal/exec"
 )
 
@@ -24,13 +26,25 @@ type NetworkInfo struct {
 // EnsureNetwork ensures that a Docker network exists, creating it if necessary
 // If the network exists but is not external, it will be reused (idempotent)
 func EnsureNetwork(name string) error {
-	return EnsureNetworkWithContext(context.Background(), name)
+	return EnsureNetworkWithConfig(NetworkConfig{Name: name}, false)
+}
+
+// EnsureNetworkWithConfig ensures that a Docker network exists, creating it if necessary
+// If askConfirmation is true, prompts the user before creating the network
+func EnsureNetworkWithConfig(config NetworkConfig, askConfirmation bool) error {
+	return EnsureNetworkWithConfigAndContext(context.Background(), config, askConfirmation)
 }
 
 // EnsureNetworkWithContext ensures that a Docker network exists, creating it if necessary, with context support
 func EnsureNetworkWithContext(ctx context.Context, name string) error {
+	return EnsureNetworkWithConfigAndContext(ctx, NetworkConfig{Name: name}, false)
+}
+
+// EnsureNetworkWithConfigAndContext ensures that a Docker network exists, creating it if necessary, with context support
+// If askConfirmation is true, prompts the user before creating the network
+func EnsureNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig, askConfirmation bool) error {
 	// Check if network exists
-	exists, info, err := NetworkExistsWithContext(ctx, name)
+	exists, info, err := NetworkExistsWithContext(ctx, config.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check network existence: %w", err)
 	}
@@ -42,11 +56,41 @@ func EnsureNetworkWithContext(ctx context.Context, name string) error {
 			return nil
 		}
 		// Network exists but might not be external, that's ok for reuse
+		// If subnet was specified but network exists, we don't modify it (as per requirements)
 		return nil
 	}
 
-	// Network doesn't exist, create it
-	return CreateNetworkWithContext(ctx, name)
+	// Network doesn't exist, ask for confirmation if requested
+	if askConfirmation {
+		confirmed, err := askNetworkCreationConfirmation(config)
+		if err != nil {
+			return fmt.Errorf("failed to get user confirmation: %w", err)
+		}
+		if !confirmed {
+			return fmt.Errorf("network creation cancelled by user")
+		}
+	}
+
+	// Create the network
+	return CreateNetworkWithConfigAndContext(ctx, config, false)
+}
+
+// askNetworkCreationConfirmation prompts the user to confirm network creation
+func askNetworkCreationConfirmation(config NetworkConfig) (bool, error) {
+	fmt.Printf("\n⚠️  Network '%s' does not exist.\n", config.Name)
+	if config.Subnet != "" {
+		fmt.Printf("   Subnet: %s\n", config.Subnet)
+	}
+	fmt.Print("Do you want to create it? (yes/no): ")
+
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false, fmt.Errorf("failed to read user response: %w", err)
+	}
+
+	response = strings.TrimSpace(strings.ToLower(response))
+	return response == "yes" || response == "y", nil
 }
 
 // NetworkExists checks if a Docker network exists and returns its info
@@ -101,24 +145,52 @@ func NetworkExistsWithContext(ctx context.Context, name string) (bool, *NetworkI
 	return true, info, nil
 }
 
+// NetworkConfig contains network creation parameters
+type NetworkConfig struct {
+	Name   string // Network name
+	Subnet string // Optional subnet in CIDR notation (e.g., "150.150.0.0/16")
+}
+
 // CreateNetwork creates a new Docker network with bridge driver
 func CreateNetwork(name string) error {
-	return CreateNetworkWithContext(context.Background(), name)
+	return CreateNetworkWithConfig(NetworkConfig{Name: name}, false)
+}
+
+// CreateNetworkWithConfig creates a new Docker network with optional subnet
+// If askConfirmation is true, prompts the user before creating the network
+func CreateNetworkWithConfig(config NetworkConfig, askConfirmation bool) error {
+	return CreateNetworkWithConfigAndContext(context.Background(), config, askConfirmation)
 }
 
 // CreateNetworkWithContext creates a new Docker network with bridge driver with context support
 func CreateNetworkWithContext(ctx context.Context, name string) error {
+	return CreateNetworkWithConfigAndContext(ctx, NetworkConfig{Name: name}, false)
+}
+
+// CreateNetworkWithConfigAndContext creates a new Docker network with optional subnet and context support
+// If askConfirmation is true, prompts the user before creating the network
+func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig, askConfirmation bool) error {
 	// Create context with timeout
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerNetworkTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "network", "create", "--driver", "bridge", name)
+	// Build docker network create command
+	args := []string{"network", "create", "--driver", "bridge"}
+
+	// Add subnet if specified
+	if config.Subnet != "" {
+		args = append(args, "--subnet", config.Subnet)
+	}
+
+	args = append(args, config.Name)
+
+	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
 			return fmt.Errorf("network create timed out after %v", exectimeout.DockerNetworkTimeout)
 		}
-		return fmt.Errorf("failed to create network '%s': %w (output: %s)", name, err, string(output))
+		return fmt.Errorf("failed to create network '%s': %w (output: %s)", config.Name, err, string(output))
 	}
 	return nil
 }
@@ -203,7 +275,7 @@ func GetNetworkProjects(networkName string, baseDir string) ([]string, error) {
 		// Parse JSON to check network
 		var state struct {
 			Project struct {
-				Network string `json:"network"`
+				Network config.NetworkConfig `json:"network"`
 			} `json:"project"`
 		}
 
@@ -211,7 +283,7 @@ func GetNetworkProjects(networkName string, baseDir string) ([]string, error) {
 			continue // Skip if invalid JSON
 		}
 
-		if state.Project.Network == networkName {
+		if state.Project.Network.GetName() == networkName {
 			projects = append(projects, projectName)
 		}
 	}

@@ -3,9 +3,29 @@ package docker
 import (
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"text/tabwriter"
 	"time"
 )
+
+// ansiEscapeRegex matches ANSI escape sequences
+var ansiEscapeRegex = regexp.MustCompile(`\033\[[0-9;]*m`)
+
+// stripANSI removes ANSI escape sequences from a string
+func stripANSI(s string) string {
+	return ansiEscapeRegex.ReplaceAllString(s, "")
+}
+
+// padString pads a string to a specific width, accounting for ANSI codes
+func padString(s string, width int) string {
+	stripped := stripANSI(s)
+	actualWidth := len(stripped)
+	if actualWidth >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-actualWidth)
+}
 
 // Color codes for terminal output
 const (
@@ -52,16 +72,49 @@ func FormatStatusTable(services map[string]*ServiceInfo, jsonOutput bool) error 
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight)
+	// Use tabwriter with left alignment and proper padding
+	// minwidth=0, tabwidth=8, padding=2, padchar=' ', flags=0 (left align)
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 2, ' ', 0)
 	defer w.Flush()
 
-	// Header with better formatting
-	fmt.Fprintln(
-		w,
-		"NAME\tSTATUS\tHEALTH\tUPTIME\tCPU\tMEMORY\tVERSION\tUPDATED",
+	// Header with better formatting - pad each column to ensure alignment
+	// Calculate max widths for each column to ensure proper alignment
+	// These widths account for ANSI color codes by using fixed widths
+	// The padding function strips ANSI codes before calculating width
+	maxWidths := map[string]int{
+		"NAME":    18,
+		"STATUS":  14,
+		"HEALTH":  12,
+		"UPTIME":  10,
+		"CPU":     10,
+		"MEMORY":  22,
+		"VERSION": 14,
+		"UPDATED": 12,
+	}
+
+	header := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t",
+		padString("NAME", maxWidths["NAME"]),
+		padString("STATUS", maxWidths["STATUS"]),
+		padString("HEALTH", maxWidths["HEALTH"]),
+		padString("UPTIME", maxWidths["UPTIME"]),
+		padString("CPU", maxWidths["CPU"]),
+		padString("MEMORY", maxWidths["MEMORY"]),
+		padString("VERSION", maxWidths["VERSION"]),
+		padString("UPDATED", maxWidths["UPDATED"]),
 	)
-	// Separator line
-	separator := "────\t──────\t──────\t──────\t───\t──────\t───────\t───────"
+	fmt.Fprintln(w, header)
+
+	// Separator line - pad each separator to match header widths
+	separator := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t",
+		strings.Repeat("─", maxWidths["NAME"]),
+		strings.Repeat("─", maxWidths["STATUS"]),
+		strings.Repeat("─", maxWidths["HEALTH"]),
+		strings.Repeat("─", maxWidths["UPTIME"]),
+		strings.Repeat("─", maxWidths["CPU"]),
+		strings.Repeat("─", maxWidths["MEMORY"]),
+		strings.Repeat("─", maxWidths["VERSION"]),
+		strings.Repeat("─", maxWidths["UPDATED"]),
+	)
 	fmt.Fprintln(w, separator)
 
 	// Rows
@@ -102,17 +155,18 @@ func FormatStatusTable(services map[string]*ServiceInfo, jsonOutput bool) error 
 			nameDisplay = fmt.Sprintf("%s (→ %s)", info.Name, info.LinkTarget)
 		}
 
+		// Pad each column to ensure proper alignment with ANSI codes
 		fmt.Fprintf(
 			w,
-			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			nameDisplay,
-			status,
-			health,
-			uptime,
-			cpu,
-			memory,
-			version,
-			updated,
+			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			padString(nameDisplay, maxWidths["NAME"]),
+			padString(status, maxWidths["STATUS"]),
+			padString(health, maxWidths["HEALTH"]),
+			padString(uptime, maxWidths["UPTIME"]),
+			padString(cpu, maxWidths["CPU"]),
+			padString(memory, maxWidths["MEMORY"]),
+			padString(version, maxWidths["VERSION"]),
+			padString(updated, maxWidths["UPDATED"]),
 		)
 	}
 

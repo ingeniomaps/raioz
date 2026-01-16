@@ -20,7 +20,8 @@ func (uc *UseCase) saveHostProcessesState(ctx context.Context, ws *interfaces.Wo
 }
 
 // processHostServices starts services that run directly on the host (without Docker)
-func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace) (map[string]*host.ProcessInfo, error) {
+// projectDir is the directory where .raioz.json is located (used for local services with path: ".")
+func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectDir string) (map[string]*host.ProcessInfo, error) {
 	// Convert interfaces.Workspace to concrete workspace.Workspace
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 
@@ -187,7 +188,7 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		}
 
 		// Start service
-		processInfo, err := host.StartService(ctx, wsConcrete, deps, name, svcWithCommand)
+		processInfo, err := host.StartService(ctx, wsConcrete, deps, name, svcWithCommand, projectDir)
 		if err != nil {
 			logging.DebugWithContext(ctx, "Failed to start host service", "service", name, "error", err.Error())
 			output.PrintProgressError(fmt.Sprintf("Failed to start host service %s", name))

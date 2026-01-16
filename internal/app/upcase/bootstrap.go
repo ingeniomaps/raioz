@@ -38,8 +38,9 @@ func (uc *UseCase) bootstrap(ctx context.Context, configPath string) (context.Co
 		output.PrintWarning(warning)
 	}
 
-	// Resolve workspace first (we need project name from deps)
-	ws, err := uc.deps.Workspace.Resolve(deps.Project.Name)
+	// Resolve workspace first (use workspace name if specified, otherwise use project name)
+	workspaceName := deps.GetWorkspaceName()
+	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		return nil, nil, nil, errors.New(
 			errors.ErrCodeWorkspaceError, "Failed to resolve workspace",

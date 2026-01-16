@@ -29,7 +29,8 @@ type ProcessInfo struct {
 }
 
 // StartService starts a service directly on the host (without Docker)
-func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service) (*ProcessInfo, error) {
+// projectDir is the directory where .raioz.json is located (used for local services with path: ".")
+func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service, projectDir string) (*ProcessInfo, error) {
 	// Validate that source.command is specified
 	if svc.Source.Command == "" {
 		return nil, fmt.Errorf("service %s requires 'source.command' field for host execution", serviceName)
@@ -39,6 +40,34 @@ func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Dep
 	var servicePath string
 	if svc.Source.Kind == "git" {
 		servicePath = workspace.GetServicePath(ws, serviceName, svc)
+		// Verify path exists
+		if _, err := os.Stat(servicePath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("service path does not exist: %s", servicePath)
+		}
+	} else if svc.Source.Kind == "local" {
+		// For local services, use the path directly (can be absolute or relative)
+		if filepath.IsAbs(svc.Source.Path) {
+			servicePath = svc.Source.Path
+		} else {
+			// Relative path - resolve from project directory (where .raioz.json is)
+			// For local services, path "." means the project directory (where .raioz.json is located)
+			if svc.Source.Path == "." {
+				if projectDir != "" {
+					servicePath = projectDir
+				} else {
+					// Fallback to workspace root if projectDir not provided
+					servicePath = ws.Root
+				}
+			} else {
+				// Relative path from project directory
+				if projectDir != "" {
+					servicePath = filepath.Join(projectDir, svc.Source.Path)
+				} else {
+					// Fallback to workspace root if projectDir not provided
+					servicePath = filepath.Join(ws.Root, svc.Source.Path)
+				}
+			}
+		}
 		// Verify path exists
 		if _, err := os.Stat(servicePath); os.IsNotExist(err) {
 			return nil, fmt.Errorf("service path does not exist: %s", servicePath)
