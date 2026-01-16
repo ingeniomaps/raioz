@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 # Configuration
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="raioz"
-GITHUB_REPO="${GITHUB_REPO:-raioz/raioz}"  # Update with actual GitHub repo
+GITHUB_REPO="${GITHUB_REPO:-ingeniomaps/raioz}"  # Update with actual GitHub repo
 GITHUB_URL="https://github.com/${GITHUB_REPO}"
 
 # Print colored message
@@ -104,30 +104,149 @@ download_binary() {
     local arch=$3
     local output=$4
 
-    local url
+    local tmp_dir
+    tmp_dir=$(dirname "$output")
+    local download_success=false
+
+    # Try direct binary first (for manual releases)
+    local binary_url
     if [ "$version" = "latest" ]; then
-        url="${GITHUB_URL}/releases/latest/download/raioz-${os}-${arch}"
+        binary_url="${GITHUB_URL}/releases/latest/download/raioz-${os}-${arch}"
     else
-        url="${GITHUB_URL}/releases/download/${version}/raioz-${os}-${arch}"
+        binary_url="${GITHUB_URL}/releases/download/${version}/raioz-${os}-${arch}"
     fi
 
     print_info "Downloading raioz from GitHub releases..."
-    print_info "URL: $url"
+    print_info "Trying direct binary: $binary_url"
 
     if command_exists curl; then
-        if ! curl -fL -o "$output" "$url"; then
-            print_error "Failed to download binary"
-            print_info "If you're building from source, use: make build && sudo make install"
-            exit 1
+        if curl -fL -o "$output" "$binary_url" 2>/dev/null; then
+            download_success=true
         fi
     elif command_exists wget; then
-        if ! wget -qO "$output" "$url"; then
-            print_error "Failed to download binary"
-            print_info "If you're building from source, use: make build && sudo make install"
-            exit 1
+        if wget -qO "$output" "$binary_url" 2>/dev/null; then
+            download_success=true
         fi
-    else
-        print_error "Neither curl nor wget is available"
+    fi
+
+    # If direct binary failed, try compressed archive (GoReleaser format)
+    if [ "$download_success" = false ]; then
+        local archive_ext="tar.gz"
+        if [ "$os" = "windows" ]; then
+            archive_ext="zip"
+        fi
+
+        # Get actual version if "latest"
+        local actual_version="$version"
+        if [ "$version" = "latest" ]; then
+            actual_version=$(get_latest_version)
+            # If we still can't get version, try to fetch from API
+            if [ "$actual_version" = "latest" ] || [ -z "$actual_version" ]; then
+                print_info "Fetching latest release info from GitHub API..."
+                if command_exists curl; then
+                    actual_version=$(curl -sL "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/^v//' || echo "")
+                elif command_exists wget; then
+                    actual_version=$(wget -qO- "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | sed 's/^v//' || echo "")
+                fi
+            fi
+            # Remove 'v' prefix if present
+            actual_version=$(echo "$actual_version" | sed 's/^v//')
+        else
+            # Remove 'v' prefix if present
+            actual_version=$(echo "$version" | sed 's/^v//')
+        fi
+
+        local archive_name="raioz_${actual_version}_${os}_${arch}.${archive_ext}"
+
+        local archive_url
+        if [ "$version" = "latest" ]; then
+            archive_url="${GITHUB_URL}/releases/latest/download/${archive_name}"
+        else
+            archive_url="${GITHUB_URL}/releases/download/${version}/${archive_name}"
+        fi
+
+        print_info "Direct binary not found, trying archive: $archive_url"
+
+        local archive_path="${tmp_dir}/${archive_name}"
+
+        if command_exists curl; then
+            if curl -fL -o "$archive_path" "$archive_url" 2>/dev/null; then
+                download_success=true
+            fi
+        elif command_exists wget; then
+            if wget -qO "$archive_path" "$archive_url" 2>/dev/null; then
+                download_success=true
+            fi
+        fi
+
+        if [ "$download_success" = true ]; then
+            # Extract the binary from archive
+            print_info "Extracting binary from archive..."
+            if [ "$archive_ext" = "tar.gz" ]; then
+                if command_exists tar; then
+                    # Extract all files first
+                    tar -xzf "$archive_path" -C "$tmp_dir" 2>/dev/null || {
+                        print_error "Failed to extract archive"
+                        download_success=false
+                    }
+
+                    if [ "$download_success" = true ]; then
+                        # Find the binary (could be in root or subdirectory)
+                        local found_binary
+                        found_binary=$(find "$tmp_dir" -name "raioz" -type f | head -n 1)
+                        if [ -n "$found_binary" ] && [ -f "$found_binary" ]; then
+                            mv "$found_binary" "$output" 2>/dev/null || cp "$found_binary" "$output" 2>/dev/null
+                            chmod +x "$output" 2>/dev/null
+                        else
+                            print_error "Binary 'raioz' not found in archive"
+                            download_success=false
+                        fi
+                    fi
+                else
+                    print_error "tar is required to extract the archive"
+                    exit 1
+                fi
+            elif [ "$archive_ext" = "zip" ]; then
+                if command_exists unzip; then
+                    unzip -q "$archive_path" -d "$tmp_dir" 2>/dev/null || {
+                        print_error "Failed to extract archive"
+                        download_success=false
+                    }
+
+                    if [ "$download_success" = true ]; then
+                        # Find the binary (could be .exe on Windows or just raioz)
+                        local found_binary
+                        found_binary=$(find "$tmp_dir" \( -name "raioz.exe" -o -name "raioz" \) -type f | head -n 1)
+                        if [ -n "$found_binary" ] && [ -f "$found_binary" ]; then
+                            mv "$found_binary" "$output" 2>/dev/null || cp "$found_binary" "$output" 2>/dev/null
+                            chmod +x "$output" 2>/dev/null
+                        else
+                            print_error "Binary 'raioz' not found in archive"
+                            download_success=false
+                        fi
+                    fi
+                else
+                    print_error "unzip is required to extract the archive"
+                    exit 1
+                fi
+            fi
+
+            # Clean up archive and any extracted directories
+            rm -f "$archive_path" 2>/dev/null
+            # Clean up any extracted directories (but keep the binary we moved)
+            find "$tmp_dir" -type d -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+
+            # Verify we got the binary
+            if [ "$download_success" = true ] && ([ ! -f "$output" ] || [ ! -x "$output" ]); then
+                download_success=false
+            fi
+        fi
+    fi
+
+    if [ "$download_success" = false ]; then
+        print_error "Failed to download binary"
+        print_info "Tried both direct binary and compressed archive formats"
+        print_info "If you're building from source, use: make build && sudo make install"
         exit 1
     fi
 }
