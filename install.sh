@@ -1,4 +1,16 @@
 #!/bin/bash
+# This script requires bash (not sh/dash)
+# If executed with sh, show error message
+if [ -z "${BASH_VERSION:-}" ]; then
+    echo "Error: This script requires bash." >&2
+    echo "" >&2
+    echo "Please use:" >&2
+    echo "  curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/develop/install.sh | bash" >&2
+    echo "" >&2
+    echo "Instead of:" >&2
+    echo "  curl -fsSL ... | sh" >&2
+    exit 1
+fi
 
 set -euo pipefail
 
