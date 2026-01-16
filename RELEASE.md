@@ -91,6 +91,7 @@ archives:
 ```
 
 Luego ejecuta:
+
 ```bash
 goreleaser release --clean
 ```
@@ -109,11 +110,13 @@ goreleaser release --clean
 ### 4. Estructura de Archivos en GitHub Release
 
 Los archivos deben estar nombrados según el patrón:
+
 ```
 raioz-<os>-<arch>
 ```
 
 Ejemplos:
+
 - `raioz-linux-amd64`
 - `raioz-linux-arm64`
 - `raioz-darwin-amd64`
@@ -124,7 +127,7 @@ Ejemplos:
 Asegúrate de que `install.sh` tenga el repositorio correcto:
 
 ```bash
-GITHUB_REPO="${GITHUB_REPO:-raioz/raioz}"  # Cambiar por tu repo
+GITHUB_REPO="${GITHUB_REPO:-ingeniomaps/raioz}"  # Cambiar por tu repo
 ```
 
 ### 6. Probar el Instalador
@@ -133,10 +136,10 @@ Después de subir los binarios, prueba el instalador:
 
 ```bash
 # Instalar desde GitHub
-curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 
 # O instalar una versión específica
-VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
+VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 ```
 
 ### 7. Verificar la Instalación
@@ -157,7 +160,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   release:
@@ -168,7 +171,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4
@@ -193,10 +196,10 @@ Una vez publicado, los usuarios pueden instalar con:
 
 ```bash
 # Instalación directa desde GitHub
-curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 
 # O usando un dominio corto (si configuras un redirect)
-curl -fsSL https://raioz.dev/install | sh
+curl -fsSL https://raioz.dev/install | bash
 ```
 
 ## ✅ Checklist de Release

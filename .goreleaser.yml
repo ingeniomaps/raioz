@@ -33,14 +33,14 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
-    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
       - docs/
 
 # Checksums
 checksum:
-  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
   algorithm: sha256
 
 # Snapshots (for development builds)
@@ -52,9 +52,9 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
       - Merge pull request
       - Merge branch
 
@@ -87,13 +87,13 @@ release:
   footer: |
     ---
 
-    **Full Changelog**: https://github.com/raioz/raioz/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/ingeniomaps/raioz/compare/{{ .PreviousTag }}...{{ .Tag }}
 
 # Docker (optional, for future container releases)
 # docker:
 #   - image_templates:
-#       - "raioz/raioz:{{ .Tag }}"
-#       - "raioz/raioz:latest"
+#       - "ingeniomaps/raioz:{{ .Tag }}"
+#       - "ingeniomaps/raioz:latest"
 #     dockerfile: Dockerfile
 #     goos: linux
 #     goarch: amd64

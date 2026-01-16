@@ -9,10 +9,11 @@ Esta guía explica cómo instalar Raioz tanto para usuarios finales como para de
 Instala raioz directamente desde GitHub releases:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 ```
 
 **Qué hace el script:**
+
 1. Detecta tu sistema operativo (Linux/macOS) y arquitectura
 2. Descarga el binario pre-compilado desde GitHub releases
 3. Instala raioz en `/usr/local/bin` (requiere sudo)
@@ -22,7 +23,7 @@ curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
 **Nota:** Si no tienes permisos para `/usr/local/bin`, puedes especificar otro directorio:
 
 ```bash
-INSTALL_DIR=$HOME/.local/bin curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
+INSTALL_DIR=$HOME/.local/bin curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 ```
 
 ## 👨‍💻 Para Desarrolladores
@@ -40,6 +41,7 @@ make install
 ```
 
 **Qué hace `make install`:**
+
 1. Compila el binario desde el código fuente (`make build`)
 2. Detecta automáticamente el binario local (`./raioz`)
 3. Usa el script `install.sh` en modo desarrollo
@@ -47,6 +49,7 @@ make install
 5. Instala el binario en `/usr/local/bin`
 
 **Comportamiento inteligente:**
+
 - Si hay un binario `raioz` en el directorio actual o donde está `install.sh`, usa ese binario
 - Si no hay binario local, descarga desde GitHub releases
 - Esto permite probar cambios locales antes de subir a GitHub
@@ -74,7 +77,7 @@ make release-installer
 
 # 2. Esto prepara el script install.sh
 # 3. Sube el binario compilado a GitHub releases
-# 4. Los usuarios pueden instalar con: curl | sh
+# 4. Los usuarios pueden instalar con: curl | bash
 ```
 
 **Nota:** Ver `RELEASE.md` para instrucciones completas de cómo crear releases.
@@ -90,6 +93,7 @@ make release-installer
 ### Para Desarrolladores
 
 Además de los requisitos de usuarios:
+
 - **Go 1.21+**: Para compilar el código fuente
 - **Make**: Para usar los comandos del Makefile
 
@@ -117,7 +121,7 @@ source ~/.bashrc  # o ~/.zshrc
 Simplemente ejecuta el instalador nuevamente:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 ```
 
 ### Para Desarrolladores
@@ -132,6 +136,7 @@ make install
 ### El script no detecta el binario local
 
 Asegúrate de que:
+
 - El binario `raioz` existe en el mismo directorio que `install.sh`, o
 - El binario `raioz` existe en el directorio actual (donde ejecutas `make install`)
 
