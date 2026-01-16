@@ -31,6 +31,7 @@ Raioz está diseñado para ser simple y predecible. Para entender qué **NO** ha
 📖 **[Ver Documento de Límites](./docs/limits.md)**
 
 Este documento cubre:
+
 - Qué Raioz NO hace (Kubernetes, Docker Swarm, gestión de secrets nativa, etc.)
 - Casos no soportados (servicios con privilegios especiales, Windows containers, etc.)
 - Decisiones conscientes de diseño y sus razones
@@ -41,10 +42,11 @@ Este documento cubre:
 ### Instalación rápida (recomendada)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/raioz/raioz/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | sh
 ```
 
 El script de instalación automáticamente:
+
 - Detecta tu sistema operativo (Linux/macOS) y arquitectura
 - Descarga el binario pre-compilado desde GitHub releases
 - Instala raioz en `/usr/local/bin` (requiere sudo)
@@ -61,7 +63,8 @@ Si prefieres instalar manualmente:
 sudo mv raioz /usr/local/bin/
 sudo chmod +x /usr/local/bin/raioz
 ```
-```
+
+````
 
 ### Instalación manual
 
@@ -74,7 +77,7 @@ chmod +x /usr/local/bin/raioz
 # macOS amd64
 curl -L https://github.com/raioz/raioz/releases/latest/download/raioz-darwin-amd64 -o /usr/local/bin/raioz
 chmod +x /usr/local/bin/raioz
-```
+````
 
 ### Compilar desde fuente
 
@@ -183,6 +186,7 @@ raioz up --force-reclone
 ```
 
 **Qué hace:**
+
 - Valida la configuración
 - Clona repositorios Git necesarios
 - Resuelve variables de entorno
@@ -200,6 +204,7 @@ raioz down --project my-project
 ```
 
 **Qué hace:**
+
 - Detiene servicios con Docker Compose
 - Limpia archivos de estado
 - Deja redes y volúmenes para reutilización
@@ -214,6 +219,7 @@ raioz status --json  # Output en formato JSON
 ```
 
 **Información mostrada:**
+
 - Estado (running/stopped)
 - Health status (healthy/unhealthy/starting)
 - Uptime
@@ -231,6 +237,7 @@ raioz list --json  # Output en formato JSON
 ```
 
 **Información mostrada:**
+
 - Nombre del proyecto
 - Ruta del workspace
 - Última ejecución (formato relativo: "2 hours ago", "3 days ago", etc.)
@@ -238,6 +245,7 @@ raioz list --json  # Output en formato JSON
 - Cantidad de servicios corriendo
 
 **Ejemplo de salida:**
+
 ```
 Active Projects:
 
@@ -292,6 +300,7 @@ raioz check
 ```
 
 **Detecta:**
+
 - Cambios de configuración
 - Drift de ramas (cambios manuales)
 - Cambios de versiones
@@ -436,6 +445,7 @@ raioz ci --config custom-raioz.json
 ```
 
 **Características:**
+
 - Output siempre en formato JSON (parseable)
 - Validaciones rápidas (solo checks críticos)
 - Entornos efímeros con limpieza automática
@@ -443,6 +453,7 @@ raioz ci --config custom-raioz.json
 - Validaciones paso a paso con estado (passed/failed/skipped)
 
 **Output JSON:**
+
 ```json
 {
   "success": true,
@@ -485,31 +496,38 @@ raioz ci --config custom-raioz.json
 #### Campos principales
 
 **`schemaVersion`** (requerido)
+
 - Versión del schema JSON Schema
 - Debe ser `"1.0"`
 
 **`project`** (requerido)
+
 - `name`: Nombre del proyecto (a-z, 0-9, -)
 - `network`: Nombre de la red Docker (a-z, 0-9, -)
 
 **`env`** (requerido)
+
 - `useGlobal`: Si usar `global.env`
 - `files`: Lista de archivos .env a cargar (relativos a `env/`)
 
 **`services`** (requerido)
+
 - Objeto con servicios del proyecto
 - Al menos un servicio requerido
 
 **`infra`** (requerido)
+
 - Objeto con servicios de infraestructura (DB, cache, etc.)
 - Puede estar vacío `{}`
 
 #### Configuración de servicios
 
 **`source`** (requerido)
+
 - `kind`: Tipo de fuente (`"git"` o `"image"`)
 
 Si `kind: "git"`:
+
 - `repo`: URL del repositorio Git
 - `branch`: Rama a usar
 - `path`: Ruta donde clonar (relativo a `services/`)
@@ -525,10 +543,12 @@ Si `kind: "git"`:
     - Útil para servicios que desarrollas activamente
 
 Si `kind: "image"`:
+
 - `image`: Nombre de la imagen Docker
 - `tag`: Tag de la imagen
 
 **`docker`** (requerido)
+
 - `mode`: Modo de ejecución (`"dev"` o `"prod"`)
 - `ports`: Lista de puertos `["host:container"]`
 - `volumes`: Lista de volúmenes
@@ -538,18 +558,22 @@ Si `kind: "image"`:
 - `runtime`: Runtime (`node`, `go`, `python`, `java`, `rust`)
 
 **`env`** (opcional)
+
 - Lista de archivos .env a cargar para el servicio
 
 **`profiles`** (opcional)
+
 - Lista de perfiles (`"frontend"`, `"backend"`)
 
 **`enabled`** (opcional)
+
 - Boolean que habilita o deshabilita explícitamente el servicio
 - Por defecto: `true` si no se especifica
 - Servicios con `enabled: false` no se clonan, construyen ni inician
 - Tiene precedencia sobre `featureFlag`
 
 **`mock`** (opcional)
+
 - Configuración para usar un servicio mock en lugar del real
 - `enabled`: Si usar mock (boolean)
 - `image`: Imagen Docker del mock (requerido si enabled=true)
@@ -558,6 +582,7 @@ Si `kind: "image"`:
 - `env`: Variables de entorno del mock (opcional)
 
 **`featureFlag`** (opcional)
+
 - Configuración de feature flag para habilitar/deshabilitar servicios
 - `enabled`: Habilitar directamente (boolean)
 - `disabled`: Deshabilitar directamente (boolean, tiene precedencia)
@@ -568,15 +593,19 @@ Si `kind: "image"`:
 #### Configuración de infra
 
 **`image`** (requerido)
+
 - Nombre de la imagen Docker
 
 **`tag`** (opcional)
+
 - Tag de la imagen
 
 **`ports`** (opcional)
+
 - Lista de puertos `["host:container"]`
 
 **`volumes`** (opcional)
+
 - Lista de volúmenes
 - Formatos soportados:
   - **Named volumes**: `"volume-name:/container/path"` - Volúmenes con nombre que persisten datos
@@ -584,6 +613,7 @@ Si `kind: "image"`:
   - **Anonymous volumes**: `"/container/path"` - Volúmenes anónimos
 
 **`env`** (opcional)
+
 - Lista de archivos .env a cargar
 
 #### Volúmenes Compartidos
@@ -591,6 +621,7 @@ Si `kind: "image"`:
 Raioz detecta automáticamente cuando múltiples servicios comparten el mismo volumen con nombre (named volume) y muestra una advertencia informativa.
 
 **Ejemplo de advertencia:**
+
 ```
 ⚠️  Warning: 1 volume(s) are shared between multiple services:
 
@@ -601,6 +632,7 @@ Raioz detecta automáticamente cuando múltiples servicios comparten el mismo vo
 ```
 
 **Consideraciones:**
+
 - Los volúmenes compartidos pueden ser intencionales (por ejemplo, datos compartidos de base de datos)
 - Asegúrate de que los servicios estén diseñados para manejar acceso concurrente a volúmenes compartidos
 - Los bind mounts no se detectan como compartidos (cada servicio puede tener su propio bind mount del mismo directorio)
@@ -611,6 +643,7 @@ Raioz detecta automáticamente cuando múltiples servicios comparten el mismo vo
 Los servicios con `enabled: false` están explícitamente deshabilitados y no se clonan, construyen ni inician.
 
 **Características:**
+
 - No se clonan repositorios Git
 - No se incluyen en `docker-compose.generated.yml`
 - No se inician contenedores
@@ -618,6 +651,7 @@ Los servicios con `enabled: false` están explícitamente deshabilitados y no se
 - Tiene precedencia sobre `featureFlag`
 
 **Ejemplo:**
+
 ```json
 {
   "services": {
@@ -757,6 +791,7 @@ Los servicios con `enabled: false` están explícitamente deshabilitados y no se
 Los mocks permiten reemplazar servicios reales con imágenes mock para desarrollo o testing.
 
 **Ejemplo:**
+
 ```json
 {
   "services": {
@@ -787,6 +822,7 @@ Cuando `mock.enabled` es `true`, el servicio real se reemplaza con la imagen moc
 #### Feature Flags
 
 Los feature flags permiten habilitar/deshabilitar servicios basándose en:
+
 - Flags directos (`enabled`/`disabled`)
 - Variables de entorno
 - Perfiles
@@ -830,6 +866,7 @@ Los feature flags permiten habilitar/deshabilitar servicios basándose en:
 ```
 
 **Prioridad de feature flags:**
+
 1. `disabled: true` siempre deshabilita el servicio
 2. `enabled: true` habilita (pero verifica `profiles` si está especificado)
 3. `envVar` verifica variable de entorno
@@ -861,12 +898,14 @@ Las variables de entorno se organizan en:
 #### Ejemplo
 
 **`env/global.env`**:
+
 ```bash
 NODE_ENV=development
 LOG_LEVEL=debug
 ```
 
 **`env/services/api.env`**:
+
 ```bash
 API_PORT=8080
 DATABASE_URL=postgres://user:pass@database:5432/dbname
@@ -910,11 +949,13 @@ Raioz organiza los servicios en una estructura de directorios que separa servici
 ```
 
 **Migración automática:**
+
 - Si tienes servicios en la estructura antigua (`{base}/services/`), Raioz los migra automáticamente a la nueva estructura
 - La migración ocurre la primera vez que ejecutas `raioz up` después de actualizar
 - Los servicios se mueven a `local/` o `readonly/` según su configuración de `access`
 
 **Compatibilidad:**
+
 - La estructura antigua sigue siendo compatible para servicios de imagen
 - Los servicios Git se migran automáticamente a la nueva estructura
 
@@ -923,11 +964,13 @@ Raioz organiza los servicios en una estructura de directorios que separa servici
 Raioz mantiene un estado global mínimo en `{base}/state.json` que rastrea información básica de todos los proyectos activos.
 
 **Propósito:**
+
 - **Consistencia**: Saber qué proyectos están activos y cuándo se ejecutaron por última vez
 - **Debugging**: Identificar rápidamente qué servicios están corriendo en qué proyectos
 - **No es telemetría**: Solo almacena metadatos locales, no información sensible
 
 **Estructura del estado global:**
+
 ```json
 {
   "activeProjects": ["project1", "project2"],
@@ -951,6 +994,7 @@ Raioz mantiene un estado global mínimo en `{base}/state.json` que rastrea infor
 ```
 
 **Información almacenada:**
+
 - `activeProjects`: Lista de nombres de proyectos activos
 - `projects`: Mapa de proyectos con:
   - `name`: Nombre del proyecto
@@ -964,12 +1008,14 @@ Raioz mantiene un estado global mínimo en `{base}/state.json` que rastrea infor
     - `status`: Estado (running/stopped)
 
 **Comandos relacionados:**
+
 - `raioz list`: Lista todos los proyectos activos
 - `raioz up`: Actualiza el estado global después de iniciar
 - `raioz down`: Elimina el proyecto del estado global después de detener
 
 **Limpiar estado global:**
 Si necesitas limpiar el estado global manualmente:
+
 ```bash
 # El archivo está en {base}/state.json
 # Por defecto: /opt/raioz-proyecto/state.json o ~/.raioz/state.json
@@ -1021,6 +1067,7 @@ Para servicios compartidos, usa ramas estables (`main`, `develop`) en lugar de f
 ### 3. Nombrar redes y volúmenes claramente
 
 Usa nombres descriptivos que incluyan el proyecto:
+
 - Red: `billing-network`
 - Volumen: `billing-postgres-data`
 
@@ -1039,17 +1086,20 @@ raioz check        # Verificar alineación
 ### 6. Servicios Readonly vs Editable
 
 **Cuándo usar `access: "readonly"`:**
+
 - Servicios de otros equipos que no debes modificar
 - Dependencias externas que solo consumes
 - Servicios que quieres proteger de cambios accidentales
 - Servicios que se recrean automáticamente si fallan
 
 **Cuándo usar `access: "editable"` (o no especificar):**
+
 - Servicios que desarrollas activamente
 - Servicios que necesitas modificar y hacer commit
 - Servicios con hot-reload en modo dev
 
 **Ejemplo de servicio readonly:**
+
 ```json
 {
   "auth-service": {
@@ -1069,6 +1119,7 @@ raioz check        # Verificar alineación
 ```
 
 **Comportamiento de servicios readonly:**
+
 - ✅ Se clonan solo si no existen
 - ✅ No se actualizan automáticamente (no checkout/pull)
 - ✅ Volúmenes montados como `:ro` (read-only)
@@ -1096,35 +1147,41 @@ raioz clean --images --networks
 Raioz aplica una convención estricta de nombres para facilitar la identificación y debugging de contenedores y recursos Docker.
 
 **Formato de nombres:**
+
 - **Contenedores de servicios**: `raioz-{project}-{service}`
 - **Contenedores de infra**: `raioz-{project}-{infra}`
 - **Redes**: `{project.network}` (normalizado)
 - **Volúmenes**: Nombres según configuración (normalizados si es necesario)
 
 **Ejemplos:**
+
 - Proyecto `billing-platform`, servicio `api` → contenedor: `raioz-billing-platform-api`
 - Proyecto `billing-platform`, infra `database` → contenedor: `raioz-billing-platform-database`
 - Proyecto `billing-platform`, network `billing-network` → red: `billing-network`
 
 **Normalización automática:**
+
 - Convierte a minúsculas
 - Reemplaza caracteres inválidos con guiones
 - Elimina guiones duplicados
 - Trunca si excede 63 caracteres (límite de Docker)
 
 **Validación:**
+
 - Los nombres de proyecto, servicio e infra se validan automáticamente
 - Solo se permiten letras minúsculas, números y guiones
 - No pueden empezar o terminar con guión
 - No pueden tener guiones consecutivos
 
 **Beneficios:**
+
 - **Debugging rápido**: Fácil identificar contenedores con `docker ps | grep raioz-{project}`
 - **Búsqueda simple**: `docker logs raioz-billing-platform-api`
 - **Consistencia**: Todos los recursos siguen el mismo patrón
 - **Sin conflictos**: Nombres únicos por proyecto
 
 **Ejemplo de uso:**
+
 ```bash
 # Ver todos los contenedores de un proyecto
 docker ps | grep raioz-billing-platform
@@ -1147,6 +1204,7 @@ docker inspect raioz-billing-platform-api
 **Problema:** Otro proyecto está usando el mismo puerto.
 
 **Solución:**
+
 ```bash
 # Ver qué puertos están en uso
 raioz ports
@@ -1160,6 +1218,7 @@ raioz ports
 **Problema:** La rama especificada no existe en el remoto.
 
 **Solución:**
+
 - Verificar el nombre de la rama
 - Crear la rama en el repositorio
 - Actualizar `.raioz.json` con la rama correcta
@@ -1169,6 +1228,7 @@ raioz ports
 **Problema:** El repositorio tiene cambios sin commit o conflictos.
 
 **Solución:**
+
 ```bash
 # Opción 1: Resolver manualmente
 cd /opt/raioz-proyecto/services/{service-path}
@@ -1184,6 +1244,7 @@ raioz up --force-reclone
 **Problema:** Otro proceso `raioz` está ejecutándose.
 
 **Solución:**
+
 - Esperar a que termine el otro proceso
 - Si el proceso falló, eliminar el lock manualmente:
   ```bash
@@ -1193,6 +1254,7 @@ raioz up --force-reclone
 #### Servicios no inician
 
 **Verificar:**
+
 ```bash
 # Ver estado detallado
 raioz status
@@ -1207,11 +1269,13 @@ docker compose -f /opt/raioz-proyecto/workspaces/{project}/docker-compose.genera
 #### Variables de entorno no se cargan
 
 **Verificar:**
+
 1. Archivos `.env` existen en `env/`
 2. Rutas en `.raioz.json` son correctas
 3. `useGlobal` está configurado correctamente
 
 **Debug:**
+
 ```bash
 # Ver archivo generado
 cat /opt/raioz-proyecto/workspaces/{project}/.env.{service-name}
@@ -1220,6 +1284,7 @@ cat /opt/raioz-proyecto/workspaces/{project}/.env.{service-name}
 #### Docker network no se crea
 
 **Solución:**
+
 ```bash
 # Crear manualmente si es necesario
 docker network create {network-name}
@@ -1233,35 +1298,41 @@ raioz up
 Raioz aplica una convención estricta de nombres para facilitar la identificación y debugging de contenedores y recursos Docker.
 
 **Formato de nombres:**
+
 - **Contenedores de servicios**: `raioz-{project}-{service}`
 - **Contenedores de infra**: `raioz-{project}-{infra}`
 - **Redes**: `{project.network}` (normalizado)
 - **Volúmenes**: Nombres según configuración (normalizados si es necesario)
 
 **Ejemplos:**
+
 - Proyecto `billing-platform`, servicio `api` → contenedor: `raioz-billing-platform-api`
 - Proyecto `billing-platform`, infra `database` → contenedor: `raioz-billing-platform-database`
 - Proyecto `billing-platform`, network `billing-network` → red: `billing-network`
 
 **Normalización automática:**
+
 - Convierte a minúsculas
 - Reemplaza caracteres inválidos con guiones
 - Elimina guiones duplicados
 - Trunca si excede 63 caracteres (límite de Docker)
 
 **Validación:**
+
 - Los nombres de proyecto, servicio e infra se validan automáticamente
 - Solo se permiten letras minúsculas, números y guiones
 - No pueden empezar o terminar con guión
 - No pueden tener guiones consecutivos
 
 **Beneficios:**
+
 - **Debugging rápido**: Fácil identificar contenedores con `docker ps | grep raioz-{project}`
 - **Búsqueda simple**: `docker logs raioz-billing-platform-api`
 - **Consistencia**: Todos los recursos siguen el mismo patrón
 - **Sin conflictos**: Nombres únicos por proyecto
 
 **Ejemplo de uso:**
+
 ```bash
 # Ver todos los contenedores de un proyecto
 docker ps | grep raioz-billing-platform
@@ -1276,12 +1347,14 @@ docker inspect raioz-billing-platform-api
 **Nombres válidos e inválidos:**
 
 ✅ **Válidos:**
+
 - `billing-platform`
 - `api-v2`
 - `service-1`
 - `raioz-billing-platform-api`
 
 ❌ **Inválidos:**
+
 - `Billing-Platform` (mayúsculas)
 - `billing_platform` (guión bajo)
 - `billing--platform` (guiones consecutivos)
@@ -1352,6 +1425,7 @@ ls -la /opt/raioz-proyecto/env/
 ```
 
 **Información importante:**
+
 - `✔` = Operación exitosa
 - `⚠️` = Advertencia (revisar pero continúa)
 - `🔴` = Error (comando falla)
@@ -1359,11 +1433,13 @@ ls -la /opt/raioz-proyecto/env/
 #### Logs de servicios
 
 Los logs siguen el formato estándar de Docker Compose:
+
 - Prefijo con nombre del servicio
 - Timestamps (si están habilitados)
 - Output stdout/stderr combinado
 
 **Ejemplo:**
+
 ```
 api_1    | 2024-01-15 10:30:00 INFO Server starting on port 8080
 api_1    | 2024-01-15 10:30:01 INFO Connected to database
@@ -1373,21 +1449,27 @@ frontend_1 | 2024-01-15 10:30:02 INFO Dev server running on http://localhost:300
 #### Interpretar errores comunes
 
 **Error de conexión a base de datos:**
+
 ```
 api_1    | ERROR: connection refused (database:5432)
 ```
+
 → Verificar que `database` está en `dependsOn` y está corriendo.
 
 **Error de puerto en uso:**
+
 ```
 Error: port 3000 is already in use by project 'other-project' service 'frontend'
 ```
+
 → Cambiar puerto o detener el otro proyecto.
 
 **Error de imagen no encontrada:**
+
 ```
 Error: image org/image:tag not found
 ```
+
 → Verificar tag de imagen o conexión a registry.
 
 ## 📚 Recursos adicionales
