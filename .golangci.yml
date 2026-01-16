@@ -1,0 +1,172 @@
+# Golangci-lint configuration for Raioz project
+# Strict rules for code quality and consistency
+
+run:
+  timeout: 5m
+  tests: true
+  build-tags: ""
+
+issues:
+  exclude-dirs:
+    - vendor
+    - node_modules
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.generated\\.go$"
+
+linters-settings:
+  # Maximum line length
+  lll:
+    line-length: 120
+    tab-width: 1
+
+  # Function complexity
+  funlen:
+    lines: 100
+    statements: 50
+
+  # File length check (via custom linter or gocritic)
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # allow duplicate imports if needed
+    enabled-checks:
+      - hugeParam
+      - rangeValCopy
+      - methodExprCall
+      - singleCaseSwitch
+
+  # Cyclomatic complexity
+  gocyclo:
+    min-complexity: 15
+
+  # Error handling
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - (io.Closer).Close
+      - (*bytes.Buffer).Write
+
+  # Variable naming
+  gofmt:
+    simplify: true
+
+  # Import ordering
+  goimports:
+    local-prefixes: raioz
+
+  # Unused code
+  deadcode:
+    check-unexported: false
+
+  # Var naming
+  varcheck:
+    check-unexported: false
+
+  # Unused imports
+  unused:
+    check-exported: false
+
+  # Style issues
+  stylecheck:
+    checks: ["all"]
+
+  # Naked returns
+  nakedret:
+    max-func-lines: 30
+
+  # Predeclared identifiers
+  predeclared:
+    ignore: ""
+
+  # Whitespace
+  whitespace:
+    multi-if: false
+    multi-func: false
+
+linters:
+  enable:
+    # Default linters
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+
+    # Code quality
+    - gocritic
+    - gocyclo
+    - funlen
+    - predeclared
+    - stylecheck
+    - copyloopvar
+    - exhaustive
+    - err113
+
+    # Style
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+    - whitespace
+    - wrapcheck
+
+    # Performance
+    - bodyclose
+    - noctx
+    - rowserrcheck
+
+    # Security
+    - gosec
+
+    # Custom
+    - lll # Line length linter
+
+issues:
+  # Maximum issues count per one linter
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  # Exclude patterns
+  exclude-rules:
+    # Exclude some linters from generated files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - funlen
+        - gocyclo
+
+    # Allow long lines in test files
+    - path: _test\.go
+      linters:
+        - lll
+
+    # Allow TODO comments
+    - text: "TODO"
+      linters:
+        - gosec
+
+    # Allow magic numbers in tests
+    - path: _test\.go
+      text: "Error: magic number"
+      linters:
+        - gomnd
+
+  # Independent from severity settings, you can use the `-new` flag,
+  # to show only new issues created after git merge `--base`
+  new: false
+
+output:
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

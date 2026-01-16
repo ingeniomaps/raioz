@@ -1,0 +1,27 @@
+# Dependabot configuration for Raioz
+# See: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Enable version updates for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    # Limit number of open pull requests
+    open-pull-requests-limit: 10
+    # Labels to add to pull requests
+    labels:
+      - "dependencies"
+      - "go"
+    # Commit message configuration
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+    # Ignore specific dependencies if needed
+    # Uncomment and customize as needed:
+    # ignore:
+    #   - dependency-name: "some-package"
+    #     update-types: ["version-update:semver-major"]

@@ -1,0 +1,99 @@
+# GoReleaser configuration for Raioz
+# See https://goreleaser.com for documentation
+
+project_name: raioz
+
+# Build configuration
+builds:
+  - id: raioz
+    main: .
+    binary: raioz
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X 'raioz/cmd.Version={{.Version}}'
+      - -X 'raioz/cmd.Commit={{.Commit}}'
+      - -X 'raioz/cmd.BuildDate={{.Date}}'
+    hooks:
+      pre:
+        - go mod download
+        - go mod verify
+
+# Archive configuration
+archives:
+  - format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - README.md
+      - docs/
+
+# Checksums
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  algorithm: sha256
+
+# Snapshots (for development builds)
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+# Changelog
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+# GitHub release
+release:
+  mode: replace
+  header: |
+    ## Raioz {{ .Tag }}
+
+    {{ .Changelog }}
+
+    ### Installation
+
+    Download the appropriate binary for your platform:
+
+    - **Linux (amd64)**: `raioz_{{ .Version }}_linux_amd64.tar.gz`
+    - **Linux (arm64)**: `raioz_{{ .Version }}_linux_arm64.tar.gz`
+    - **macOS (amd64)**: `raioz_{{ .Version }}_darwin_amd64.tar.gz`
+    - **macOS (arm64)**: `raioz_{{ .Version }}_darwin_arm64.tar.gz`
+    - **Windows (amd64)**: `raioz_{{ .Version }}_windows_amd64.zip`
+    - **Windows (arm64)**: `raioz_{{ .Version }}_windows_arm64.zip`
+
+    ### Quick Install
+
+    ```bash
+    curl -fsSL https://raioz.dev/install | sh
+    ```
+
+    Or download manually from the assets below.
+  footer: |
+    ---
+
+    **Full Changelog**: https://github.com/raioz/raioz/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+# Docker (optional, for future container releases)
+# docker:
+#   - image_templates:
+#       - "raioz/raioz:{{ .Tag }}"
+#       - "raioz/raioz:latest"
+#     dockerfile: Dockerfile
+#     goos: linux
+#     goarch: amd64

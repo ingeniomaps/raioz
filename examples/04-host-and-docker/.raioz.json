@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "project": {
+    "name": "host-and-docker",
+    "network": "mixed-network"
+  },
+  "env": {
+    "useGlobal": true,
+    "files": ["global"]
+  },
+  "services": {
+    "host-frontend": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/vercel/next.js.git",
+        "branch": "canary",
+        "path": "examples/hello-world",
+        "command": "npm run dev",
+        "runtime": "node"
+      },
+      "env": ["services/frontend"]
+    },
+    "docker-api": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/typicode/json-server.git",
+        "branch": "main",
+        "path": "."
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["3001:3000"],
+        "command": "npm start",
+        "runtime": "node",
+        "dependsOn": ["database"]
+      },
+      "env": ["services/api"]
+    },
+    "host-worker": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/tiangolo/fastapi.git",
+        "branch": "master",
+        "path": ".",
+        "command": "uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+        "runtime": "python"
+      },
+      "env": ["services/worker"]
+    },
+    "docker-processor": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/gin-gonic/examples.git",
+        "branch": "master",
+        "path": "realworld"
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["8080:8080"],
+        "command": "go run main.go",
+        "runtime": "go",
+        "dependsOn": ["database", "redis"]
+      },
+      "env": ["services/processor"]
+    },
+    "host-scheduler": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/node-cron/node-cron.git",
+        "branch": "master",
+        "path": "examples",
+        "command": "node example.js",
+        "runtime": "node"
+      },
+      "env": ["services/scheduler"]
+    }
+  },
+  "infra": {
+    "database": {
+      "image": "postgres",
+      "tag": "15-alpine",
+      "ports": ["5432:5432"],
+      "volumes": ["postgres-data:/var/lib/postgresql/data"],
+      "env": ["infra/database"]
+    },
+    "redis": {
+      "image": "redis",
+      "tag": "7-alpine",
+      "ports": ["6379:6379"],
+      "volumes": ["redis-data:/data"]
+    }
+  }
+}

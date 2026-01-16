@@ -1,0 +1,248 @@
+package docker
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	exectimeout "raioz/internal/exec"
+)
+
+// VolumeType represents the type of volume
+type VolumeType string
+
+const (
+	VolumeTypeNamed   VolumeType = "named"   // Named volume: mongo-data:/data/db
+	VolumeTypeBind    VolumeType = "bind"    // Bind mount: ./path:/container/path
+	VolumeTypeAnonymous VolumeType = "anonymous" // Anonymous: /container/path
+)
+
+// VolumeInfo contains information about a parsed volume
+type VolumeInfo struct {
+	Type         VolumeType
+	Source       string // For named: volume name, for bind: host path
+	Destination  string // Container path
+	Original     string // Original volume string
+}
+
+// ParseVolume parses a volume string and determines its type
+// Examples:
+//   - "mongo-data:/data/db" -> named volume
+//   - "./data:/app/data" -> bind mount
+//   - "/host/path:/container/path" -> bind mount
+//   - "/container/path" -> anonymous volume
+func ParseVolume(volume string) (*VolumeInfo, error) {
+	if volume == "" {
+		return nil, fmt.Errorf("empty volume string")
+	}
+
+	parts := strings.SplitN(volume, ":", 2)
+
+	// If no colon, it's an anonymous volume
+	if len(parts) == 1 {
+		return &VolumeInfo{
+			Type:        VolumeTypeAnonymous,
+			Source:      "",
+			Destination: parts[0],
+			Original:    volume,
+		}, nil
+	}
+
+	source := parts[0]
+	dest := parts[1]
+
+	// Check if source is a named volume (no slash, or starts with / but is a volume name)
+	// Named volumes typically don't start with . or / (absolute paths)
+	isNamed := !strings.HasPrefix(source, ".") &&
+		!strings.HasPrefix(source, "/") &&
+		!strings.Contains(source, string(filepath.Separator))
+
+	if isNamed {
+		// Additional check: if it contains only alphanumeric, dashes, underscores
+		// and doesn't look like a path, it's likely a named volume
+		if !strings.Contains(source, "../") && !strings.Contains(source, "./") {
+			return &VolumeInfo{
+				Type:        VolumeTypeNamed,
+				Source:      source,
+				Destination: dest,
+				Original:    volume,
+			}, nil
+		}
+	}
+
+	// It's a bind mount
+	return &VolumeInfo{
+		Type:        VolumeTypeBind,
+		Source:      source,
+		Destination: dest,
+		Original:    volume,
+	}, nil
+}
+
+// ExtractNamedVolumes extracts all named volumes from a list of volume strings
+func ExtractNamedVolumes(volumes []string) ([]string, error) {
+	namedVolumes := make(map[string]bool)
+
+	for _, vol := range volumes {
+		if vol == "" {
+			continue
+		}
+
+		info, err := ParseVolume(vol)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse volume '%s': %w", vol, err)
+		}
+
+		if info.Type == VolumeTypeNamed {
+			namedVolumes[info.Source] = true
+		}
+	}
+
+	// Convert map to slice
+	result := make([]string, 0, len(namedVolumes))
+	for vol := range namedVolumes {
+		result = append(result, vol)
+	}
+
+	return result, nil
+}
+
+// VolumeExists checks if a named Docker volume exists
+func VolumeExists(name string) (bool, error) {
+	return VolumeExistsWithContext(context.Background(), name)
+}
+
+// VolumeExistsWithContext checks if a named Docker volume exists with context support
+func VolumeExistsWithContext(ctx context.Context, name string) (bool, error) {
+	// Create context with timeout
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerVolumeTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "inspect", name)
+	err := cmd.Run()
+
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			if exitError.ExitCode() == 1 {
+				// Volume not found
+				return false, nil
+			}
+		}
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return false, fmt.Errorf("volume inspect timed out after %v", exectimeout.DockerVolumeTimeout)
+		}
+		return false, fmt.Errorf("failed to inspect volume: %w", err)
+	}
+
+	return true, nil
+}
+
+// EnsureVolume ensures that a named volume exists, creating it if necessary
+func EnsureVolume(name string) error {
+	return EnsureVolumeWithContext(context.Background(), name)
+}
+
+// EnsureVolumeWithContext ensures that a named volume exists, creating it if necessary, with context support
+func EnsureVolumeWithContext(ctx context.Context, name string) error {
+	exists, err := VolumeExistsWithContext(ctx, name)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return nil // Volume already exists
+	}
+
+	// Create context with timeout
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerVolumeTimeout)
+	defer cancel()
+
+	// Create volume
+	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "create", name)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return fmt.Errorf("volume create timed out after %v", exectimeout.DockerVolumeTimeout)
+		}
+		return fmt.Errorf("failed to create volume '%s': %w (output: %s)", name, err, string(output))
+	}
+
+	return nil
+}
+
+// GetVolumeProjects finds projects that might be using a named volume
+func GetVolumeProjects(volumeName string, baseDir string) ([]string, error) {
+	var projects []string
+	workspacesDir := filepath.Join(baseDir, "workspaces")
+
+	// Read workspaces directory
+	entries, err := os.ReadDir(workspacesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return projects, nil // No workspaces yet
+		}
+		return nil, fmt.Errorf("failed to read workspaces: %w", err)
+	}
+
+	// Check each workspace for state file
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		projectName := entry.Name()
+		statePath := filepath.Join(workspacesDir, projectName, ".state.json")
+
+		// Try to load state
+		data, err := os.ReadFile(statePath)
+		if err != nil {
+			continue // Skip if can't read
+		}
+
+		// Parse JSON to check volumes
+		var state struct {
+			Services map[string]struct {
+				Docker struct {
+					Volumes []string `json:"volumes"`
+				} `json:"docker"`
+			} `json:"services"`
+			Infra map[string]struct {
+				Volumes []string `json:"volumes"`
+			} `json:"infra"`
+		}
+
+		if err := json.Unmarshal(data, &state); err != nil {
+			continue // Skip if invalid JSON
+		}
+
+		// Check services
+		for _, svc := range state.Services {
+			namedVols, _ := ExtractNamedVolumes(svc.Docker.Volumes)
+			for _, vol := range namedVols {
+				if vol == volumeName {
+					projects = append(projects, projectName)
+					goto nextProject
+				}
+			}
+		}
+
+		// Check infra
+		for _, infra := range state.Infra {
+			namedVols, _ := ExtractNamedVolumes(infra.Volumes)
+			for _, vol := range namedVols {
+				if vol == volumeName {
+					projects = append(projects, projectName)
+					goto nextProject
+				}
+			}
+		}
+
+	nextProject:
+	}
+
+	return projects, nil
+}
