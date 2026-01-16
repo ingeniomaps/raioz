@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "1.0",
+  "project": {
+    "name": "mi-proyecto",
+    "network": "mi-proyecto-network"
+  },
+  "env": {
+    "useGlobal": true,
+    "files": ["global", "projects/mi-proyecto"]
+  },
+  "services": {
+    "microservicio-1": {
+      "source": {
+        "kind": "git",
+        "repo": "git@github.com:org/microservicio-1.git",
+        "branch": "develop",
+        "path": "services/microservicio-1",
+        "access": "editable"
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["3001:3000"],
+        "dependsOn": ["sub-microservicio-1a", "database"]
+      },
+      "env": ["services/microservicio-1"]
+    },
+    "microservicio-2": {
+      "source": {
+        "kind": "git",
+        "repo": "git@github.com:org/microservicio-2.git",
+        "branch": "main",
+        "path": "services/microservicio-2",
+        "access": "editable"
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["3002:3000"],
+        "dependsOn": ["sub-microservicio-2a", "redis"]
+      },
+      "env": ["services/microservicio-2"]
+    },
+    "microservicio-3": {
+      "source": {
+        "kind": "git",
+        "repo": "git@github.com:org/microservicio-3.git",
+        "branch": "main",
+        "path": "services/microservicio-3",
+        "access": "editable"
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["3003:3000"],
+        "dependsOn": ["sub-microservicio-3a", "database"]
+      },
+      "env": ["services/microservicio-3"]
+    },
+    "sub-microservicio-1a": {
+      "source": {
+        "kind": "git",
+        "repo": "git@github.com:org/sub-microservicio-1a.git",
+        "branch": "main",
+        "path": "services/sub-microservicio-1a",
+        "access": "readonly"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["3004:3000"],
+        "dependsOn": ["database"]
+      },
+      "env": ["services/sub-microservicio-1a"]
+    },
+    "sub-microservicio-2a": {
+      "source": {
+        "kind": "git",
+        "repo": "git@github.com:org/sub-microservicio-2a.git",
+        "branch": "main",
+        "path": "services/sub-microservicio-2a",
+        "access": "readonly"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["3005:3000"],
+        "dependsOn": ["redis"]
+      },
+      "env": ["services/sub-microservicio-2a"]
+    },
+    "sub-microservicio-3a": {
+      "source": {
+        "kind": "git",
+        "repo": "git@github.com:org/sub-microservicio-3a.git",
+        "branch": "main",
+        "path": "services/sub-microservicio-3a",
+        "access": "readonly"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["3006:3000"],
+        "dependsOn": ["database"]
+      },
+      "env": ["services/sub-microservicio-3a"]
+    }
+  },
+  "infra": {
+    "database": {
+      "image": "postgres",
+      "tag": "15",
+      "ports": ["5432:5432"],
+      "volumes": ["postgres-data:/var/lib/postgresql/data"]
+    },
+    "redis": {
+      "image": "redis",
+      "tag": "7",
+      "ports": ["6379:6379"]
+    }
+  }
+}

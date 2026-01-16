@@ -1,0 +1,56 @@
+name: Lint and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Install golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        args: --timeout=5m
+
+    - name: Check file line count
+      run: |
+        files=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" -exec sh -c 'lines=$(wc -l < "$1"); if [ "$lines" -gt 400 ]; then echo "$1: $lines lines"; fi' _ {} \;)
+        if [ -n "$files" ]; then
+          echo "❌ Files exceeding 400 lines found:"
+          echo "$files"
+          exit 1
+        fi
+        echo "✅ All files are under 400 lines"
+
+    - name: Check line length
+      run: |
+        long_lines=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" -exec awk 'length > 120 {print FILENAME":"NR": "length($0)" chars: "$0}' {} \;)
+        if [ -n "$long_lines" ]; then
+          echo "❌ Lines exceeding 120 characters found:"
+          echo "$long_lines"
+          exit 1
+        fi
+        echo "✅ All lines are under 120 characters"
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Build
+      run: go build -o raioz .

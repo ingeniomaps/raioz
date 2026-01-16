@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0",
+  "project": {
+    "name": "basic-web-app",
+    "network": "basic-web-network"
+  },
+  "env": {
+    "useGlobal": true,
+    "files": ["global"]
+  },
+  "services": {
+    "frontend": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/vercel/next-learn.git",
+        "branch": "main",
+        "path": "basics/learn-starter/dashboard/final-example"
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["3000:3000"],
+        "command": "npm install react react-dom && npx next dev",
+        "runtime": "node",
+        "dependsOn": ["api"]
+      },
+      "env": ["services/frontend"]
+    },
+    "api": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/typicode/json-server.git",
+        "branch": "main",
+        "path": "api"
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["3001:3000"],
+        "command": "node --experimental-strip-types src/bin.ts fixtures/db.json --port 3000",
+        "runtime": "node",
+        "dependsOn": ["database"]
+      },
+      "env": ["services/api"]
+    },
+    "worker": {
+      "source": {
+        "kind": "git",
+        "repo": "https://github.com/OptimalBits/bull.git",
+        "branch": "master",
+        "path": "worker"
+      },
+      "docker": {
+        "mode": "dev",
+        "ports": ["3002:3000"],
+        "command": "node worker.js",
+        "runtime": "node",
+        "dependsOn": ["database", "redis"]
+      },
+      "env": ["services/worker"]
+    }
+  },
+  "infra": {
+    "database": {
+      "image": "postgres",
+      "tag": "15-alpine",
+      "ports": ["5432:5432"],
+      "volumes": ["postgres-data:/var/lib/postgresql/data"],
+      "env": ["infra/database"]
+    },
+    "redis": {
+      "image": "redis",
+      "tag": "7-alpine",
+      "ports": ["6379:6379"],
+      "volumes": ["redis-data:/data"]
+    }
+  }
+}
