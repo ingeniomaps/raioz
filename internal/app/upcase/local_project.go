@@ -232,6 +232,32 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		// Only check for duplicate if it's a command-only project (no services/infra)
 		// If it has services/infra, it's already being managed by the workspace flow
 		if !hasServices && !hasInfra {
+			// First check for service conflicts (if project name matches a service)
+			// This handles the case where a service is running from workspace and we want to run the local project
+			wsConcrete, ok := ws.(*workspacepkg.Workspace)
+			if ok {
+				conflict, err := uc.detectServiceConflict(ctx, deps.Project.Name, deps, wsConcrete, projectDir, true)
+				if err == nil && conflict != nil {
+					// Service conflict detected - resolve it
+					resolution, err := uc.resolveServiceConflict(ctx, conflict, true, deps.GetWorkspaceName(), projectDir)
+					if err != nil {
+						return err
+					}
+					if resolution == "cancel" {
+						return errors.New(errors.ErrCodeWorkspaceError, "Operation cancelled by user")
+					}
+					if resolution == "skip" {
+						output.PrintInfo("Keeping current service, skipping local project execution")
+						return nil
+					}
+					// Apply resolution
+					if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, deps.Project.Name, deps, wsConcrete, projectDir, true); err != nil {
+						return err
+					}
+				}
+			}
+
+			// Then check for duplicate project (same project name)
 			if err := uc.checkAndHandleDuplicateProject(ctx, deps.Project.Name, configPath); err != nil {
 				// Check if it's a user cancellation
 				if strings.Contains(err.Error(), "user cancelled") {

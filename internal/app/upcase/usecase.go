@@ -173,7 +173,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Git: clone/update repos, handle branch changes
-	err = uc.processGitRepos(ctx, deps, ws, oldDeps, opts.ForceReclone)
+	err = uc.processGitRepos(ctx, deps, ws, oldDeps, opts.ForceReclone, projectDir)
 	if err != nil {
 		return err
 	}
