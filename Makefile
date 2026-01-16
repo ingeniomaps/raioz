@@ -127,8 +127,36 @@ release-installer: build ## Prepare installer script (for GitHub release)
 	@echo "  make install"
 	@echo ""
 	@echo "For users (GitHub installation):"
-	@echo "  curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install.sh | sh"
+	@echo "  curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install.sh | bash"
 	@echo ""
 	@echo "Note: Make sure to upload the built binary to GitHub releases for users"
 
-.PHONY: release-installer
+build-release-binaries: ## Build binaries for all platforms (for manual GitHub release upload)
+	@echo "Building release binaries for all platforms..."
+	@VERSION=$$(git describe --tags --exact-match 2>/dev/null || git describe --tags 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
+	DATE=$$(date +%Y-%m-%dT%H:%M:%S 2>/dev/null || echo "unknown"); \
+	echo "Version: $$VERSION, Commit: $$COMMIT, Date: $$DATE"; \
+	echo ""; \
+	for platform in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do \
+		GOOS=$$(echo $$platform | cut -d'/' -f1); \
+		GOARCH=$$(echo $$platform | cut -d'/' -f2); \
+		BINARY_NAME="raioz-$$GOOS-$$GOARCH"; \
+		echo "Building $$BINARY_NAME..."; \
+		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build \
+			-ldflags "-s -w -X 'raioz/cmd.Version=$$VERSION' -X 'raioz/cmd.Commit=$$COMMIT' -X 'raioz/cmd.BuildDate=$$DATE'" \
+			-o $$BINARY_NAME ./cmd/raioz; \
+		if [ -f $$BINARY_NAME ]; then \
+			echo "✓ Built $$BINARY_NAME"; \
+		else \
+			echo "✗ Failed to build $$BINARY_NAME"; \
+		fi; \
+	done; \
+	echo ""; \
+	echo "Binaries built! Upload them to GitHub releases:"
+	@echo "  gh release upload <VERSION> raioz-* --clobber"
+	@echo ""
+	@echo "Or manually upload via GitHub web interface:"
+	@echo "  https://github.com/ingeniomaps/raioz/releases/new"
+
+.PHONY: release-installer build-release-binaries

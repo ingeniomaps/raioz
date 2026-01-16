@@ -1,8 +1,8 @@
 # Raioz Local Orchestrator
 
-[![CI](https://github.com/raioz/raioz/workflows/CI/badge.svg)](https://github.com/raioz/raioz/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/raioz/raioz/branch/main/graph/badge.svg)](https://codecov.io/gh/raioz/raioz)
-[![Go Report Card](https://goreportcard.com/badge/github.com/raioz/raioz)](https://goreportcard.com/report/github.com/raioz/raioz)
+[![CI](https://github.com/ingeniomaps/raioz/workflows/CI/badge.svg)](https://github.com/ingeniomaps/raioz/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ingeniomaps/raioz/branch/main/graph/badge.svg)](https://codecov.io/gh/ingeniomaps/raioz)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ingeniomaps/raioz)](https://goreportcard.com/report/github.com/ingeniomaps/raioz)
 
 **Raioz** es una herramienta CLI interna que permite levantar, coordinar y mantener entornos de desarrollo local para proyectos basados en microservicios, a partir de una configuración declarativa (`.raioz.json`).
 
@@ -42,7 +42,7 @@ Este documento cubre:
 ### Instalación rápida (recomendada)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 ```
 
 El script de instalación automáticamente:
@@ -71,18 +71,18 @@ sudo chmod +x /usr/local/bin/raioz
 ```bash
 # Descargar el binario para tu OS/arch
 # Linux amd64
-wget https://github.com/raioz/raioz/releases/latest/download/raioz-linux-amd64 -O /usr/local/bin/raioz
+wget https://github.com/ingeniomaps/raioz/releases/latest/download/raioz-linux-amd64 -O /usr/local/bin/raioz
 chmod +x /usr/local/bin/raioz
 
 # macOS amd64
-curl -L https://github.com/raioz/raioz/releases/latest/download/raioz-darwin-amd64 -o /usr/local/bin/raioz
+curl -L https://github.com/ingeniomaps/raioz/releases/latest/download/raioz-darwin-amd64 -o /usr/local/bin/raioz
 chmod +x /usr/local/bin/raioz
 ````
 
 ### Compilar desde fuente
 
 ```bash
-git clone https://github.com/raioz/raioz.git
+git clone https://github.com/ingeniomaps/raioz.git
 cd raioz
 make build
 sudo make install
