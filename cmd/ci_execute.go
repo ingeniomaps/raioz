@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -248,8 +249,20 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 		return err
 	}
 
+	// Get project directory (where .raioz.json is located)
+	projectDir, err := filepath.Abs(filepath.Dir(configPath))
+	if err != nil {
+		result.Validations = append(result.Validations, ValidationResult{
+			Check:   "compose",
+			Status:  "failed",
+			Message: fmt.Sprintf("Failed to get project directory: %v", err),
+		})
+		result.Errors = append(result.Errors, fmt.Sprintf("Failed to get project directory: %v", err))
+		return err
+	}
+
 	// Generate compose file
-	composePath, err := docker.GenerateCompose(deps, ws)
+	composePath, err := docker.GenerateCompose(deps, ws, projectDir)
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "compose",

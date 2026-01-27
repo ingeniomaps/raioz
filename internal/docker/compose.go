@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"raioz/internal/config"
 	"raioz/internal/env"
@@ -27,7 +29,82 @@ func addDefaultInfraEnv(name, image string) map[string]string {
 	return envVars
 }
 
-func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error) {
+// addDefaultInfraHealthcheck adds default healthcheck configuration for common infra services
+func addDefaultInfraHealthcheck(name, image string) map[string]any {
+	// PostgreSQL healthcheck
+	if image == "postgres" || name == "database" || name == "postgres" || name == "postgresql" {
+		return map[string]any{
+			"test": []string{
+				"CMD-SHELL",
+				"pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+			},
+			"interval":    "5s",
+			"timeout":     "5s",
+			"retries":     10,
+			"start_period": "10s",
+		}
+	}
+
+	// PgAdmin healthcheck
+	if image == "dpage/pgadmin4" || name == "pgadmin" {
+		return map[string]any{
+			"test": []string{
+				"CMD-SHELL",
+				"curl -f http://localhost/misc/ping 2>/dev/null || wget --no-verbose --tries=1 --spider http://localhost/misc/ping 2>/dev/null || exit 1",
+			},
+			"interval":    "30s",
+			"timeout":     "10s",
+			"retries":     5,
+			"start_period": "40s",
+		}
+	}
+
+	// Redis healthcheck
+	if image == "redis" || name == "redis" {
+		return map[string]any{
+			"test": []string{
+				"CMD-SHELL",
+				"redis-cli ping | grep PONG",
+			},
+			"interval":    "10s",
+			"timeout":     "5s",
+			"retries":     5,
+			"start_period": "10s",
+		}
+	}
+
+	// MongoDB healthcheck
+	if image == "mongo" || name == "mongo" || name == "mongodb" {
+		return map[string]any{
+			"test": []string{
+				"CMD-SHELL",
+				"mongosh --eval 'db.adminCommand(\"ping\")' | grep -q 'ok.*1'",
+			},
+			"interval":    "10s",
+			"timeout":     "5s",
+			"retries":     5,
+			"start_period": "10s",
+		}
+	}
+
+	// MySQL/MariaDB healthcheck
+	if image == "mysql" || image == "mariadb" || name == "mysql" || name == "mariadb" {
+		return map[string]any{
+			"test": []string{
+				"CMD-SHELL",
+				"mysqladmin ping -h localhost || exit 1",
+			},
+			"interval":    "10s",
+			"timeout":     "5s",
+			"retries":     5,
+			"start_period": "10s",
+		}
+	}
+
+	return nil
+}
+
+func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir string) (string, error) {
 	// Validate dependency cycles before generating compose
 	if err := ValidateDependencyCycle(deps); err != nil {
 		return "", fmt.Errorf("dependency validation failed: %w", err)
@@ -39,44 +116,105 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error)
 	}
 
 	// Collect all volumes to find named volumes
+	// First resolve relative paths to absolute for accurate named volume detection
 	var allVolumes []string
 	for _, svc := range deps.Services {
-		allVolumes = append(allVolumes, svc.Docker.Volumes...)
+		// Skip if docker is nil (host execution - no docker volumes)
+		if svc.Docker != nil {
+			resolved, err := ResolveRelativeVolumes(svc.Docker.Volumes, projectDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve relative volumes for service %s: %w", svc, err)
+			}
+			allVolumes = append(allVolumes, resolved...)
+		}
 	}
 	for _, infra := range deps.Infra {
-		allVolumes = append(allVolumes, infra.Volumes...)
+		resolved, err := ResolveRelativeVolumes(infra.Volumes, projectDir)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve relative volumes for infra %s: %w", infra, err)
+		}
+		allVolumes = append(allVolumes, resolved...)
 	}
 
-	// Extract named volumes
-	namedVolumes, err := ExtractNamedVolumes(allVolumes)
+	// Extract named volumes (original names from config)
+	originalNamedVolumes, err := ExtractNamedVolumes(allVolumes)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract named volumes: %w", err)
 	}
 
-	// Ensure named volumes exist
+	// Normalize volume names with project prefix and create mapping
+	volumeMap := make(map[string]string) // original -> normalized
+	normalizedVolumes := make([]string, 0, len(originalNamedVolumes))
+	for _, volName := range originalNamedVolumes {
+		normalizedName, err := NormalizeVolumeName(deps.Project.Name, volName)
+		if err != nil {
+			return "", fmt.Errorf("failed to normalize volume name '%s': %w", volName, err)
+		}
+		volumeMap[volName] = normalizedName
+		normalizedVolumes = append(normalizedVolumes, normalizedName)
+	}
+
+	// Ensure normalized volumes exist
 	// Note: GenerateCompose doesn't accept context, so we use background context
 	// This is acceptable as volume creation is fast and happens during compose generation
-	for _, volName := range namedVolumes {
+	for _, volName := range normalizedVolumes {
 		if err := EnsureVolume(volName); err != nil {
 			return "", fmt.Errorf("failed to ensure volume '%s': %w", volName, err)
 		}
 	}
 
+	networkName := deps.Project.Network.GetName()
+	networkSubnet := deps.Project.Network.GetSubnet()
+
+	// Check if any service or infra has IP configured
+	hasStaticIPs := false
+	for _, svc := range deps.Services {
+		if svc.Docker != nil && svc.Docker.IP != "" {
+			hasStaticIPs = true
+			break
+		}
+	}
+	if !hasStaticIPs {
+		for _, infra := range deps.Infra {
+			if infra.IP != "" {
+				hasStaticIPs = true
+				break
+			}
+		}
+	}
+
+	// Configure network: if static IPs are used, we need subnet in compose
+	// Even if network is external, we need subnet config for static IPs
+	networkConfig := map[string]any{
+		"external": true,
+	}
+	if hasStaticIPs && networkSubnet != "" {
+		// Add subnet configuration for static IPs
+		networkConfig["ipam"] = map[string]any{
+			"config": []map[string]any{
+				{
+					"subnet": networkSubnet,
+				},
+			},
+		}
+	}
+
 	compose := map[string]any{
-		"version":  "3.9",
 		"services": map[string]any{},
 		"networks": map[string]any{
-			deps.Project.Network: map[string]any{
-				"external": true,
-			},
+			networkName: networkConfig,
 		},
 	}
 
 	// Add volumes section if there are named volumes
-	if len(namedVolumes) > 0 {
+	// Mark volumes as external since Raioz creates them manually before generating compose
+	// Volumes are already normalized with project prefix (e.g., roax_postgres_data)
+	if len(normalizedVolumes) > 0 {
 		volumesMap := make(map[string]any)
-		for _, volName := range namedVolumes {
-			volumesMap[volName] = map[string]any{} // Empty config uses default driver
+		for _, volName := range normalizedVolumes {
+			volumesMap[volName] = map[string]any{
+				"external": true, // External volumes are created by Raioz, not Docker Compose
+			}
 		}
 		compose["volumes"] = volumesMap
 	}
@@ -103,15 +241,40 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error)
 			return "", fmt.Errorf("failed to normalize container name for service %s: %w", name, err)
 		}
 
+		// Configure network: use IP if specified, otherwise simple list
+		var networksConfig any
+		if svc.Docker.IP != "" {
+			// Static IP configuration
+			networksConfig = map[string]any{
+				networkName: map[string]any{
+					"ipv4_address": svc.Docker.IP,
+				},
+			}
+		} else {
+			// Default: simple network list
+			networksConfig = []string{networkName}
+		}
+
 		serviceConfig := map[string]any{
 			"container_name": containerName,
 			"ports":          svc.Docker.Ports,
-			"networks":       []string{deps.Project.Network},
+			"networks":       networksConfig,
 		}
 
 		// Add volumes if present, applying readonly mode if needed
+		// First resolve relative paths to absolute, then normalize volume names with project prefix
 		if len(svc.Docker.Volumes) > 0 {
-			volumes := ApplyReadonlyToVolumes(svc.Docker.Volumes, svc)
+			// Resolve relative paths to absolute based on project directory
+			resolvedVolumes, err := ResolveRelativeVolumes(svc.Docker.Volumes, projectDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve relative volumes for service %s: %w", name, err)
+			}
+			// Normalize volume names with project prefix
+			normalizedVolumes, err := NormalizeVolumeNamesInStrings(resolvedVolumes, deps.Project.Name, volumeMap)
+			if err != nil {
+				return "", fmt.Errorf("failed to normalize volume names for service %s: %w", name, err)
+			}
+			volumes := ApplyReadonlyToVolumes(normalizedVolumes, svc)
 			serviceConfig["volumes"] = volumes
 		}
 
@@ -174,34 +337,206 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error)
 			return "", fmt.Errorf("failed to normalize container name for infra %s: %w", name, err)
 		}
 
+		// Configure network: use IP if specified, otherwise simple list
+		var infraNetworksConfig any
+		if infra.IP != "" {
+			// Static IP configuration
+			infraNetworksConfig = map[string]any{
+				networkName: map[string]any{
+					"ipv4_address": infra.IP,
+				},
+			}
+		} else {
+			// Default: simple network list
+			infraNetworksConfig = []string{networkName}
+		}
+
 		infraConfig := map[string]any{
 			"container_name": containerName,
 			"image":          image,
-			"ports":          infra.Ports,
-			"volumes":        infra.Volumes,
-			"networks":       []string{deps.Project.Network},
+			"networks":       infraNetworksConfig,
 		}
 
-		// Add default environment variables for common infra services
-		envVars := addDefaultInfraEnv(name, infra.Image)
+		// Add ports only if present (not nil and not empty)
+		if len(infra.Ports) > 0 {
+			infraConfig["ports"] = infra.Ports
+		}
+
+		// Add volumes only if present (not nil and not empty)
+		// First resolve relative paths to absolute, then normalize volume names with project prefix
+		if len(infra.Volumes) > 0 {
+			// Resolve relative paths to absolute based on project directory
+			resolvedVolumes, err := ResolveRelativeVolumes(infra.Volumes, projectDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve relative volumes for infra %s: %w", name, err)
+			}
+			// Normalize volume names with project prefix
+			normalizedVolumes, err := NormalizeVolumeNamesInStrings(resolvedVolumes, deps.Project.Name, volumeMap)
+			if err != nil {
+				return "", fmt.Errorf("failed to normalize volume names for infra %s: %w", name, err)
+			}
+			infraConfig["volumes"] = normalizedVolumes
+		}
 
 		// Resolve and add env_file for infra if specified
+		// Also extract direct variables if env is an object
+		var envFilePath string
+		var hasEnvFile bool
+		envVars := make(map[string]string)
+		
 		if infra.Env != nil {
-			envFilePath, err := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
-			if err != nil {
-				return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
-			}
-			if envFilePath != "" {
-				infraConfig["env_file"] = []string{envFilePath}
+			// If env is an object with direct variables, use them directly (no env_file)
+			if infra.Env.IsObject && infra.Env.Variables != nil {
+				// Use direct variables from config - add them to environment
+				for key, value := range infra.Env.Variables {
+					envVars[key] = value
+				}
+				// Don't resolve env_file when env is an object - use environment variables directly
+			} else {
+				// env is an array of file paths - resolve them
+				var err error
+				
+				envFiles := infra.Env.GetFilePaths()
+				if len(envFiles) == 1 && envFiles[0] == "." {
+					// Special case: use .env in project directory (same as project.env)
+					localEnvPath := filepath.Join(projectDir, ".env")
+					if _, statErr := os.Stat(localEnvPath); statErr == nil {
+						// .env exists in project directory - use it
+						envFilePath = localEnvPath
+						hasEnvFile = true
+					} else {
+						// .env doesn't exist - try normal resolution (will look for {infra-name}.env)
+						envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+						if err != nil {
+							return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
+						}
+						if envFilePath != "" {
+							hasEnvFile = true
+						}
+					}
+				} else {
+					// Normal resolution for other cases
+					envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+					if err != nil {
+						return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
+					}
+					if envFilePath != "" {
+						hasEnvFile = true
+					}
+				}
+				
+				if hasEnvFile {
+					infraConfig["env_file"] = []string{envFilePath}
+				}
 			}
 		}
 
-		// Add environment variables if any
+		// Add default environment variables ONLY if no env_file is configured
+		// Docker Compose: environment variables override env_file, so we should not
+		// add defaults when env_file exists to avoid overriding values from the file
+		if !hasEnvFile {
+			defaultVars := addDefaultInfraEnv(name, infra.Image)
+			// Merge defaults with direct variables (direct variables override defaults)
+			for key, value := range defaultVars {
+				if _, exists := envVars[key]; !exists {
+					envVars[key] = value
+				}
+			}
+		}
+
+		// Add environment variables if any (only for direct variables or defaults, not from env_file)
 		if len(envVars) > 0 {
 			infraConfig["environment"] = envVars
 		}
 
+		// Add default healthcheck for common infra services if not already configured
+		healthcheck := addDefaultInfraHealthcheck(name, infra.Image)
+		if healthcheck != nil {
+			infraConfig["healthcheck"] = healthcheck
+		}
+
 		services[name] = infraConfig
+	}
+
+	// Create combined .env file with all variables from all infra (for internal use only)
+	// This file is NOT used as env_file, it's only created to have all variables in one place
+	allCombinedVars := make(map[string]string)
+	for name, infra := range deps.Infra {
+		if infra.Env != nil {
+			if infra.Env.IsObject && infra.Env.Variables != nil {
+				// Direct variables
+				for k, v := range infra.Env.Variables {
+					allCombinedVars[k] = v
+				}
+			} else {
+				// Variables from env_file
+				var envFilePath string
+				envFiles := infra.Env.GetFilePaths()
+				if len(envFiles) == 1 && envFiles[0] == "." {
+					localEnvPath := filepath.Join(projectDir, ".env")
+					if _, statErr := os.Stat(localEnvPath); statErr == nil {
+						envFilePath = localEnvPath
+					} else {
+						resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+						if resolvedPath != "" {
+							envFilePath = resolvedPath
+						}
+					}
+				} else {
+					resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+					if resolvedPath != "" {
+						envFilePath = resolvedPath
+					}
+				}
+				
+				if envFilePath != "" {
+					loadedVars, loadErr := env.LoadFiles([]string{envFilePath})
+					if loadErr == nil {
+						for k, v := range loadedVars {
+							allCombinedVars[k] = v
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Write combined .env file (only for internal reference, not used anywhere)
+	if len(allCombinedVars) > 0 {
+		combinedEnvPath := filepath.Join(ws.Root, ".env")
+		
+		// Ensure workspace root exists
+		if err := os.MkdirAll(ws.Root, 0700); err != nil {
+			return "", fmt.Errorf("failed to create workspace root: %w", err)
+		}
+		
+		// Write combined env file
+		file, err := os.OpenFile(combinedEnvPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if err != nil {
+			return "", fmt.Errorf("failed to create combined env file: %w", err)
+		}
+		
+		// Sort keys for consistent output
+		keys := make([]string, 0, len(allCombinedVars))
+		for k := range allCombinedVars {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		
+		for _, key := range keys {
+			value := allCombinedVars[key]
+			// Escape value if it contains spaces or special characters
+			escapedValue := value
+			if strings.Contains(value, " ") || strings.Contains(value, "$") || strings.Contains(value, "\"") {
+				escapedValue = fmt.Sprintf("\"%s\"", strings.ReplaceAll(value, "\"", "\\\""))
+			}
+			if _, err := fmt.Fprintf(file, "%s=%s\n", key, escapedValue); err != nil {
+				file.Close()
+				return "", fmt.Errorf("failed to write to combined env file: %w", err)
+			}
+		}
+		
+		file.Close()
 	}
 
 	// Marshal YAML (yaml.v3 uses 2-space indentation by default)

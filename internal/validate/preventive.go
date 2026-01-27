@@ -346,14 +346,15 @@ func ValidateNetworks(ctx context.Context, deps *config.Deps) error {
 	// Network name is already validated in validateProject
 	// Here we can add additional checks like network conflicts with other projects
 	// For now, we just ensure the network name is valid
-	if err := docker.ValidateNetworkName(deps.Project.Network); err != nil {
+	networkName := deps.Project.Network.GetName()
+	if err := docker.ValidateNetworkName(networkName); err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidField,
 			"Invalid network name",
 		).WithSuggestion(
 			"Network names must follow Docker naming conventions. "+
 				"Use lowercase letters, numbers, hyphens, and underscores only.",
-		).WithContext("network_name", deps.Project.Network).WithError(err)
+		).WithContext("network_name", networkName).WithError(err)
 	}
 
 	return nil

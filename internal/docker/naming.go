@@ -153,3 +153,63 @@ func ValidateVolumeName(name string) error {
 	// Volume names can be longer than container/network names
 	return ValidateName(name, MaxVolumeNameLength)
 }
+
+// NormalizeVolumeName normalizes a volume name with the project prefix
+// Format: {project}_{volume_name} (using underscore as separator)
+// Maximum length: 255 characters (Docker limit)
+func NormalizeVolumeName(project, volumeName string) (string, error) {
+	// Normalize project name (lowercase, valid chars only)
+	projectNormalized, err := NormalizeName(project)
+	if err != nil {
+		return "", fmt.Errorf("failed to normalize project name: %w", err)
+	}
+
+	// Normalize volume name (lowercase, valid chars only, but preserve underscores)
+	// Convert to lowercase and replace invalid chars, but keep underscores and dashes
+	volumeLower := strings.ToLower(volumeName)
+	// Replace invalid chars (but preserve underscores and dashes which are valid)
+	volumeNormalized := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			return r
+		}
+		return '-'
+	}, volumeLower)
+	// Remove multiple consecutive dashes (but keep underscores)
+	volumeNormalized = MultipleDashesRegex.ReplaceAllString(volumeNormalized, "-")
+	volumeNormalized = strings.Trim(volumeNormalized, "-")
+
+	if volumeNormalized == "" {
+		return "", fmt.Errorf("normalized volume name is empty")
+	}
+
+	// Check if volume name already has the project prefix to avoid duplicates
+	prefix := projectNormalized + "_"
+	if strings.HasPrefix(volumeNormalized, prefix) {
+		// Already has prefix, return as is
+		return volumeNormalized, nil
+	}
+
+	// Combine with underscore separator
+	name := prefix + volumeNormalized
+
+	// Truncate if necessary (Docker limit is 255 characters)
+	if len(name) > MaxVolumeNameLength {
+		// Calculate how much we need to truncate
+		// Keep project prefix, truncate volume name
+		if len(prefix) >= MaxVolumeNameLength {
+			// Even prefix is too long, truncate everything
+			name = name[:MaxVolumeNameLength]
+		} else {
+			// Truncate volume name to fit
+			maxVolumeLen := MaxVolumeNameLength - len(prefix)
+			if len(volumeNormalized) > maxVolumeLen {
+				volumeNormalized = volumeNormalized[:maxVolumeLen]
+			}
+			name = prefix + volumeNormalized
+		}
+		// Remove trailing underscore if any
+		name = strings.TrimSuffix(name, "_")
+	}
+
+	return name, nil
+}

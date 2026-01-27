@@ -111,6 +111,92 @@ func ExtractNamedVolumes(volumes []string) ([]string, error) {
 	return result, nil
 }
 
+// ResolveRelativeVolumes converts relative paths in bind mount volumes to absolute paths
+// based on the project directory. Named volumes and anonymous volumes are left unchanged.
+func ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error) {
+	resolved := make([]string, 0, len(volumes))
+
+	for _, vol := range volumes {
+		if vol == "" {
+			continue
+		}
+
+		info, err := ParseVolume(vol)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse volume '%s': %w", vol, err)
+		}
+
+		// Only resolve relative paths for bind mounts
+		if info.Type == VolumeTypeBind {
+			// Check if source is a relative path (starts with . or doesn't start with /)
+			if strings.HasPrefix(info.Source, ".") || (!filepath.IsAbs(info.Source) && info.Source != "") {
+				// Resolve relative path to absolute based on project directory
+				absPath, err := filepath.Abs(filepath.Join(projectDir, info.Source))
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve relative path '%s': %w", info.Source, err)
+				}
+				// Reconstruct volume string with absolute path
+				// Check if destination already has :ro or :rw suffix
+				dest := info.Destination
+				var modeSuffix string
+				if strings.HasSuffix(dest, ":ro") {
+					dest = strings.TrimSuffix(dest, ":ro")
+					modeSuffix = ":ro"
+				} else if strings.HasSuffix(dest, ":rw") {
+					dest = strings.TrimSuffix(dest, ":rw")
+					modeSuffix = ":rw"
+				}
+				resolved = append(resolved, absPath+":"+dest+modeSuffix)
+			} else {
+				// Already absolute path, keep as is
+				resolved = append(resolved, vol)
+			}
+		} else {
+			// Named volumes and anonymous volumes are left unchanged
+			resolved = append(resolved, vol)
+		}
+	}
+
+	return resolved, nil
+}
+
+// NormalizeVolumeNamesInStrings normalizes volume names in volume strings with project prefix
+// Replaces original volume names with normalized names (project_volume_name)
+func NormalizeVolumeNamesInStrings(volumes []string, projectName string, volumeMap map[string]string) ([]string, error) {
+	normalized := make([]string, 0, len(volumes))
+
+	for _, vol := range volumes {
+		if vol == "" {
+			continue
+		}
+
+		info, err := ParseVolume(vol)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse volume '%s': %w", vol, err)
+		}
+
+		// Only normalize named volumes
+		if info.Type == VolumeTypeNamed {
+			normalizedName, exists := volumeMap[info.Source]
+			if !exists {
+				// Normalize the volume name
+				normalizedName, err = NormalizeVolumeName(projectName, info.Source)
+				if err != nil {
+					return nil, fmt.Errorf("failed to normalize volume name '%s': %w", info.Source, err)
+				}
+				volumeMap[info.Source] = normalizedName
+			}
+			// Replace the volume name in the string
+			normalized = append(normalized, normalizedName+":"+info.Destination)
+		} else {
+			// Keep bind mounts and anonymous volumes as is
+			normalized = append(normalized, vol)
+		}
+	}
+
+	return normalized, nil
+}
+
 // VolumeExists checks if a named Docker volume exists
 func VolumeExists(name string) (bool, error) {
 	return VolumeExistsWithContext(context.Background(), name)
@@ -169,6 +255,45 @@ func EnsureVolumeWithContext(ctx context.Context, name string) error {
 			return fmt.Errorf("volume create timed out after %v", exectimeout.DockerVolumeTimeout)
 		}
 		return fmt.Errorf("failed to create volume '%s': %w (output: %s)", name, err, string(output))
+	}
+
+	return nil
+}
+
+// RemoveVolume removes a named Docker volume
+func RemoveVolume(name string) error {
+	return RemoveVolumeWithContext(context.Background(), name)
+}
+
+// RemoveVolumeWithContext removes a named Docker volume with context support
+func RemoveVolumeWithContext(ctx context.Context, name string) error {
+	// Check if volume exists first
+	exists, err := VolumeExistsWithContext(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to check if volume exists: %w", err)
+	}
+
+	if !exists {
+		// Volume doesn't exist, nothing to remove
+		return nil
+	}
+
+	// Create context with timeout
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerVolumeTimeout)
+	defer cancel()
+
+	// Remove volume
+	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "rm", name)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return fmt.Errorf("volume remove timed out after %v", exectimeout.DockerVolumeTimeout)
+		}
+		// Check if volume is in use
+		if strings.Contains(string(output), "in use") || strings.Contains(string(output), "is being used") {
+			return fmt.Errorf("volume '%s' is in use and cannot be removed", name)
+		}
+		return fmt.Errorf("failed to remove volume '%s': %w (output: %s)", name, err, string(output))
 	}
 
 	return nil

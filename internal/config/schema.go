@@ -9,6 +9,12 @@ const SchemaJSON = `{
       "type": "string",
       "pattern": "^1\\.0$"
     },
+    "workspace": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Workspace name (optional). If not specified, uses project.name as workspace. Multiple projects with the same workspace share the same workspace directory."
+    },
     "project": {
       "type": "object",
       "required": ["name", "network"],
@@ -16,12 +22,38 @@ const SchemaJSON = `{
         "name": {
           "type": "string",
           "minLength": 1,
-          "pattern": "^[a-z0-9-]+$"
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Project name (used for identification and as workspace name if workspace is not specified)"
         },
         "network": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[a-z0-9-]+$"
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9-]+$",
+              "description": "Network name (simple format)"
+            },
+            {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9-]+$",
+                  "description": "Network name"
+                },
+                "subnet": {
+                  "type": "string",
+                  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]+$",
+                  "description": "Network subnet in CIDR notation (e.g., '150.150.0.0/16')"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Network configuration with optional subnet"
+            }
+          ],
+          "description": "Network can be a string (name only) or an object with name and optional subnet"
         },
         "commands": {
           "type": "object",
@@ -76,6 +108,25 @@ const SchemaJSON = `{
             }
           },
           "additionalProperties": false
+        },
+        "env": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Array of file paths. Special case: [\".\"] means use .env in project directory as primary (read-only if exists)"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Object with direct variables (e.g., {\"DATABASE_URL\": \"postgres://...\"})"
+            }
+          ],
+          "description": "Project-level environment variables. If array with [\".\"], uses .env in project directory as primary (read-only if exists). If object, variables will be written to project.env"
         }
       },
       "additionalProperties": false
@@ -93,7 +144,7 @@ const SchemaJSON = `{
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["git", "image"]
+                "enum": ["git", "image", "local"]
               },
               "repo": {
                 "type": "string"
@@ -142,6 +193,14 @@ const SchemaJSON = `{
                 "then": {
                   "required": ["image", "tag"]
                 }
+              },
+              {
+                "if": {
+                  "properties": { "kind": { "const": "local" } }
+                },
+                "then": {
+                  "required": ["path"]
+                }
               }
             ]
           },
@@ -183,6 +242,11 @@ const SchemaJSON = `{
                 "type": "string",
                 "enum": ["node", "go", "python", "java", "rust"],
                 "description": "Runtime type for Docker wrapper mode (optional, for documentation purposes)"
+              },
+              "ip": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+                "description": "Static IP address in the network (e.g., '150.150.0.10'). Only works if project.network has a subnet configured."
               }
             },
             "additionalProperties": false
@@ -342,17 +406,24 @@ const SchemaJSON = `{
             "type": "string"
           },
           "ports": {
-            "type": "array",
+            "type": ["array", "null"],
             "items": {
               "type": "string",
               "pattern": "^[0-9]+:[0-9]+$"
-            }
+            },
+            "description": "Array of port mappings (e.g., [\"5432:5432\"]) or null if no ports"
           },
           "volumes": {
-            "type": "array",
+            "type": ["array", "null"],
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Array of volume mappings or null if no volumes"
+          },
+          "ip": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "description": "Static IP address in the network (e.g., '150.150.0.10'). Only works if project.network has a subnet configured."
           },
           "env": {
             "oneOf": [

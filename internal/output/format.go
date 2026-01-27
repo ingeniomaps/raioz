@@ -2,7 +2,9 @@ package output
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"text/tabwriter"
 	"time"
 )
 
@@ -154,16 +156,38 @@ func PrintKeyValue(key, value string) {
 	fmt.Printf("  %s: %s\n", key, value)
 }
 
+// tableWriterState holds the state for table formatting
+type tableWriterState struct {
+	writer *tabwriter.Writer
+}
+
+var globalTableState *tableWriterState
+
+// getTableWriter returns a tabwriter instance for table formatting
+func getTableWriter() *tabwriter.Writer {
+	if globalTableState == nil {
+		globalTableState = &tableWriterState{
+			writer: tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight),
+		}
+	}
+	return globalTableState.writer
+}
+
 // PrintTableHeader prints a table header with separator
 func PrintTableHeader(headers ...string) {
+	w := getTableWriter()
+
 	// Print headers
 	for i, header := range headers {
 		if i > 0 {
-			fmt.Print("\t")
+			fmt.Fprint(w, "\t")
 		}
-		fmt.Print(header)
+		fmt.Fprint(w, header)
 	}
-	fmt.Println()
+	fmt.Fprintln(w)
+
+	// Flush to ensure headers are displayed
+	w.Flush()
 
 	// Print separator
 	separator := strings.Repeat("─", 60)
@@ -172,13 +196,18 @@ func PrintTableHeader(headers ...string) {
 
 // PrintTableRow prints a table row
 func PrintTableRow(values ...string) {
+	w := getTableWriter()
+
 	for i, value := range values {
 		if i > 0 {
-			fmt.Print("\t")
+			fmt.Fprint(w, "\t")
 		}
-		fmt.Print(value)
+		fmt.Fprint(w, value)
 	}
-	fmt.Println()
+	fmt.Fprintln(w)
+
+	// Flush to ensure row is displayed
+	w.Flush()
 }
 
 // PrintEmptyState prints a message when there's no data to show

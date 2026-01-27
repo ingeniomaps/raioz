@@ -2,8 +2,10 @@ package upcase
 
 import (
 	"context"
+	"path/filepath"
 	"time"
 
+	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/env"
 	"raioz/internal/errors"
@@ -52,12 +54,32 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	// Get project directory (where .raioz.json is located)
+	projectDir, err := filepath.Abs(filepath.Dir(opts.ConfigPath))
+	if err != nil {
+		return errors.New(
+			errors.ErrCodeWorkspaceError,
+			"Failed to get project directory",
+		).WithError(err)
+	}
+
 	// Write global env variables from env.variables to global.env
 	// This must happen before filters to ensure variables are available
 	if err := env.WriteGlobalEnvVariables(ws, deps); err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
 			"Failed to write global environment variables",
+		).WithSuggestion(
+			"Check that you have write permissions for the env directory.",
+		).WithError(err)
+	}
+
+	// Resolve project.env (if project.env is ["."], uses .env in project directory as primary)
+	projectEnvPath, err := env.ResolveProjectEnv(ws, deps, projectDir)
+	if err != nil {
+		return errors.New(
+			errors.ErrCodeWorkspaceError,
+			"Failed to resolve project environment",
 		).WithSuggestion(
 			"Check that you have write permissions for the env directory.",
 		).WithError(err)
@@ -151,14 +173,14 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Git: clone/update repos, handle branch changes
-	err = uc.processGitRepos(ctx, deps, ws, oldDeps, opts.ForceReclone)
+	err = uc.processGitRepos(ctx, deps, ws, oldDeps, opts.ForceReclone, projectDir)
 	if err != nil {
 		return err
 	}
 
 	// Generate .env files from templates for all services (after cloning, before starting)
 	output.PrintProgress("Generating .env files from templates...")
-	err = uc.generateEnvFilesFromTemplates(ctx, deps, ws)
+	err = uc.generateEnvFilesFromTemplates(ctx, deps, ws, projectEnvPath)
 	if err != nil {
 		// Log but don't fail - template generation is optional
 		logging.WarnWithContext(ctx, "Some .env files could not be generated from templates", "error", err.Error())
@@ -168,7 +190,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Host services: start services that run directly on the host (without Docker)
-	hostProcessInfo, err := uc.processHostServices(ctx, deps, ws)
+	hostProcessInfo, err := uc.processHostServices(ctx, deps, ws, projectDir)
 	if err != nil {
 		return err
 	}
@@ -184,7 +206,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Compose: generate compose, docker.Up
-	composePath, serviceNames, infraNames, err := uc.processCompose(ctx, deps, ws)
+	composePath, serviceNames, infraNames, err := uc.processCompose(ctx, deps, ws, projectDir)
 	if err != nil {
 		// If compose fails, stop host services that were started
 		if len(hostProcessInfo) > 0 {
@@ -211,6 +233,17 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	err = uc.updateGlobalState(ctx, deps, ws, composePath, serviceNames)
 	if err != nil {
 		// Log but don't fail - global state is optional
+	}
+
+	// Wait for services and infra to be healthy before executing project commands
+	// This ensures that project.commands.up runs only after dependencies are ready
+	if hasProjectCommands && (len(serviceNames) > 0 || len(infraNames) > 0) {
+		output.PrintProgress("Waiting for services to be healthy before executing project command...")
+		if err := docker.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, deps.Project.Name); err != nil {
+			logging.WarnWithContext(ctx, "Failed to wait for services to be healthy", "error", err.Error())
+			output.PrintWarning("Some services may not be healthy yet, proceeding with project command anyway")
+			// Continue anyway - user may want to proceed even if health checks fail
+		}
 	}
 
 	// Execute local project command as final step (if both services and commands exist)

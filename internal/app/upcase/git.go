@@ -17,7 +17,7 @@ import (
 )
 
 // processGitRepos handles cloning/updating repos and branch changes
-func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, oldDeps *config.Deps, forceReclone bool) error {
+func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, oldDeps *config.Deps, forceReclone bool, projectDir string) error {
 	// Convert interfaces.Workspace to concrete workspace.Workspace for operations that need it
 	wsConcrete := (*workspace.Workspace)(ws)
 
@@ -45,6 +45,39 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			defer cancel()
 			if err := git.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, deps); err != nil {
 				return errors.New(errors.ErrCodeGitCloneFailed, "Failed to update repositories after branch changes").WithSuggestion("Check network connectivity and repository access. " + "Verify that branch names are correct and accessible.").WithError(err)
+			}
+		}
+	}
+
+	// Check for service conflicts before cloning
+	for name, svc := range deps.Services {
+		if svc.Enabled != nil && !*svc.Enabled {
+			continue
+		}
+		if svc.Source.Kind == "git" {
+		// Check if this service conflicts with a local project or another running service
+			conflict, err := uc.detectServiceConflict(ctx, name, deps, wsConcrete, projectDir, false)
+			if err != nil {
+				logging.WarnWithContext(ctx, "Failed to detect service conflict", "service", name, "error", err.Error())
+				continue
+			}
+			if conflict != nil {
+				// Resolve conflict
+				resolution, err := uc.resolveServiceConflict(ctx, conflict, false, deps.GetWorkspaceName(), projectDir)
+				if err != nil {
+					return err
+				}
+				if resolution == "skip" || resolution == "cancel" {
+					// Skip this service or cancel entire operation
+					if resolution == "cancel" {
+						return errors.New(errors.ErrCodeWorkspaceError, "Operation cancelled by user")
+					}
+					continue
+				}
+				// Apply resolution
+				if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, name, deps, wsConcrete, projectDir, false); err != nil {
+					return err
+				}
 			}
 		}
 	}

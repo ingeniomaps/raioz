@@ -80,9 +80,15 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps
 		(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
 		(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))
 
-	if len(deps.Services) == 0 && !hasProjectCommands {
-		return nil, errors.New(errors.ErrCodeInvalidConfig, "No services enabled after applying filters").WithSuggestion("Check feature flag configurations, environment variables, and ignore list. " +
-			"Alternatively, configure 'project.commands.up' to run the project directly.")
+	// Check if we have services, infra, or project commands
+	hasServices := len(deps.Services) > 0
+	hasInfra := len(deps.Infra) > 0
+
+	// Only fail if everything is empty (no services, no infra, no project commands)
+	if !hasServices && !hasInfra && !hasProjectCommands {
+		return nil, errors.New(errors.ErrCodeInvalidConfig, "No services, infrastructure, or project commands configured").WithSuggestion("Configure at least one of the following: " +
+			"services, infrastructure, or 'project.commands.up'. " +
+			"If you have services but they're all filtered out, check feature flag configurations, environment variables, and ignore list.")
 	}
 
 	return deps, nil

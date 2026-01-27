@@ -48,12 +48,14 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 	var ws *interfaces.Workspace
 	var err error
 
-	// Try to determine project name
+	// Try to determine project name and workspace
 	projectName := opts.ProjectName
+	var workspaceName string
 	if projectName == "" {
 		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 		if deps != nil {
 			projectName = deps.Project.Name
+			workspaceName = deps.GetWorkspaceName()
 		} else {
 			return errors.New(
 				errors.ErrCodeInvalidConfig,
@@ -62,10 +64,19 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 				"Please provide --config or --project flag to specify the project.",
 			)
 		}
+	} else {
+		// If project name comes from CLI, load config to get workspace name
+		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		if deps != nil && deps.Project.Name == projectName {
+			workspaceName = deps.GetWorkspaceName()
+		} else {
+			// Fallback: use project name as workspace (backward compatibility)
+			workspaceName = projectName
+		}
 	}
 
-	// Resolve workspace
-	ws, err = uc.deps.Workspace.Resolve(projectName)
+	// Resolve workspace using workspace name
+	ws, err = uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
@@ -112,12 +123,33 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 
+	// Convert workspace to concrete type for host operations
+	wsConcrete := (*workspacepkg.Workspace)(ws)
+
+	// Load host processes state to check host services
+	hostProcesses, err := host.LoadProcessesState(wsConcrete)
+	if err != nil {
+		// Log but continue - host processes state is optional
+		hostProcesses = make(map[string]*host.ProcessInfo)
+	}
+
 	// Collect all service names from state (running services)
-	var serviceNames []string
+	serviceNamesMap := make(map[string]bool)
 	for name := range stateDeps.Services {
-		serviceNames = append(serviceNames, name)
+		serviceNamesMap[name] = true
 	}
 	for name := range stateDeps.Infra {
+		serviceNamesMap[name] = true
+	}
+
+	// Also include host services from host processes state
+	for name := range hostProcesses {
+		serviceNamesMap[name] = true
+	}
+
+	// Convert map to slice
+	var serviceNames []string
+	for name := range serviceNamesMap {
 		serviceNames = append(serviceNames, name)
 	}
 
@@ -137,17 +169,7 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 		}
 	}
 
-	// Convert workspace to concrete type for host operations
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-
-	// Load host processes state to check host services
-	hostProcesses, err := host.LoadProcessesState(wsConcrete)
-	if err != nil {
-		// Log but continue - host processes state is optional
-		hostProcesses = make(map[string]*host.ProcessInfo)
-	}
-
-	// Get detailed service info (for Docker services)
+	// Get detailed service info (for Docker services from generated compose)
 	servicesInfo, err := uc.deps.DockerRunner.GetServicesInfoWithContext(
 		ctx,
 		composePath,
@@ -158,6 +180,28 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get services info: %w", err)
+	}
+
+	// If project has its own docker-compose.yml, include services from it
+	if stateDeps.ProjectComposePath != "" {
+		projectComposeServices, err := docker.GetAvailableServicesWithContext(ctx, stateDeps.ProjectComposePath)
+		if err == nil && len(projectComposeServices) > 0 {
+			// Get service info from project compose
+			projectServicesInfo, err := uc.deps.DockerRunner.GetServicesInfoWithContext(
+				ctx,
+				stateDeps.ProjectComposePath,
+				projectComposeServices,
+				stateDeps.Project.Name,
+				make(map[string]config.Service), // No service configs for project compose services
+				ws,
+			)
+			if err == nil {
+				// Merge project compose services into servicesInfo (use original names)
+				for name, info := range projectServicesInfo {
+					servicesInfo[name] = info
+				}
+			}
+		}
 	}
 
 	// Check host services status
@@ -200,7 +244,7 @@ func (uc *StatusUseCase) outputJSON(servicesInfo map[string]*interfaces.ServiceI
 	jsonData := map[string]any{
 		"project": map[string]string{
 			"name":    stateDeps.Project.Name,
-			"network": stateDeps.Project.Network,
+			"network": stateDeps.Project.Network.GetName(),
 		},
 		"services":      servicesInfo,
 		"disabled":      disabledServices,
@@ -223,7 +267,11 @@ func (uc *StatusUseCase) outputHumanReadable(servicesInfo map[string]*interfaces
 	// Table output - these are user-facing output, not logs
 	output.PrintSectionHeader("Project Status")
 	output.PrintKeyValue("Project", stateDeps.Project.Name)
-	output.PrintKeyValue("Network", stateDeps.Project.Network)
+	networkName := stateDeps.Project.Network.GetName()
+	if stateDeps.Project.Network.HasSubnet() {
+		networkName = fmt.Sprintf("%s (%s)", networkName, stateDeps.Project.Network.GetSubnet())
+	}
+	output.PrintKeyValue("Network", networkName)
 
 	// Show active workspace if set
 	if activeWorkspace != "" {

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
@@ -43,8 +45,9 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	var ws *interfaces.Workspace
 	var err error
 
-	// Determine project name
+	// Determine project name and workspace
 	projectName := opts.ProjectName
+	var workspaceName string
 	if projectName == "" {
 		logging.DebugWithContext(ctx, "Project name not provided, loading from config",
 			"config_path", opts.ConfigPath,
@@ -52,6 +55,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 		if deps != nil {
 			projectName = deps.Project.Name
+			workspaceName = deps.GetWorkspaceName()
 			ctx = logging.WithProject(ctx, projectName)
 		} else {
 			logging.ErrorWithContext(ctx, "Could not determine project name")
@@ -64,6 +68,14 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		}
 	} else {
 		ctx = logging.WithProject(ctx, projectName)
+		// If project name comes from CLI, load config to get workspace name
+		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		if deps != nil && deps.Project.Name == projectName {
+			workspaceName = deps.GetWorkspaceName()
+		} else {
+			// Fallback: use project name as workspace (backward compatibility)
+			workspaceName = projectName
+		}
 	}
 
 	// Log operation start
@@ -71,8 +83,8 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		"project", projectName,
 	)
 
-	// Resolve workspace
-	ws, err = uc.deps.Workspace.Resolve(projectName)
+	// Resolve workspace using workspace name
+	ws, err = uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		logging.ErrorWithContext(ctx, "Failed to resolve workspace",
 			"project", projectName,
@@ -184,22 +196,75 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 				}
 			}
 
-			// If no stopCommand but composePath is available, use docker-compose down
-			if stopCommand == "" && processInfo.ComposePath != "" {
-				// Use docker-compose down for the detected compose file
-				composeDir := filepath.Dir(processInfo.ComposePath)
-				stopCommand = fmt.Sprintf("docker-compose -f %s down", filepath.Base(processInfo.ComposePath))
-				if servicePath == "" {
-					servicePath = composeDir
+			// If no stopCommand, try to detect docker-compose.yml
+			if stopCommand == "" {
+				var composePathToUse string
+
+				// First, try to use ComposePath from ProcessInfo (saved when service was started)
+				if processInfo.ComposePath != "" {
+					// Verify the compose file exists
+					if _, err := os.Stat(processInfo.ComposePath); err == nil {
+						composePathToUse = processInfo.ComposePath
+						logging.InfoWithContext(ctx, "Using ComposePath from ProcessInfo", "service", name, "composePath", composePathToUse)
+					} else {
+						logging.WarnWithContext(ctx, "ComposePath from ProcessInfo does not exist, trying to detect", "service", name, "composePath", processInfo.ComposePath, "error", err.Error())
+					}
 				}
-				logging.InfoWithContext(ctx, "Using docker-compose down for host service", "service", name, "composePath", processInfo.ComposePath)
+
+				// If ComposePath from ProcessInfo doesn't exist or wasn't set, try to detect it
+				if composePathToUse == "" && currentDeps != nil {
+					// If not in ProcessInfo, try to detect it from current config
+					if svc, exists := currentDeps.Services[name]; exists {
+						// Get service path if not already set
+						if servicePath == "" && svc.Source.Kind == "git" {
+							servicePath = workspacepkg.GetServicePath(wsConcrete, name, svc)
+						}
+
+						// Try to detect compose path
+						if servicePath != "" {
+							var explicitComposePath string
+							if svc.Commands != nil {
+								explicitComposePath = svc.Commands.ComposePath
+							}
+							// Get command for detection (try source.command first, then commands.up)
+							command := ""
+							if svc.Source.Command != "" {
+								command = svc.Source.Command
+							} else if svc.Commands != nil && svc.Commands.Up != "" {
+								command = svc.Commands.Up
+							}
+							composePathToUse = host.DetectComposePath(servicePath, command, explicitComposePath)
+							if composePathToUse != "" {
+								logging.InfoWithContext(ctx, "Detected docker-compose.yml for host service", "service", name, "composePath", composePathToUse, "servicePath", servicePath)
+							}
+						}
+					}
+				}
+
+				// If composePath is found, use docker-compose down
+				if composePathToUse != "" {
+					composeDir := filepath.Dir(composePathToUse)
+					// Use absolute path for docker compose -f flag
+					stopCommand = fmt.Sprintf("docker compose -f %s down", composePathToUse)
+					if servicePath == "" {
+						servicePath = composeDir
+					}
+					logging.InfoWithContext(ctx, "Using docker-compose down for host service", "service", name, "composePath", composePathToUse, "composeDir", composeDir)
+				}
 			}
 
+			// Always try to stop the service, even if no stopCommand is provided
+			// StopServiceWithCommandAndPath will kill the process by PID if stopCommand is empty
 			logging.InfoWithContext(ctx, "Stopping host service", "service", name, "pid", processInfo.PID, "stopCommand", stopCommand, "servicePath", servicePath)
 			if err := host.StopServiceWithCommandAndPath(ctx, processInfo.PID, stopCommand, servicePath); err != nil {
 				logging.WarnWithContext(ctx, "Failed to stop host service", "service", name, "pid", processInfo.PID, "error", err.Error())
+				output.PrintWarning(fmt.Sprintf("Failed to stop host service %s (PID: %d): %v", name, processInfo.PID, err))
 			} else {
-				output.PrintSuccess(fmt.Sprintf("Stopped host service %s (PID: %d)", name, processInfo.PID))
+				if stopCommand != "" {
+					output.PrintSuccess(fmt.Sprintf("Stopped host service %s (PID: %d) using stop command", name, processInfo.PID))
+				} else {
+					output.PrintSuccess(fmt.Sprintf("Stopped host service %s (PID: %d)", name, processInfo.PID))
+				}
 			}
 		}
 		// Remove host processes state file
@@ -267,7 +332,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 
 	// Check if network is still in use by other projects
 	// We leave the network for reusability (idempotence), but check usage
-	networkName := stateDeps.Project.Network
+	networkName := stateDeps.Project.Network.GetName()
 	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
 	networkProjects, err := uc.deps.DockerRunner.GetNetworkProjects(networkName, baseDir)
 	if err != nil {
@@ -334,8 +399,106 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	}
 
 	// Execute local project down command if this is a local project
-	// This is handled by a separate function to avoid import cycles
-	// For now, we'll skip this in down.go and handle it in the command layer if needed
+	// Check if project has docker-compose.yml in project directory
+	// First, try to use ProjectComposePath from state (if saved during up)
+	var projectComposePath string
+	if stateDeps.ProjectComposePath != "" {
+		projectComposePath = stateDeps.ProjectComposePath
+	} else if opts.ConfigPath != "" {
+		// Fallback: detect docker-compose.yml in project directory
+		absConfigPath, err := filepath.Abs(opts.ConfigPath)
+		if err == nil {
+			projectDir := filepath.Dir(absConfigPath)
+
+			// Check for docker-compose.yml in project directory
+			composeFiles := []string{
+				filepath.Join(projectDir, "docker-compose.yml"),
+				filepath.Join(projectDir, "docker-compose.yaml"),
+				filepath.Join(projectDir, "compose.yml"),
+				filepath.Join(projectDir, "compose.yaml"),
+			}
+
+			for _, composeFile := range composeFiles {
+				if _, err := os.Stat(composeFile); err == nil {
+					projectComposePath = composeFile
+					break
+				}
+			}
+		}
+	}
+
+	// If docker-compose.yml found, stop it
+	if projectComposePath != "" {
+		output.PrintInfo(fmt.Sprintf("Stopping Docker Compose services from project directory..."))
+		logging.InfoWithContext(ctx, "Found docker-compose.yml in project directory, stopping it", "composePath", projectComposePath)
+		if err := uc.deps.DockerRunner.DownWithContext(ctx, projectComposePath); err != nil {
+			logging.WarnWithContext(ctx, "Failed to stop Docker Compose services from project directory", "error", err.Error())
+			output.PrintWarning("Failed to stop Docker Compose services from project directory (may already be stopped)")
+		} else {
+			output.PrintSuccess("Docker Compose services stopped from project directory")
+		}
+	}
+
+	// Execute project.commands.down if defined
+	if stateDeps.Project.Commands != nil {
+		var downCommand string
+		mode := "dev"
+		// Try to get mode from first service with docker config
+		for _, svc := range stateDeps.Services {
+			if svc.Docker != nil && svc.Docker.Mode != "" {
+				mode = svc.Docker.Mode
+				break
+			}
+		}
+
+		if mode == "prod" && stateDeps.Project.Commands.Prod != nil && stateDeps.Project.Commands.Prod.Down != "" {
+			downCommand = stateDeps.Project.Commands.Prod.Down
+		} else if mode == "dev" && stateDeps.Project.Commands.Dev != nil && stateDeps.Project.Commands.Dev.Down != "" {
+			downCommand = stateDeps.Project.Commands.Dev.Down
+		} else if stateDeps.Project.Commands.Down != "" {
+			downCommand = stateDeps.Project.Commands.Down
+		}
+
+		if downCommand != "" {
+			// Get project directory from config path or state
+			var projectDir string
+			if opts.ConfigPath != "" {
+				absConfigPath, err := filepath.Abs(opts.ConfigPath)
+				if err == nil {
+					projectDir = filepath.Dir(absConfigPath)
+				}
+			}
+			if projectDir == "" {
+				// Fallback: try to get from workspace
+				projectDir = uc.deps.Workspace.GetRoot(ws)
+			}
+
+			output.PrintInfo(fmt.Sprintf("Executing project down command: %s", downCommand))
+			logging.InfoWithContext(ctx, "Executing project down command", "command", downCommand, "projectDir", projectDir)
+
+			cmdParts := strings.Fields(downCommand)
+			if len(cmdParts) > 0 {
+				var cmd *exec.Cmd
+				if len(cmdParts) == 1 {
+					cmd = exec.CommandContext(ctx, cmdParts[0])
+				} else {
+					cmd = exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+				}
+				cmd.Dir = projectDir
+				cmd.Env = os.Environ()
+				cmd.Env = append(cmd.Env, fmt.Sprintf("RAIOZ_MODE=%s", mode))
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+
+				if err := cmd.Run(); err != nil {
+					logging.WarnWithContext(ctx, "Failed to execute project down command", "error", err.Error())
+					output.PrintWarning(fmt.Sprintf("Failed to execute project down command (may already be stopped): %v", err))
+				} else {
+					output.PrintSuccess("Project down command executed successfully")
+				}
+			}
+		}
+	}
 
 	output.PrintSuccess(fmt.Sprintf("Project '%s' stopped successfully", stateDeps.Project.Name))
 

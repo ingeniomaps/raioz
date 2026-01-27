@@ -1,7 +1,6 @@
 package env
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,13 +21,15 @@ var EnvTemplateNames = []string{
 }
 
 // GenerateEnvFromTemplate generates a .env file from a template if found
-// and injects variables from resolved env files (global, project, service)
+// and injects variables from resolved env files (global, project.env, project, service)
+// projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
 func GenerateEnvFromTemplate(
 	ws *workspace.Workspace,
 	deps *config.Deps,
 	serviceName string,
 	servicePath string,
 	svc config.Service,
+	projectEnvPath string,
 ) error {
 	// Find template file
 	var templatePath string
@@ -42,6 +43,14 @@ func GenerateEnvFromTemplate(
 
 	// If no template found, skip
 	if templatePath == "" {
+		return nil
+	}
+
+	// Special case: if project.env is ["."] and .env exists in project directory,
+	// don't generate .env from template (use existing .env as primary)
+	if projectEnvPath != "" && serviceName == deps.Project.Name {
+		// This is the project itself, and project.env is ["."] with existing .env
+		// Don't generate from template - use existing .env
 		return nil
 	}
 
@@ -66,35 +75,47 @@ func GenerateEnvFromTemplate(
 		}
 	}
 
-	// 2. Project-specific env files
-	for _, envFile := range deps.Env.Files {
-		var envPath string
-		var err error
+	// 2. Project.env file (if project.env is ["."] and .env exists in project directory)
+	// IMPORTANT: Only include projectEnvPath for the project itself, NOT for services
+	// Services should NOT inherit the project's .env file
+	if projectEnvPath != "" && serviceName == deps.Project.Name {
+		// This is the project itself, include project .env
+		allResolvedPaths = append(allResolvedPaths, projectEnvPath)
+	}
 
-		if strings.HasPrefix(envFile, "projects/") {
-			envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, envFile+".env")
-			if err != nil {
-				continue // Skip invalid paths
-			}
-		} else if strings.HasPrefix(envFile, "services/") {
-			// Skip service files here, they're handled in step 3
-			continue
-		} else {
-			// Assume it's a project name
-			envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", envFile+".env"))
-			if err != nil {
-				continue // Skip invalid paths
-			}
-		}
+	// 3. Project-specific env files (from env.files)
+	// IMPORTANT: Only include project-specific files for the project itself, NOT for services
+	// Services should only use their own env files
+	if serviceName == deps.Project.Name {
+		for _, envFile := range deps.Env.Files {
+			var envPath string
+			var err error
 
-		if envPath != "" {
-			if _, err := os.Stat(envPath); err == nil {
-				allResolvedPaths = append(allResolvedPaths, envPath)
+			if strings.HasPrefix(envFile, "projects/") {
+				envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, envFile+".env")
+				if err != nil {
+					continue // Skip invalid paths
+				}
+			} else if strings.HasPrefix(envFile, "services/") {
+				// Skip service files here, they're handled in step 4
+				continue
+			} else {
+				// Assume it's a project name
+				envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", envFile+".env"))
+				if err != nil {
+					continue // Skip invalid paths
+				}
+			}
+
+			if envPath != "" {
+				if _, err := os.Stat(envPath); err == nil {
+					allResolvedPaths = append(allResolvedPaths, envPath)
+				}
 			}
 		}
 	}
 
-	// 3. Service-specific env files (if service has env config)
+	// 4. Service-specific env files (if service has env config)
 	var directServiceVars map[string]string
 	if svc.Env != nil {
 		if svc.Env.IsObject && svc.Env.Variables != nil {
@@ -107,9 +128,16 @@ func GenerateEnvFromTemplate(
 			}
 		} else {
 			// If env is an array, resolve all files
+			// IMPORTANT: Do NOT pass projectEnvPath for services - they should not inherit project .env
 			serviceEnvFiles := svc.Env.GetFilePaths()
 			if len(serviceEnvFiles) > 0 {
-				resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, serviceEnvFiles)
+				// For services, pass empty string for projectEnvPath (only project itself should use it)
+				serviceProjectEnvPath := ""
+				if serviceName == deps.Project.Name {
+					// Only use projectEnvPath if this is the project itself
+					serviceProjectEnvPath = projectEnvPath
+				}
+				resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, serviceEnvFiles, serviceProjectEnvPath)
 				if err == nil {
 					allResolvedPaths = append(allResolvedPaths, resolvedPaths...)
 				}
@@ -170,97 +198,44 @@ func GenerateEnvFromTemplate(
 		}
 	}
 
-	// If .env exists, compare and ask user about changes
+	// If .env exists, merge with global + service-specific variables
+	// IMPORTANT: Keep all existing variables, only add/update with global + service-specific
 	if envExists && existingVars != nil {
-		// Find variables that changed
-		changedVars := findChangedVariables(existingVars, newVars)
+		// Start with existing variables (preserve all existing)
+		finalVars := make(map[string]string)
+		for k, v := range existingVars {
+			finalVars[k] = v
+		}
 
-		if len(changedVars) > 0 {
-			// Ask user about each changed variable
-			finalVars := make(map[string]string)
-			// First, copy all existing variables
-			for k, v := range existingVars {
-				finalVars[k] = v
-			}
+		// Merge with resolved variables (global + service-specific)
+		// This will add new variables and update existing ones with values from global + service files
+		for key, value := range envVars {
+			// Only update if the variable comes from global or service-specific files
+			// (not from project .env, which we already excluded above)
+			finalVars[key] = value
+		}
 
-			// Then, ask about changed variables
-			reader := bufio.NewReader(os.Stdin)
-			for _, change := range changedVars {
-				fmt.Printf("\n⚠️  Variable '%s' has changed:\n", change.Key)
-				fmt.Printf("   Current: %s\n", change.OldValue)
-				fmt.Printf("   New:     %s\n", change.NewValue)
-				fmt.Printf("   Use new value? (y/N): ")
-
-				response, err := reader.ReadString('\n')
-				if err != nil {
-					// On error, keep existing value
-					continue
-				}
-
-				response = strings.TrimSpace(strings.ToLower(response))
-				if response == "y" || response == "yes" {
-					finalVars[change.Key] = change.NewValue
-				}
-				// If no/empty, keep existing value (already in finalVars)
-			}
-
-			// Also add any new variables that didn't exist before
-			for key, value := range newVars {
-				if _, exists := existingVars[key]; !exists {
-					finalVars[key] = value
-				}
-			}
-
-			// Write final .env file
-			if err := writeEnvFile(envFilePath, finalVars); err != nil {
-				return fmt.Errorf("failed to write .env file: %w", err)
-			}
-		} else {
-			// No changes, but still update with any new variables
-			for key, value := range newVars {
-				if _, exists := existingVars[key]; !exists {
-					existingVars[key] = value
-				}
-			}
-			if err := writeEnvFile(envFilePath, existingVars); err != nil {
-				return fmt.Errorf("failed to write .env file: %w", err)
+		// Merge direct service variables (highest precedence)
+		if directServiceVars != nil {
+			for key, value := range directServiceVars {
+				finalVars[key] = value
 			}
 		}
+
+		// Write merged .env file (preserving existing + adding global + service-specific)
+		if err := writeEnvFile(envFilePath, finalVars); err != nil {
+			return fmt.Errorf("failed to write .env file: %w", err)
+		}
+		fmt.Printf("✅ .env file updated for service '%s' (merged with global + service-specific variables)\n", serviceName)
 	} else {
-		// .env doesn't exist, create it (no notification needed)
+		// .env doesn't exist, create it from template + global + service-specific
 		if err := writeEnvFile(envFilePath, newVars); err != nil {
 			return fmt.Errorf("failed to write .env file: %w", err)
 		}
-		fmt.Printf("✅ .env file created/updated for service '%s' with %d variables\n", serviceName, len(newVars))
+		fmt.Printf("✅ .env file created for service '%s' with %d variables\n", serviceName, len(newVars))
 	}
 
 	return nil
-}
-
-// VariableChange represents a change in a variable value
-type VariableChange struct {
-	Key      string
-	OldValue string
-	NewValue string
-}
-
-// findChangedVariables finds variables that have changed between old and new
-func findChangedVariables(oldVars, newVars map[string]string) []VariableChange {
-	var changes []VariableChange
-
-	for key, newValue := range newVars {
-		if oldValue, exists := oldVars[key]; exists {
-			if oldValue != newValue {
-				changes = append(changes, VariableChange{
-					Key:      key,
-					OldValue: oldValue,
-					NewValue: newValue,
-				})
-			}
-		}
-	}
-
-	return changes
 }
 
 // parseEnvContent parses env file content into a map of key=value pairs

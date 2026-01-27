@@ -30,7 +30,7 @@ func CreateMinimalTestDeps() *config.Deps {
 		SchemaVersion: "1.0",
 		Project: config.Project{
 			Name:    "test-project",
-			Network: "test-network",
+			Network: config.NetworkConfig{Name: "test-network", IsObject: false},
 		},
 		Services: map[string]config.Service{},
 		Infra:    map[string]config.Infra{},

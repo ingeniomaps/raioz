@@ -8,12 +8,14 @@ import (
 
 // resolveWorkspace resolves the workspace and determines the project name
 func (uc *UseCase) resolveWorkspace(opts Options) (string, *interfaces.Workspace, error) {
-	// Try to determine project name
+	// Try to determine project name and workspace
 	projectName := opts.ProjectName
+	var workspaceName string
 	if projectName == "" {
 		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 		if deps != nil {
 			projectName = deps.Project.Name
+			workspaceName = deps.GetWorkspaceName()
 		} else {
 			return "", nil, errors.New(
 				errors.ErrCodeInvalidConfig,
@@ -22,10 +24,19 @@ func (uc *UseCase) resolveWorkspace(opts Options) (string, *interfaces.Workspace
 				"Please provide --config or --project flag to specify the project.",
 			)
 		}
+	} else {
+		// If project name comes from CLI, load config to get workspace name
+		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		if deps != nil && deps.Project.Name == projectName {
+			workspaceName = deps.GetWorkspaceName()
+		} else {
+			// Fallback: use project name as workspace (backward compatibility)
+			workspaceName = projectName
+		}
 	}
 
-	// Resolve workspace
-	ws, err := uc.deps.Workspace.Resolve(projectName)
+	// Resolve workspace using workspace name
+	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		return "", nil, errors.New(
 			errors.ErrCodeWorkspaceError,

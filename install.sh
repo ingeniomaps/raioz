@@ -239,8 +239,8 @@ download_binary() {
                     fi
                 else
                     print_error "unzip is required to extract the archive"
-                    exit 1
-                fi
+            exit 1
+        fi
             fi
 
             # Clean up archive and any extracted directories
