@@ -8,11 +8,13 @@ import (
 // Returns filtered deps and a list of services that were replaced with mocks
 func FilterByFeatureFlags(deps *Deps, profile string, envVars map[string]string) (*Deps, []string) {
 	filtered := &Deps{
-		SchemaVersion: deps.SchemaVersion,
-		Project:       deps.Project,
-		Services:      make(map[string]Service),
-		Infra:         deps.Infra, // Infra is always included
-		Env:           deps.Env,
+		SchemaVersion:      deps.SchemaVersion,
+		Workspace:          deps.Workspace, // Preserve workspace
+		Project:            deps.Project,
+		Services:           make(map[string]Service),
+		Infra:              deps.Infra, // Infra is always included
+		Env:                deps.Env,
+		ProjectComposePath: deps.ProjectComposePath,
 	}
 
 	var mockServices []string

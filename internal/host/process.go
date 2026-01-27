@@ -77,8 +77,15 @@ func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Dep
 		return nil, fmt.Errorf("image-based services cannot run on host: %s", serviceName)
 	}
 
+	// Create symlinks from volumes if specified (for host services)
+	if len(svc.Volumes) > 0 {
+		if err := createVolumeSymlinks(svc.Volumes, projectDir, servicePath); err != nil {
+			return nil, fmt.Errorf("failed to create volume symlinks for service %s: %w", serviceName, err)
+		}
+	}
+
 	// Resolve environment variables
-	envVars, err := resolveEnvVars(ctx, ws, deps, serviceName, svc)
+	envVars, err := resolveEnvVars(ctx, ws, deps, serviceName, svc, projectDir, servicePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve env vars for service %s: %w", serviceName, err)
 	}
@@ -325,9 +332,9 @@ func IsServiceRunning(pid int) (bool, error) {
 }
 
 // resolveEnvVars resolves environment variables for a host service
-func resolveEnvVars(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service) ([]string, error) {
+func resolveEnvVars(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service, projectDir string, servicePath string) ([]string, error) {
 	// Resolve env file path (same logic as Docker)
-	envFilePath, err := env.ResolveEnvFileForService(ws, deps, serviceName, svc.Env)
+	envFilePath, err := env.ResolveEnvFileForService(ws, deps, serviceName, svc.Env, projectDir, servicePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve env file: %w", err)
 	}
@@ -363,6 +370,117 @@ func parseCommand(cmdStr string) []string {
 	}
 
 	return parts
+}
+
+// createVolumeSymlinks creates symbolic links for host services
+// volumes format: ["SRC:DEST", ...] where:
+// - SRC is relative to projectDir (or absolute path)
+// - DEST is relative to servicePath
+func createVolumeSymlinks(volumes []string, projectDir string, servicePath string) error {
+	for _, vol := range volumes {
+		if vol == "" {
+			continue
+		}
+
+		// Parse SRC:DEST format
+		parts := strings.SplitN(vol, ":", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid volume format '%s': expected 'SRC:DEST'", vol)
+		}
+
+		src := strings.TrimSpace(parts[0])
+		dest := strings.TrimSpace(parts[1])
+
+		if src == "" || dest == "" {
+			return fmt.Errorf("invalid volume format '%s': SRC and DEST cannot be empty", vol)
+		}
+
+		// Resolve SRC to absolute path (relative to projectDir if not absolute)
+		var srcAbs string
+		if filepath.IsAbs(src) {
+			srcAbs = src
+		} else {
+			if projectDir == "" {
+				return fmt.Errorf("cannot resolve relative path '%s': projectDir is not provided", src)
+			}
+			srcAbs = filepath.Join(projectDir, src)
+		}
+
+		// Create source path if it doesn't exist (file or directory)
+		if _, err := os.Stat(srcAbs); os.IsNotExist(err) {
+			// Source doesn't exist, determine if it should be a file or directory
+			// Check if destination suggests it's a file (has file extension or doesn't end with common dir patterns)
+			destBase := filepath.Base(dest)
+			hasExtension := filepath.Ext(destBase) != ""
+			isLikelyFile := hasExtension && destBase != "." && destBase != ".."
+			
+			if isLikelyFile {
+				// Likely a file - ensure parent directory exists and create empty file
+				parentDir := filepath.Dir(srcAbs)
+				if err := os.MkdirAll(parentDir, 0755); err != nil {
+					return fmt.Errorf("failed to create parent directory for source file: %w", err)
+				}
+				// Create empty file
+				file, err := os.Create(srcAbs)
+				if err != nil {
+					return fmt.Errorf("failed to create source file: %w", err)
+				}
+				file.Close()
+			} else {
+				// Likely a directory - create directory
+				if err := os.MkdirAll(srcAbs, 0755); err != nil {
+					return fmt.Errorf("failed to create source directory: %w", err)
+				}
+			}
+		} else if err != nil {
+			return fmt.Errorf("failed to check source path: %w", err)
+		}
+
+		// Resolve DEST to absolute path (relative to servicePath)
+		destAbs := filepath.Join(servicePath, dest)
+
+		// Ensure parent directory of destination exists
+		destParent := filepath.Dir(destAbs)
+		if err := os.MkdirAll(destParent, 0755); err != nil {
+			return fmt.Errorf("failed to create parent directory for destination: %w", err)
+		}
+
+		// Check if destination already exists
+		if _, err := os.Lstat(destAbs); err == nil {
+			// Destination exists, check if it's already a symlink pointing to the same target
+			if linkInfo, err := os.Readlink(destAbs); err == nil {
+				// It's a symlink, check if it points to the same target
+				linkAbs, err := filepath.Abs(filepath.Join(filepath.Dir(destAbs), linkInfo))
+				if err == nil {
+					srcAbsResolved, err := filepath.Abs(srcAbs)
+					if err == nil && linkAbs == srcAbsResolved {
+						// Already linked to the same target, skip
+						continue
+					}
+				}
+				// Remove existing symlink to recreate it
+				if err := os.Remove(destAbs); err != nil {
+					return fmt.Errorf("failed to remove existing symlink: %w", err)
+				}
+			} else {
+				// Destination exists but is not a symlink
+				return fmt.Errorf("destination path already exists and is not a symlink: %s", destAbs)
+			}
+		}
+
+		// Resolve source to absolute path for symlink
+		srcAbsResolved, err := filepath.Abs(srcAbs)
+		if err != nil {
+			return fmt.Errorf("failed to resolve absolute path for source: %w", err)
+		}
+
+		// Create symlink (use absolute path for source)
+		if err := os.Symlink(srcAbsResolved, destAbs); err != nil {
+			return fmt.Errorf("failed to create symlink from %s to %s: %w", srcAbsResolved, destAbs, err)
+		}
+	}
+
+	return nil
 }
 
 // shouldWaitForCommand determines if a command should be executed synchronously

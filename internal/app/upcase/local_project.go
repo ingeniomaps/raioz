@@ -334,7 +334,7 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		if wsConcrete, ok := ws.(*workspacepkg.Workspace); ok {
 			// Resolve project.env for local project
 			projectEnvPath, _ := env.ResolveProjectEnv(wsConcrete, deps, projectDir)
-			if err := env.GenerateEnvFromTemplate(wsConcrete, deps, deps.Project.Name, projectDir, dummyService, projectEnvPath); err != nil {
+			if err := env.GenerateEnvFromTemplate(wsConcrete, deps, deps.Project.Name, projectDir, dummyService, projectEnvPath, projectDir); err != nil {
 				logging.WarnWithContext(ctx, "Failed to generate .env from template for local project", "error", err.Error())
 				// Continue anyway - template generation is optional
 			}

@@ -95,7 +95,7 @@ func (uc *UseCase) detectServiceConflict(
 		output, err := cmd.Output()
 		if err == nil {
 			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-			workspacePrefix := fmt.Sprintf("raioz-%s-", workspaceName)
+			workspacePrefix := fmt.Sprintf("%s-", workspaceName)
 			for _, line := range lines {
 				if line == "" {
 					continue
@@ -118,7 +118,7 @@ func (uc *UseCase) detectServiceConflict(
 							CurrentContainer: containerName,
 							CurrentSource:    "local",
 							TargetLocation:   fmt.Sprintf("workspace (would clone)"),
-							TargetContainer:  func() string { name, _ := docker.NormalizeContainerName(workspaceName, serviceName); return name }(),
+							TargetContainer:  func() string { name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true); return name }(),
 							Preference:       pref,
 						}, nil
 					}
@@ -139,13 +139,13 @@ func (uc *UseCase) detectServiceConflict(
 				CurrentContainer: serviceName, // Estimated
 				CurrentSource:    "local",
 				TargetLocation:   fmt.Sprintf("workspace (would clone)"),
-				TargetContainer:  func() string { name, _ := docker.NormalizeContainerName(workspaceName, serviceName); return name }(),
+				TargetContainer:  func() string { name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true); return name }(),
 				Preference:       pref,
 			}, nil
 		}
 		// If preference is "cloned" but we're trying to run from local project
 		if pref.Preference == "cloned" && isLocalProject {
-			containerName, _ := docker.NormalizeContainerName(pref.Workspace, serviceName)
+			containerName, _ := docker.NormalizeContainerName(pref.Workspace, serviceName, pref.Workspace, true)
 			return &ServiceConflict{
 				ServiceName:      serviceName,
 				ConflictType:     "preference",

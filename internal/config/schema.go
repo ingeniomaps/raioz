@@ -247,6 +247,10 @@ const SchemaJSON = `{
                 "type": "string",
                 "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
                 "description": "Static IP address in the network (e.g., '150.150.0.10'). Only works if project.network has a subnet configured."
+              },
+              "envVolume": {
+                "type": "string",
+                "description": "Optional: mount the generated .env file as a volume at this path inside the container (e.g., '/app/.env'). The .env file will be available both via env_file (for environment variables) and as a mounted file at this path."
               }
             },
             "additionalProperties": false
@@ -387,6 +391,15 @@ const SchemaJSON = `{
               }
             },
             "additionalProperties": false
+          },
+          "volumes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^.+:.+$",
+              "description": "Symlink mapping in format 'SRC:DEST' where SRC is relative to project directory (or absolute) and DEST is relative to service directory"
+            },
+            "description": "For host services: create symlinks from project paths to service directory. Format: 'SRC:DEST' (e.g., './certs:certs' creates symlink from project/certs to service/certs)"
           }
         },
         "additionalProperties": false
