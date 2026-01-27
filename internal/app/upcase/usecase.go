@@ -180,7 +180,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 
 	// Generate .env files from templates for all services (after cloning, before starting)
 	output.PrintProgress("Generating .env files from templates...")
-	err = uc.generateEnvFilesFromTemplates(ctx, deps, ws, projectEnvPath)
+	err = uc.generateEnvFilesFromTemplates(ctx, deps, ws, projectEnvPath, projectDir)
 	if err != nil {
 		// Log but don't fail - template generation is optional
 		logging.WarnWithContext(ctx, "Some .env files could not be generated from templates", "error", err.Error())

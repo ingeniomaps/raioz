@@ -204,7 +204,7 @@ func TestResolveEnvFileForService(t *testing.T) {
 	}
 
 	// Test with single file (global only)
-	envPath, err := ResolveEnvFileForService(ws, deps, "my-service", []string{})
+	envPath, err := ResolveEnvFileForService(ws, deps, "my-service", []string{}, "", "")
 	if err != nil {
 		t.Fatalf("ResolveEnvFileForService() error = %v", err)
 	}
@@ -224,7 +224,7 @@ func TestResolveEnvFileForService(t *testing.T) {
 	}
 
 	// Test with service file
-	envPath2, err := ResolveEnvFileForService(ws, deps, "my-service", []string{"services/my-service"})
+	envPath2, err := ResolveEnvFileForService(ws, deps, "my-service", []string{"services/my-service"}, "", "")
 	if err != nil {
 		t.Fatalf("ResolveEnvFileForService() error = %v", err)
 	}

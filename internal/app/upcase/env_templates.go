@@ -12,7 +12,8 @@ import (
 
 // generateEnvFilesFromTemplates generates .env files from templates for all services
 // projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
-func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectEnvPath string) error {
+// projectDir is the directory where .raioz.json is located
+func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectEnvPath string, projectDir string) error {
 	// Convert interfaces.Workspace to concrete workspace.Workspace
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 
@@ -32,7 +33,7 @@ func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *conf
 		servicePath := workspacepkg.GetServicePath(wsConcrete, name, svc)
 
 		// Generate .env from template
-		if err := env.GenerateEnvFromTemplate(wsConcrete, deps, name, servicePath, svc, projectEnvPath); err != nil {
+		if err := env.GenerateEnvFromTemplate(wsConcrete, deps, name, servicePath, svc, projectEnvPath, projectDir); err != nil {
 			logging.WarnWithContext(ctx, "Failed to generate .env from template", "service", name, "error", err.Error())
 			// Continue with other services
 		} else {

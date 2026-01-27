@@ -23,6 +23,7 @@ var EnvTemplateNames = []string{
 // GenerateEnvFromTemplate generates a .env file from a template if found
 // and injects variables from resolved env files (global, project.env, project, service)
 // projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
+// projectDir is the directory where .raioz.json is located (for resolving "." to project .env)
 func GenerateEnvFromTemplate(
 	ws *workspace.Workspace,
 	deps *config.Deps,
@@ -30,6 +31,7 @@ func GenerateEnvFromTemplate(
 	servicePath string,
 	svc config.Service,
 	projectEnvPath string,
+	projectDir string,
 ) error {
 	// Find template file
 	var templatePath string
@@ -122,7 +124,7 @@ func GenerateEnvFromTemplate(
 			// If env is an object, use variables directly (they're already in memory)
 			directServiceVars = svc.Env.Variables
 			// Also try to load from file if it exists (for merging)
-			envFilePath, err := ResolveEnvFileForService(ws, deps, serviceName, svc.Env)
+			envFilePath, err := ResolveEnvFileForService(ws, deps, serviceName, svc.Env, projectDir, servicePath)
 			if err == nil && envFilePath != "" {
 				allResolvedPaths = append(allResolvedPaths, envFilePath)
 			}

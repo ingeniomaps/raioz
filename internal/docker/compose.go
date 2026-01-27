@@ -235,8 +235,10 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 		if svc.Docker == nil && svc.Commands != nil {
 			continue
 		}
-		// Generate normalized container name
-		containerName, err := NormalizeContainerName(deps.Project.Name, name)
+		// Generate normalized container name using workspace name
+		workspaceName := deps.GetWorkspaceName()
+		hasExplicitWorkspace := deps.HasExplicitWorkspace()
+		containerName, err := NormalizeContainerName(workspaceName, name, deps.Project.Name, hasExplicitWorkspace)
 		if err != nil {
 			return "", fmt.Errorf("failed to normalize container name for service %s: %w", name, err)
 		}
@@ -309,12 +311,92 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 		}
 
 		// Resolve and add env_file for service
-		envFilePath, err := env.ResolveEnvFileForService(ws, deps, name, svc.Env)
+		// Get service path for Git services (needed for creating .env in service directory)
+		var servicePath string
+		if svc.Source.Kind == "git" {
+			servicePath = workspace.GetServicePath(ws, name, svc)
+		}
+		envFilePath, err := env.ResolveEnvFileForService(ws, deps, name, svc.Env, projectDir, servicePath)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve env files for service %s: %w", name, err)
 		}
+
+		// If envVolume is specified but no env file was generated, create one from global/project variables
+		if svc.Docker.EnvVolume != "" && envFilePath == "" {
+			// Collect all environment variables from global and project
+			allVars := make(map[string]string)
+
+			// 1. Load global.env if useGlobal is true
+			if deps.Env.UseGlobal {
+				globalPath := filepath.Join(ws.EnvDir, "global.env")
+				if _, err := os.Stat(globalPath); err == nil {
+					globalVars, err := env.LoadFiles([]string{globalPath})
+					if err == nil {
+						for k, v := range globalVars {
+							allVars[k] = v
+						}
+					}
+				}
+			}
+
+			// 2. Load project.env if it exists
+			projectEnvPath := filepath.Join(ws.EnvDir, "projects", deps.Project.Name, "project.env")
+			if _, err := os.Stat(projectEnvPath); err == nil {
+				projectVars, err := env.LoadFiles([]string{projectEnvPath})
+				if err == nil {
+					for k, v := range projectVars {
+						allVars[k] = v
+					}
+				}
+			}
+
+			// 3. Load project .env if it exists
+			localEnvPath := filepath.Join(projectDir, ".env")
+			if _, err := os.Stat(localEnvPath); err == nil {
+				localVars, err := env.LoadFiles([]string{localEnvPath})
+				if err == nil {
+					for k, v := range localVars {
+						allVars[k] = v
+					}
+				}
+			}
+
+			// 4. Add variables from env.variables (project level)
+			if deps.Env.Variables != nil {
+				for k, v := range deps.Env.Variables {
+					allVars[k] = v
+				}
+			}
+
+			// Create .env file if we have any variables
+			if len(allVars) > 0 {
+				envFilePath, err = env.CreateOrUpdateEnvFile(ws, deps, name, allVars, servicePath)
+				if err != nil {
+					return "", fmt.Errorf("failed to create env file for service %s: %w", name, err)
+				}
+			}
+		}
+
 		if envFilePath != "" {
 			serviceConfig["env_file"] = []string{envFilePath}
+
+			// If envVolume is specified, also mount the .env file as a volume
+			if svc.Docker.EnvVolume != "" {
+				// Get existing volumes or create new slice
+				existingVolumes, ok := serviceConfig["volumes"].([]string)
+				if !ok {
+					existingVolumes = []string{}
+				}
+				// Add the .env file as a bind mount volume
+				envVolumeMount := fmt.Sprintf("%s:%s:ro", envFilePath, svc.Docker.EnvVolume)
+				existingVolumes = append(existingVolumes, envVolumeMount)
+				serviceConfig["volumes"] = existingVolumes
+			}
+		}
+
+		// Add command if specified (for Docker wrapper mode or custom commands)
+		if svc.Docker.Command != "" {
+			serviceConfig["command"] = svc.Docker.Command
 		}
 
 		// Apply mode-specific configuration (dev vs prod)
@@ -332,7 +414,10 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 		}
 
 		// Generate normalized container name for infra
-		containerName, err := NormalizeInfraName(deps.Project.Name, name)
+		// Generate normalized container name using workspace name
+		workspaceName := deps.GetWorkspaceName()
+		hasExplicitWorkspace := deps.HasExplicitWorkspace()
+		containerName, err := NormalizeInfraName(workspaceName, name, deps.Project.Name, hasExplicitWorkspace)
 		if err != nil {
 			return "", fmt.Errorf("failed to normalize container name for infra %s: %w", name, err)
 		}
@@ -406,7 +491,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 						hasEnvFile = true
 					} else {
 						// .env doesn't exist - try normal resolution (will look for {infra-name}.env)
-						envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+						envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env, projectDir, "")
 						if err != nil {
 							return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
 						}
@@ -416,7 +501,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 					}
 				} else {
 					// Normal resolution for other cases
-					envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+					envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env, projectDir, "")
 					if err != nil {
 						return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
 					}
@@ -477,13 +562,13 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 					if _, statErr := os.Stat(localEnvPath); statErr == nil {
 						envFilePath = localEnvPath
 					} else {
-						resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+						resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env, projectDir, "")
 						if resolvedPath != "" {
 							envFilePath = resolvedPath
 						}
 					}
 				} else {
-					resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+					resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env, projectDir, "")
 					if resolvedPath != "" {
 						envFilePath = resolvedPath
 					}

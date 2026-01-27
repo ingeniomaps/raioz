@@ -53,43 +53,71 @@ func NormalizeName(parts ...string) (string, error) {
 	return name, nil
 }
 
-// NormalizeContainerName normalizes a container name with the raioz prefix
-// Format: raioz-{project}-{service}
+// NormalizeContainerName normalizes a container name
+// Format: {workspace}-{service} if workspace is explicitly set (different from project), otherwise raioz-{project}-{service}
 // Maximum length: 63 characters (Docker limit)
-func NormalizeContainerName(project, service string) (string, error) {
-	name, err := NormalizeName("raioz", project, service)
-	if err != nil {
-		return "", err
-	}
+// workspace: workspace name from GetWorkspaceName() (could be explicit workspace or project name)
+// project: project name (used to determine if workspace was explicitly set)
+// hasExplicitWorkspace: true if workspace field was explicitly set in config, false otherwise
+func NormalizeContainerName(workspace, service string, project string, hasExplicitWorkspace bool) (string, error) {
+	var name string
+	var err error
 
-	// Truncate if necessary (Docker limit is 63 characters)
-	if len(name) > MaxContainerNameLength {
-		// Calculate how much we need to truncate
-		// Keep "raioz-" prefix and project name, truncate service name
-		prefix := fmt.Sprintf("raioz-%s-", project)
-		if len(prefix) >= MaxContainerNameLength {
-			// Even prefix is too long, truncate everything
-			name = name[:MaxContainerNameLength]
-		} else {
-			// Truncate service name to fit
-			maxServiceLen := MaxContainerNameLength - len(prefix)
-			serviceNormalized, _ := NormalizeName(service)
-			if len(serviceNormalized) > maxServiceLen {
-				serviceNormalized = serviceNormalized[:maxServiceLen]
-			}
-			name = prefix + serviceNormalized
+	// If no explicit workspace was set, use raioz-{project}-{service}
+	// Otherwise, use {workspace}-{service}
+	if !hasExplicitWorkspace {
+		// No explicit workspace, use raioz-{project}-{service} format
+		name, err = NormalizeName("raioz", project, service)
+		if err != nil {
+			return "", err
 		}
-		// Remove trailing dash if any
-		name = strings.TrimSuffix(name, "-")
+
+		// Truncate if necessary
+		if len(name) > MaxContainerNameLength {
+			prefix := fmt.Sprintf("raioz-%s-", project)
+			if len(prefix) >= MaxContainerNameLength {
+				name = name[:MaxContainerNameLength]
+			} else {
+				maxServiceLen := MaxContainerNameLength - len(prefix)
+				serviceNormalized, _ := NormalizeName(service)
+				if len(serviceNormalized) > maxServiceLen {
+					serviceNormalized = serviceNormalized[:maxServiceLen]
+				}
+				name = prefix + serviceNormalized
+			}
+			name = strings.TrimSuffix(name, "-")
+		}
+	} else {
+		// Explicit workspace set, use {workspace}-{service} format
+		name, err = NormalizeName(workspace, service)
+		if err != nil {
+			return "", err
+		}
+
+		// Truncate if necessary
+		if len(name) > MaxContainerNameLength {
+			prefixWithDash := fmt.Sprintf("%s-", workspace)
+			if len(prefixWithDash) >= MaxContainerNameLength {
+				name = name[:MaxContainerNameLength]
+			} else {
+				maxServiceLen := MaxContainerNameLength - len(prefixWithDash)
+				serviceNormalized, _ := NormalizeName(service)
+				if len(serviceNormalized) > maxServiceLen {
+					serviceNormalized = serviceNormalized[:maxServiceLen]
+				}
+				name = prefixWithDash + serviceNormalized
+			}
+			name = strings.TrimSuffix(name, "-")
+		}
 	}
 
 	return name, nil
 }
 
-// NormalizeInfraName normalizes an infra resource name with the raioz prefix
-// Format: raioz-{project}-{infra}
-func NormalizeInfraName(project, infra string) (string, error) {
-	return NormalizeContainerName(project, infra)
+// NormalizeInfraName normalizes an infra resource name
+// Format: {workspace}-{infra} if workspace is explicitly set, otherwise raioz-{project}-{infra}
+func NormalizeInfraName(workspace, infra string, project string, hasExplicitWorkspace bool) (string, error) {
+	return NormalizeContainerName(workspace, infra, project, hasExplicitWorkspace)
 }
 
 // NormalizeNetworkName normalizes a network name

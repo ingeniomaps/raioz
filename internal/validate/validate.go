@@ -194,7 +194,9 @@ func validateServices(deps *config.Deps) error {
 		}
 
 		// Validate that container name would be valid
-		containerName, err := docker.NormalizeContainerName(deps.Project.Name, name)
+		workspaceName := deps.GetWorkspaceName()
+		hasExplicitWorkspace := deps.HasExplicitWorkspace()
+		containerName, err := docker.NormalizeContainerName(workspaceName, name, deps.Project.Name, hasExplicitWorkspace)
 		if err != nil {
 			return errors.New(
 				errors.ErrCodeInvalidField,
@@ -332,12 +334,12 @@ func validateServices(deps *config.Deps) error {
 				}
 			}
 
-			// If command is specified, runtime is recommended
+			// If command is specified without dockerfile, runtime is required (for wrapper generation)
 			// Only validate if docker config exists (not for host execution)
-			if svc.Docker != nil && svc.Docker.Command != "" && svc.Docker.Runtime == "" {
+			if svc.Docker != nil && svc.Docker.Command != "" && svc.Docker.Dockerfile == "" && svc.Docker.Runtime == "" {
 				return errors.New(
 					errors.ErrCodeMissingField,
-					fmt.Sprintf("Service '%s': 'runtime' is required when 'command' is specified", name),
+					fmt.Sprintf("Service '%s': 'runtime' is required when 'command' is specified without 'dockerfile'", name),
 				).WithSuggestion(
 					"Add a 'runtime' field to the docker configuration. "+
 						"Valid values: node, go, python, java, rust. "+
@@ -460,7 +462,9 @@ func validateInfra(deps *config.Deps) error {
 		}
 
 		// Validate that container name would be valid
-		containerName, err := docker.NormalizeInfraName(deps.Project.Name, name)
+		workspaceName := deps.GetWorkspaceName()
+		hasExplicitWorkspace := deps.HasExplicitWorkspace()
+		containerName, err := docker.NormalizeInfraName(workspaceName, name, deps.Project.Name, hasExplicitWorkspace)
 		if err != nil {
 			return errors.New(
 				errors.ErrCodeInvalidField,

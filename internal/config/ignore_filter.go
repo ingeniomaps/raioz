@@ -24,11 +24,13 @@ func FilterIgnoredServices(deps *Deps) (*Deps, []string, error) {
 	}
 
 	filtered := &Deps{
-		SchemaVersion: deps.SchemaVersion,
-		Project:       deps.Project,
-		Services:      make(map[string]Service),
-		Infra:         deps.Infra, // Infra is always included
-		Env:           deps.Env,
+		SchemaVersion:      deps.SchemaVersion,
+		Workspace:          deps.Workspace, // Preserve workspace
+		Project:            deps.Project,
+		Services:           make(map[string]Service),
+		Infra:              deps.Infra, // Infra is always included
+		Env:                deps.Env,
+		ProjectComposePath: deps.ProjectComposePath,
 	}
 
 	var ignored []string

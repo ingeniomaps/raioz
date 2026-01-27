@@ -166,13 +166,38 @@ func ApplyModeConfig(
 	}
 
 	// Filter volumes based on mode
+	// Note: We only filter out auto-added dev bind mounts, not user-specified volumes
+	// User-specified bind mounts should be preserved even in prod mode
 	if volumes, ok := serviceConfig["volumes"].([]string); ok && len(volumes) > 0 {
-		filtered := FilterDevVolumes(volumes, mode)
-		if len(filtered) > 0 {
-			serviceConfig["volumes"] = filtered
+		// In prod mode, only remove auto-added dev bind mounts (from AddDevBindMount)
+		// User-specified volumes (including bind mounts) should be kept
+		if mode == "prod" {
+			// Remove only auto-added dev bind mounts (servicePath:/app pattern)
+			// Keep all user-specified volumes
+			filtered := make([]string, 0, len(volumes))
+			servicePath := workspace.GetServicePath(ws, serviceName, svc)
+			for _, vol := range volumes {
+				// Check if this is an auto-added dev bind mount
+				// Auto-added mounts have pattern: {servicePath}:/app (or similar)
+				isAutoDevMount := false
+				if svc.Source.Kind == "git" && servicePath != "" {
+					// Check if volume starts with servicePath
+					if strings.HasPrefix(vol, servicePath+":") {
+						isAutoDevMount = true
+					}
+				}
+				if !isAutoDevMount {
+					filtered = append(filtered, vol)
+				}
+			}
+			if len(filtered) > 0 {
+				serviceConfig["volumes"] = filtered
+			} else {
+				delete(serviceConfig, "volumes")
+			}
 		} else {
-			// Remove volumes key if empty
-			delete(serviceConfig, "volumes")
+			// Dev mode: keep all volumes (no filtering needed)
+			// Volumes are already set, no need to change
 		}
 	}
 

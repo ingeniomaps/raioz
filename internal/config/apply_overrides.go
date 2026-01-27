@@ -26,11 +26,13 @@ func ApplyOverrides(deps *Deps) (*Deps, []string, error) {
 
 	// Create a copy of deps to modify
 	result := &Deps{
-		SchemaVersion: deps.SchemaVersion,
-		Project:       deps.Project,
-		Services:      make(map[string]Service),
-		Infra:         deps.Infra, // Infra is not affected by overrides
-		Env:           deps.Env,
+		SchemaVersion:      deps.SchemaVersion,
+		Workspace:          deps.Workspace, // Preserve workspace
+		Project:            deps.Project,
+		Services:           make(map[string]Service),
+		Infra:              deps.Infra, // Infra is not affected by overrides
+		Env:                deps.Env,
+		ProjectComposePath: deps.ProjectComposePath,
 	}
 
 	var appliedOverrides []string

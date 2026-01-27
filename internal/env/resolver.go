@@ -162,6 +162,7 @@ func ResolveEnvFiles(
 		var envPath string
 		var err error
 		var found bool
+		var envServiceName string
 
 		if strings.HasPrefix(envFile, "services/") {
 			// Explicitly shared service (services/{service}) - only check shared location
@@ -179,40 +180,52 @@ func ResolveEnvFiles(
 				return nil, fmt.Errorf("failed to check env file %s: %w", envPath, err)
 			}
 		} else {
-			// Service name only - check project-specific first, then shared as fallback
-			// Special case: "." means use the service name from context
-			envServiceName := envFile
+			// Special case: "." means use project .env (same as for infra)
 			if envFile == "." {
-				envServiceName = serviceName
+				// If projectEnvPath is provided (from ResolveEnvFileForService), use it
+				if projectEnvPath != "" {
+					resolvedPaths = append(resolvedPaths, projectEnvPath)
+					found = true
+				}
+				// If not found via projectEnvPath, fall through to service name resolution
+				if !found {
+					envServiceName = serviceName
+				}
+			} else {
+				// Service name only - check project-specific first, then shared as fallback
+				envServiceName = envFile
 			}
 
-			// First: try project-specific location: projects/{project}/services/{service}.env
-			projectSpecificPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", deps.Project.Name, "services", envServiceName+".env"))
-			if err != nil {
-				return nil, fmt.Errorf("invalid env file path '%s': %w", envFile, err)
-			}
-
-			if _, err := os.Stat(projectSpecificPath); err == nil {
-				resolvedPaths = append(resolvedPaths, projectSpecificPath)
-				found = true
-			} else if !os.IsNotExist(err) {
-				// Error only if it's not a "file doesn't exist" error (e.g., permission error)
-				return nil, fmt.Errorf("failed to check env file %s: %w", projectSpecificPath, err)
-			}
-
-			// Fallback: try shared location: services/{service}.env
+			// Only try service-specific locations if "." wasn't resolved as project .env
 			if !found {
-				sharedPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("services", envServiceName+".env"))
+				// First: try project-specific location: projects/{project}/services/{service}.env
+				projectSpecificPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", deps.Project.Name, "services", envServiceName+".env"))
 				if err != nil {
 					return nil, fmt.Errorf("invalid env file path '%s': %w", envFile, err)
 				}
 
-				if _, err := os.Stat(sharedPath); err == nil {
-					resolvedPaths = append(resolvedPaths, sharedPath)
+				if _, err := os.Stat(projectSpecificPath); err == nil {
+					resolvedPaths = append(resolvedPaths, projectSpecificPath)
 					found = true
 				} else if !os.IsNotExist(err) {
 					// Error only if it's not a "file doesn't exist" error (e.g., permission error)
-					return nil, fmt.Errorf("failed to check env file %s: %w", sharedPath, err)
+					return nil, fmt.Errorf("failed to check env file %s: %w", projectSpecificPath, err)
+				}
+
+				// Fallback: try shared location: services/{service}.env
+				if !found {
+					sharedPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("services", envServiceName+".env"))
+					if err != nil {
+						return nil, fmt.Errorf("invalid env file path '%s': %w", envFile, err)
+					}
+
+					if _, err := os.Stat(sharedPath); err == nil {
+						resolvedPaths = append(resolvedPaths, sharedPath)
+						found = true
+					} else if !os.IsNotExist(err) {
+						// Error only if it's not a "file doesn't exist" error (e.g., permission error)
+						return nil, fmt.Errorf("failed to check env file %s: %w", sharedPath, err)
+					}
 				}
 			}
 		}
@@ -295,11 +308,15 @@ func loadSingleFile(filePath string) (map[string]string, error) {
 // ResolveEnvFileForService resolves the env_file path(s) for a service.
 // If envValue contains direct variables (object), it creates/updates the appropriate .env file.
 // Returns either a single combined env file path or multiple paths
+// projectDir is the directory where .raioz.json is located (for resolving "." to project .env)
+// servicePath is the directory where the service is located (for Git services, this is the cloned directory)
 func ResolveEnvFileForService(
 	ws *workspace.Workspace,
 	deps *config.Deps,
 	serviceName string,
 	envValue *config.EnvValue,
+	projectDir string,
+	servicePath string,
 ) (string, error) {
 	// If envValue is nil, no env files to use
 	if envValue == nil {
@@ -308,7 +325,7 @@ func ResolveEnvFileForService(
 
 	// If envValue contains direct variables (object), create/update the .env file
 	if envValue.IsObject && envValue.Variables != nil {
-		envFilePath, err := createOrUpdateEnvFile(ws, deps, serviceName, envValue.Variables)
+		envFilePath, err := CreateOrUpdateEnvFile(ws, deps, serviceName, envValue.Variables, servicePath)
 		if err != nil {
 			return "", fmt.Errorf("failed to create/update env file: %w", err)
 		}
@@ -321,7 +338,25 @@ func ResolveEnvFileForService(
 		return "", nil
 	}
 
-	resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, envFiles, "")
+	// Check if any envFile is "." - if so, resolve project .env (same as for infra)
+	var projectEnvPath string
+	var hasDotEnv bool
+	for _, envFile := range envFiles {
+		if envFile == "." {
+			hasDotEnv = true
+			// Special case: use .env in project directory (same as project.env)
+			if projectDir != "" {
+				localEnvPath := filepath.Join(projectDir, ".env")
+				if _, statErr := os.Stat(localEnvPath); statErr == nil {
+					// .env exists in project directory - include it in resolved paths
+					projectEnvPath = localEnvPath
+					break
+				}
+			}
+		}
+	}
+
+	resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, envFiles, projectEnvPath)
 	if err != nil {
 		return "", err
 	}
@@ -336,12 +371,33 @@ func ResolveEnvFileForService(
 		return resolvedPaths[0], nil
 	}
 
-	// Multiple files, create a combined temporary file
-	combinedPath := filepath.Join(ws.Root, fmt.Sprintf(".env.%s", serviceName))
+	// Multiple files, need to create a combined file
+	// Special case: if "." was in the list, create/update .env in service directory (if Git service) or project directory
+	// Otherwise, create .env.{serviceName} in service directory (if Git service) or workspace root
+	var combinedPath string
+	if hasDotEnv {
+		// "." was specified - create/update .env in service directory (if Git service) or project directory
+		// For Git services, create .env in the cloned service directory
+		// For other services, create .env in project directory
+		if servicePath != "" {
+			// Service has a specific path (Git service) - create .env there
+			combinedPath = filepath.Join(servicePath, ".env")
+		} else if projectDir != "" {
+			// Fallback to project directory
+			combinedPath = filepath.Join(projectDir, ".env")
+		} else {
+			// Last resort: workspace root
+			combinedPath = filepath.Join(ws.Root, fmt.Sprintf(".env.%s", serviceName))
+		}
+	} else {
+		// Create combined file in workspace root
+		combinedPath = filepath.Join(ws.Root, fmt.Sprintf(".env.%s", serviceName))
+	}
 
-	// Ensure workspace root exists (use 0700 for security - owner only)
-	if err := os.MkdirAll(ws.Root, 0700); err != nil {
-		return "", fmt.Errorf("failed to create workspace root: %w", err)
+	// Ensure directory exists (use 0700 for security - owner only)
+	dirToCreate := filepath.Dir(combinedPath)
+	if err := os.MkdirAll(dirToCreate, 0700); err != nil {
+		return "", fmt.Errorf("failed to create directory for combined env file: %w", err)
 	}
 
 	// Load and merge all env files
@@ -371,21 +427,35 @@ func ResolveEnvFileForService(
 	return combinedPath, nil
 }
 
-// createOrUpdateEnvFile creates or updates an .env file with the given variables.
-// The file is created at: projects/{project}/services/{service}.env
+// CreateOrUpdateEnvFile creates or updates an .env file with the given variables.
+// If servicePath is provided (Git service), creates .env in the service directory.
+// Otherwise, creates at: projects/{project}/services/{service}.env
 // If the file already exists, variables are merged (new values override existing ones)
-func createOrUpdateEnvFile(
+func CreateOrUpdateEnvFile(
 	ws *workspace.Workspace,
 	deps *config.Deps,
 	serviceName string,
 	variables map[string]string,
+	servicePath string,
 ) (string, error) {
-	// Determine the target path: projects/{project}/services/{service}.env
-	envDir := filepath.Join(ws.EnvDir, "projects", deps.Project.Name, "services")
-	envPath := filepath.Join(envDir, serviceName+".env")
+	var envPath string
+	
+	// If servicePath is provided (Git service), create .env in service directory
+	if servicePath != "" {
+		envPath = filepath.Join(servicePath, ".env")
+	} else {
+		// Otherwise, create in workspace env directory
+		envDir := filepath.Join(ws.EnvDir, "projects", deps.Project.Name, "services")
+		envPath = filepath.Join(envDir, serviceName+".env")
+		
+		// Ensure directory exists (use 0700 for security - owner only)
+		if err := os.MkdirAll(envDir, 0700); err != nil {
+			return "", fmt.Errorf("failed to create env directory: %w", err)
+		}
+	}
 
 	// Ensure directory exists (use 0700 for security - owner only)
-	if err := os.MkdirAll(envDir, 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(envPath), 0700); err != nil {
 		return "", fmt.Errorf("failed to create env directory: %w", err)
 	}
 

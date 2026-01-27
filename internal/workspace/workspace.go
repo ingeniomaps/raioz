@@ -107,7 +107,8 @@ func Resolve(project string) (*Workspace, error) {
 	services := filepath.Join(base, "services")
 	localServices := filepath.Join(root, "local")
 	readonlyServices := filepath.Join(root, "readonly")
-	envDir := filepath.Join(base, "env")
+	// EnvDir is now workspace-specific (was shared before)
+	envDir := filepath.Join(root, "env")
 
 	// Use 0700 permissions (read/write/execute for owner only) for security
 	if err := os.MkdirAll(root, 0700); err != nil {

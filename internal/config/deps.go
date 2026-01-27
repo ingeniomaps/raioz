@@ -155,6 +155,11 @@ func (d *Deps) GetWorkspaceName() string {
 	return d.Project.Name
 }
 
+// HasExplicitWorkspace returns true if workspace was explicitly set in config
+func (d *Deps) HasExplicitWorkspace() bool {
+	return d.Workspace != ""
+}
+
 type Project struct {
 	Name     string            `json:"name"`
 	Network  NetworkConfig     `json:"network"`
@@ -186,6 +191,7 @@ type Service struct {
 	Source      SourceConfig       `json:"source"`
 	Docker      *DockerConfig      `json:"docker,omitempty"` // Optional: nil if source.command is set (host execution)
 	Env         *EnvValue          `json:"env,omitempty"`     // Can be array of strings (file paths) or object (variables)
+	Volumes     []string           `json:"volumes,omitempty"` // For host services: symlinks in format "SRC:DEST" (SRC relative to projectDir, DEST relative to servicePath)
 	Profiles    []string           `json:"profiles,omitempty"`
 	Enabled     *bool              `json:"enabled,omitempty"`     // Explicit enable/disable (default: true)
 	Mock        *MockConfig        `json:"mock,omitempty"`        // Mock configuration
@@ -223,6 +229,7 @@ type DockerConfig struct {
 	Command    string   `json:"command,omitempty"` // Command to run inside Docker container (for wrapper mode)
 	Runtime    string   `json:"runtime,omitempty"` // Runtime type for Docker wrapper mode (node, go, python, etc.)
 	IP         string   `json:"ip,omitempty"`       // Static IP address in the network (e.g., "150.150.0.10")
+	EnvVolume  string   `json:"envVolume,omitempty"` // Optional: mount .env file as volume at this path (e.g., "/app/.env")
 }
 
 type Infra struct {
@@ -265,11 +272,13 @@ func LoadDepsLegacy(path string) (*Deps, error) {
 // FilterByProfile filters services by the given profile
 func FilterByProfile(deps *Deps, profile string) *Deps {
 	filtered := &Deps{
-		SchemaVersion: deps.SchemaVersion,
-		Project:       deps.Project,
-		Services:      make(map[string]Service),
-		Infra:         deps.Infra, // Infra is always included
-		Env:           deps.Env,
+		SchemaVersion:      deps.SchemaVersion,
+		Workspace:          deps.Workspace, // Preserve workspace
+		Project:            deps.Project,
+		Services:           make(map[string]Service),
+		Infra:              deps.Infra, // Infra is always included
+		Env:                deps.Env,
+		ProjectComposePath: deps.ProjectComposePath,
 	}
 
 	for name, svc := range deps.Services {
