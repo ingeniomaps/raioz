@@ -206,7 +206,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Compose: generate compose, docker.Up
-	composePath, serviceNames, infraNames, err := uc.processCompose(ctx, deps, ws)
+	composePath, serviceNames, infraNames, err := uc.processCompose(ctx, deps, ws, projectDir)
 	if err != nil {
 		// If compose fails, stop host services that were started
 		if len(hostProcessInfo) > 0 {

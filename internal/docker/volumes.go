@@ -111,6 +111,55 @@ func ExtractNamedVolumes(volumes []string) ([]string, error) {
 	return result, nil
 }
 
+// ResolveRelativeVolumes converts relative paths in bind mount volumes to absolute paths
+// based on the project directory. Named volumes and anonymous volumes are left unchanged.
+func ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error) {
+	resolved := make([]string, 0, len(volumes))
+
+	for _, vol := range volumes {
+		if vol == "" {
+			continue
+		}
+
+		info, err := ParseVolume(vol)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse volume '%s': %w", vol, err)
+		}
+
+		// Only resolve relative paths for bind mounts
+		if info.Type == VolumeTypeBind {
+			// Check if source is a relative path (starts with . or doesn't start with /)
+			if strings.HasPrefix(info.Source, ".") || (!filepath.IsAbs(info.Source) && info.Source != "") {
+				// Resolve relative path to absolute based on project directory
+				absPath, err := filepath.Abs(filepath.Join(projectDir, info.Source))
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve relative path '%s': %w", info.Source, err)
+				}
+				// Reconstruct volume string with absolute path
+				// Check if destination already has :ro or :rw suffix
+				dest := info.Destination
+				var modeSuffix string
+				if strings.HasSuffix(dest, ":ro") {
+					dest = strings.TrimSuffix(dest, ":ro")
+					modeSuffix = ":ro"
+				} else if strings.HasSuffix(dest, ":rw") {
+					dest = strings.TrimSuffix(dest, ":rw")
+					modeSuffix = ":rw"
+				}
+				resolved = append(resolved, absPath+":"+dest+modeSuffix)
+			} else {
+				// Already absolute path, keep as is
+				resolved = append(resolved, vol)
+			}
+		} else {
+			// Named volumes and anonymous volumes are left unchanged
+			resolved = append(resolved, vol)
+		}
+	}
+
+	return resolved, nil
+}
+
 // NormalizeVolumeNamesInStrings normalizes volume names in volume strings with project prefix
 // Replaces original volume names with normalized names (project_volume_name)
 func NormalizeVolumeNamesInStrings(volumes []string, projectName string, volumeMap map[string]string) ([]string, error) {

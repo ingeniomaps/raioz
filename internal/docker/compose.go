@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"raioz/internal/config"
 	"raioz/internal/env"
@@ -102,7 +104,7 @@ func addDefaultInfraHealthcheck(name, image string) map[string]any {
 	return nil
 }
 
-func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error) {
+func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir string) (string, error) {
 	// Validate dependency cycles before generating compose
 	if err := ValidateDependencyCycle(deps); err != nil {
 		return "", fmt.Errorf("dependency validation failed: %w", err)
@@ -114,15 +116,24 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error)
 	}
 
 	// Collect all volumes to find named volumes
+	// First resolve relative paths to absolute for accurate named volume detection
 	var allVolumes []string
 	for _, svc := range deps.Services {
 		// Skip if docker is nil (host execution - no docker volumes)
 		if svc.Docker != nil {
-			allVolumes = append(allVolumes, svc.Docker.Volumes...)
+			resolved, err := ResolveRelativeVolumes(svc.Docker.Volumes, projectDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve relative volumes for service %s: %w", svc, err)
+			}
+			allVolumes = append(allVolumes, resolved...)
 		}
 	}
 	for _, infra := range deps.Infra {
-		allVolumes = append(allVolumes, infra.Volumes...)
+		resolved, err := ResolveRelativeVolumes(infra.Volumes, projectDir)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve relative volumes for infra %s: %w", infra, err)
+		}
+		allVolumes = append(allVolumes, resolved...)
 	}
 
 	// Extract named volumes (original names from config)
@@ -251,9 +262,15 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error)
 		}
 
 		// Add volumes if present, applying readonly mode if needed
-		// Normalize volume names with project prefix
+		// First resolve relative paths to absolute, then normalize volume names with project prefix
 		if len(svc.Docker.Volumes) > 0 {
-			normalizedVolumes, err := NormalizeVolumeNamesInStrings(svc.Docker.Volumes, deps.Project.Name, volumeMap)
+			// Resolve relative paths to absolute based on project directory
+			resolvedVolumes, err := ResolveRelativeVolumes(svc.Docker.Volumes, projectDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve relative volumes for service %s: %w", name, err)
+			}
+			// Normalize volume names with project prefix
+			normalizedVolumes, err := NormalizeVolumeNamesInStrings(resolvedVolumes, deps.Project.Name, volumeMap)
 			if err != nil {
 				return "", fmt.Errorf("failed to normalize volume names for service %s: %w", name, err)
 			}
@@ -346,40 +363,88 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error)
 		}
 
 		// Add volumes only if present (not nil and not empty)
-		// Normalize volume names with project prefix
+		// First resolve relative paths to absolute, then normalize volume names with project prefix
 		if len(infra.Volumes) > 0 {
-			normalizedVolumes, err := NormalizeVolumeNamesInStrings(infra.Volumes, deps.Project.Name, volumeMap)
+			// Resolve relative paths to absolute based on project directory
+			resolvedVolumes, err := ResolveRelativeVolumes(infra.Volumes, projectDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve relative volumes for infra %s: %w", name, err)
+			}
+			// Normalize volume names with project prefix
+			normalizedVolumes, err := NormalizeVolumeNamesInStrings(resolvedVolumes, deps.Project.Name, volumeMap)
 			if err != nil {
 				return "", fmt.Errorf("failed to normalize volume names for infra %s: %w", name, err)
 			}
 			infraConfig["volumes"] = normalizedVolumes
 		}
 
-		// Add default environment variables for common infra services
-		envVars := addDefaultInfraEnv(name, infra.Image)
-
 		// Resolve and add env_file for infra if specified
 		// Also extract direct variables if env is an object
+		var envFilePath string
+		var hasEnvFile bool
+		envVars := make(map[string]string)
+		
 		if infra.Env != nil {
-			envFilePath, err := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
-			if err != nil {
-				return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
-			}
-			if envFilePath != "" {
-				infraConfig["env_file"] = []string{envFilePath}
-			}
-
-			// If env is an object with direct variables, add them to environment
-			// This ensures variables are available even if env_file is not read correctly
+			// If env is an object with direct variables, use them directly (no env_file)
 			if infra.Env.IsObject && infra.Env.Variables != nil {
-				// Merge direct variables with defaults (direct variables override defaults)
+				// Use direct variables from config - add them to environment
 				for key, value := range infra.Env.Variables {
+					envVars[key] = value
+				}
+				// Don't resolve env_file when env is an object - use environment variables directly
+			} else {
+				// env is an array of file paths - resolve them
+				var err error
+				
+				envFiles := infra.Env.GetFilePaths()
+				if len(envFiles) == 1 && envFiles[0] == "." {
+					// Special case: use .env in project directory (same as project.env)
+					localEnvPath := filepath.Join(projectDir, ".env")
+					if _, statErr := os.Stat(localEnvPath); statErr == nil {
+						// .env exists in project directory - use it
+						envFilePath = localEnvPath
+						hasEnvFile = true
+					} else {
+						// .env doesn't exist - try normal resolution (will look for {infra-name}.env)
+						envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+						if err != nil {
+							return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
+						}
+						if envFilePath != "" {
+							hasEnvFile = true
+						}
+					}
+				} else {
+					// Normal resolution for other cases
+					envFilePath, err = env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+					if err != nil {
+						return "", fmt.Errorf("failed to resolve env files for infra %s: %w", name, err)
+					}
+					if envFilePath != "" {
+						hasEnvFile = true
+					}
+				}
+				
+				if hasEnvFile {
+					infraConfig["env_file"] = []string{envFilePath}
+				}
+			}
+		}
+
+		// Add default environment variables ONLY if no env_file is configured
+		// Docker Compose: environment variables override env_file, so we should not
+		// add defaults when env_file exists to avoid overriding values from the file
+		if !hasEnvFile {
+			defaultVars := addDefaultInfraEnv(name, infra.Image)
+			// Merge defaults with direct variables (direct variables override defaults)
+			for key, value := range defaultVars {
+				if _, exists := envVars[key]; !exists {
 					envVars[key] = value
 				}
 			}
 		}
 
-		// Add environment variables if any
+		// Add environment variables if any (only for direct variables or defaults, not from env_file)
 		if len(envVars) > 0 {
 			infraConfig["environment"] = envVars
 		}
@@ -391,6 +456,87 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace) (string, error)
 		}
 
 		services[name] = infraConfig
+	}
+
+	// Create combined .env file with all variables from all infra (for internal use only)
+	// This file is NOT used as env_file, it's only created to have all variables in one place
+	allCombinedVars := make(map[string]string)
+	for name, infra := range deps.Infra {
+		if infra.Env != nil {
+			if infra.Env.IsObject && infra.Env.Variables != nil {
+				// Direct variables
+				for k, v := range infra.Env.Variables {
+					allCombinedVars[k] = v
+				}
+			} else {
+				// Variables from env_file
+				var envFilePath string
+				envFiles := infra.Env.GetFilePaths()
+				if len(envFiles) == 1 && envFiles[0] == "." {
+					localEnvPath := filepath.Join(projectDir, ".env")
+					if _, statErr := os.Stat(localEnvPath); statErr == nil {
+						envFilePath = localEnvPath
+					} else {
+						resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+						if resolvedPath != "" {
+							envFilePath = resolvedPath
+						}
+					}
+				} else {
+					resolvedPath, _ := env.ResolveEnvFileForService(ws, deps, name, infra.Env)
+					if resolvedPath != "" {
+						envFilePath = resolvedPath
+					}
+				}
+				
+				if envFilePath != "" {
+					loadedVars, loadErr := env.LoadFiles([]string{envFilePath})
+					if loadErr == nil {
+						for k, v := range loadedVars {
+							allCombinedVars[k] = v
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Write combined .env file (only for internal reference, not used anywhere)
+	if len(allCombinedVars) > 0 {
+		combinedEnvPath := filepath.Join(ws.Root, ".env")
+		
+		// Ensure workspace root exists
+		if err := os.MkdirAll(ws.Root, 0700); err != nil {
+			return "", fmt.Errorf("failed to create workspace root: %w", err)
+		}
+		
+		// Write combined env file
+		file, err := os.OpenFile(combinedEnvPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if err != nil {
+			return "", fmt.Errorf("failed to create combined env file: %w", err)
+		}
+		
+		// Sort keys for consistent output
+		keys := make([]string, 0, len(allCombinedVars))
+		for k := range allCombinedVars {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		
+		for _, key := range keys {
+			value := allCombinedVars[key]
+			// Escape value if it contains spaces or special characters
+			escapedValue := value
+			if strings.Contains(value, " ") || strings.Contains(value, "$") || strings.Contains(value, "\"") {
+				escapedValue = fmt.Sprintf("\"%s\"", strings.ReplaceAll(value, "\"", "\\\""))
+			}
+			if _, err := fmt.Fprintf(file, "%s=%s\n", key, escapedValue); err != nil {
+				file.Close()
+				return "", fmt.Errorf("failed to write to combined env file: %w", err)
+			}
+		}
+		
+		file.Close()
 	}
 
 	// Marshal YAML (yaml.v3 uses 2-space indentation by default)

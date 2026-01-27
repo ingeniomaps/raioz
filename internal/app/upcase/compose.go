@@ -15,7 +15,7 @@ import (
 )
 
 // processCompose handles generation of docker-compose and docker.Up
-func (uc *UseCase) processCompose(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace) (string, []string, []string, error) {
+func (uc *UseCase) processCompose(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectDir string) (string, []string, []string, error) {
 	// Convert interfaces.Workspace to concrete workspace.Workspace for operations that need it
 	wsConcrete := (*workspace.Workspace)(ws)
 
@@ -62,7 +62,7 @@ func (uc *UseCase) processCompose(ctx context.Context, deps *config.Deps, ws *in
 	output.PrintProgress("Generating Docker Compose configuration")
 	logging.InfoWithContext(ctx, "Generating Docker Compose configuration", "services_count", len(serviceNames), "infra_count", len(infraNames))
 	composeStartTime := time.Now()
-	composePath, err := docker.GenerateCompose(deps, wsConcrete)
+	composePath, err := docker.GenerateCompose(deps, wsConcrete, projectDir)
 	if err != nil {
 		logging.ErrorWithContext(ctx, "Failed to generate Docker Compose configuration", "duration_ms", time.Since(composeStartTime).Milliseconds(), "error", err.Error())
 		output.PrintProgressError("Failed to generate Docker Compose configuration")
