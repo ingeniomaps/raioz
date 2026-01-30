@@ -332,18 +332,38 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 
 	// Check if network is still in use by other projects
 	// We leave the network for reusability (idempotence), but check usage
-	networkName := stateDeps.Project.Network.GetName()
+	networkName := stateDeps.Network.GetName()
 	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
+	
+	// First, check if network is actually in use by containers (most reliable check)
+	isInUse, err := docker.IsNetworkInUseWithContext(ctx, networkName)
+	if err != nil {
+		// Log but don't fail - network cleanup is optional
+		logging.WarnWithContext(ctx, "could not check if network is in use by containers", "error", err)
+		isInUse = false // Assume not in use if we can't check
+	}
+	
+	// Get workspace name for comparison (GetNetworkProjects returns workspace directory names)
+	// The workspace name is what's used as the directory name, not the project name
+	currentWorkspaceName := workspaceName
+	if currentWorkspaceName == "" {
+		// Fallback: use project name if workspace name wasn't determined
+		currentWorkspaceName = projectName
+	}
+	
+	// Also check state files to see if other projects are configured to use this network
 	networkProjects, err := uc.deps.DockerRunner.GetNetworkProjects(networkName, baseDir)
 	if err != nil {
 		// Log but don't fail - network cleanup is optional
-		logging.Warn("could not check network usage", "error", err)
+		logging.WarnWithContext(ctx, "could not check network usage from state files", "error", err)
 	}
 
-	// Count remaining projects using network (excluding current one)
+	// Count remaining projects using network (excluding current workspace)
+	// Note: GetNetworkProjects returns workspace directory names, not project names
+	// Also exclude the current workspace since we're about to remove its state file
 	remainingNetworkProjects := 0
-	for _, p := range networkProjects {
-		if p != projectName {
+	for _, workspaceDirName := range networkProjects {
+		if workspaceDirName != currentWorkspaceName {
 			remainingNetworkProjects++
 		}
 	}
@@ -503,13 +523,17 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	output.PrintSuccess(fmt.Sprintf("Project '%s' stopped successfully", stateDeps.Project.Name))
 
 	// Note about network (we leave it for reuse, better for idempotence)
+	// Only show message if network is actually in use by containers OR other projects are configured to use it
+	// If network is not in use and no other projects use it, don't show any message
 	if remainingNetworkProjects > 0 {
 		output.PrintInfo(fmt.Sprintf("Network '%s' is still in use by %d other project(s), leaving it",
 			networkName, remainingNetworkProjects))
-	} else {
-		output.PrintInfo(fmt.Sprintf("Network '%s' is not in use by other projects, leaving it for reuse",
+	} else if isInUse {
+		// Network is in use by containers (but not by other raioz projects)
+		output.PrintInfo(fmt.Sprintf("Network '%s' is still in use by containers, leaving it",
 			networkName))
 	}
+	// If not in use and no other projects, don't show any message (network is truly unused)
 
 	// Clean up unused Docker images and volumes
 	output.PrintProgress("Cleaning up unused Docker images and volumes...")

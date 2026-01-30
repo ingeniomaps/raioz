@@ -17,6 +17,12 @@ func Up(composePath string) error {
 
 // UpWithContext starts Docker Compose services with context support
 func UpWithContext(ctx context.Context, composePath string) error {
+	return UpServicesWithContext(ctx, composePath, nil)
+}
+
+// UpServicesWithContext starts specific Docker Compose services with context support
+// If serviceNames is nil or empty, starts all services
+func UpServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
 	// Validate path to prevent command injection
 	if err := ValidateComposePath(composePath); err != nil {
 		return fmt.Errorf("invalid compose path: %w", err)
@@ -26,18 +32,29 @@ func UpWithContext(ctx context.Context, composePath string) error {
 	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 
-	return resilience.RetryWithContext(ctx, retryConfig, "docker compose up", func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, "docker compose up", func(ctx context.Context) error {
+	operationName := "docker compose up"
+	if len(serviceNames) > 0 {
+		operationName = fmt.Sprintf("docker compose up %v", serviceNames)
+	}
+
+	return resilience.RetryWithContext(ctx, retryConfig, operationName, func(ctx context.Context) error {
+		return dockerCB.ExecuteWithContext(ctx, operationName, func(ctx context.Context) error {
 			// Create context with timeout
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
 			defer cancel()
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "up", "-d")
+			// Build command: docker compose -f <path> up -d [service1 service2 ...]
+			args := []string{"compose", "-f", composePath, "up", "-d"}
+			if len(serviceNames) > 0 {
+				args = append(args, serviceNames...)
+			}
+
+			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
 			err := cmd.Run()
-			return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose up", exectimeout.DockerComposeUpTimeout)
+			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
 		})
 	})
 }

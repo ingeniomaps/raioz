@@ -36,8 +36,8 @@ func CompareDeps(oldDeps *config.Deps, newDeps *config.Deps) ([]ConfigChange, er
 			NewValue: newDeps.Project.Name,
 		})
 	}
-	oldNetworkName := oldDeps.Project.Network.GetName()
-	newNetworkName := newDeps.Project.Network.GetName()
+	oldNetworkName := oldDeps.Network.GetName()
+	newNetworkName := newDeps.Network.GetName()
 	if oldNetworkName != newNetworkName {
 		changes = append(changes, ConfigChange{
 			Type:     "project",

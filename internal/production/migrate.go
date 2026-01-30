@@ -22,9 +22,9 @@ func MigrateComposeToDeps(
 
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
+		Network:       config.NetworkConfig{Name: networkName, IsObject: false},
 		Project: config.Project{
-			Name:    projectName,
-			Network: config.NetworkConfig{Name: networkName, IsObject: false},
+			Name: projectName,
 		},
 		Services: make(map[string]config.Service),
 		Infra:    make(map[string]config.Infra),
@@ -112,7 +112,7 @@ func ValidateMigratedDeps(deps *config.Deps) []string {
 		warnings = append(warnings, "Project name is required")
 	}
 
-	if deps.Project.Network.GetName() == "" {
+	if deps.Network.GetName() == "" {
 		warnings = append(warnings, "Project network is required")
 	}
 

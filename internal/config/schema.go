@@ -15,45 +15,45 @@ const SchemaJSON = `{
       "pattern": "^[a-z0-9-]+$",
       "description": "Workspace name (optional). If not specified, uses project.name as workspace. Multiple projects with the same workspace share the same workspace directory."
     },
+    "network": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Network name (simple format)"
+        },
+        {
+          "type": "object",
+          "required": ["name"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9-]+$",
+              "description": "Network name"
+            },
+            "subnet": {
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]+$",
+              "description": "Network subnet in CIDR notation (e.g., '150.150.0.0/16')"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Network configuration with optional subnet"
+        }
+      ],
+      "description": "Network configuration (shared by workspace). Optional at root level - if not specified, will use project.network for backward compatibility. Can be a string (name only) or an object with name and optional subnet"
+    },
     "project": {
       "type": "object",
-      "required": ["name", "network"],
+      "required": ["name"],
       "properties": {
         "name": {
           "type": "string",
           "minLength": 1,
           "pattern": "^[a-z0-9-]+$",
           "description": "Project name (used for identification and as workspace name if workspace is not specified)"
-        },
-        "network": {
-          "oneOf": [
-            {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^[a-z0-9-]+$",
-              "description": "Network name (simple format)"
-            },
-            {
-              "type": "object",
-              "required": ["name"],
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "^[a-z0-9-]+$",
-                  "description": "Network name"
-                },
-                "subnet": {
-                  "type": "string",
-                  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]+$",
-                  "description": "Network subnet in CIDR notation (e.g., '150.150.0.0/16')"
-                }
-              },
-              "additionalProperties": false,
-              "description": "Network configuration with optional subnet"
-            }
-          ],
-          "description": "Network can be a string (name only) or an object with name and optional subnet"
         },
         "commands": {
           "type": "object",
@@ -246,7 +246,7 @@ const SchemaJSON = `{
               "ip": {
                 "type": "string",
                 "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
-                "description": "Static IP address in the network (e.g., '150.150.0.10'). Only works if project.network has a subnet configured."
+                "description": "Static IP address in the network (e.g., '150.150.0.10'). Only works if network has a subnet configured."
               },
               "envVolume": {
                 "type": "string",

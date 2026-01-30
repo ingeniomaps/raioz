@@ -28,9 +28,9 @@ func CreateTestDepsJSON(tdir string, deps *config.Deps) (string, error) {
 func CreateMinimalTestDeps() *config.Deps {
 	return &config.Deps{
 		SchemaVersion: "1.0",
+		Network:       config.NetworkConfig{Name: "test-network", IsObject: false},
 		Project: config.Project{
-			Name:    "test-project",
-			Network: config.NetworkConfig{Name: "test-network", IsObject: false},
+			Name: "test-project",
 		},
 		Services: map[string]config.Service{},
 		Infra:    map[string]config.Infra{},

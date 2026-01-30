@@ -36,6 +36,7 @@ type RootConfig struct {
 	SchemaVersion string                    `json:"schemaVersion"`
 	GeneratedAt   string                    `json:"generatedAt"`   // ISO 8601 timestamp
 	LastUpdatedAt string                    `json:"lastUpdatedAt"` // ISO 8601 timestamp
+	Network       config.NetworkConfig      `json:"network"`       // Network configuration (shared by workspace)
 	Project       config.Project            `json:"project"`
 	Services      map[string]config.Service `json:"services"`
 	Infra         map[string]config.Infra   `json:"infra"`
@@ -119,6 +120,7 @@ func GenerateFromDeps(deps *config.Deps, appliedOverrides []string, assistedServ
 		SchemaVersion: deps.SchemaVersion,
 		GeneratedAt:   now,
 		LastUpdatedAt: now,
+		Network:       deps.Network,
 		Project:       deps.Project,
 		Services:      make(map[string]config.Service),
 		Infra:         deps.Infra,
@@ -164,6 +166,7 @@ func UpdateFromDeps(root *RootConfig, deps *config.Deps, appliedOverrides []stri
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// Update basic fields
+	root.Network = deps.Network
 	root.Project = deps.Project
 	root.Infra = deps.Infra
 	root.Env = deps.Env
@@ -237,6 +240,7 @@ func UpdateFromDeps(root *RootConfig, deps *config.Deps, appliedOverrides []stri
 func (r *RootConfig) ToDeps() *config.Deps {
 	return &config.Deps{
 		SchemaVersion: r.SchemaVersion,
+		Network:       r.Network,
 		Project:       r.Project,
 		Services:      r.Services,
 		Infra:         r.Infra,

@@ -139,11 +139,21 @@ func (n *NetworkConfig) HasSubnet() bool {
 type Deps struct {
 	SchemaVersion      string             `json:"schemaVersion"`
 	Workspace          string             `json:"workspace,omitempty"` // Optional workspace name. If not specified, uses Project.Name as workspace
+	Network            NetworkConfig      `json:"network,omitempty"`  // Network configuration (shared by workspace). Optional - falls back to project.network for backward compatibility
 	Project            Project            `json:"project"`
 	Services           map[string]Service `json:"services"`
 	Infra              map[string]Infra   `json:"infra"`
 	Env                EnvConfig          `json:"env"`
 	ProjectComposePath string             `json:"projectComposePath,omitempty"` // Path to project's docker-compose.yml (if exists)
+}
+
+// LegacyProject represents the old structure where network was inside project
+// Used for backward compatibility during unmarshaling
+type LegacyProject struct {
+	Name     string            `json:"name"`
+	Network  NetworkConfig     `json:"network,omitempty"` // Legacy: network inside project
+	Commands *ProjectCommands  `json:"commands,omitempty"`
+	Env      *EnvValue         `json:"env,omitempty"`
 }
 
 // GetWorkspaceName returns the workspace name for this project
@@ -161,10 +171,9 @@ func (d *Deps) HasExplicitWorkspace() bool {
 }
 
 type Project struct {
-	Name     string            `json:"name"`
-	Network  NetworkConfig     `json:"network"`
-	Commands *ProjectCommands  `json:"commands,omitempty"`
-	Env      *EnvValue         `json:"env,omitempty"` // Project-level env files or variables
+	Name     string           `json:"name"`
+	Commands *ProjectCommands `json:"commands,omitempty"`
+	Env      *EnvValue        `json:"env,omitempty"` // Project-level env files or variables
 }
 
 type ProjectCommands struct {
@@ -254,9 +263,43 @@ func LoadDeps(path string) (*Deps, []string, error) {
 		warnings = []string{}
 	}
 
-	var deps Deps
-	if err := json.Unmarshal(data, &deps); err != nil {
+	// Unmarshal with legacy structure to handle backward compatibility
+	// This allows us to read network from either root level or project.network
+	var legacyStruct struct {
+		Project           LegacyProject       `json:"project"`
+		Network           NetworkConfig       `json:"network,omitempty"`
+		SchemaVersion     string              `json:"schemaVersion"`
+		Workspace         string              `json:"workspace,omitempty"`
+		Services          map[string]Service   `json:"services"`
+		Infra             map[string]Infra     `json:"infra"`
+		Env               EnvConfig           `json:"env"`
+		ProjectComposePath string              `json:"projectComposePath,omitempty"`
+	}
+	if err := json.Unmarshal(data, &legacyStruct); err != nil {
 		return nil, nil, err
+	}
+
+	// Build Deps struct
+	deps := Deps{
+		SchemaVersion:      legacyStruct.SchemaVersion,
+		Workspace:          legacyStruct.Workspace,
+		Project: Project{
+			Name:     legacyStruct.Project.Name,
+			Commands: legacyStruct.Project.Commands,
+			Env:      legacyStruct.Project.Env,
+		},
+		Services:           legacyStruct.Services,
+		Infra:              legacyStruct.Infra,
+		Env:                legacyStruct.Env,
+		ProjectComposePath: legacyStruct.ProjectComposePath,
+	}
+
+	// Migrate network: use root level if present, otherwise use project.network (backward compatibility)
+	if legacyStruct.Network.Name != "" {
+		deps.Network = legacyStruct.Network
+	} else if legacyStruct.Project.Network.Name != "" {
+		// Network is in project, migrate to root level
+		deps.Network = legacyStruct.Project.Network
 	}
 
 	return &deps, warnings, nil
@@ -274,6 +317,7 @@ func FilterByProfile(deps *Deps, profile string) *Deps {
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
 		Workspace:          deps.Workspace, // Preserve workspace
+		Network:            deps.Network,   // Preserve network
 		Project:            deps.Project,
 		Services:           make(map[string]Service),
 		Infra:              deps.Infra, // Infra is always included

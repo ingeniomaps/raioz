@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"raioz/internal/config"
@@ -287,10 +288,20 @@ func loadSingleFile(filePath string) (map[string]string, error) {
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
 
-		// Remove quotes if present
+		// Remove quotes if present and unescape the value
 		if len(value) >= 2 {
-			if (value[0] == '"' && value[len(value)-1] == '"') ||
-				(value[0] == '\'' && value[len(value)-1] == '\'') {
+			if value[0] == '"' && value[len(value)-1] == '"' {
+				// Double-quoted value: unescape it properly
+				quoted := value
+				unquoted, err := strconv.Unquote(quoted)
+				if err == nil {
+					value = unquoted
+				} else {
+					// Fallback: just remove quotes without unescaping
+					value = value[1 : len(value)-1]
+				}
+			} else if value[0] == '\'' && value[len(value)-1] == '\'' {
+				// Single-quoted value: just remove quotes (no escaping in single quotes)
 				value = value[1 : len(value)-1]
 			}
 		}

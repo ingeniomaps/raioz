@@ -10,6 +10,7 @@ func FilterByFeatureFlags(deps *Deps, profile string, envVars map[string]string)
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
 		Workspace:          deps.Workspace, // Preserve workspace
+		Network:            deps.Network,   // Preserve network
 		Project:            deps.Project,
 		Services:           make(map[string]Service),
 		Infra:              deps.Infra, // Infra is always included

@@ -123,7 +123,7 @@ func validateProject(deps *config.Deps) error {
 				"Example: {\"project\": {\"name\": \"my-project\", ...}}",
 		)
 	}
-	networkName := deps.Project.Network.GetName()
+	networkName := deps.Network.GetName()
 	if networkName == "" {
 		return errors.New(
 			errors.ErrCodeMissingField,

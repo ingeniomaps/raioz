@@ -244,7 +244,7 @@ func (uc *StatusUseCase) outputJSON(servicesInfo map[string]*interfaces.ServiceI
 	jsonData := map[string]any{
 		"project": map[string]string{
 			"name":    stateDeps.Project.Name,
-			"network": stateDeps.Project.Network.GetName(),
+			"network": stateDeps.Network.GetName(),
 		},
 		"services":      servicesInfo,
 		"disabled":      disabledServices,
@@ -267,9 +267,9 @@ func (uc *StatusUseCase) outputHumanReadable(servicesInfo map[string]*interfaces
 	// Table output - these are user-facing output, not logs
 	output.PrintSectionHeader("Project Status")
 	output.PrintKeyValue("Project", stateDeps.Project.Name)
-	networkName := stateDeps.Project.Network.GetName()
-	if stateDeps.Project.Network.HasSubnet() {
-		networkName = fmt.Sprintf("%s (%s)", networkName, stateDeps.Project.Network.GetSubnet())
+	networkName := stateDeps.Network.GetName()
+	if stateDeps.Network.HasSubnet() {
+		networkName = fmt.Sprintf("%s (%s)", networkName, stateDeps.Network.GetSubnet())
 	}
 	output.PrintKeyValue("Network", networkName)
 

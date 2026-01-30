@@ -189,19 +189,17 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		output.PrintProgressDone(".env files generated from templates")
 	}
 
-	// Host services: start services that run directly on the host (without Docker)
-	hostProcessInfo, err := uc.processHostServices(ctx, deps, ws, projectDir)
+	// Docker prepare: images, network, volumes
+	// IMPORTANT: Network must be created BEFORE host services, as host services may need the network
+	err = uc.prepareDockerResources(ctx, deps, ws)
 	if err != nil {
 		return err
 	}
 
-	// Docker prepare: images, network, volumes
-	err = uc.prepareDockerResources(ctx, deps, ws)
+	// Host services: start services that run directly on the host (without Docker)
+	// These may depend on the network being available (e.g., installer scripts that use docker-compose)
+	hostProcessInfo, err := uc.processHostServices(ctx, deps, ws, projectDir)
 	if err != nil {
-		// If Docker prepare fails, stop host services that were started
-		if len(hostProcessInfo) > 0 {
-			_ = uc.stopHostServices(ctx, hostProcessInfo)
-		}
 		return err
 	}
 

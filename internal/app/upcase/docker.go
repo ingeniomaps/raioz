@@ -39,8 +39,8 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps
 	output.PrintProgressDone("All Docker images verified and ready")
 
 	// Ensure Docker network exists before generating compose
-	networkName := deps.Project.Network.GetName()
-	networkSubnet := deps.Project.Network.GetSubnet()
+	networkName := deps.Network.GetName()
+	networkSubnet := deps.Network.GetSubnet()
 
 	networkConfig := docker.NetworkConfig{
 		Name:   networkName,
@@ -49,7 +49,7 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps
 
 	// Determine if we should ask for confirmation
 	// Ask confirmation if network is configured as simple string (backward compatible behavior)
-	askConfirmation := !deps.Project.Network.IsObject || networkSubnet == ""
+	askConfirmation := !deps.Network.IsObject || networkSubnet == ""
 
 	output.PrintProgress(fmt.Sprintf("Ensuring Docker network '%s'...", networkName))
 	if networkSubnet != "" {

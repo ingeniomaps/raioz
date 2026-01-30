@@ -163,8 +163,8 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 		}
 	}
 
-	networkName := deps.Project.Network.GetName()
-	networkSubnet := deps.Project.Network.GetSubnet()
+	networkName := deps.Network.GetName()
+	networkSubnet := deps.Network.GetSubnet()
 
 	// Check if any service or infra has IP configured
 	hasStaticIPs := false
@@ -586,7 +586,8 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 		}
 	}
 	
-	// Write combined .env file (only for internal reference, not used anywhere)
+	// Write combined .env file for Docker Compose to read automatically
+	// Docker Compose automatically reads .env files in the same directory as docker-compose.yml
 	if len(allCombinedVars) > 0 {
 		combinedEnvPath := filepath.Join(ws.Root, ".env")
 		

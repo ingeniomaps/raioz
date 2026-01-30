@@ -57,8 +57,8 @@ func TestLoadDeps(t *testing.T) {
 		t.Errorf("Expected project name 'test-project', got '%s'", deps.Project.Name)
 	}
 
-	if deps.Project.Network != "test-network" {
-		t.Errorf("Expected network 'test-network', got '%s'", deps.Project.Network)
+	if deps.Network.GetName() != "test-network" {
+		t.Errorf("Expected network 'test-network', got '%s'", deps.Network.GetName())
 	}
 
 	if len(deps.Services) != 1 {

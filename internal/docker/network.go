@@ -274,16 +274,14 @@ func GetNetworkProjects(networkName string, baseDir string) ([]string, error) {
 
 		// Parse JSON to check network
 		var state struct {
-			Project struct {
-				Network config.NetworkConfig `json:"network"`
-			} `json:"project"`
+			Network config.NetworkConfig `json:"network"`
 		}
 
 		if err := json.Unmarshal(data, &state); err != nil {
 			continue // Skip if invalid JSON
 		}
 
-		if state.Project.Network.GetName() == networkName {
+		if state.Network.GetName() == networkName {
 			projects = append(projects, projectName)
 		}
 	}
