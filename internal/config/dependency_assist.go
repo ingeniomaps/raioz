@@ -8,11 +8,11 @@ import (
 
 // MissingDependency represents a dependency that is required but not found
 type MissingDependency struct {
-	ServiceName string              // Service that requires the dependency
-	RequiredBy  string              // Service that requires it (or "root" if from root config)
-	Dependency  string              // Name of the missing dependency
-	FoundConfig *Service            // Config found in service's .raioz.json (if any)
-	FoundPath   string              // Path where config was found (if any)
+	ServiceName string   // Service that requires the dependency
+	RequiredBy  string   // Service that requires it (or "root" if from root config)
+	Dependency  string   // Name of the missing dependency
+	FoundConfig *Service // Config found in service's .raioz.json (if any)
+	FoundPath   string   // Path where config was found (if any)
 }
 
 // DetectMissingDependencies detects dependencies that are required but not defined
@@ -24,22 +24,17 @@ func DetectMissingDependencies(
 ) ([]MissingDependency, error) {
 	var missing []MissingDependency
 
-	// Check each service for missing dependencies
+	// Check each service for missing dependencies (service-level and docker-level)
 	for name, svc := range deps.Services {
-		// Check dependsOn dependencies (skip if docker is nil - host execution)
-		if svc.Docker != nil {
-			for _, depName := range svc.Docker.DependsOn {
-				// Check if dependency exists in services or infra
-				_, existsInServices := deps.Services[depName]
-				_, existsInInfra := deps.Infra[depName]
-				if !existsInServices && !existsInInfra {
-					// Dependency is missing from root config
-					missing = append(missing, MissingDependency{
-						ServiceName: depName,
-						RequiredBy:  name,
-						Dependency:  depName,
-					})
-				}
+		for _, depName := range svc.GetDependsOn() {
+			_, existsInServices := deps.Services[depName]
+			_, existsInInfra := deps.Infra[depName]
+			if !existsInServices && !existsInInfra {
+				missing = append(missing, MissingDependency{
+					ServiceName: depName,
+					RequiredBy:  name,
+					Dependency:  depName,
+				})
 			}
 		}
 	}
@@ -107,10 +102,10 @@ func FindServiceConfig(servicePath string) (*Deps, string, error) {
 
 // DependencyConflict represents a conflict between root and service dependencies
 type DependencyConflict struct {
-	ServiceName string              // Service name
-	RootConfig  *Service            // Config in root .raioz.json
-	ServiceConfig *Service          // Config in service's .raioz.json
-	Differences []string            // List of differences
+	ServiceName   string   // Service name
+	RootConfig    *Service // Config in root .raioz.json
+	ServiceConfig *Service // Config in service's .raioz.json
+	Differences   []string // List of differences
 }
 
 // DetectDependencyConflicts detects conflicts between root and service dependencies

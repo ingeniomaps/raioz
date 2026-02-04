@@ -71,12 +71,8 @@ func CheckIgnoredDependencies(deps *Deps, ignoredServices []string) map[string][
 		}
 
 		// Skip if docker is nil (host execution - no docker dependencies)
-		if svc.Docker == nil {
-			continue
-		}
-
 		var ignoredDeps []string
-		for _, dep := range svc.Docker.DependsOn {
+		for _, dep := range svc.GetDependsOn() {
 			if ignoredSet[dep] {
 				ignoredDeps = append(ignoredDeps, dep)
 			}

@@ -29,6 +29,8 @@ type DockerRunner interface {
 	Down(composePath string) error
 	// DownWithContext stops Docker Compose services with context support
 	DownWithContext(ctx context.Context, composePath string) error
+	// StopServiceWithContext stops and removes only one service from the compose project (for conflict resolution)
+	StopServiceWithContext(ctx context.Context, composePath string, serviceName string) error
 	// GetServicesStatus returns the status of services
 	GetServicesStatus(composePath string) (map[string]string, error)
 	// GetServicesStatusWithContext returns the status of services with context support

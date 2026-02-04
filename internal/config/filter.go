@@ -60,8 +60,8 @@ func FilterByFeatureFlags(deps *Deps, profile string, envVars map[string]string)
 			if len(mockSvc.Docker.Ports) == 0 {
 				mockSvc.Docker.Ports = svc.Docker.Ports
 			}
-			// Preserve dependsOn from original service
-			mockSvc.Docker.DependsOn = svc.Docker.DependsOn
+			// Preserve dependsOn from original service (service-level and docker-level)
+			mockSvc.Docker.DependsOn = svc.GetDependsOn()
 			// Preserve volumes if any
 			mockSvc.Docker.Volumes = svc.Docker.Volumes
 

@@ -23,13 +23,13 @@ type Options struct {
 
 // Dependencies contains the dependencies needed by the up use case
 type Dependencies struct {
-	ConfigLoader   interfaces.ConfigLoader
-	Validator      interfaces.Validator
-	DockerRunner   interfaces.DockerRunner
-	GitRepository  interfaces.GitRepository
-	Workspace      interfaces.WorkspaceManager
-	StateManager   interfaces.StateManager
-	LockManager    interfaces.LockManager
+	ConfigLoader  interfaces.ConfigLoader
+	Validator     interfaces.Validator
+	DockerRunner  interfaces.DockerRunner
+	GitRepository interfaces.GitRepository
+	Workspace     interfaces.WorkspaceManager
+	StateManager  interfaces.StateManager
+	LockManager   interfaces.LockManager
 }
 
 // UseCase handles the "up" use case - starting a project
@@ -63,17 +63,6 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		).WithError(err)
 	}
 
-	// Write global env variables from env.variables to global.env
-	// This must happen before filters to ensure variables are available
-	if err := env.WriteGlobalEnvVariables(ws, deps); err != nil {
-		return errors.New(
-			errors.ErrCodeWorkspaceError,
-			"Failed to write global environment variables",
-		).WithSuggestion(
-			"Check that you have write permissions for the env directory.",
-		).WithError(err)
-	}
-
 	// Resolve project.env (if project.env is ["."], uses .env in project directory as primary)
 	projectEnvPath, err := env.ResolveProjectEnv(ws, deps, projectDir)
 	if err != nil {
@@ -94,8 +83,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	// Check what we have: services, infra, or project commands
 	hasServices := len(deps.Services) > 0
 	hasInfra := len(deps.Infra) > 0
-	hasProjectCommands := deps.Project.Commands != nil && (
-		deps.Project.Commands.Up != "" ||
+	hasProjectCommands := deps.Project.Commands != nil && (deps.Project.Commands.Up != "" ||
 		(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
 		(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))
 
@@ -111,6 +99,14 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 
 	// If only project commands, execute them directly and return
 	if onlyProjectCommands {
+		if err := env.WriteGlobalEnvVariables(ws, deps); err != nil {
+			return errors.New(
+				errors.ErrCodeWorkspaceError,
+				"Failed to write global environment variables",
+			).WithSuggestion(
+				"Check that you have write permissions for the env directory.",
+			).WithError(err)
+		}
 		// Acquire lock
 		lockInstance, err := uc.acquireLock(ctx, ws)
 		if err != nil {
@@ -149,6 +145,29 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 			// Log error but don't fail - lock release is best-effort
 		}
 	}()
+
+	// Check if workspace is already running from a different project (same workspace, overlapping services)
+	conflictResult, mergedDeps, err := uc.checkWorkspaceProjectConflict(ctx, deps, ws, projectDir)
+	if err != nil {
+		return err
+	}
+	if conflictResult == WorkspaceConflictSkip {
+		return nil
+	}
+	if mergedDeps != nil {
+		deps = mergedDeps
+	}
+	// WorkspaceConflictProceed: continue (with deps or merged deps)
+
+	// Write global env variables from env.variables to global.env (after merge so merged config includes all projects' variables)
+	if err := env.WriteGlobalEnvVariables(ws, deps); err != nil {
+		return errors.New(
+			errors.ErrCodeWorkspaceError,
+			"Failed to write global environment variables",
+		).WithSuggestion(
+			"Check that you have write permissions for the env directory.",
+		).WithError(err)
+	}
 
 	// State: load state, detect changes
 	oldDeps, changes, addedServices, assistedServicesMap, err := uc.processState(ctx, deps, ws, opts.ConfigPath)
@@ -213,7 +232,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	// State: save state, root config, drift detection, audit
+	// State: save state, root config, drift detection, audit (persist project root so merge can resolve volumes per project)
+	deps.ProjectRoot = projectDir
 	err = uc.saveState(ctx, deps, ws, composePath, serviceNames, addedServices, assistedServicesMap)
 	if err != nil {
 		return err

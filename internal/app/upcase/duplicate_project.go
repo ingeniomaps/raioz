@@ -48,6 +48,21 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 		return nil
 	}
 
+	// Load workspace state to see which project is actually running there
+	stateDeps, err := uc.deps.StateManager.Load(ws)
+	if err != nil {
+		return fmt.Errorf("failed to load workspace state: %w", err)
+	}
+	if stateDeps == nil {
+		return nil
+	}
+	// Only intervene if the SAME project is running from workspace (same project name).
+	// If a different project is in the workspace (e.g. "roax-base" with postgres/pgadmin),
+	// do not stop it — the local project (e.g. "nginx") can run alongside.
+	if stateDeps.Project.Name != projectName {
+		return nil
+	}
+
 	// Project is running from workspace, need to ask for confirmation
 	logging.InfoWithContext(ctx, "Project is running from workspace, asking for confirmation",
 		"project", projectName,

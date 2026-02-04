@@ -38,9 +38,9 @@ func addDefaultInfraHealthcheck(name, image string) map[string]any {
 				"CMD-SHELL",
 				"pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
 			},
-			"interval":    "5s",
-			"timeout":     "5s",
-			"retries":     10,
+			"interval":     "5s",
+			"timeout":      "5s",
+			"retries":      10,
 			"start_period": "10s",
 		}
 	}
@@ -52,9 +52,9 @@ func addDefaultInfraHealthcheck(name, image string) map[string]any {
 				"CMD-SHELL",
 				"curl -f http://localhost/misc/ping 2>/dev/null || wget --no-verbose --tries=1 --spider http://localhost/misc/ping 2>/dev/null || exit 1",
 			},
-			"interval":    "30s",
-			"timeout":     "10s",
-			"retries":     5,
+			"interval":     "30s",
+			"timeout":      "10s",
+			"retries":      5,
 			"start_period": "40s",
 		}
 	}
@@ -66,9 +66,9 @@ func addDefaultInfraHealthcheck(name, image string) map[string]any {
 				"CMD-SHELL",
 				"redis-cli ping | grep PONG",
 			},
-			"interval":    "10s",
-			"timeout":     "5s",
-			"retries":     5,
+			"interval":     "10s",
+			"timeout":      "5s",
+			"retries":      5,
 			"start_period": "10s",
 		}
 	}
@@ -80,9 +80,9 @@ func addDefaultInfraHealthcheck(name, image string) map[string]any {
 				"CMD-SHELL",
 				"mongosh --eval 'db.adminCommand(\"ping\")' | grep -q 'ok.*1'",
 			},
-			"interval":    "10s",
-			"timeout":     "5s",
-			"retries":     5,
+			"interval":     "10s",
+			"timeout":      "5s",
+			"retries":      5,
 			"start_period": "10s",
 		}
 	}
@@ -94,9 +94,9 @@ func addDefaultInfraHealthcheck(name, image string) map[string]any {
 				"CMD-SHELL",
 				"mysqladmin ping -h localhost || exit 1",
 			},
-			"interval":    "10s",
-			"timeout":     "5s",
-			"retries":     5,
+			"interval":     "10s",
+			"timeout":      "5s",
+			"retries":      5,
 			"start_period": "10s",
 		}
 	}
@@ -280,9 +280,9 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 			serviceConfig["volumes"] = volumes
 		}
 
-		// Add depends_on if present
-		if len(svc.Docker.DependsOn) > 0 {
-			serviceConfig["depends_on"] = svc.Docker.DependsOn
+		// Add depends_on if present (service-level and/or docker-level)
+		if deps := svc.GetDependsOn(); len(deps) > 0 {
+			serviceConfig["depends_on"] = deps
 		}
 
 		if svc.Source.Kind == "git" {
@@ -468,7 +468,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 		var envFilePath string
 		var hasEnvFile bool
 		envVars := make(map[string]string)
-		
+
 		if infra.Env != nil {
 			// If env is an object with direct variables, use them directly (no env_file)
 			if infra.Env.IsObject && infra.Env.Variables != nil {
@@ -480,7 +480,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 			} else {
 				// env is an array of file paths - resolve them
 				var err error
-				
+
 				envFiles := infra.Env.GetFilePaths()
 				if len(envFiles) == 1 && envFiles[0] == "." {
 					// Special case: use .env in project directory (same as project.env)
@@ -509,7 +509,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 						hasEnvFile = true
 					}
 				}
-				
+
 				if hasEnvFile {
 					infraConfig["env_file"] = []string{envFilePath}
 				}
@@ -573,7 +573,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 						envFilePath = resolvedPath
 					}
 				}
-				
+
 				if envFilePath != "" {
 					loadedVars, loadErr := env.LoadFiles([]string{envFilePath})
 					if loadErr == nil {
@@ -585,30 +585,30 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 			}
 		}
 	}
-	
+
 	// Write combined .env file for Docker Compose to read automatically
 	// Docker Compose automatically reads .env files in the same directory as docker-compose.yml
 	if len(allCombinedVars) > 0 {
 		combinedEnvPath := filepath.Join(ws.Root, ".env")
-		
+
 		// Ensure workspace root exists
 		if err := os.MkdirAll(ws.Root, 0700); err != nil {
 			return "", fmt.Errorf("failed to create workspace root: %w", err)
 		}
-		
+
 		// Write combined env file
 		file, err := os.OpenFile(combinedEnvPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 		if err != nil {
 			return "", fmt.Errorf("failed to create combined env file: %w", err)
 		}
-		
+
 		// Sort keys for consistent output
 		keys := make([]string, 0, len(allCombinedVars))
 		for k := range allCombinedVars {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
-		
+
 		for _, key := range keys {
 			value := allCombinedVars[key]
 			// Escape value if it contains spaces or special characters
@@ -621,7 +621,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 				return "", fmt.Errorf("failed to write to combined env file: %w", err)
 			}
 		}
-		
+
 		file.Close()
 	}
 

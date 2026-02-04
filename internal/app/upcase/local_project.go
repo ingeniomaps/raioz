@@ -197,10 +197,9 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 	// If not local but has project commands, use current directory as project dir
 	if !isLocal {
 		// Check if project has commands defined
-		hasProjectCommands := deps.Project.Commands != nil && (
-			(commandType == "up" && (deps.Project.Commands.Up != "" ||
-				(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
-				(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))) ||
+		hasProjectCommands := deps.Project.Commands != nil && ((commandType == "up" && (deps.Project.Commands.Up != "" ||
+			(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
+			(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))) ||
 			(commandType == "down" && (deps.Project.Commands.Down != "" ||
 				(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Down != "") ||
 				(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Down != ""))) ||
@@ -234,11 +233,12 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		if !hasServices && !hasInfra {
 			// First check for service conflicts (if project name matches a service)
 			// This handles the case where a service is running from workspace and we want to run the local project
+			serviceConflictResolved := false
 			wsConcrete, ok := ws.(*workspacepkg.Workspace)
 			if ok {
 				conflict, err := uc.detectServiceConflict(ctx, deps.Project.Name, deps, wsConcrete, projectDir, true)
 				if err == nil && conflict != nil {
-					// Service conflict detected - resolve it
+					// Service conflict detected - resolve it (only stop the conflicting service, not infra or other services)
 					resolution, err := uc.resolveServiceConflict(ctx, conflict, true, deps.GetWorkspaceName(), projectDir)
 					if err != nil {
 						return err
@@ -250,27 +250,31 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 						output.PrintInfo("Keeping current service, skipping local project execution")
 						return nil
 					}
-					// Apply resolution
+					// Apply resolution (stops only the conflicting service)
 					if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, deps.Project.Name, deps, wsConcrete, projectDir, true); err != nil {
 						return err
 					}
+					serviceConflictResolved = true
 				}
 			}
 
-			// Then check for duplicate project (same project name)
-			if err := uc.checkAndHandleDuplicateProject(ctx, deps.Project.Name, configPath); err != nil {
-				// Check if it's a user cancellation
-				if strings.Contains(err.Error(), "user cancelled") {
-					// User cancelled, return error to stop execution
-					return errors.New(
-						errors.ErrCodeWorkspaceError,
-						"Operation cancelled by user",
-					).WithSuggestion(
-						"The workspace project remains running. To start the local project, first stop the workspace project with 'raioz down'.",
-					)
+			// Only check for duplicate project if we did NOT just resolve a service conflict.
+			// When we resolved a conflict we only stopped that one service; duplicate check would do a full workspace down (infra + all services).
+			if !serviceConflictResolved {
+				if err := uc.checkAndHandleDuplicateProject(ctx, deps.Project.Name, configPath); err != nil {
+					// Check if it's a user cancellation
+					if strings.Contains(err.Error(), "user cancelled") {
+						// User cancelled, return error to stop execution
+						return errors.New(
+							errors.ErrCodeWorkspaceError,
+							"Operation cancelled by user",
+						).WithSuggestion(
+							"The workspace project remains running. To start the local project, first stop the workspace project with 'raioz down'.",
+						)
+					}
+					logging.WarnWithContext(ctx, "Failed to check/handle duplicate project", "error", err.Error())
+					// Continue anyway - might be a false positive
 				}
-				logging.WarnWithContext(ctx, "Failed to check/handle duplicate project", "error", err.Error())
-				// Continue anyway - might be a false positive
 			}
 		}
 	}

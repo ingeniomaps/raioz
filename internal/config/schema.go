@@ -204,6 +204,13 @@ const SchemaJSON = `{
               }
             ]
           },
+          "dependsOn": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            },
+            "description": "Service/infra dependencies at service level (for local/host services or to combine with docker.dependsOn). Can be used together with docker.dependsOn."
+          },
           "docker": {
             "type": ["object", "null"],
             "properties": {

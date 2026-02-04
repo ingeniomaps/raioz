@@ -147,6 +147,19 @@ func compareServiceFields(name string, oldSvc config.Service, newSvc config.Serv
 		})
 	}
 
+	// Compare service-level dependsOn
+	if !reflect.DeepEqual(oldSvc.DependsOn, newSvc.DependsOn) {
+		oldDepends := formatSlice(oldSvc.DependsOn)
+		newDepends := formatSlice(newSvc.DependsOn)
+		changes = append(changes, ConfigChange{
+			Type:     "service",
+			Name:     name,
+			Field:    "dependsOn",
+			OldValue: oldDepends,
+			NewValue: newDepends,
+		})
+	}
+
 	// Compare docker config (only if both services have docker config)
 	if oldSvc.Docker != nil && newSvc.Docker != nil {
 		if !reflect.DeepEqual(oldSvc.Docker.Ports, newSvc.Docker.Ports) {
@@ -312,6 +325,7 @@ func HasSignificantChanges(changes []ConfigChange) bool {
 			"source.branch",
 			"source.tag",
 			"source.image",
+			"dependsOn",
 			"docker.ports",
 			"docker.dependsOn",
 			"docker.dockerfile",

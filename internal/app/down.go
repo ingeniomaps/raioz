@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"raioz/internal/config"
-	"raioz/internal/domain/interfaces"
 	"raioz/internal/docker"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	"raioz/internal/host"
 	"raioz/internal/logging"
@@ -94,7 +94,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 			errors.ErrCodeWorkspaceError,
 			"Failed to resolve workspace",
 		).WithSuggestion(
-			"Check that the project name is correct. " +
+			"Check that the project name is correct. "+
 				"Verify workspace directories exist and are accessible.",
 		).WithContext("project", projectName).WithError(err)
 	}
@@ -113,8 +113,8 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	}
 
 	// Acquire lock
-		// Only log at debug level - not useful for end users
-		logging.DebugWithContext(ctx, "Acquiring lock",
+	// Only log at debug level - not useful for end users
+	logging.DebugWithContext(ctx, "Acquiring lock",
 		"workspace", wsRoot,
 	)
 	lockInstance, err := uc.deps.LockManager.Acquire(ws)
@@ -123,16 +123,16 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 			"workspace", wsRoot,
 			"error", err.Error(),
 		)
-			return errors.New(
-				errors.ErrCodeLockError,
-				"Failed to acquire lock (another raioz process may be running)",
-			).WithSuggestion(
-				"Wait for the other process to finish, " +
-					"or remove the lock file manually if the process crashed.",
-			).WithContext("workspace", wsRoot).WithError(err)
-		}
-		// Only log at debug level - not useful for end users
-		logging.DebugWithContext(ctx, "Lock acquired successfully")
+		return errors.New(
+			errors.ErrCodeLockError,
+			"Failed to acquire lock (another raioz process may be running)",
+		).WithSuggestion(
+			"Wait for the other process to finish, "+
+				"or remove the lock file manually if the process crashed.",
+		).WithContext("workspace", wsRoot).WithError(err)
+	}
+	// Only log at debug level - not useful for end users
+	logging.DebugWithContext(ctx, "Lock acquired successfully")
 	defer func() {
 		if err := lockInstance.Release(); err != nil {
 			logging.ErrorWithContext(ctx, "Failed to release lock",
@@ -303,38 +303,38 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 			"workspace", wsRoot,
 			"error", err.Error(),
 		)
-			return errors.New(
-				errors.ErrCodeStateLoadError,
-				"Failed to load project state",
-			).WithSuggestion(
-				"The state file may be corrupted. " +
-					"You can try removing the state file manually.",
-			).WithContext("workspace", wsRoot).WithError(err)
-		}
-		logging.InfoWithContext(ctx, "Project state loaded",
-			"project", stateDeps.Project.Name,
-			"services_count", len(stateDeps.Services),
-		)
+		return errors.New(
+			errors.ErrCodeStateLoadError,
+			"Failed to load project state",
+		).WithSuggestion(
+			"The state file may be corrupted. "+
+				"You can try removing the state file manually.",
+		).WithContext("workspace", wsRoot).WithError(err)
+	}
+	logging.InfoWithContext(ctx, "Project state loaded",
+		"project", stateDeps.Project.Name,
+		"services_count", len(stateDeps.Services),
+	)
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 
 	output.PrintInfo("Stopping Docker services...")
 	if err := uc.deps.DockerRunner.DownWithContext(ctx, composePath); err != nil {
-			return errors.New(
-				errors.ErrCodeDockerNotRunning,
-				"Failed to stop Docker Compose services",
-			).WithSuggestion(
-				"Check Docker daemon status with 'docker ps'. " +
-					"Verify that Docker Compose is installed and working. " +
-					"Services may already be stopped.",
-			).WithContext("compose_file", composePath).WithError(err)
-		}
+		return errors.New(
+			errors.ErrCodeDockerNotRunning,
+			"Failed to stop Docker Compose services",
+		).WithSuggestion(
+			"Check Docker daemon status with 'docker ps'. "+
+				"Verify that Docker Compose is installed and working. "+
+				"Services may already be stopped.",
+		).WithContext("compose_file", composePath).WithError(err)
+	}
 
 	// Check if network is still in use by other projects
 	// We leave the network for reusability (idempotence), but check usage
 	networkName := stateDeps.Network.GetName()
 	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
-	
+
 	// First, check if network is actually in use by containers (most reliable check)
 	isInUse, err := docker.IsNetworkInUseWithContext(ctx, networkName)
 	if err != nil {
@@ -342,7 +342,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		logging.WarnWithContext(ctx, "could not check if network is in use by containers", "error", err)
 		isInUse = false // Assume not in use if we can't check
 	}
-	
+
 	// Get workspace name for comparison (GetNetworkProjects returns workspace directory names)
 	// The workspace name is what's used as the directory name, not the project name
 	currentWorkspaceName := workspaceName
@@ -350,7 +350,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		// Fallback: use project name if workspace name wasn't determined
 		currentWorkspaceName = projectName
 	}
-	
+
 	// Also check state files to see if other projects are configured to use this network
 	networkProjects, err := uc.deps.DockerRunner.GetNetworkProjects(networkName, baseDir)
 	if err != nil {
@@ -406,7 +406,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 			errors.ErrCodeStateSaveError,
 			"Failed to remove state file",
 		).WithSuggestion(
-			"Check file permissions. " +
+			"Check file permissions. "+
 				"You can try removing the state file manually.",
 		).WithContext("state_path", statePath).WithError(err)
 	}
@@ -515,6 +515,27 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 					output.PrintWarning(fmt.Sprintf("Failed to execute project down command (may already be stopped): %v", err))
 				} else {
 					output.PrintSuccess("Project down command executed successfully")
+				}
+			}
+		} else if len(stateDeps.Services) == 0 && stateDeps.Project.Commands.Up != "" {
+			// Command-only project with no project.commands.down: try to stop containers that may belong to this project
+			// (e.g. started by project.commands.up like "make deploy-nginx" which may create a container named "nginx")
+			projName := stateDeps.Project.Name
+			hasExplicit := stateDeps.HasExplicitWorkspace()
+			wsName := currentWorkspaceName
+			if wsName == "" {
+				wsName = projName
+			}
+			containerNames := []string{projName}
+			if normalized, err := docker.NormalizeContainerName(wsName, projName, projName, hasExplicit); err == nil && normalized != projName {
+				containerNames = append([]string{normalized}, containerNames...)
+			}
+			for _, name := range containerNames {
+				if err := docker.StopContainerWithContext(ctx, name); err != nil {
+					logging.WarnWithContext(ctx, "Failed to stop container by name", "container", name, "error", err.Error())
+				} else {
+					output.PrintSuccess(fmt.Sprintf("Stopped container %s", name))
+					break
 				}
 			}
 		}

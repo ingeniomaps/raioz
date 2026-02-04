@@ -73,25 +73,20 @@ func validateTransitiveDependencies(deps *config.Deps) ([]CompatibilityIssue, er
 			return nil // Infra doesn't have dependencies
 		}
 
-		// Collect direct dependencies (skip if docker is nil - host execution)
-		if svc.Docker != nil {
-			for _, depName := range svc.Docker.DependsOn {
-				referencedNames[depName] = true
+		// Collect direct dependencies (service-level and docker-level)
+		for _, depName := range svc.GetDependsOn() {
+			referencedNames[depName] = true
 
-				// Check if dependency is defined before recursing
-				if !definedNames[depName] {
-					return fmt.Errorf("service/infra '%s' is referenced but not defined", depName)
-				}
+			if !definedNames[depName] {
+				return fmt.Errorf("service/infra '%s' is referenced but not defined", depName)
+			}
 
-				// Recursively collect transitive dependencies
-				// Create new visited map for each branch to allow same service in different paths
-				newVisited := make(map[string]bool)
-				for k, v := range visited {
-					newVisited[k] = v
-				}
-				if err := collectTransitive(depName, newVisited); err != nil {
-					return err
-				}
+			newVisited := make(map[string]bool)
+			for k, v := range visited {
+				newVisited[k] = v
+			}
+			if err := collectTransitive(depName, newVisited); err != nil {
+				return err
 			}
 		}
 
@@ -135,11 +130,7 @@ func validateVersionCompatibility(deps *config.Deps) ([]CompatibilityIssue, erro
 	// Build communication graph (services that depend on each other)
 	communicationGraph := make(map[string][]string)
 	for name, svc := range deps.Services {
-		if svc.Docker != nil {
-			communicationGraph[name] = svc.Docker.DependsOn
-		} else {
-			communicationGraph[name] = []string{} // Host execution has no Docker dependencies
-		}
+		communicationGraph[name] = svc.GetDependsOn()
 	}
 
 	// Extract version information from tags/branches
@@ -181,9 +172,9 @@ func validateVersionCompatibility(deps *config.Deps) ([]CompatibilityIssue, erro
 			if serviceMajor != "" && depMajor != "" && serviceMajor != depMajor {
 				// Different major versions - potential incompatibility
 				issues = append(issues, CompatibilityIssue{
-					Type:        "version_mismatch",
-					Severity:    "warning",
-					Service:     serviceName,
+					Type:     "version_mismatch",
+					Severity: "warning",
+					Service:  serviceName,
 					Description: fmt.Sprintf(
 						"Version mismatch with dependency '%s': %s vs %s (different major versions)",
 						depName, serviceVersion, depVersion,

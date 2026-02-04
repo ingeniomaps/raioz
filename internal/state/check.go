@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"raioz/internal/config"
-	"raioz/internal/git"
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/git"
 	"raioz/internal/workspace"
 )
 
@@ -51,7 +51,7 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 		if change.Field == "docker.ports" || change.Field == "ports" {
 			severity = "critical"
 			suggestion = "Port changes detected. Run 'raioz down' then 'raioz up' to apply"
-		} else if change.Field == "docker.dependsOn" || change.Field == "removed" {
+		} else if change.Field == "dependsOn" || change.Field == "docker.dependsOn" || change.Field == "removed" {
 			severity = "critical"
 			suggestion = "Dependencies changed. Run 'raioz down' then 'raioz up' to apply"
 		} else if change.Field == "added" {
@@ -67,9 +67,9 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 		}
 
 		issues = append(issues, AlignmentIssue{
-			Type:        "config_change",
-			Severity:    severity,
-			Service:     change.Name,
+			Type:     "config_change",
+			Severity: severity,
+			Service:  change.Name,
 			Description: fmt.Sprintf(
 				"%s.%s changed: %s -> %s",
 				change.Name, change.Field, change.OldValue, change.NewValue,
@@ -105,9 +105,9 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 				if exists && oldSvc.Source.Branch == svc.Source.Branch {
 					// Branch drift detected (manual change, not in config)
 					issues = append(issues, AlignmentIssue{
-						Type:        "branch_drift",
-						Severity:    "info",
-						Service:     name,
+						Type:     "branch_drift",
+						Severity: "info",
+						Service:  name,
 						Description: fmt.Sprintf(
 							"Branch drift: repository is on '%s', but config expects '%s'",
 							currentBranch, svc.Source.Branch,
@@ -137,9 +137,9 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 		// Check if tag changed
 		if oldSvc.Source.Tag != svc.Source.Tag {
 			issues = append(issues, AlignmentIssue{
-				Type:        "config_change",
-				Severity:    "warning",
-				Service:     name,
+				Type:     "config_change",
+				Severity: "warning",
+				Service:  name,
 				Description: fmt.Sprintf(
 					"Image tag changed: %s -> %s",
 					oldSvc.Source.Tag, svc.Source.Tag,
@@ -158,9 +158,9 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 
 		if oldInfra.Tag != infra.Tag {
 			issues = append(issues, AlignmentIssue{
-				Type:        "config_change",
-				Severity:    "warning",
-				Service:     name,
+				Type:     "config_change",
+				Severity: "warning",
+				Service:  name,
 				Description: fmt.Sprintf(
 					"Infra tag changed: %s -> %s",
 					oldInfra.Tag, infra.Tag,

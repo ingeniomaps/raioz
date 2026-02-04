@@ -63,6 +63,40 @@ func Down(composePath string) error {
 	return DownWithContext(context.Background(), composePath)
 }
 
+// StopServiceWithContext stops and removes only one service from a compose project.
+// Use this to resolve a service conflict without affecting other services or infra.
+func StopServiceWithContext(ctx context.Context, composePath string, serviceName string) error {
+	if serviceName == "" {
+		return nil
+	}
+	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+		return nil
+	}
+	if err := ValidateComposePath(composePath); err != nil {
+		return fmt.Errorf("invalid compose path: %w", err)
+	}
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
+	defer cancel()
+	// Stop the service (leave other services running)
+	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "stop", serviceName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose stop", exectimeout.DockerComposeDownTimeout)
+	}
+	// Remove the container so the local project can recreate it
+	rmCtx, rmCancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
+	defer rmCancel()
+	rmCmd := exec.CommandContext(rmCtx, "docker", "compose", "-f", composePath, "rm", "-f", serviceName)
+	rmCmd.Stdout = os.Stdout
+	rmCmd.Stderr = os.Stderr
+	if err := rmCmd.Run(); err != nil {
+		// rm may fail if container already removed; non-fatal
+		return nil
+	}
+	return nil
+}
+
 // DownWithContext stops Docker Compose services with context support
 func DownWithContext(ctx context.Context, composePath string) error {
 	// Check if compose file exists
@@ -153,4 +187,24 @@ func GetServicesStatusWithContext(ctx context.Context, composePath string) (map[
 	}
 
 	return status, nil
+}
+
+// StopContainerWithContext stops a Docker container by name (docker stop name).
+// Returns nil if the container was stopped or if it does not exist; returns error for other failures.
+func StopContainerWithContext(ctx context.Context, containerName string) error {
+	if containerName == "" {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "docker", "stop", containerName)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "No such container") || strings.Contains(string(out), "is not running") {
+			return nil
+		}
+		return fmt.Errorf("docker stop %s: %w", containerName, err)
+	}
+	if len(out) > 0 {
+		os.Stdout.Write(out)
+	}
+	return nil
 }

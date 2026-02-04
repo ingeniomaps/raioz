@@ -24,13 +24,11 @@ func (uc *UseCase) checkDependencyProjects(ctx context.Context, deps *config.Dep
 		return nil
 	}
 
-	// Collect all dependency names from services
+	// Collect all dependency names from services (service-level and docker-level)
 	dependencyNames := make(map[string]bool)
 	for _, svc := range deps.Services {
-		if svc.Docker != nil {
-			for _, dep := range svc.Docker.DependsOn {
-				dependencyNames[dep] = true
-			}
+		for _, dep := range svc.GetDependsOn() {
+			dependencyNames[dep] = true
 		}
 	}
 

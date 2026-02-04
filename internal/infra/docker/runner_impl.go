@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"raioz/internal/config"
-	"raioz/internal/domain/interfaces"
 	dockerpkg "raioz/internal/docker"
+	"raioz/internal/domain/interfaces"
 	workspacepkg "raioz/internal/workspace"
 )
 
@@ -40,6 +40,11 @@ func (r *DockerRunnerImpl) DownWithContext(ctx context.Context, composePath stri
 	return dockerpkg.DownWithContext(ctx, composePath)
 }
 
+// StopServiceWithContext stops and removes only one service from the compose project
+func (r *DockerRunnerImpl) StopServiceWithContext(ctx context.Context, composePath string, serviceName string) error {
+	return dockerpkg.StopServiceWithContext(ctx, composePath, serviceName)
+}
+
 // GetServicesStatus returns the status of services
 func (r *DockerRunnerImpl) GetServicesStatus(composePath string) (map[string]string, error) {
 	return dockerpkg.GetServicesStatus(composePath)
@@ -72,7 +77,7 @@ func (r *DockerRunnerImpl) GetServicesInfoWithContext(ctx context.Context, compo
 				Commit:   info.Version,
 				Branch:   "", // Not available in docker.ServiceInfo
 				Health:   info.Health,
-				Restarts: "", // Not available in docker.ServiceInfo
+				Restarts: "",         // Not available in docker.ServiceInfo
 				Ports:    []string{}, // Not available in docker.ServiceInfo
 			}
 		}
@@ -102,17 +107,17 @@ func (r *DockerRunnerImpl) FormatStatusTable(services map[string]*interfaces.Ser
 	for name, info := range services {
 		if info != nil {
 			dockerServices[name] = &dockerpkg.ServiceInfo{
-				Name:      name,
-				Status:    info.Status,
-				Uptime:    info.Uptime,
-				Memory:    info.Memory,
-				CPU:       info.CPU,
-				Image:     info.Image,
-				Version:   info.Commit,
-				Health:    info.Health,
-				LastUpdated: "", // Not available in interfaces.ServiceInfo
-				Linked:    false, // Not available in interfaces.ServiceInfo
-				LinkTarget: "", // Not available in interfaces.ServiceInfo
+				Name:        name,
+				Status:      info.Status,
+				Uptime:      info.Uptime,
+				Memory:      info.Memory,
+				CPU:         info.CPU,
+				Image:       info.Image,
+				Version:     info.Commit,
+				Health:      info.Health,
+				LastUpdated: "",    // Not available in interfaces.ServiceInfo
+				Linked:      false, // Not available in interfaces.ServiceInfo
+				LinkTarget:  "",    // Not available in interfaces.ServiceInfo
 			}
 		}
 	}
