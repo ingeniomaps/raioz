@@ -16,13 +16,9 @@ func ValidateDependencyCycle(deps *config.Deps) error {
 		graph[name] = []string{}
 	}
 
-	// Add dependencies to graph
+	// Add dependencies to graph (service-level and docker-level)
 	for name, svc := range deps.Services {
-		// Skip if docker is nil (host execution - no docker dependencies)
-		if svc.Docker == nil {
-			continue
-		}
-		for _, dep := range svc.Docker.DependsOn {
+		for _, dep := range svc.GetDependsOn() {
 			graph[name] = append(graph[name], dep)
 		}
 	}

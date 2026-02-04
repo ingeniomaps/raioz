@@ -85,8 +85,8 @@ func validateCIImages(deps *config.Deps, result *CIResult) error {
 func ensureCINetwork(deps *config.Deps, result *CIResult) error {
 	ctx := context.Background()
 	networkConfig := docker.NetworkConfig{
-		Name:   deps.Project.Network.GetName(),
-		Subnet: deps.Project.Network.GetSubnet(),
+		Name:   deps.Network.GetName(),
+		Subnet: deps.Network.GetSubnet(),
 	}
 	if err := docker.EnsureNetworkWithConfigAndContext(ctx, networkConfig, false); err != nil {
 		result.Validations = append(result.Validations, ValidationResult{

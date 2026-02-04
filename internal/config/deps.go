@@ -72,9 +72,9 @@ func (e *EnvValue) GetVariables() map[string]string {
 // - A string (network name): "mi-red"
 // - An object with name and subnet: {"name": "mi-red", "subnet": "150.150.0.0/16"}
 type NetworkConfig struct {
-	Name   string // Network name (always present)
-	Subnet string // Optional subnet (CIDR notation, e.g., "150.150.0.0/16")
-	IsObject bool // True if this was deserialized as an object
+	Name     string // Network name (always present)
+	Subnet   string // Optional subnet (CIDR notation, e.g., "150.150.0.0/16")
+	IsObject bool   // True if this was deserialized as an object
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for NetworkConfig
@@ -139,11 +139,22 @@ func (n *NetworkConfig) HasSubnet() bool {
 type Deps struct {
 	SchemaVersion      string             `json:"schemaVersion"`
 	Workspace          string             `json:"workspace,omitempty"` // Optional workspace name. If not specified, uses Project.Name as workspace
+	Network            NetworkConfig      `json:"network,omitempty"`   // Network configuration (shared by workspace). Optional - falls back to project.network for backward compatibility
 	Project            Project            `json:"project"`
 	Services           map[string]Service `json:"services"`
 	Infra              map[string]Infra   `json:"infra"`
 	Env                EnvConfig          `json:"env"`
 	ProjectComposePath string             `json:"projectComposePath,omitempty"` // Path to project's docker-compose.yml (if exists)
+	ProjectRoot        string             `json:"projectRoot,omitempty"`        // Absolute path to project dir (where .raioz.json lives). Set at runtime when saving state; used when merging configs to resolve relative volumes per project
+}
+
+// LegacyProject represents the old structure where network was inside project
+// Used for backward compatibility during unmarshaling
+type LegacyProject struct {
+	Name     string           `json:"name"`
+	Network  NetworkConfig    `json:"network,omitempty"` // Legacy: network inside project
+	Commands *ProjectCommands `json:"commands,omitempty"`
+	Env      *EnvValue        `json:"env,omitempty"`
 }
 
 // GetWorkspaceName returns the workspace name for this project
@@ -161,18 +172,17 @@ func (d *Deps) HasExplicitWorkspace() bool {
 }
 
 type Project struct {
-	Name     string            `json:"name"`
-	Network  NetworkConfig     `json:"network"`
-	Commands *ProjectCommands  `json:"commands,omitempty"`
-	Env      *EnvValue         `json:"env,omitempty"` // Project-level env files or variables
+	Name     string           `json:"name"`
+	Commands *ProjectCommands `json:"commands,omitempty"`
+	Env      *EnvValue        `json:"env,omitempty"` // Project-level env files or variables
 }
 
 type ProjectCommands struct {
-	Up     string                 `json:"up,omitempty"`
-	Down   string                 `json:"down,omitempty"`
-	Health string                 `json:"health,omitempty"`
-	Dev    *EnvironmentCommands   `json:"dev,omitempty"`
-	Prod   *EnvironmentCommands   `json:"prod,omitempty"`
+	Up     string               `json:"up,omitempty"`
+	Down   string               `json:"down,omitempty"`
+	Health string               `json:"health,omitempty"`
+	Dev    *EnvironmentCommands `json:"dev,omitempty"`
+	Prod   *EnvironmentCommands `json:"prod,omitempty"`
 }
 
 type EnvironmentCommands struct {
@@ -189,23 +199,46 @@ type EnvConfig struct {
 
 type Service struct {
 	Source      SourceConfig       `json:"source"`
-	Docker      *DockerConfig      `json:"docker,omitempty"` // Optional: nil if source.command is set (host execution)
-	Env         *EnvValue          `json:"env,omitempty"`     // Can be array of strings (file paths) or object (variables)
-	Volumes     []string           `json:"volumes,omitempty"` // For host services: symlinks in format "SRC:DEST" (SRC relative to projectDir, DEST relative to servicePath)
+	Docker      *DockerConfig      `json:"docker,omitempty"`    // Optional: nil if source.command is set (host execution)
+	DependsOn   []string           `json:"dependsOn,omitempty"` // At service level: for local/host services or to combine with docker.dependsOn
+	Env         *EnvValue          `json:"env,omitempty"`       // Can be array of strings (file paths) or object (variables)
+	Volumes     []string           `json:"volumes,omitempty"`   // For host services: symlinks in format "SRC:DEST" (SRC relative to projectDir, DEST relative to servicePath)
 	Profiles    []string           `json:"profiles,omitempty"`
 	Enabled     *bool              `json:"enabled,omitempty"`     // Explicit enable/disable (default: true)
 	Mock        *MockConfig        `json:"mock,omitempty"`        // Mock configuration
 	FeatureFlag *FeatureFlagConfig `json:"featureFlag,omitempty"` // Feature flag configuration
-	Commands    *ServiceCommands   `json:"commands,omitempty"`     // Custom commands for launch/stop
+	Commands    *ServiceCommands   `json:"commands,omitempty"`    // Custom commands for launch/stop
+}
+
+// GetDependsOn returns the effective dependsOn: service-level and docker-level merged (deduplicated).
+// Use this for ordering, compose depends_on, and validation so both locations are honored.
+func (s *Service) GetDependsOn() []string {
+	seen := make(map[string]bool)
+	var out []string
+	for _, d := range s.DependsOn {
+		if !seen[d] {
+			seen[d] = true
+			out = append(out, d)
+		}
+	}
+	if s.Docker != nil {
+		for _, d := range s.Docker.DependsOn {
+			if !seen[d] {
+				seen[d] = true
+				out = append(out, d)
+			}
+		}
+	}
+	return out
 }
 
 type ServiceCommands struct {
-	Up         string                 `json:"up,omitempty"`
-	Down       string                 `json:"down,omitempty"`
-	Health     string                 `json:"health,omitempty"`
-	Dev        *EnvironmentCommands   `json:"dev,omitempty"`
-	Prod       *EnvironmentCommands   `json:"prod,omitempty"`
-	ComposePath string                `json:"composePath,omitempty"` // Path to docker-compose.yml for services that use docker-compose commands
+	Up          string               `json:"up,omitempty"`
+	Down        string               `json:"down,omitempty"`
+	Health      string               `json:"health,omitempty"`
+	Dev         *EnvironmentCommands `json:"dev,omitempty"`
+	Prod        *EnvironmentCommands `json:"prod,omitempty"`
+	ComposePath string               `json:"composePath,omitempty"` // Path to docker-compose.yml for services that use docker-compose commands
 }
 
 type SourceConfig struct {
@@ -221,14 +254,14 @@ type SourceConfig struct {
 }
 
 type DockerConfig struct {
-	Mode       string   `json:"mode,omitempty"`       // "dev" | "prod" (optional if source.command is set)
+	Mode       string   `json:"mode,omitempty"` // "dev" | "prod" (optional if source.command is set)
 	Ports      []string `json:"ports,omitempty"`
 	Volumes    []string `json:"volumes,omitempty"`
 	DependsOn  []string `json:"dependsOn,omitempty"`
 	Dockerfile string   `json:"dockerfile,omitempty"`
-	Command    string   `json:"command,omitempty"` // Command to run inside Docker container (for wrapper mode)
-	Runtime    string   `json:"runtime,omitempty"` // Runtime type for Docker wrapper mode (node, go, python, etc.)
-	IP         string   `json:"ip,omitempty"`       // Static IP address in the network (e.g., "150.150.0.10")
+	Command    string   `json:"command,omitempty"`   // Command to run inside Docker container (for wrapper mode)
+	Runtime    string   `json:"runtime,omitempty"`   // Runtime type for Docker wrapper mode (node, go, python, etc.)
+	IP         string   `json:"ip,omitempty"`        // Static IP address in the network (e.g., "150.150.0.10")
 	EnvVolume  string   `json:"envVolume,omitempty"` // Optional: mount .env file as volume at this path (e.g., "/app/.env")
 }
 
@@ -254,9 +287,43 @@ func LoadDeps(path string) (*Deps, []string, error) {
 		warnings = []string{}
 	}
 
-	var deps Deps
-	if err := json.Unmarshal(data, &deps); err != nil {
+	// Unmarshal with legacy structure to handle backward compatibility
+	// This allows us to read network from either root level or project.network
+	var legacyStruct struct {
+		Project            LegacyProject      `json:"project"`
+		Network            NetworkConfig      `json:"network,omitempty"`
+		SchemaVersion      string             `json:"schemaVersion"`
+		Workspace          string             `json:"workspace,omitempty"`
+		Services           map[string]Service `json:"services"`
+		Infra              map[string]Infra   `json:"infra"`
+		Env                EnvConfig          `json:"env"`
+		ProjectComposePath string             `json:"projectComposePath,omitempty"`
+	}
+	if err := json.Unmarshal(data, &legacyStruct); err != nil {
 		return nil, nil, err
+	}
+
+	// Build Deps struct
+	deps := Deps{
+		SchemaVersion: legacyStruct.SchemaVersion,
+		Workspace:     legacyStruct.Workspace,
+		Project: Project{
+			Name:     legacyStruct.Project.Name,
+			Commands: legacyStruct.Project.Commands,
+			Env:      legacyStruct.Project.Env,
+		},
+		Services:           legacyStruct.Services,
+		Infra:              legacyStruct.Infra,
+		Env:                legacyStruct.Env,
+		ProjectComposePath: legacyStruct.ProjectComposePath,
+	}
+
+	// Migrate network: use root level if present, otherwise use project.network (backward compatibility)
+	if legacyStruct.Network.Name != "" {
+		deps.Network = legacyStruct.Network
+	} else if legacyStruct.Project.Network.Name != "" {
+		// Network is in project, migrate to root level
+		deps.Network = legacyStruct.Project.Network
 	}
 
 	return &deps, warnings, nil
@@ -274,6 +341,7 @@ func FilterByProfile(deps *Deps, profile string) *Deps {
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
 		Workspace:          deps.Workspace, // Preserve workspace
+		Network:            deps.Network,   // Preserve network
 		Project:            deps.Project,
 		Services:           make(map[string]Service),
 		Infra:              deps.Infra, // Infra is always included

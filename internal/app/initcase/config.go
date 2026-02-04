@@ -14,9 +14,9 @@ import (
 func (uc *UseCase) createConfig(projectName string, networkName string) (*config.Deps, error) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
+		Network:       config.NetworkConfig{Name: networkName, IsObject: false},
 		Project: config.Project{
-			Name:    projectName,
-			Network: config.NetworkConfig{Name: networkName, IsObject: false},
+			Name: projectName,
 		},
 		Services: make(map[string]config.Service),
 		Infra:    make(map[string]config.Infra),

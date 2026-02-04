@@ -44,7 +44,7 @@ func All(deps *config.Deps) error {
 			errors.ErrCodeCompatibilityError,
 			"Compatibility validation failed",
 		).WithSuggestion(
-			"Check service dependencies and version compatibility. "+
+			"Check service dependencies and version compatibility. " +
 				"Review the compatibility warnings for details.",
 		).WithError(err)
 	}
@@ -55,7 +55,7 @@ func All(deps *config.Deps) error {
 			errors.ErrCodeCompatibilityError,
 			fmt.Sprintf("Compatibility errors detected:\n%s", FormatCompatibilityIssues(compatIssues)),
 		).WithSuggestion(
-			"Resolve the compatibility issues shown above. "+
+			"Resolve the compatibility issues shown above. " +
 				"Check service versions, dependencies, and ensure all required services are defined.",
 		)
 	}
@@ -76,7 +76,7 @@ func validateSchema(deps *config.Deps) error {
 			errors.ErrCodeInvalidConfig,
 			"Failed to marshal configuration to JSON",
 		).WithSuggestion(
-			"Check your .raioz.json file for invalid data structures. "+
+			"Check your .raioz.json file for invalid data structures. " +
 				"Ensure all fields have correct types (strings, numbers, booleans, arrays, objects).",
 		).WithError(err)
 	}
@@ -90,7 +90,7 @@ func validateSchema(deps *config.Deps) error {
 			errors.ErrCodeSchemaValidation,
 			"Failed to validate schema",
 		).WithSuggestion(
-			"Schema validation system error. This may indicate a problem with the configuration format. "+
+			"Schema validation system error. This may indicate a problem with the configuration format. " +
 				"Try validating your JSON file with a JSON validator.",
 		).WithError(err)
 	}
@@ -104,8 +104,8 @@ func validateSchema(deps *config.Deps) error {
 			errors.ErrCodeSchemaValidation,
 			fmt.Sprintf("Configuration validation errors:\n%s", strings.Join(validationErrors, "\n")),
 		).WithSuggestion(
-			"Fix the validation errors shown above. "+
-				"Common issues: missing required fields, incorrect field types, invalid enum values. "+
+			"Fix the validation errors shown above. " +
+				"Common issues: missing required fields, incorrect field types, invalid enum values. " +
 				"Refer to the documentation for the correct schema format.",
 		)
 	}
@@ -119,17 +119,17 @@ func validateProject(deps *config.Deps) error {
 			errors.ErrCodeMissingField,
 			"Project name is required",
 		).WithSuggestion(
-			"Add a 'name' field to the 'project' section in your .raioz.json file. "+
+			"Add a 'name' field to the 'project' section in your .raioz.json file. " +
 				"Example: {\"project\": {\"name\": \"my-project\", ...}}",
 		)
 	}
-	networkName := deps.Project.Network.GetName()
+	networkName := deps.Network.GetName()
 	if networkName == "" {
 		return errors.New(
 			errors.ErrCodeMissingField,
 			"Project network is required",
 		).WithSuggestion(
-			"Add a 'network' field to the 'project' section in your .raioz.json file. "+
+			"Add a 'network' field to the 'project' section in your .raioz.json file. " +
 				"Example: {\"project\": {\"network\": \"my-network\", ...}}",
 		)
 	}
@@ -162,8 +162,7 @@ func validateProject(deps *config.Deps) error {
 
 func validateServices(deps *config.Deps) error {
 	// Allow 0 services if project.commands is defined or if there's infrastructure
-	hasProjectCommands := deps.Project.Commands != nil && (
-		deps.Project.Commands.Up != "" ||
+	hasProjectCommands := deps.Project.Commands != nil && (deps.Project.Commands.Up != "" ||
 		(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
 		(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))
 	hasInfra := len(deps.Infra) > 0
@@ -173,9 +172,9 @@ func validateServices(deps *config.Deps) error {
 			errors.ErrCodeInvalidConfig,
 			"No services, infrastructure, or project commands configured",
 		).WithSuggestion(
-			"Add at least one service to the 'services' section, configure infrastructure in the 'infra' section, "+
-				"or configure 'project.commands.up' in your .raioz.json file. "+
-				"Services define the components of your project, infrastructure provides supporting services, "+
+			"Add at least one service to the 'services' section, configure infrastructure in the 'infra' section, " +
+				"or configure 'project.commands.up' in your .raioz.json file. " +
+				"Services define the components of your project, infrastructure provides supporting services, " +
 				"or you can use project commands to run the project directly.",
 		)
 	}
@@ -354,7 +353,7 @@ func validateServices(deps *config.Deps) error {
 					"node":   true,
 					"go":     true,
 					"python": true,
-					"java":     true,
+					"java":   true,
 					"rust":   true,
 				}
 				if !validRuntimes[strings.ToLower(svc.Docker.Runtime)] {
@@ -508,13 +507,9 @@ func validateDependencies(deps *config.Deps) error {
 		allNames[name] = true
 	}
 
-	// Validate dependsOn references
+	// Validate dependsOn references (service-level and docker-level)
 	for name, svc := range deps.Services {
-		// Skip if docker is nil (host execution)
-		if svc.Docker == nil {
-			continue
-		}
-		for _, dep := range svc.Docker.DependsOn {
+		for _, dep := range svc.GetDependsOn() {
 			if !allNames[dep] {
 				return errors.New(
 					errors.ErrCodeInvalidField,

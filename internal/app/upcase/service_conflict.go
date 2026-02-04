@@ -19,14 +19,14 @@ import (
 
 // ServiceConflict represents a detected conflict for a service
 type ServiceConflict struct {
-	ServiceName      string // Name of the service (e.g., "nginx")
-	ConflictType     string // "cloned_running" | "local_running" | "preference"
-	CurrentProject   string // Project name where service is currently running
-	CurrentLocation  string // Path or location description
-	CurrentContainer string // Container name if running
-	CurrentSource    string // "git" | "local" | "image"
-	TargetLocation   string // Where we want to run it from
-	TargetContainer  string // Container name that would be created
+	ServiceName      string                   // Name of the service (e.g., "nginx")
+	ConflictType     string                   // "cloned_running" | "local_running" | "preference"
+	CurrentProject   string                   // Project name where service is currently running
+	CurrentLocation  string                   // Path or location description
+	CurrentContainer string                   // Container name if running
+	CurrentSource    string                   // "git" | "local" | "image"
+	TargetLocation   string                   // Where we want to run it from
+	TargetContainer  string                   // Container name that would be created
 	Preference       *state.ServicePreference // Saved preference if exists
 }
 
@@ -42,7 +42,7 @@ func (uc *UseCase) detectServiceConflict(
 	workspaceName := deps.GetWorkspaceName()
 
 	// Check if service has a saved preference
-	pref, err := state.GetServicePreference(serviceName)
+	pref, err := state.GetServicePreference(ws, serviceName)
 	if err != nil {
 		logging.WarnWithContext(ctx, "Failed to load service preference", "service", serviceName, "error", err.Error())
 	}
@@ -87,10 +87,9 @@ func (uc *UseCase) detectServiceConflict(
 	}
 
 	// Check if service is running from a local project (via docker ps)
-	// This checks if there's a container with a name that matches the service
-	// but is not from the workspace (not starting with raioz-{workspace}-)
+	// Only conflict when the running container is from OUR workspace (same workspace we're deploying to).
+	// Containers from other workspaces (e.g. nunzio-nginx when deploying to roax) do not conflict — they coexist.
 	if isLocalProject {
-		// Check all running containers to see if service name matches
 		cmd := exec.CommandContext(ctx, "docker", "ps", "--format", "{{.Names}}\t{{.Image}}")
 		output, err := cmd.Output()
 		if err == nil {
@@ -106,10 +105,9 @@ func (uc *UseCase) detectServiceConflict(
 				}
 				containerName := parts[0]
 
-				// Check if container name matches service (but not from workspace)
+				// Only conflict if this container is from our workspace (same name we would use)
 				if containerName == serviceName || strings.HasSuffix(containerName, "-"+serviceName) {
-					// If it doesn't start with workspace prefix, it's a local project
-					if !strings.HasPrefix(containerName, workspacePrefix) {
+					if strings.HasPrefix(containerName, workspacePrefix) {
 						return &ServiceConflict{
 							ServiceName:      serviceName,
 							ConflictType:     "local_running",
@@ -118,10 +116,14 @@ func (uc *UseCase) detectServiceConflict(
 							CurrentContainer: containerName,
 							CurrentSource:    "local",
 							TargetLocation:   fmt.Sprintf("workspace (would clone)"),
-							TargetContainer:  func() string { name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true); return name }(),
-							Preference:       pref,
+							TargetContainer: func() string {
+								name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
+								return name
+							}(),
+							Preference: pref,
 						}, nil
 					}
+					// Container from another workspace (e.g. nunzio-nginx) — no conflict, skip
 				}
 			}
 		}
@@ -139,8 +141,11 @@ func (uc *UseCase) detectServiceConflict(
 				CurrentContainer: serviceName, // Estimated
 				CurrentSource:    "local",
 				TargetLocation:   fmt.Sprintf("workspace (would clone)"),
-				TargetContainer:  func() string { name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true); return name }(),
-				Preference:       pref,
+				TargetContainer: func() string {
+					name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
+					return name
+				}(),
+				Preference: pref,
 			}, nil
 		}
 		// If preference is "cloned" but we're trying to run from local project
@@ -283,11 +288,11 @@ func (uc *UseCase) applyServiceConflictResolution(
 
 	switch resolution {
 	case "local":
-		// Stop cloned service and save preference
+		// Stop only the conflicting service from workspace (do not bring down infra or other services)
 		output.PrintInfo("Stopping cloned service from workspace...")
 		composePath := workspace.GetComposePath(ws)
 		if composePath != "" {
-			if err := uc.deps.DockerRunner.DownWithContext(ctx, composePath); err != nil {
+			if err := uc.deps.DockerRunner.StopServiceWithContext(ctx, composePath, serviceName); err != nil {
 				logging.WarnWithContext(ctx, "Failed to stop service from workspace", "error", err.Error())
 			}
 		}
@@ -300,7 +305,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			Reason:      "User chose local project over cloned service",
 			Timestamp:   time.Now(),
 		}
-		if err := state.SetServicePreference(pref); err != nil {
+		if err := state.SetServicePreference(ws, pref); err != nil {
 			logging.WarnWithContext(ctx, "Failed to save service preference", "error", err.Error())
 		}
 		output.PrintSuccess("Preference saved: use local project for this service")
@@ -331,7 +336,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			Reason:      "User chose cloned service over local project",
 			Timestamp:   time.Now(),
 		}
-		if err := state.SetServicePreference(pref); err != nil {
+		if err := state.SetServicePreference(ws, pref); err != nil {
 			logging.WarnWithContext(ctx, "Failed to save service preference", "error", err.Error())
 		}
 		output.PrintSuccess("Preference saved: use cloned service for this service")
@@ -347,7 +352,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			Reason:      "User set preference to always use local project",
 			Timestamp:   time.Now(),
 		}
-		if err := state.SetServicePreference(pref); err != nil {
+		if err := state.SetServicePreference(ws, pref); err != nil {
 			return fmt.Errorf("failed to save service preference: %w", err)
 		}
 		output.PrintSuccess("Preference saved: always use local project for this service")

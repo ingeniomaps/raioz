@@ -68,7 +68,7 @@ func TestErrorHandling_MissingRequiredFields(t *testing.T) {
 
 	// Test 2: Missing network
 	deps2 := testhelpers.CreateMinimalTestDeps()
-	deps2.Project.Network = ""
+	deps2.Network = config.NetworkConfig{Name: "", IsObject: false}
 	depsPath2, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps2)
 
 	_, _, err = config.LoadDeps(depsPath2)
@@ -654,7 +654,7 @@ func TestEdgeCases_UnicodeCharacters(t *testing.T) {
 	// Test: Project name with unicode characters
 	testDeps := testhelpers.CreateMinimalTestDeps()
 	testDeps.Project.Name = "test-项目-123"
-	testDeps.Project.Network = "test-network-网络"
+	testDeps.Network = config.NetworkConfig{Name: "test-network-网络", IsObject: false}
 
 	depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, testDeps)
 	loaded, _, err := config.LoadDeps(depsPath)

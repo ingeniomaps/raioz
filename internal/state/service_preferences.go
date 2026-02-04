@@ -14,8 +14,8 @@ const servicePreferencesFileName = "service-preferences.json"
 
 // ServicePreference represents a user's preference for handling service conflicts
 type ServicePreference struct {
-	ServiceName string    `json:"serviceName"` // Name of the service (e.g., "nginx")
-	Preference  string    `json:"preference"`  // "local" | "cloned" | "ask"
+	ServiceName string    `json:"serviceName"`           // Name of the service (e.g., "nginx")
+	Preference  string    `json:"preference"`            // "local" | "cloned" | "ask"
 	ProjectPath string    `json:"projectPath,omitempty"` // Path to local project (if preference is "local")
 	Workspace   string    `json:"workspace,omitempty"`   // Workspace name (if preference is "cloned")
 	Reason      string    `json:"reason,omitempty"`      // Reason for the preference
@@ -27,26 +27,25 @@ type ServicePreferences struct {
 	Preferences map[string]ServicePreference `json:"preferences"` // Key: serviceName
 }
 
-// GetServicePreferencesPath returns the path to the service preferences file
-func GetServicePreferencesPath() (string, error) {
-	base, err := workspace.GetBaseDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get base directory: %w", err)
+// GetServicePreferencesPath returns the path to the service preferences file for a workspace.
+// Preferences are stored per workspace (e.g. workspaces/roax/service-preferences.json).
+func GetServicePreferencesPath(ws *workspace.Workspace) string {
+	if ws == nil || ws.Root == "" {
+		return ""
 	}
-	return filepath.Join(base, servicePreferencesFileName), nil
+	return filepath.Join(ws.Root, servicePreferencesFileName)
 }
 
-// LoadServicePreferences loads service preferences from disk
-func LoadServicePreferences() (*ServicePreferences, error) {
-	path, err := GetServicePreferencesPath()
-	if err != nil {
-		return nil, err
+// LoadServicePreferences loads service preferences from the workspace directory
+func LoadServicePreferences(ws *workspace.Workspace) (*ServicePreferences, error) {
+	path := GetServicePreferencesPath(ws)
+	if path == "" {
+		return &ServicePreferences{Preferences: make(map[string]ServicePreference)}, nil
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Return empty preferences if file doesn't exist
 			return &ServicePreferences{
 				Preferences: make(map[string]ServicePreference),
 			}, nil
@@ -59,7 +58,6 @@ func LoadServicePreferences() (*ServicePreferences, error) {
 		return nil, fmt.Errorf("failed to unmarshal service preferences: %w", err)
 	}
 
-	// Ensure map is initialized
 	if prefs.Preferences == nil {
 		prefs.Preferences = make(map[string]ServicePreference)
 	}
@@ -67,14 +65,13 @@ func LoadServicePreferences() (*ServicePreferences, error) {
 	return &prefs, nil
 }
 
-// SaveServicePreferences saves service preferences to disk
-func SaveServicePreferences(prefs *ServicePreferences) error {
-	path, err := GetServicePreferencesPath()
-	if err != nil {
-		return err
+// SaveServicePreferences saves service preferences to the workspace directory
+func SaveServicePreferences(ws *workspace.Workspace, prefs *ServicePreferences) error {
+	path := GetServicePreferencesPath(ws)
+	if path == "" {
+		return fmt.Errorf("workspace root is required to save service preferences")
 	}
 
-	// Ensure directory exists (use 0700 for security - owner only)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("failed to create preferences directory: %w", err)
@@ -85,7 +82,6 @@ func SaveServicePreferences(prefs *ServicePreferences) error {
 		return fmt.Errorf("failed to marshal service preferences: %w", err)
 	}
 
-	// Use 0600 permissions (read/write for owner only) for security
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write service preferences: %w", err)
 	}
@@ -93,46 +89,45 @@ func SaveServicePreferences(prefs *ServicePreferences) error {
 	return nil
 }
 
-// GetServicePreference returns the preference for a specific service
-func GetServicePreference(serviceName string) (*ServicePreference, error) {
-	prefs, err := LoadServicePreferences()
+// GetServicePreference returns the preference for a specific service in the workspace
+func GetServicePreference(ws *workspace.Workspace, serviceName string) (*ServicePreference, error) {
+	prefs, err := LoadServicePreferences(ws)
 	if err != nil {
 		return nil, err
 	}
 
 	pref, exists := prefs.Preferences[serviceName]
 	if !exists {
-		return nil, nil // No preference set
+		return nil, nil
 	}
 
 	return &pref, nil
 }
 
-// SetServicePreference sets or updates a preference for a service
-func SetServicePreference(pref ServicePreference) error {
-	prefs, err := LoadServicePreferences()
+// SetServicePreference sets or updates a preference for a service in the workspace
+func SetServicePreference(ws *workspace.Workspace, pref ServicePreference) error {
+	prefs, err := LoadServicePreferences(ws)
 	if err != nil {
 		return err
 	}
 
-	// Set timestamp if not set
 	if pref.Timestamp.IsZero() {
 		pref.Timestamp = time.Now()
 	}
 
 	prefs.Preferences[pref.ServiceName] = pref
 
-	return SaveServicePreferences(prefs)
+	return SaveServicePreferences(ws, prefs)
 }
 
-// RemoveServicePreference removes a preference for a service
-func RemoveServicePreference(serviceName string) error {
-	prefs, err := LoadServicePreferences()
+// RemoveServicePreference removes a preference for a service in the workspace
+func RemoveServicePreference(ws *workspace.Workspace, serviceName string) error {
+	prefs, err := LoadServicePreferences(ws)
 	if err != nil {
 		return err
 	}
 
 	delete(prefs.Preferences, serviceName)
 
-	return SaveServicePreferences(prefs)
+	return SaveServicePreferences(ws, prefs)
 }

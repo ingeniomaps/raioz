@@ -50,7 +50,6 @@ func (uc *UseCase) processCompose(ctx context.Context, deps *config.Deps, ws *in
 	var infraNames []string
 	for name := range deps.Infra {
 		infraNames = append(infraNames, name)
-		output.PrintInfraStarted(name)
 	}
 
 	// If no services and no infra, return early
@@ -71,17 +70,54 @@ func (uc *UseCase) processCompose(ctx context.Context, deps *config.Deps, ws *in
 	logging.InfoWithContext(ctx, "Docker Compose configuration generated", "compose_path", composePath, "duration_ms", time.Since(composeStartTime).Milliseconds())
 	output.PrintProgressDone("Docker Compose configuration generated")
 
-	// Start Docker Compose services
-	output.PrintProgress("Starting Docker Compose services")
-	logging.InfoWithContext(ctx, "Starting Docker Compose services", "compose_path", composePath, "services_count", len(serviceNames), "infra_count", len(infraNames))
+	// Deploy in order: infra first, then services
+	// This ensures infrastructure (databases, etc.) is available and healthy before services start
 	upStartTime := time.Now()
-	if err := uc.deps.DockerRunner.Up(composePath); err != nil {
-		logging.ErrorWithContext(ctx, "Failed to start Docker Compose services", "compose_path", composePath, "duration_ms", time.Since(upStartTime).Milliseconds(), "error", err.Error())
-		output.PrintProgressError("Failed to start Docker Compose services")
-		return "", nil, nil, errors.New(errors.ErrCodeDockerNotRunning, "Failed to start Docker Compose services").WithSuggestion("Check Docker daemon status with 'docker ps'. " + "Verify that Docker Compose is installed and working. " + "Check logs with 'docker compose logs' for more details.").WithContext("compose_file", composePath).WithError(err)
+
+	// Step 1: Deploy infra first (if any)
+	if len(infraNames) > 0 {
+		output.PrintProgress(fmt.Sprintf("Starting infrastructure services (%d)...", len(infraNames)))
+		logging.InfoWithContext(ctx, "Starting infrastructure services", "compose_path", composePath, "infra_count", len(infraNames), "infra_names", infraNames)
+		if err := docker.UpServicesWithContext(ctx, composePath, infraNames); err != nil {
+			logging.ErrorWithContext(ctx, "Failed to start infrastructure services", "compose_path", composePath, "duration_ms", time.Since(upStartTime).Milliseconds(), "error", err.Error())
+			output.PrintProgressError("Failed to start infrastructure services")
+			return "", nil, nil, errors.New(errors.ErrCodeDockerNotRunning, "Failed to start infrastructure services").WithSuggestion("Check Docker daemon status with 'docker ps'. " + "Verify that Docker Compose is installed and working. " + "Check logs with 'docker compose logs' for more details.").WithContext("compose_file", composePath).WithError(err)
+		}
+		logging.InfoWithContext(ctx, "Infrastructure services started successfully", "compose_path", composePath, "duration_ms", time.Since(upStartTime).Milliseconds())
+		// Show individual infra services as started
+		for _, name := range infraNames {
+			output.PrintInfraStarted(name)
+		}
+
+		// Wait for infra to be healthy before proceeding with services
+		// This ensures databases and other infrastructure are ready before services try to connect
+		output.PrintProgress("Waiting for infrastructure to be healthy...")
+		logging.InfoWithContext(ctx, "Waiting for infrastructure services to become healthy", "infra_names", infraNames)
+		if err := docker.WaitForServicesHealthy(ctx, composePath, []string{}, infraNames, deps.Project.Name); err != nil {
+			logging.WarnWithContext(ctx, "Infrastructure services may not be fully healthy yet", "error", err.Error())
+			output.PrintWarning("Some infrastructure services may not be fully healthy yet, proceeding with services deployment anyway")
+			// Continue anyway - user may want to proceed even if health checks fail
+		} else {
+			output.PrintProgressDone("Infrastructure is healthy and ready")
+		}
 	}
-	logging.InfoWithContext(ctx, "Docker Compose services started successfully", "compose_path", composePath, "duration_ms", time.Since(upStartTime).Milliseconds())
-	output.PrintProgressDone("Docker Compose services started successfully")
+
+	// Step 2: Deploy services (if any)
+	// Services can now safely connect to infrastructure since it's healthy
+	if len(serviceNames) > 0 {
+		output.PrintProgress(fmt.Sprintf("Starting application services (%d)...", len(serviceNames)))
+		logging.InfoWithContext(ctx, "Starting application services", "compose_path", composePath, "services_count", len(serviceNames), "service_names", serviceNames)
+		servicesStartTime := time.Now()
+		if err := docker.UpServicesWithContext(ctx, composePath, serviceNames); err != nil {
+			logging.ErrorWithContext(ctx, "Failed to start application services", "compose_path", composePath, "duration_ms", time.Since(servicesStartTime).Milliseconds(), "error", err.Error())
+			output.PrintProgressError("Failed to start application services")
+			return "", nil, nil, errors.New(errors.ErrCodeDockerNotRunning, "Failed to start application services").WithSuggestion("Check Docker daemon status with 'docker ps'. " + "Verify that Docker Compose is installed and working. " + "Check logs with 'docker compose logs' for more details.").WithContext("compose_file", composePath).WithError(err)
+		}
+		logging.InfoWithContext(ctx, "Application services started successfully", "compose_path", composePath, "duration_ms", time.Since(servicesStartTime).Milliseconds())
+		output.PrintProgressDone(fmt.Sprintf("Application services started (%d)", len(serviceNames)))
+	}
+
+	logging.InfoWithContext(ctx, "All Docker Compose services started successfully", "compose_path", composePath, "total_duration_ms", time.Since(upStartTime).Milliseconds())
 
 	return composePath, serviceNames, infraNames, nil
 }

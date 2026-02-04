@@ -17,6 +17,12 @@ func Up(composePath string) error {
 
 // UpWithContext starts Docker Compose services with context support
 func UpWithContext(ctx context.Context, composePath string) error {
+	return UpServicesWithContext(ctx, composePath, nil)
+}
+
+// UpServicesWithContext starts specific Docker Compose services with context support
+// If serviceNames is nil or empty, starts all services
+func UpServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
 	// Validate path to prevent command injection
 	if err := ValidateComposePath(composePath); err != nil {
 		return fmt.Errorf("invalid compose path: %w", err)
@@ -26,24 +32,69 @@ func UpWithContext(ctx context.Context, composePath string) error {
 	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 
-	return resilience.RetryWithContext(ctx, retryConfig, "docker compose up", func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, "docker compose up", func(ctx context.Context) error {
+	operationName := "docker compose up"
+	if len(serviceNames) > 0 {
+		operationName = fmt.Sprintf("docker compose up %v", serviceNames)
+	}
+
+	return resilience.RetryWithContext(ctx, retryConfig, operationName, func(ctx context.Context) error {
+		return dockerCB.ExecuteWithContext(ctx, operationName, func(ctx context.Context) error {
 			// Create context with timeout
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
 			defer cancel()
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "up", "-d")
+			// Build command: docker compose -f <path> up -d [service1 service2 ...]
+			args := []string{"compose", "-f", composePath, "up", "-d"}
+			if len(serviceNames) > 0 {
+				args = append(args, serviceNames...)
+			}
+
+			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
 			err := cmd.Run()
-			return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose up", exectimeout.DockerComposeUpTimeout)
+			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
 		})
 	})
 }
 
 func Down(composePath string) error {
 	return DownWithContext(context.Background(), composePath)
+}
+
+// StopServiceWithContext stops and removes only one service from a compose project.
+// Use this to resolve a service conflict without affecting other services or infra.
+func StopServiceWithContext(ctx context.Context, composePath string, serviceName string) error {
+	if serviceName == "" {
+		return nil
+	}
+	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+		return nil
+	}
+	if err := ValidateComposePath(composePath); err != nil {
+		return fmt.Errorf("invalid compose path: %w", err)
+	}
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
+	defer cancel()
+	// Stop the service (leave other services running)
+	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "stop", serviceName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose stop", exectimeout.DockerComposeDownTimeout)
+	}
+	// Remove the container so the local project can recreate it
+	rmCtx, rmCancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
+	defer rmCancel()
+	rmCmd := exec.CommandContext(rmCtx, "docker", "compose", "-f", composePath, "rm", "-f", serviceName)
+	rmCmd.Stdout = os.Stdout
+	rmCmd.Stderr = os.Stderr
+	if err := rmCmd.Run(); err != nil {
+		// rm may fail if container already removed; non-fatal
+		return nil
+	}
+	return nil
 }
 
 // DownWithContext stops Docker Compose services with context support
@@ -136,4 +187,24 @@ func GetServicesStatusWithContext(ctx context.Context, composePath string) (map[
 	}
 
 	return status, nil
+}
+
+// StopContainerWithContext stops a Docker container by name (docker stop name).
+// Returns nil if the container was stopped or if it does not exist; returns error for other failures.
+func StopContainerWithContext(ctx context.Context, containerName string) error {
+	if containerName == "" {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "docker", "stop", containerName)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "No such container") || strings.Contains(string(out), "is not running") {
+			return nil
+		}
+		return fmt.Errorf("docker stop %s: %w", containerName, err)
+	}
+	if len(out) > 0 {
+		os.Stdout.Write(out)
+	}
+	return nil
 }

@@ -175,9 +175,9 @@ func TestSave(t *testing.T) {
 func TestGenerateFromDeps(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
+		Network:       config.NetworkConfig{Name: "test-network", IsObject: false},
 		Project: config.Project{
-			Name:    "test-project",
-			Network: "test-network",
+			Name: "test-project",
 		},
 		Services: map[string]config.Service{
 			"api": {
@@ -419,9 +419,9 @@ func TestUpdateFromDeps(t *testing.T) {
 func TestToDeps(t *testing.T) {
 	root := &RootConfig{
 		SchemaVersion: "1.0",
+		Network:       config.NetworkConfig{Name: "test-network", IsObject: false},
 		Project: config.Project{
-			Name:    "test-project",
-			Network: "test-network",
+			Name: "test-project",
 		},
 		Services: map[string]config.Service{
 			"api": {

@@ -36,8 +36,8 @@ func CompareDeps(oldDeps *config.Deps, newDeps *config.Deps) ([]ConfigChange, er
 			NewValue: newDeps.Project.Name,
 		})
 	}
-	oldNetworkName := oldDeps.Project.Network.GetName()
-	newNetworkName := newDeps.Project.Network.GetName()
+	oldNetworkName := oldDeps.Network.GetName()
+	newNetworkName := newDeps.Network.GetName()
 	if oldNetworkName != newNetworkName {
 		changes = append(changes, ConfigChange{
 			Type:     "project",
@@ -144,6 +144,19 @@ func compareServiceFields(name string, oldSvc config.Service, newSvc config.Serv
 			Field:    "source.image",
 			OldValue: oldSvc.Source.Image,
 			NewValue: newSvc.Source.Image,
+		})
+	}
+
+	// Compare service-level dependsOn
+	if !reflect.DeepEqual(oldSvc.DependsOn, newSvc.DependsOn) {
+		oldDepends := formatSlice(oldSvc.DependsOn)
+		newDepends := formatSlice(newSvc.DependsOn)
+		changes = append(changes, ConfigChange{
+			Type:     "service",
+			Name:     name,
+			Field:    "dependsOn",
+			OldValue: oldDepends,
+			NewValue: newDepends,
 		})
 	}
 
@@ -312,6 +325,7 @@ func HasSignificantChanges(changes []ConfigChange) bool {
 			"source.branch",
 			"source.tag",
 			"source.image",
+			"dependsOn",
 			"docker.ports",
 			"docker.dependsOn",
 			"docker.dockerfile",

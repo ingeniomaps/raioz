@@ -121,7 +121,7 @@ func NormalizeInfraName(workspace, infra string, project string, hasExplicitWork
 }
 
 // NormalizeNetworkName normalizes a network name
-// Networks already use project.network, but we can add prefix if needed
+// Networks already use network (root level), but we can add prefix if needed
 // For now, we keep the existing format but normalize it
 func NormalizeNetworkName(networkName string) (string, error) {
 	name, err := NormalizeName(networkName)

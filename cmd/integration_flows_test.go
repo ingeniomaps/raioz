@@ -32,7 +32,7 @@ func TestCompleteUpFlow(t *testing.T) {
 	// Create test configuration
 	testDeps := testhelpers.CreateMinimalTestDeps()
 	testDeps.Project.Name = "integration-up-test"
-	testDeps.Project.Network = "test-network"
+	testDeps.Network = config.NetworkConfig{Name: "test-network", IsObject: false}
 
 	// Add a service with Git source
 	testDeps.Services["api"] = config.Service{
@@ -479,14 +479,14 @@ func TestRootConfigFlow(t *testing.T) {
 	}
 
 	// Step 6: Update root config with new deps
-	testDeps.Project.Network = "new-network"
+	testDeps.Network = config.NetworkConfig{Name: "new-network", IsObject: false}
 	if err := root.UpdateFromDeps(loadedRoot, testDeps, []string{}, map[string]string{}); err != nil {
 		t.Fatalf("Step 6 - UpdateFromDeps failed: %v", err)
 	}
 
 	// Step 7: Verify update
-	if loadedRoot.Project.Network != "new-network" {
-		t.Errorf("Step 7 - Expected network new-network, got %s", loadedRoot.Project.Network)
+	if loadedRoot.Network.GetName() != "new-network" {
+		t.Errorf("Step 7 - Expected network new-network, got %s", loadedRoot.Network.GetName())
 	}
 	if loadedRoot.LastUpdatedAt == "" {
 		t.Error("Step 7 - LastUpdatedAt should be set")
@@ -563,7 +563,7 @@ func TestStateManagementFlow(t *testing.T) {
 	}
 
 	// Step 6: Update and save again (idempotency)
-	testDeps.Project.Network = "updated-network"
+	testDeps.Network = config.NetworkConfig{Name: "updated-network", IsObject: false}
 	if err := state.Save(ws, testDeps); err != nil {
 		t.Fatalf("Step 6 - Save state again failed: %v", err)
 	}
@@ -573,9 +573,9 @@ func TestStateManagementFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Step 7 - Reload state failed: %v", err)
 	}
-	if reloadedState.Project.Network != "updated-network" {
+	if reloadedState.Network.GetName() != "updated-network" {
 		t.Errorf("Step 7 - Expected network updated-network, got %s",
-			reloadedState.Project.Network)
+			reloadedState.Network.GetName())
 	}
 
 	t.Log("State management flow test passed")

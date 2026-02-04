@@ -49,8 +49,8 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Errorf("Expected project name %s, got %s", deps.Project.Name, loaded.Project.Name)
 	}
 
-	if loaded.Project.Network != deps.Project.Network {
-		t.Errorf("Expected network %s, got %s", deps.Project.Network, loaded.Project.Network)
+	if loaded.Network.GetName() != deps.Network.GetName() {
+		t.Errorf("Expected network %s, got %s", deps.Network.GetName(), loaded.Network.GetName())
 	}
 }
 

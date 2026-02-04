@@ -26,6 +26,7 @@ func FilterIgnoredServices(deps *Deps) (*Deps, []string, error) {
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
 		Workspace:          deps.Workspace, // Preserve workspace
+		Network:            deps.Network,   // Preserve network
 		Project:            deps.Project,
 		Services:           make(map[string]Service),
 		Infra:              deps.Infra, // Infra is always included
@@ -70,12 +71,8 @@ func CheckIgnoredDependencies(deps *Deps, ignoredServices []string) map[string][
 		}
 
 		// Skip if docker is nil (host execution - no docker dependencies)
-		if svc.Docker == nil {
-			continue
-		}
-
 		var ignoredDeps []string
-		for _, dep := range svc.Docker.DependsOn {
+		for _, dep := range svc.GetDependsOn() {
 			if ignoredSet[dep] {
 				ignoredDeps = append(ignoredDeps, dep)
 			}
