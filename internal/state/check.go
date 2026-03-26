@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"raioz/internal/config"
+	raiozErrors "raioz/internal/errors"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/git"
 	"raioz/internal/workspace"
@@ -28,7 +29,9 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 	// Load saved state
 	savedDeps, err := Load(ws)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load state: %w", err)
+		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to load saved state for alignment check").
+			WithError(err).
+			WithSuggestion("The state file may be corrupted. Try running 'raioz down' and then 'raioz up' again")
 	}
 
 	if savedDeps == nil {
@@ -39,7 +42,9 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 	// Check config changes
 	configChanges, err := CompareDeps(savedDeps, currentDeps)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compare configs: %w", err)
+		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to compare saved and current configurations").
+			WithError(err).
+			WithSuggestion("Try running 'raioz down' and then 'raioz up' to reset the state")
 	}
 
 	// Convert config changes to alignment issues
@@ -149,21 +154,24 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 		}
 	}
 
-	// Check for infra image/tag changes
-	for name, infra := range currentDeps.Infra {
-		oldInfra, exists := savedDeps.Infra[name]
-		if !exists {
+	// Check for infra image/tag changes (inline only)
+	for name, entry := range currentDeps.Infra {
+		if entry.Inline == nil {
+			continue
+		}
+		oldEntry, exists := savedDeps.Infra[name]
+		if !exists || oldEntry.Inline == nil {
 			continue
 		}
 
-		if oldInfra.Tag != infra.Tag {
+		if oldEntry.Inline.Tag != entry.Inline.Tag {
 			issues = append(issues, AlignmentIssue{
 				Type:     "config_change",
 				Severity: "warning",
 				Service:  name,
 				Description: fmt.Sprintf(
 					"Infra tag changed: %s -> %s",
-					oldInfra.Tag, infra.Tag,
+					oldEntry.Inline.Tag, entry.Inline.Tag,
 				),
 				Suggestion: "Run 'raioz up' to pull and use the new tag",
 			})
