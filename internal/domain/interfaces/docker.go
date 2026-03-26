@@ -2,7 +2,7 @@ package interfaces
 
 import (
 	"context"
-	"raioz/internal/config"
+	models "raioz/internal/domain/models"
 )
 
 // ServiceInfo represents information about a Docker service
@@ -43,7 +43,7 @@ type DockerRunner interface {
 	// GetServicesStatusWithContext returns the status of services with context support
 	GetServicesStatusWithContext(ctx context.Context, composePath string) (map[string]string, error)
 	// GetServicesInfoWithContext returns detailed information about services
-	GetServicesInfoWithContext(ctx context.Context, composePath string, serviceNames []string, projectName string, services map[string]config.Service, ws *Workspace) (map[string]*ServiceInfo, error)
+	GetServicesInfoWithContext(ctx context.Context, composePath string, serviceNames []string, projectName string, services map[string]models.Service, ws *Workspace) (map[string]*ServiceInfo, error)
 	// GetNetworkProjects returns list of projects using a network
 	GetNetworkProjects(networkName string, baseDir string) ([]string, error)
 	// GetVolumeProjects returns list of projects using a volume
@@ -69,17 +69,17 @@ type DockerRunner interface {
 	// GetAllActivePorts returns all active ports across projects
 	GetAllActivePorts(baseDir string) ([]PortInfo, error)
 	// GenerateCompose generates a docker-compose file from dependencies
-	GenerateCompose(deps *config.Deps, ws *Workspace, projectDir string) (string, []string, error)
+	GenerateCompose(deps *models.Deps, ws *Workspace, projectDir string) (string, []string, error)
 	// UpServicesWithContext starts specific Docker Compose services with context support
 	UpServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error
 	// WaitForServicesHealthy waits for services to become healthy
 	WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error
 	// ValidatePorts checks if all ports in a project are available
-	ValidatePorts(deps *config.Deps, baseDir string, projectName string) ([]PortConflict, error)
+	ValidatePorts(deps *models.Deps, baseDir string, projectName string) ([]PortConflict, error)
 	// FormatPortConflicts formats port conflicts for display
 	FormatPortConflicts(conflicts []PortConflict) string
 	// ValidateAllImages validates all images (services and infra) before compose generation
-	ValidateAllImages(deps *config.Deps) error
+	ValidateAllImages(deps *models.Deps) error
 	// EnsureNetworkWithConfigAndContext ensures a Docker network exists with optional subnet
 	EnsureNetworkWithConfigAndContext(ctx context.Context, name string, subnet string, askConfirmation bool) error
 	// EnsureVolumeWithContext ensures a named volume exists, creating if necessary
@@ -101,7 +101,7 @@ type DockerRunner interface {
 	// StopContainerWithContext stops a container by name
 	StopContainerWithContext(ctx context.Context, containerName string) error
 	// BuildServiceVolumesMap builds a map of service volumes from Deps configuration
-	BuildServiceVolumesMap(deps *config.Deps) (map[string]ServiceVolumes, error)
+	BuildServiceVolumesMap(deps *models.Deps) (map[string]ServiceVolumes, error)
 	// DetectSharedVolumes detects volumes shared between multiple services
 	DetectSharedVolumes(services map[string]ServiceVolumes) map[string][]string
 	// FormatSharedVolumesWarning formats a warning message for shared volumes

@@ -1,11 +1,9 @@
 package interfaces
 
-import "raioz/internal/workspace"
-
 // LockManager defines operations for managing locks
 type LockManager interface {
 	// Acquire acquires a lock for the workspace
-	Acquire(ws *workspace.Workspace) (Lock, error)
+	Acquire(ws *Workspace) (Lock, error)
 }
 
 // Lock represents a lock instance
