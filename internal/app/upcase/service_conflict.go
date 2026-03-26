@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"raioz/internal/config"
-	"raioz/internal/docker"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
-	"raioz/internal/workspace"
 )
 
 // ServiceConflict represents a detected conflict for a service
@@ -35,28 +34,28 @@ func (uc *UseCase) detectServiceConflict(
 	ctx context.Context,
 	serviceName string,
 	deps *config.Deps,
-	ws *workspace.Workspace,
+	ws *interfaces.Workspace,
 	projectDir string,
 	isLocalProject bool,
 ) (*ServiceConflict, error) {
 	workspaceName := deps.GetWorkspaceName()
 
 	// Check if service has a saved preference
-	pref, err := state.GetServicePreference(ws, serviceName)
+	pref, err := uc.deps.StateManager.GetServicePreference(ws, serviceName)
 	if err != nil {
 		logging.WarnWithContext(ctx, "Failed to load service preference", "service", serviceName, "error", err.Error())
 	}
 
 	// Check if service is running from workspace (cloned service)
 	// First, check if there's a workspace compose file and if service is running there
-	workspaceComposePath := workspace.GetComposePath(ws)
+	workspaceComposePath := uc.deps.Workspace.GetComposePath(ws)
 	if workspaceComposePath != "" {
-		containerName, err := docker.GetContainerNameWithContext(ctx, workspaceComposePath, serviceName)
+		containerName, err := uc.deps.DockerRunner.GetContainerNameWithContext(ctx, workspaceComposePath, serviceName)
 		if err == nil && containerName != "" {
 			// Service is running from workspace - find which project owns it
 			currentProject := deps.Project.Name
 			// Try to find from global state
-			globalState, err := state.LoadGlobalState()
+			globalState, err := uc.deps.StateManager.LoadGlobalState()
 			if err == nil {
 				// Look for project that has this service running
 				for projName, projState := range globalState.Projects {
@@ -91,9 +90,9 @@ func (uc *UseCase) detectServiceConflict(
 	// Containers from other workspaces (e.g. nunzio-nginx when deploying to roax) do not conflict — they coexist.
 	if isLocalProject {
 		cmd := exec.CommandContext(ctx, "docker", "ps", "--format", "{{.Names}}\t{{.Image}}")
-		output, err := cmd.Output()
+		cmdOutput, err := cmd.Output()
 		if err == nil {
-			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			lines := strings.Split(strings.TrimSpace(string(cmdOutput)), "\n")
 			workspacePrefix := fmt.Sprintf("%s-", workspaceName)
 			for _, line := range lines {
 				if line == "" {
@@ -117,7 +116,7 @@ func (uc *UseCase) detectServiceConflict(
 							CurrentSource:    "local",
 							TargetLocation:   fmt.Sprintf("workspace (would clone)"),
 							TargetContainer: func() string {
-								name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
+								name, _ := uc.deps.DockerRunner.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
 								return name
 							}(),
 							Preference: pref,
@@ -142,7 +141,7 @@ func (uc *UseCase) detectServiceConflict(
 				CurrentSource:    "local",
 				TargetLocation:   fmt.Sprintf("workspace (would clone)"),
 				TargetContainer: func() string {
-					name, _ := docker.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
+					name, _ := uc.deps.DockerRunner.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
 					return name
 				}(),
 				Preference: pref,
@@ -150,7 +149,7 @@ func (uc *UseCase) detectServiceConflict(
 		}
 		// If preference is "cloned" but we're trying to run from local project
 		if pref.Preference == "cloned" && isLocalProject {
-			containerName, _ := docker.NormalizeContainerName(pref.Workspace, serviceName, pref.Workspace, true)
+			containerName, _ := uc.deps.DockerRunner.NormalizeContainerName(pref.Workspace, serviceName, pref.Workspace, true)
 			return &ServiceConflict{
 				ServiceName:      serviceName,
 				ConflictType:     "preference",
@@ -187,45 +186,46 @@ func (uc *UseCase) resolveServiceConflict(
 		return conflict.Preference.Preference, nil
 	}
 
-	// Show conflict information
-	output.PrintWarning(fmt.Sprintf("⚠️  Conflict detected: service '%s' is already running", conflict.ServiceName))
+	// Show conflict information in plain language
+	output.PrintWarning(fmt.Sprintf("⚠️  Service '%s' is already running", conflict.ServiceName))
 	output.PrintInfo("")
-	output.PrintInfo(fmt.Sprintf("Current status:"))
-	output.PrintInfo(fmt.Sprintf("  Container: %s", conflict.CurrentContainer))
-	output.PrintInfo(fmt.Sprintf("  Source: %s (%s)", conflict.CurrentSource, conflict.CurrentLocation))
+	output.PrintInfo("Right now:")
+	output.PrintInfo(fmt.Sprintf("  • Container: %s", conflict.CurrentContainer))
+	output.PrintInfo(fmt.Sprintf("  • Running from: %s", conflict.CurrentLocation))
 	if conflict.CurrentProject != "" && conflict.CurrentProject != "preference" {
-		output.PrintInfo(fmt.Sprintf("  Project: %s", conflict.CurrentProject))
+		output.PrintInfo(fmt.Sprintf("  • Project: %s", conflict.CurrentProject))
 	}
 	output.PrintInfo("")
-	output.PrintInfo(fmt.Sprintf("Your project wants to run from:"))
-	output.PrintInfo(fmt.Sprintf("  Location: %s", conflict.TargetLocation))
-	output.PrintInfo(fmt.Sprintf("  Container: %s", conflict.TargetContainer))
+	output.PrintInfo("This run would also start the same service from:")
+	output.PrintInfo(fmt.Sprintf("  • %s (container: %s)", conflict.TargetLocation, conflict.TargetContainer))
+	output.PrintInfo("")
+	output.PrintInfo("Choose how to resolve (only one source can run this service):")
 	output.PrintInfo("")
 
 	// Determine options based on conflict type
 	var options []string
 	if conflict.ConflictType == "cloned_running" || conflict.ConflictType == "preference" {
-		// Service is running from workspace, we want to run local
+		// Service is running from workspace merge, we want to run local
 		options = []string{
-			"Stop cloned service and use local project (recommended for development)",
-			"Keep cloned service, skip local project",
-			"Cancel operation",
+			"Use my local project — stop workspace service and run from my code (good for dev)",
+			"Use workspace — keep current service, do not run my local project for this service",
+			"Cancel",
 		}
 	} else {
-		// Service is running locally, we want to clone it
+		// Service is running locally, workspace merge would also run it
 		options = []string{
-			"Stop local project and use cloned service",
-			"Keep local project, skip cloned service in this run",
-			"Update preference to always use local project",
-			"Cancel operation",
+			"Use workspace — stop my local service and use the one from the workspace merge",
+			"Use my local project (this time only) — keep it running, skip this service in the merge",
+			"Always use my local project — remember this choice and do not ask again",
+			"Cancel",
 		}
 	}
 
 	// Show options
 	for i, opt := range options {
-		fmt.Printf("  [%d] %s\n", i+1, opt)
+		output.PrintInfo(fmt.Sprintf("  [%d] %s", i+1, opt))
 	}
-	fmt.Print("\nYour choice [1-", len(options), "]: ")
+	output.PrintPrompt(fmt.Sprintf("\nYour choice [1-%d]: ", len(options)))
 
 	// Read user input
 	reader := bufio.NewReader(os.Stdin)
@@ -280,7 +280,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 	resolution string,
 	serviceName string,
 	deps *config.Deps,
-	ws *workspace.Workspace,
+	ws *interfaces.Workspace,
 	projectDir string,
 	isLocalProject bool,
 ) error {
@@ -290,7 +290,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 	case "local":
 		// Stop only the conflicting service from workspace (do not bring down infra or other services)
 		output.PrintInfo("Stopping cloned service from workspace...")
-		composePath := workspace.GetComposePath(ws)
+		composePath := uc.deps.Workspace.GetComposePath(ws)
 		if composePath != "" {
 			if err := uc.deps.DockerRunner.StopServiceWithContext(ctx, composePath, serviceName); err != nil {
 				logging.WarnWithContext(ctx, "Failed to stop service from workspace", "error", err.Error())
@@ -305,7 +305,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			Reason:      "User chose local project over cloned service",
 			Timestamp:   time.Now(),
 		}
-		if err := state.SetServicePreference(ws, pref); err != nil {
+		if err := uc.deps.StateManager.SetServicePreference(ws, pref); err != nil {
 			logging.WarnWithContext(ctx, "Failed to save service preference", "error", err.Error())
 		}
 		output.PrintSuccess("Preference saved: use local project for this service")
@@ -336,7 +336,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			Reason:      "User chose cloned service over local project",
 			Timestamp:   time.Now(),
 		}
-		if err := state.SetServicePreference(ws, pref); err != nil {
+		if err := uc.deps.StateManager.SetServicePreference(ws, pref); err != nil {
 			logging.WarnWithContext(ctx, "Failed to save service preference", "error", err.Error())
 		}
 		output.PrintSuccess("Preference saved: use cloned service for this service")
@@ -352,7 +352,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			Reason:      "User set preference to always use local project",
 			Timestamp:   time.Now(),
 		}
-		if err := state.SetServicePreference(ws, pref); err != nil {
+		if err := uc.deps.StateManager.SetServicePreference(ws, pref); err != nil {
 			return fmt.Errorf("failed to save service preference: %w", err)
 		}
 		output.PrintSuccess("Preference saved: always use local project for this service")

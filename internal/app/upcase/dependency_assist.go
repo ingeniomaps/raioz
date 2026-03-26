@@ -9,21 +9,21 @@ import (
 
 	"raioz/internal/audit"
 	"raioz/internal/config"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/output"
-	"raioz/internal/workspace"
 )
 
 // handleDependencyAssist handles dependency resolution assist mode
 // Returns true if user wants to continue, false if should abort
 // Also returns list of services added via dependency assist for metadata tracking
-func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Workspace, dryRun bool) (bool, []string, error) {
+func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Workspace, dryRun bool) (bool, []string, error) {
 	// Create service path resolver function
 	servicePathResolver := func(name string, svc config.Service) string {
-		return workspace.GetServicePath(ws, name, svc)
+		return uc.deps.Workspace.GetServicePath(ws, name, svc)
 	}
 
 	// Detect missing dependencies
-	missing, err := config.DetectMissingDependencies(deps, servicePathResolver)
+	missing, err := uc.deps.ConfigLoader.DetectMissingDependencies(deps, servicePathResolver)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to detect missing dependencies: %w", err)
 	}
@@ -40,51 +40,51 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Works
 	}
 
 	// Display missing dependencies
-	fmt.Println("\n⚠️  Missing dependencies detected:")
-	fmt.Println()
+	output.PrintWarning("Missing dependencies detected:")
+	output.PrintInfo("")
 	for _, depsList := range missingByService {
 		for _, dep := range depsList {
-			fmt.Printf("  Service: %s\n", dep.ServiceName)
-			fmt.Printf("  Required by: %s\n", dep.RequiredBy)
+			output.PrintInfo(fmt.Sprintf("  Service: %s", dep.ServiceName))
+			output.PrintInfo(fmt.Sprintf("  Required by: %s", dep.RequiredBy))
 			if dep.FoundPath != "" {
-				fmt.Printf("  Found definition in: %s\n", dep.FoundPath)
+				output.PrintInfo(fmt.Sprintf("  Found definition in: %s", dep.FoundPath))
 			}
 			if dep.FoundConfig != nil {
-				fmt.Printf("  Definition: mode=%s, repo=%s, branch=%s\n",
+				output.PrintInfo(fmt.Sprintf("  Definition: mode=%s, repo=%s, branch=%s",
 					dep.FoundConfig.Source.Kind,
 					dep.FoundConfig.Source.Repo,
 					dep.FoundConfig.Source.Branch,
-				)
+				))
 			} else {
-				fmt.Printf("  Definition: (not found)\n")
+				output.PrintInfo("  Definition: (not found)")
 			}
-			fmt.Println()
+			output.PrintInfo("")
 		}
 	}
 
 	if dryRun {
 		// Dry-run mode: just show what would be done
-		fmt.Println("ℹ️  Dry-run mode: dependencies shown but not added")
+		output.PrintInfo("Dry-run mode: dependencies shown but not added")
 		return false, []string{}, nil // Abort in dry-run mode
 	}
 
 	// Interactive mode: ask user what to do
-	fmt.Println("Choose action for each dependency:")
-	fmt.Println("  [1] Add to root workspace")
-	fmt.Println("  [2] Ignore (service will fail)")
-	fmt.Println("  [3] Add as stub/missing")
-	fmt.Println()
+	output.PrintInfo("Choose action for each dependency:")
+	output.PrintInfo("  [1] Add to root workspace")
+	output.PrintInfo("  [2] Ignore (service will fail)")
+	output.PrintInfo("  [3] Add as stub/missing")
+	output.PrintInfo("")
 
 	var servicesToAdd []config.MissingDependency
 	var servicesToIgnore []string
 
 	reader := bufio.NewReader(os.Stdin)
 	for _, dep := range missing {
-		fmt.Printf("Dependency '%s' (required by '%s'): ", dep.ServiceName, dep.RequiredBy)
+		output.PrintPrompt(fmt.Sprintf("Dependency '%s' (required by '%s'): ", dep.ServiceName, dep.RequiredBy))
 		if dep.FoundConfig != nil {
-			fmt.Printf("[1] Add / [2] Ignore / [3] Stub (default: 1): ")
+			output.PrintPrompt("[1] Add / [2] Ignore / [3] Stub (default: 1): ")
 		} else {
-			fmt.Printf("[2] Ignore / [3] Stub (default: 2): ")
+			output.PrintPrompt("[2] Ignore / [3] Stub (default: 2): ")
 		}
 
 		input, err := reader.ReadString('\n')
@@ -104,7 +104,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Works
 
 		choice, err := strconv.Atoi(input)
 		if err != nil || choice < 1 || choice > 3 {
-			fmt.Printf("⚠️  Invalid choice '%s', ignoring dependency\n", input)
+			output.PrintWarning(fmt.Sprintf("Invalid choice '%s', ignoring dependency", input))
 			servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 			continue
 		}
@@ -113,7 +113,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Works
 		case 1:
 			// Add to root workspace
 			if dep.FoundConfig == nil {
-				fmt.Printf("⚠️  Cannot add dependency '%s': no definition found\n", dep.ServiceName)
+				output.PrintWarning(fmt.Sprintf("Cannot add dependency '%s': no definition found", dep.ServiceName))
 				servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 			} else {
 				servicesToAdd = append(servicesToAdd, dep)
@@ -123,7 +123,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Works
 			servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 		case 3:
 			// Add as stub (not implemented yet, treat as ignore)
-			fmt.Printf("ℹ️  Stub mode not implemented yet, ignoring dependency '%s'\n", dep.ServiceName)
+			output.PrintInfo(fmt.Sprintf("Stub mode not implemented yet, ignoring dependency '%s'", dep.ServiceName))
 			servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 		}
 	}
@@ -133,7 +133,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Works
 
 	// Add services to root config
 	if len(servicesToAdd) > 0 {
-		fmt.Println("\n📝 Adding dependencies to root workspace...")
+		output.PrintProgress("Adding dependencies to root workspace")
 		for _, dep := range servicesToAdd {
 			// Copy service config from found config
 			if deps.Services == nil {
@@ -152,14 +152,14 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Works
 				output.PrintWarning(fmt.Sprintf("Failed to log audit event: %v", err))
 			}
 
-			fmt.Printf("  ✅ Added '%s' (origin: %s)\n", dep.ServiceName, dep.RequiredBy)
+			output.PrintSuccess(fmt.Sprintf("Added '%s' (origin: %s)", dep.ServiceName, dep.RequiredBy))
 		}
 	}
 
 	// Show ignored services
 	if len(servicesToIgnore) > 0 {
-		fmt.Printf("\n⚠️  Ignored %d dependency(ies): %v\n", len(servicesToIgnore), servicesToIgnore)
-		fmt.Println("   Services may fail if these dependencies are required")
+		output.PrintWarning(fmt.Sprintf("Ignored %d dependency(ies): %v", len(servicesToIgnore), servicesToIgnore))
+		output.PrintInfo("Services may fail if these dependencies are required")
 	}
 
 	return true, addedServices, nil
@@ -168,13 +168,13 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *workspace.Works
 // handleDependencyConflicts handles dependency conflicts
 // Returns true if user wants to continue, false if should abort
 // Also returns list of conflict resolutions for audit logging
-func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *workspace.Workspace, dryRun bool) (bool, []string, error) {
+func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *interfaces.Workspace, dryRun bool) (bool, []string, error) {
 	// Create service path resolver function
 	servicePathResolver := func(name string, svc config.Service) string {
-		return workspace.GetServicePath(ws, name, svc)
+		return uc.deps.Workspace.GetServicePath(ws, name, svc)
 	}
 
-	conflicts, err := config.DetectDependencyConflicts(deps, servicePathResolver)
+	conflicts, err := uc.deps.ConfigLoader.DetectDependencyConflicts(deps, servicePathResolver)
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to detect dependency conflicts: %w", err)
 	}
@@ -185,36 +185,36 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *workspace.Wo
 	}
 
 	// Display conflicts
-	fmt.Println("\n⚠️  Dependency conflicts detected:")
-	fmt.Println()
+	output.PrintWarning("Dependency conflicts detected:")
+	output.PrintInfo("")
 	for _, conflict := range conflicts {
-		fmt.Printf("  Service: %s\n", conflict.ServiceName)
-		fmt.Printf("  Differences:\n")
+		output.PrintInfo(fmt.Sprintf("  Service: %s", conflict.ServiceName))
+		output.PrintInfo("  Differences:")
 		for _, diff := range conflict.Differences {
-			fmt.Printf("    - %s\n", diff)
+			output.PrintInfo(fmt.Sprintf("    - %s", diff))
 		}
-		fmt.Println()
+		output.PrintInfo("")
 	}
 
 	if dryRun {
 		// Dry-run mode: just show what would be done
-		fmt.Println("ℹ️  Dry-run mode: conflicts shown but not resolved")
+		output.PrintInfo("Dry-run mode: conflicts shown but not resolved")
 		return false, []string{}, nil // Abort in dry-run mode
 	}
 
 	// Interactive mode: ask user what to do
-	fmt.Println("Choose action for each conflict:")
-	fmt.Println("  [1] Keep root (recommended)")
-	fmt.Println("  [2] Replace root")
-	fmt.Println("  [3] Abort")
-	fmt.Println()
+	output.PrintInfo("Choose action for each conflict:")
+	output.PrintInfo("  [1] Keep root (recommended)")
+	output.PrintInfo("  [2] Replace root")
+	output.PrintInfo("  [3] Abort")
+	output.PrintInfo("")
 
 	reader := bufio.NewReader(os.Stdin)
 	var shouldAbort bool
 	var resolutions []string
 
 	for _, conflict := range conflicts {
-		fmt.Printf("Conflict for '%s': [1] Keep root / [2] Replace / [3] Abort (default: 1): ", conflict.ServiceName)
+		output.PrintPrompt(fmt.Sprintf("Conflict for '%s': [1] Keep root / [2] Replace / [3] Abort (default: 1): ", conflict.ServiceName))
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -228,7 +228,7 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *workspace.Wo
 
 		choice, err := strconv.Atoi(input)
 		if err != nil || choice < 1 || choice > 3 {
-			fmt.Printf("⚠️  Invalid choice '%s', keeping root configuration\n", input)
+			output.PrintWarning(fmt.Sprintf("Invalid choice '%s', keeping root configuration", input))
 			continue
 		}
 
@@ -237,18 +237,18 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *workspace.Wo
 		case 1:
 			// Keep root (do nothing)
 			resolution = "keep"
-			fmt.Printf("  ✅ Keeping root configuration for '%s'\n", conflict.ServiceName)
+			output.PrintSuccess(fmt.Sprintf("Keeping root configuration for '%s'", conflict.ServiceName))
 		case 2:
 			// Replace root with service config
 			if conflict.ServiceConfig != nil {
 				deps.Services[conflict.ServiceName] = *conflict.ServiceConfig
 				resolution = "replace"
-				fmt.Printf("  ✅ Replaced root configuration for '%s' with service config\n", conflict.ServiceName)
+				output.PrintSuccess(fmt.Sprintf("Replaced root configuration for '%s' with service config", conflict.ServiceName))
 			}
 		case 3:
 			// Abort
 			shouldAbort = true
-			fmt.Printf("  ⚠️  Aborting due to conflict in '%s'\n", conflict.ServiceName)
+			output.PrintWarning(fmt.Sprintf("Aborting due to conflict in '%s'", conflict.ServiceName))
 		}
 
 		if resolution != "" {

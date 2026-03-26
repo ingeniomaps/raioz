@@ -214,3 +214,8 @@ func PrintTableRow(values ...string) {
 func PrintEmptyState(message string) {
 	fmt.Printf("  (no %s)\n", message)
 }
+
+// PrintPrompt prints a prompt message without newline, for user input on the same line
+func PrintPrompt(message string) {
+	fmt.Print(message)
+}

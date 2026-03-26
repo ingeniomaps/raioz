@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"raioz/internal/config"
-	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -27,7 +26,7 @@ const (
 // current project (deps). Volumes are resolved with the correct project dir each: old volumes
 // with oldDeps.ProjectRoot, new volumes with currentProjectDir, so each project's relative paths
 // become the right absolute paths (no single projectDir applied to all).
-func mergeDeps(oldDeps, deps *config.Deps, currentProjectDir string) *config.Deps {
+func (uc *UseCase) mergeDeps(oldDeps, deps *config.Deps, currentProjectDir string) *config.Deps {
 	oldProjectDir := oldDeps.ProjectRoot
 	if oldProjectDir == "" {
 		oldProjectDir = currentProjectDir
@@ -40,7 +39,7 @@ func mergeDeps(oldDeps, deps *config.Deps, currentProjectDir string) *config.Dep
 		Project:       deps.Project,
 		ProjectRoot:   currentProjectDir,
 		Services:      make(map[string]config.Service),
-		Infra:         make(map[string]config.Infra),
+		Infra:         make(map[string]config.InfraEntry),
 		Env: config.EnvConfig{
 			UseGlobal: deps.Env.UseGlobal,
 			Files:     mergeSliceUnique(oldDeps.Env.Files, deps.Env.Files),
@@ -52,7 +51,7 @@ func mergeDeps(oldDeps, deps *config.Deps, currentProjectDir string) *config.Dep
 	for name, svc := range oldDeps.Services {
 		merged.Services[name] = cloneService(svc)
 		if merged.Services[name].Docker != nil && len(svc.Docker.Volumes) > 0 {
-			resolved, _ := docker.ResolveRelativeVolumes(svc.Docker.Volumes, oldProjectDir)
+			resolved, _ := uc.deps.DockerRunner.ResolveRelativeVolumes(svc.Docker.Volumes, oldProjectDir)
 			merged.Services[name].Docker.Volumes = resolved
 		}
 	}
@@ -60,10 +59,10 @@ func mergeDeps(oldDeps, deps *config.Deps, currentProjectDir string) *config.Dep
 		if existing, has := merged.Services[name]; has {
 			var oldResolved, newResolved []string
 			if existing.Docker != nil && len(existing.Docker.Volumes) > 0 {
-				oldResolved, _ = docker.ResolveRelativeVolumes(existing.Docker.Volumes, oldProjectDir)
+				oldResolved, _ = uc.deps.DockerRunner.ResolveRelativeVolumes(existing.Docker.Volumes, oldProjectDir)
 			}
 			if svc.Docker != nil && len(svc.Docker.Volumes) > 0 {
-				newResolved, _ = docker.ResolveRelativeVolumes(svc.Docker.Volumes, currentProjectDir)
+				newResolved, _ = uc.deps.DockerRunner.ResolveRelativeVolumes(svc.Docker.Volumes, currentProjectDir)
 			}
 			mergedSvc := cloneService(svc)
 			if mergedSvc.Docker != nil {
@@ -73,32 +72,36 @@ func mergeDeps(oldDeps, deps *config.Deps, currentProjectDir string) *config.Dep
 		} else {
 			merged.Services[name] = cloneService(svc)
 			if merged.Services[name].Docker != nil && len(svc.Docker.Volumes) > 0 {
-				resolved, _ := docker.ResolveRelativeVolumes(svc.Docker.Volumes, currentProjectDir)
+				resolved, _ := uc.deps.DockerRunner.ResolveRelativeVolumes(svc.Docker.Volumes, currentProjectDir)
 				merged.Services[name].Docker.Volumes = resolved
 			}
 		}
 	}
 
-	for name, inf := range oldDeps.Infra {
-		m := cloneInfra(inf)
-		if len(inf.Volumes) > 0 {
-			resolved, _ := docker.ResolveRelativeVolumes(inf.Volumes, oldProjectDir)
-			m.Volumes = resolved
+	for name, entry := range oldDeps.Infra {
+		m := cloneInfraEntry(entry)
+		if m.Inline != nil && len(m.Inline.Volumes) > 0 {
+			resolved, _ := uc.deps.DockerRunner.ResolveRelativeVolumes(m.Inline.Volumes, oldProjectDir)
+			m.Inline.Volumes = resolved
 		}
 		merged.Infra[name] = m
 	}
-	for name, inf := range deps.Infra {
+	for name, entry := range deps.Infra {
 		if existing, has := merged.Infra[name]; has {
-			oldResolved, _ := docker.ResolveRelativeVolumes(existing.Volumes, oldProjectDir)
-			newResolved, _ := docker.ResolveRelativeVolumes(inf.Volumes, currentProjectDir)
-			m := cloneInfra(inf)
-			m.Volumes = mergeVolumesOnlyNew(oldResolved, newResolved)
-			merged.Infra[name] = m
+			if entry.Inline != nil && existing.Inline != nil {
+				oldResolved, _ := uc.deps.DockerRunner.ResolveRelativeVolumes(existing.Inline.Volumes, oldProjectDir)
+				newResolved, _ := uc.deps.DockerRunner.ResolveRelativeVolumes(entry.Inline.Volumes, currentProjectDir)
+				m := cloneInfraEntry(entry)
+				m.Inline.Volumes = mergeVolumesOnlyNew(oldResolved, newResolved)
+				merged.Infra[name] = m
+			} else {
+				merged.Infra[name] = cloneInfraEntry(entry)
+			}
 		} else {
-			m := cloneInfra(inf)
-			if len(inf.Volumes) > 0 {
-				resolved, _ := docker.ResolveRelativeVolumes(inf.Volumes, currentProjectDir)
-				m.Volumes = resolved
+			m := cloneInfraEntry(entry)
+			if m.Inline != nil && len(m.Inline.Volumes) > 0 {
+				resolved, _ := uc.deps.DockerRunner.ResolveRelativeVolumes(m.Inline.Volumes, currentProjectDir)
+				m.Inline.Volumes = resolved
 			}
 			merged.Infra[name] = m
 		}
@@ -198,14 +201,20 @@ func mergeVolumesOnlyNew(base, add []string) []string {
 	return out
 }
 
-func cloneInfra(inf config.Infra) config.Infra {
-	out := config.Infra{
-		Image:   inf.Image,
-		Tag:     inf.Tag,
-		Ports:   append([]string(nil), inf.Ports...),
-		Volumes: append([]string(nil), inf.Volumes...),
-		IP:      inf.IP,
-		Env:     inf.Env,
+func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
+	out := config.InfraEntry{Path: entry.Path}
+	if entry.Inline != nil {
+		inf := *entry.Inline
+		out.Inline = &config.Infra{
+			Image:       inf.Image,
+			Tag:         inf.Tag,
+			Ports:      append([]string(nil), inf.Ports...),
+			Volumes:    append([]string(nil), inf.Volumes...),
+			IP:          inf.IP,
+			Env:         inf.Env,
+			Profiles:   append([]string(nil), inf.Profiles...),
+			Healthcheck: inf.Healthcheck,
+		}
 	}
 	return out
 }
@@ -230,8 +239,10 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 	if oldDeps == nil {
 		return WorkspaceConflictProceed, nil, nil
 	}
+	// Same project: state may hold a merged config (multiple projects). Use merge of state + current
+	// so we preserve all services/infra from the workspace and update current project's from file.
 	if oldDeps.Project.Name == deps.Project.Name {
-		return WorkspaceConflictProceed, nil, nil
+		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
 	}
 
 	overlap := false
@@ -253,22 +264,20 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		return WorkspaceConflictProceed, nil, nil
 	}
 
-	pref, _ := state.GetWorkspaceProjectPreference(workspaceName)
+	pref, _ := uc.deps.StateManager.GetWorkspaceProjectPreference(workspaceName)
 	if pref != nil && !pref.AlwaysAsk {
 		if pref.PreferredProject == deps.Project.Name {
 			if pref.MergeWhenPreferred {
-				return WorkspaceConflictProceed, mergeDeps(oldDeps, deps, currentProjectDir), nil
+				return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
 			}
 			return WorkspaceConflictProceed, nil, nil
 		}
-		if pref.PreferredProject == oldDeps.Project.Name {
-			output.PrintInfo(fmt.Sprintf("Workspace '%s' is already running project '%s' (saved preference). Skipping.", workspaceName, oldDeps.Project.Name))
-			return WorkspaceConflictSkip, nil, nil
-		}
+		// When preferred is the old project, do not auto-skip: show the menu so the user
+		// can choose Merge to add this project to the same workspace (e.g. ui-core + accounts).
 	}
 
-	changes, _ := state.CompareDeps(oldDeps, deps)
-	changeSummary := state.FormatChanges(changes)
+	changes, _ := uc.deps.StateManager.CompareDeps(oldDeps, deps)
+	changeSummary := uc.deps.StateManager.FormatChanges(changes)
 
 	output.PrintWarning("This workspace is already running a different project")
 	output.PrintInfo("")
@@ -288,7 +297,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 	output.PrintInfo("  [6] Keep the other project and remember for this workspace")
 	output.PrintInfo("  [7] Always ask me next time (do not remember)")
 	output.PrintInfo("  [8] Cancel")
-	fmt.Print("\nYour choice [1-8]: ")
+	output.PrintPrompt("\nYour choice [1-8]: ")
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -303,14 +312,14 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 
 	switch choice {
 	case 1:
-		return WorkspaceConflictProceed, mergeDeps(oldDeps, deps, currentProjectDir), nil
+		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
 	case 2:
 		return WorkspaceConflictProceed, nil, nil
 	case 3:
 		output.PrintInfo("Keeping current project. Nothing changed.")
 		return WorkspaceConflictSkip, nil, nil
 	case 4:
-		if err := state.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
 			PreferredProject:   deps.Project.Name,
 			AlwaysAsk:          false,
 			MergeWhenPreferred: true,
@@ -319,9 +328,9 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		} else {
 			output.PrintSuccess("Preference saved: merge with this project for workspace '" + workspaceName + "'")
 		}
-		return WorkspaceConflictProceed, mergeDeps(oldDeps, deps, currentProjectDir), nil
+		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
 	case 5:
-		if err := state.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
 			PreferredProject:   deps.Project.Name,
 			AlwaysAsk:          false,
 			MergeWhenPreferred: false,
@@ -332,7 +341,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		}
 		return WorkspaceConflictProceed, nil, nil
 	case 6:
-		if err := state.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
 			PreferredProject: oldDeps.Project.Name,
 			AlwaysAsk:        false,
 		}); err != nil {
@@ -343,7 +352,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		output.PrintInfo("Keeping current project. Nothing changed.")
 		return WorkspaceConflictSkip, nil, nil
 	case 7:
-		if err := state.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
 			AlwaysAsk: true,
 		}); err != nil {
 			output.PrintWarning("Could not save preference: " + err.Error())
