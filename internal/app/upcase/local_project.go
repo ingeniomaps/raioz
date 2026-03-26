@@ -3,188 +3,17 @@ package upcase
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"raioz/internal/config"
-	"raioz/internal/env"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
-	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
-	workspacepkg "raioz/internal/workspace"
 )
-
-// isLocalProject checks if the current directory is a local project (not cloned by raioz)
-func isLocalProject(configPath string) (bool, string, error) {
-	// Get absolute path of config file
-	absConfigPath, err := filepath.Abs(configPath)
-	if err != nil {
-		return false, "", fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	// Get the directory containing the config file
-	projectDir := filepath.Dir(absConfigPath)
-
-	// Check if this directory is inside a raioz workspace
-	baseDir, err := workspacepkg.GetBaseDir()
-	if err != nil {
-		return false, "", fmt.Errorf("failed to get base directory: %w", err)
-	}
-
-	// Check if projectDir is inside any workspace
-	workspacesDir := filepath.Join(baseDir, "workspaces")
-	if strings.HasPrefix(projectDir, workspacesDir) {
-		// This is inside a workspace, so it's a cloned project
-		return false, "", nil
-	}
-
-	// Check if projectDir is inside services directory
-	servicesDir := filepath.Join(baseDir, "services")
-	if strings.HasPrefix(projectDir, servicesDir) {
-		// This is inside services, so it's a cloned service
-		return false, "", nil
-	}
-
-	// This appears to be a local project
-	return true, projectDir, nil
-}
-
-// getLocalProjectCommand gets the command to execute for the local project
-func getLocalProjectCommand(deps *config.Deps, commandType string, mode string) string {
-	if deps.Project.Commands == nil {
-		return ""
-	}
-
-	// Determine mode (default to dev)
-	if mode == "" {
-		mode = "dev"
-	}
-
-	// Get command based on type (up/down/health) and mode
-	if commandType == "up" {
-		if mode == "prod" && deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != "" {
-			return deps.Project.Commands.Prod.Up
-		}
-		if mode == "dev" && deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "" {
-			return deps.Project.Commands.Dev.Up
-		}
-		if deps.Project.Commands.Up != "" {
-			return deps.Project.Commands.Up
-		}
-	} else if commandType == "down" {
-		if mode == "prod" && deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Down != "" {
-			return deps.Project.Commands.Prod.Down
-		}
-		if mode == "dev" && deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Down != "" {
-			return deps.Project.Commands.Dev.Down
-		}
-		if deps.Project.Commands.Down != "" {
-			return deps.Project.Commands.Down
-		}
-	} else if commandType == "health" {
-		if mode == "prod" && deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Health != "" {
-			return deps.Project.Commands.Prod.Health
-		}
-		if mode == "dev" && deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Health != "" {
-			return deps.Project.Commands.Dev.Health
-		}
-		if deps.Project.Commands.Health != "" {
-			return deps.Project.Commands.Health
-		}
-	}
-
-	return ""
-}
-
-// checkLocalProjectHealth checks if the local project is running
-func checkLocalProjectHealth(ctx context.Context, projectDir string, healthCommand string) (bool, error) {
-	if healthCommand == "" {
-		// No health command defined, return false (not healthy) so up/down can proceed normally
-		return false, nil
-	}
-
-	cmdParts := strings.Fields(healthCommand)
-	if len(cmdParts) == 0 {
-		return false, nil
-	}
-
-	var cmd *exec.Cmd
-	if len(cmdParts) == 1 {
-		cmd = exec.CommandContext(ctx, cmdParts[0])
-	} else {
-		cmd = exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	}
-
-	cmd.Dir = projectDir
-	cmd.Env = os.Environ()
-
-	// Capture stdout to parse response
-	output, err := cmd.CombinedOutput()
-	outputStr := strings.TrimSpace(string(output))
-
-	if err != nil {
-		// Command failed, project is not healthy
-		return false, nil
-	}
-
-	// Parse output to determine health status (same logic as service health)
-	return parseHealthCommandOutput(outputStr), nil
-}
-
-// executeLocalProjectCommand executes a command for the local project
-func executeLocalProjectCommand(ctx context.Context, projectDir string, command string, mode string) error {
-	if command == "" {
-		return nil // No command to execute
-	}
-
-	// Log at debug level - technical detail
-	logging.DebugWithContext(ctx, "Executing local project command",
-		"project_dir", projectDir,
-		"command", command,
-		"mode", mode,
-	)
-
-	output.PrintProgress(fmt.Sprintf("Executing local project command: %s", command))
-
-	// Parse command (simple split for now)
-	cmdParts := strings.Fields(command)
-	if len(cmdParts) == 0 {
-		return fmt.Errorf("empty command")
-	}
-
-	// Create command
-	var cmd *exec.Cmd
-	if len(cmdParts) == 1 {
-		cmd = exec.CommandContext(ctx, cmdParts[0])
-	} else {
-		cmd = exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
-	}
-
-	// Set working directory to project directory
-	cmd.Dir = projectDir
-
-	// Set environment variables (inherit from current process)
-	cmd.Env = os.Environ()
-
-	// Add RAIOZ_MODE environment variable
-	cmd.Env = append(cmd.Env, fmt.Sprintf("RAIOZ_MODE=%s", mode))
-
-	// Execute command
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute local project command: %w", err)
-	}
-
-	output.PrintSuccess("Local project command executed successfully")
-	return nil
-}
 
 // processLocalProject processes local project commands (if this is a local project or has project.commands)
 func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, deps *config.Deps, commandType string, ws interface{}) error {
@@ -234,9 +63,8 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 			// First check for service conflicts (if project name matches a service)
 			// This handles the case where a service is running from workspace and we want to run the local project
 			serviceConflictResolved := false
-			wsConcrete, ok := ws.(*workspacepkg.Workspace)
-			if ok {
-				conflict, err := uc.detectServiceConflict(ctx, deps.Project.Name, deps, wsConcrete, projectDir, true)
+			if wsTyped, ok := ws.(*interfaces.Workspace); ok {
+				conflict, err := uc.detectServiceConflict(ctx, deps.Project.Name, deps, wsTyped, projectDir, true)
 				if err == nil && conflict != nil {
 					// Service conflict detected - resolve it (only stop the conflicting service, not infra or other services)
 					resolution, err := uc.resolveServiceConflict(ctx, conflict, true, deps.GetWorkspaceName(), projectDir)
@@ -251,7 +79,7 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 						return nil
 					}
 					// Apply resolution (stops only the conflicting service)
-					if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, deps.Project.Name, deps, wsConcrete, projectDir, true); err != nil {
+					if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, deps.Project.Name, deps, wsTyped, projectDir, true); err != nil {
 						return err
 					}
 					serviceConflictResolved = true
@@ -334,11 +162,11 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		dummyService := config.Service{
 			Env: dummyEnv,
 		}
-		// Type assert to *workspace.Workspace
-		if wsConcrete, ok := ws.(*workspacepkg.Workspace); ok {
+		// Type assert to *interfaces.Workspace
+		if wsTyped, ok := ws.(*interfaces.Workspace); ok {
 			// Resolve project.env for local project
-			projectEnvPath, _ := env.ResolveProjectEnv(wsConcrete, deps, projectDir)
-			if err := env.GenerateEnvFromTemplate(wsConcrete, deps, deps.Project.Name, projectDir, dummyService, projectEnvPath, projectDir); err != nil {
+			projectEnvPath, _ := uc.deps.EnvManager.ResolveProjectEnv(wsTyped, deps, projectDir)
+			if err := uc.deps.EnvManager.GenerateEnvFromTemplate(wsTyped, deps, deps.Project.Name, projectDir, dummyService, projectEnvPath, projectDir); err != nil {
 				logging.WarnWithContext(ctx, "Failed to generate .env from template for local project", "error", err.Error())
 				// Continue anyway - template generation is optional
 			}
@@ -368,14 +196,14 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 	// If command was "up" and executed successfully, detect and save project docker-compose.yml
 	if commandType == "up" {
 		// Detect project docker-compose.yml
-		projectComposePath := host.DetectComposePath(projectDir, command, "")
+		projectComposePath := uc.deps.HostRunner.DetectComposePath(projectDir, command, "")
 		if projectComposePath != "" {
 			// Save project compose path to state
 			deps.ProjectComposePath = projectComposePath
 			// Save updated state
 			if ws != nil {
-				if wsConcrete, ok := ws.(*workspacepkg.Workspace); ok {
-					if err := state.Save(wsConcrete, deps); err != nil {
+				if wsTyped, ok := ws.(*interfaces.Workspace); ok {
+					if err := uc.deps.StateManager.Save(wsTyped, deps); err != nil {
 						logging.WarnWithContext(ctx, "Failed to save project compose path to state", "error", err.Error())
 					} else {
 						logging.DebugWithContext(ctx, "Project docker-compose.yml detected and saved",
@@ -397,7 +225,7 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 // saveProjectCommandState saves the project state to global state when project.commands.up is executed
 func (uc *UseCase) saveProjectCommandState(ctx context.Context, deps *config.Deps, projectDir string) error {
 	// Create project state for command-based project
-	projectState := state.ProjectState{
+	projectState := &state.ProjectState{
 		Name:          deps.Project.Name,
 		Workspace:     projectDir,
 		LastExecution: time.Now(),
@@ -405,7 +233,7 @@ func (uc *UseCase) saveProjectCommandState(ctx context.Context, deps *config.Dep
 	}
 
 	// Update global state
-	if err := state.UpdateProjectState(deps.Project.Name, projectState); err != nil {
+	if err := uc.deps.StateManager.UpdateProjectState(deps.Project.Name, projectState); err != nil {
 		return fmt.Errorf("failed to update global state: %w", err)
 	}
 
