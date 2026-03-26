@@ -1,6 +1,12 @@
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	"raioz/internal/app"
+
 	"github.com/spf13/cobra"
 )
 
@@ -26,12 +32,43 @@ var ciCmd = &cobra.Command{
 This command is designed to be used in CI/CD pipelines where speed and
 parseable output are critical.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return executeCICommand()
+		configPath = ResolveConfigPath(configPath)
+
+		deps := app.NewDependencies()
+		ciUseCase := app.NewCIUseCase(deps)
+
+		result, err := ciUseCase.Execute(app.CIOptions{
+			ConfigPath:   configPath,
+			Keep:         ciKeep,
+			Ephemeral:    ciEphemeral,
+			JobID:        ciJobID,
+			SkipBuild:    ciSkipBuild,
+			SkipPull:     ciSkipPull,
+			OnlyValidate: ciOnlyValidate,
+			ForceReclone: ciForceReclone,
+		})
+		if err != nil {
+			return err
+		}
+
+		// Output JSON result
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if encErr := encoder.Encode(result); encErr != nil {
+			fmt.Fprintf(os.Stderr, "Failed to encode result: %v\n", encErr)
+		}
+
+		// Exit with appropriate code
+		if !result.Success {
+			os.Exit(1)
+		}
+
+		return nil
 	},
 }
 
 func init() {
-	ciCmd.Flags().StringVarP(&configPath, "config", "c", ".raioz.json", "Path to .raioz.json")
+	ciCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
 	ciCmd.Flags().BoolVar(&ciKeep, "keep", false, "Keep ephemeral environment after CI run (for debugging)")
 	ciCmd.Flags().BoolVar(&ciEphemeral, "ephemeral", false, "Use ephemeral environment (auto-cleanup)")
 	ciCmd.Flags().StringVar(&ciJobID, "job-id", "", "CI job ID for ephemeral environment naming")

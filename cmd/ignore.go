@@ -1,11 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
-	"raioz/internal/config"
-	"raioz/internal/ignore"
-	"raioz/internal/output"
+	"raioz/internal/app"
 
 	"github.com/spf13/cobra"
 )
@@ -36,59 +32,9 @@ Example:
   raioz ignore add old-service`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		serviceName := args[0]
-
-		// Validate service name (basic validation)
-		if serviceName == "" {
-			return fmt.Errorf("service name cannot be empty")
-		}
-
-		// Check if service is already ignored
-		isIgnored, err := ignore.IsIgnored(serviceName)
-		if err != nil {
-			return fmt.Errorf("failed to check if service is ignored: %w", err)
-		}
-
-		if isIgnored {
-			output.PrintInfo(fmt.Sprintf("Service '%s' is already ignored", serviceName))
-			return nil
-		}
-
-		// Add to ignore list
-		if err := ignore.AddService(serviceName); err != nil {
-			return fmt.Errorf("failed to add service to ignore list: %w", err)
-		}
-
-		output.PrintSuccess(fmt.Sprintf("Service '%s' added to ignore list", serviceName))
-		output.PrintInfo("The service will not be started on the next 'raioz up'")
-
-		// Check if service exists in current config and warn about dependencies
-		deps, _, _ := config.LoadDeps(configPath)
-		if deps != nil {
-			if _, exists := deps.Services[serviceName]; exists {
-				// Check if other services depend on this one
-				var dependents []string
-				for name, svc := range deps.Services {
-					for _, dep := range svc.Docker.DependsOn {
-						if dep == serviceName {
-							dependents = append(dependents, name)
-							break
-						}
-					}
-				}
-				if len(dependents) > 0 {
-					output.PrintWarning(
-						fmt.Sprintf(
-							"Service '%s' is required by: %v. These services may fail without it.",
-							serviceName,
-							dependents,
-						),
-					)
-				}
-			}
-		}
-
-		return nil
+		deps := app.NewDependencies()
+		useCase := app.NewIgnoreUseCase(deps)
+		return useCase.Add(args[0], configPath)
 	},
 }
 
@@ -104,28 +50,9 @@ Example:
   raioz ignore remove service-name`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		serviceName := args[0]
-
-		// Check if service is ignored
-		isIgnored, err := ignore.IsIgnored(serviceName)
-		if err != nil {
-			return fmt.Errorf("failed to check if service is ignored: %w", err)
-		}
-
-		if !isIgnored {
-			output.PrintInfo(fmt.Sprintf("Service '%s' is not in the ignore list", serviceName))
-			return nil
-		}
-
-		// Remove from ignore list
-		if err := ignore.RemoveService(serviceName); err != nil {
-			return fmt.Errorf("failed to remove service from ignore list: %w", err)
-		}
-
-		output.PrintSuccess(fmt.Sprintf("Service '%s' removed from ignore list", serviceName))
-		output.PrintInfo("The service will be processed normally on the next 'raioz up'")
-
-		return nil
+		deps := app.NewDependencies()
+		useCase := app.NewIgnoreUseCase(deps)
+		return useCase.Remove(args[0])
 	},
 }
 
@@ -138,22 +65,9 @@ var ignoreListCmd = &cobra.Command{
 Example:
   raioz ignore list`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ignoredServices, err := ignore.GetIgnoredServices()
-		if err != nil {
-			return fmt.Errorf("failed to get ignored services: %w", err)
-		}
-
-		if len(ignoredServices) == 0 {
-			fmt.Println("No services in ignore list.")
-			return nil
-		}
-
-		fmt.Println("Ignored services:")
-		for _, name := range ignoredServices {
-			fmt.Printf("  - %s\n", name)
-		}
-
-		return nil
+		deps := app.NewDependencies()
+		useCase := app.NewIgnoreUseCase(deps)
+		return useCase.List()
 	},
 }
 

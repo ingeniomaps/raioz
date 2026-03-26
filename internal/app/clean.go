@@ -1,0 +1,172 @@
+package app
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"os"
+	"strings"
+
+	"raioz/internal/logging"
+	"raioz/internal/output"
+)
+
+// CleanOptions contains options for the Clean use case
+type CleanOptions struct {
+	ConfigPath  string
+	ProjectName string
+	All         bool
+	Images      bool
+	Volumes     bool
+	Networks    bool
+	DryRun      bool
+	Force       bool
+}
+
+// CleanUseCase handles the "clean" use case
+type CleanUseCase struct {
+	deps *Dependencies
+}
+
+// NewCleanUseCase creates a new CleanUseCase with injected dependencies
+func NewCleanUseCase(deps *Dependencies) *CleanUseCase {
+	return &CleanUseCase{deps: deps}
+}
+
+// Execute executes the clean use case
+func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
+	projectName := opts.ProjectName
+	if !opts.All && projectName == "" {
+		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		if deps != nil {
+			projectName = deps.Project.Name
+		} else {
+			return fmt.Errorf("could not determine project name. Please provide --file, --project, or use --all")
+		}
+	}
+
+	var actions []string
+
+	// Clean projects
+	if opts.All {
+		baseDir, err := uc.deps.Workspace.GetBaseDir()
+		if err != nil {
+			return fmt.Errorf("failed to get base directory: %w", err)
+		}
+		logging.Info("Cleaning all projects")
+		projectActions, err := uc.deps.DockerRunner.CleanAllProjectsWithContext(ctx, baseDir, opts.DryRun)
+		if err != nil {
+			return fmt.Errorf("failed to clean all projects: %w", err)
+		}
+		actions = append(actions, projectActions...)
+	} else {
+		projectActions, err := uc.cleanProject(ctx, projectName, opts)
+		if err != nil {
+			return err
+		}
+		actions = append(actions, projectActions...)
+	}
+
+	// Clean images
+	if opts.Images {
+		logging.Info("Cleaning unused images")
+		imageActions, err := uc.deps.DockerRunner.CleanUnusedImagesWithContext(ctx, opts.DryRun)
+		if err != nil {
+			return fmt.Errorf("failed to clean images: %w", err)
+		}
+		actions = append(actions, imageActions...)
+	}
+
+	// Clean volumes
+	if opts.Volumes {
+		volumeActions, err := uc.cleanVolumes(ctx, opts)
+		if err != nil {
+			return err
+		}
+		if volumeActions == nil {
+			return nil // User cancelled
+		}
+		actions = append(actions, volumeActions...)
+	}
+
+	// Clean networks
+	if opts.Networks {
+		logging.Info("Cleaning unused networks")
+		networkActions, err := uc.deps.DockerRunner.CleanUnusedNetworksWithContext(ctx, opts.DryRun)
+		if err != nil {
+			return fmt.Errorf("failed to clean networks: %w", err)
+		}
+		actions = append(actions, networkActions...)
+	}
+
+	// Display actions
+	if opts.DryRun {
+		output.PrintSectionHeader("Dry Run - Actions That Would Be Taken")
+	} else {
+		output.PrintSectionHeader("Actions Taken")
+	}
+
+	if len(actions) == 0 {
+		output.PrintInfo("Nothing to clean")
+	} else {
+		output.PrintList(actions, 0)
+	}
+
+	return nil
+}
+
+func (uc *CleanUseCase) cleanProject(ctx context.Context, projectName string, opts CleanOptions) ([]string, error) {
+	ws, err := uc.deps.Workspace.Resolve(projectName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve workspace: %w", err)
+	}
+
+	composePath := uc.deps.Workspace.GetComposePath(ws)
+	logging.Info("Cleaning project", "project", projectName)
+
+	projectActions, err := uc.deps.DockerRunner.CleanProjectWithContext(ctx, composePath, opts.DryRun)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clean project: %w", err)
+	}
+
+	// Remove state file if exists
+	statePath := uc.deps.Workspace.GetStatePath(ws)
+	if _, err := os.Stat(statePath); err == nil {
+		if opts.DryRun {
+			projectActions = append(projectActions, fmt.Sprintf("Would remove state file: %s", statePath))
+		} else {
+			if err := os.Remove(statePath); err != nil {
+				projectActions = append(projectActions, fmt.Sprintf("Failed to remove state file: %v", err))
+			} else {
+				projectActions = append(projectActions, fmt.Sprintf("Removed state file: %s", statePath))
+			}
+		}
+	}
+
+	return projectActions, nil
+}
+
+func (uc *CleanUseCase) cleanVolumes(ctx context.Context, opts CleanOptions) ([]string, error) {
+	logging.Info("Cleaning unused volumes")
+
+	if !opts.Force && !opts.DryRun {
+		logging.Warn("Volume removal requires confirmation. Use --force to proceed.")
+		output.PrintPrompt("Are you sure you want to remove unused volumes? (yes/no): ")
+		reader := bufio.NewReader(os.Stdin)
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response != "yes" && response != "y" {
+			logging.Info("Volume cleanup cancelled")
+			return nil, nil // nil signals cancellation
+		}
+	}
+
+	volumeActions, err := uc.deps.DockerRunner.CleanUnusedVolumesWithContext(ctx, opts.DryRun, opts.Force || opts.DryRun)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clean volumes: %w", err)
+	}
+	return volumeActions, nil
+}

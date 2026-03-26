@@ -1,13 +1,9 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"text/tabwriter"
+	"context"
 
-	"raioz/internal/docker"
-	"raioz/internal/output"
-	"raioz/internal/workspace"
+	"raioz/internal/app"
 
 	"github.com/spf13/cobra"
 )
@@ -16,49 +12,17 @@ var portsCmd = &cobra.Command{
 	Use:   "ports",
 	Short: "List all ports in use by active projects",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get base directory
-		var baseDir string
-		if projectName != "" {
-			ws, err := workspace.Resolve(projectName)
-			if err == nil {
-				baseDir = workspace.GetBaseDirFromWorkspace(ws)
-			}
+		ctx := cmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
 		}
 
-		// Fallback to GetBaseDir if no project specified
-		if baseDir == "" {
-			var err error
-			baseDir, err = workspace.GetBaseDir()
-			if err != nil {
-				return fmt.Errorf("failed to get base directory: %w", err)
-			}
-		}
+		deps := app.NewDependencies()
+		portsUseCase := app.NewPortsUseCase(deps)
 
-		// Get all active ports
-		ports, err := docker.GetAllActivePorts(baseDir)
-		if err != nil {
-			return fmt.Errorf("failed to get active ports: %w", err)
-		}
-
-		if len(ports) == 0 {
-			output.PrintInfo("No active ports found")
-			return nil
-		}
-
-		// Display ports
-		output.PrintSectionHeader("Active Ports")
-
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
-		fmt.Fprintln(w, "PORT\tPROJECT\tSERVICE")
-		separator := "────\t───────\t───────"
-		fmt.Fprintln(w, separator)
-
-		for _, port := range ports {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", port.Port, port.Project, port.Service)
-		}
-
-		w.Flush()
-		return nil
+		return portsUseCase.Execute(ctx, app.PortsOptions{
+			ProjectName: projectName,
+		})
 	},
 }
 

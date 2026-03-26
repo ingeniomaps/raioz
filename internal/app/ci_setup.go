@@ -1,24 +1,22 @@
-package cmd
+package app
 
 import (
 	"context"
 	"fmt"
 
 	"raioz/internal/config"
-	"raioz/internal/docker"
-	"raioz/internal/git"
-	"raioz/internal/workspace"
+	"raioz/internal/domain/interfaces"
 )
 
 // validateCIPorts validates ports for CI
-func validateCIPorts(
+func (uc *CIUseCase) validateCIPorts(
 	deps *config.Deps,
-	ws *workspace.Workspace,
+	ws *interfaces.Workspace,
 	workspaceName string,
 	result *CIResult,
 ) error {
-	baseDir := workspace.GetBaseDirFromWorkspace(ws)
-	conflicts, err := docker.ValidatePorts(deps, baseDir, workspaceName)
+	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
+	conflicts, err := uc.deps.DockerRunner.ValidatePorts(deps, baseDir, workspaceName)
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "ports",
@@ -55,9 +53,9 @@ func validateCIPorts(
 }
 
 // validateCIImages validates images for CI
-func validateCIImages(deps *config.Deps, result *CIResult) error {
-	if !ciSkipPull {
-		if err := docker.ValidateAllImages(deps); err != nil {
+func (uc *CIUseCase) validateCIImages(deps *config.Deps, opts CIOptions, result *CIResult) error {
+	if !opts.SkipPull {
+		if err := uc.deps.DockerRunner.ValidateAllImages(deps); err != nil {
 			result.Validations = append(result.Validations, ValidationResult{
 				Check:   "images",
 				Status:  "failed",
@@ -73,8 +71,8 @@ func validateCIImages(deps *config.Deps, result *CIResult) error {
 		})
 	} else {
 		result.Validations = append(result.Validations, ValidationResult{
-			Check:  "images",
-			Status: "skipped",
+			Check:   "images",
+			Status:  "skipped",
 			Message: "Image pull skipped (--skip-pull)",
 		})
 	}
@@ -82,13 +80,11 @@ func validateCIImages(deps *config.Deps, result *CIResult) error {
 }
 
 // ensureCINetwork ensures network for CI
-func ensureCINetwork(deps *config.Deps, result *CIResult) error {
+func (uc *CIUseCase) ensureCINetwork(deps *config.Deps, result *CIResult) error {
 	ctx := context.Background()
-	networkConfig := docker.NetworkConfig{
-		Name:   deps.Network.GetName(),
-		Subnet: deps.Network.GetSubnet(),
-	}
-	if err := docker.EnsureNetworkWithConfigAndContext(ctx, networkConfig, false); err != nil {
+	networkName := deps.Network.GetName()
+	subnet := deps.Network.GetSubnet()
+	if err := uc.deps.DockerRunner.EnsureNetworkWithConfigAndContext(ctx, networkName, subnet, false); err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "network",
 			Status:  "failed",
@@ -106,16 +102,20 @@ func ensureCINetwork(deps *config.Deps, result *CIResult) error {
 }
 
 // ensureCIVolumes ensures volumes for CI
-func ensureCIVolumes(deps *config.Deps, result *CIResult) error {
+func (uc *CIUseCase) ensureCIVolumes(deps *config.Deps, result *CIResult) error {
 	var allVolumes []string
 	for _, svc := range deps.Services {
-		allVolumes = append(allVolumes, svc.Docker.Volumes...)
+		if svc.Docker != nil {
+			allVolumes = append(allVolumes, svc.Docker.Volumes...)
+		}
 	}
-	for _, infra := range deps.Infra {
-		allVolumes = append(allVolumes, infra.Volumes...)
+	for _, entry := range deps.Infra {
+		if entry.Inline != nil {
+			allVolumes = append(allVolumes, entry.Inline.Volumes...)
+		}
 	}
 
-	namedVolumes, err := docker.ExtractNamedVolumes(allVolumes)
+	namedVolumes, err := uc.deps.DockerRunner.ExtractNamedVolumes(allVolumes)
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "volumes",
@@ -128,7 +128,7 @@ func ensureCIVolumes(deps *config.Deps, result *CIResult) error {
 
 	ctx := context.Background()
 	for _, volName := range namedVolumes {
-		if err := docker.EnsureVolumeWithContext(ctx, volName); err != nil {
+		if err := uc.deps.DockerRunner.EnsureVolumeWithContext(ctx, volName); err != nil {
 			result.Validations = append(result.Validations, ValidationResult{
 				Check:   "volumes",
 				Status:  "failed",
@@ -141,8 +141,8 @@ func ensureCIVolumes(deps *config.Deps, result *CIResult) error {
 
 	if len(namedVolumes) > 0 {
 		result.Validations = append(result.Validations, ValidationResult{
-			Check:  "volumes",
-			Status: "passed",
+			Check:   "volumes",
+			Status:  "passed",
 			Message: fmt.Sprintf("Ensured %d named volumes", len(namedVolumes)),
 		})
 	}
@@ -150,11 +150,16 @@ func ensureCIVolumes(deps *config.Deps, result *CIResult) error {
 }
 
 // resolveCIGit resolves git repositories for CI
-func resolveCIGit(deps *config.Deps, ws *workspace.Workspace, result *CIResult) error {
-	if !ciSkipBuild {
+func (uc *CIUseCase) resolveCIGit(
+	deps *config.Deps,
+	ws *interfaces.Workspace,
+	opts CIOptions,
+	result *CIResult,
+) error {
+	if !opts.SkipBuild {
 		for name, svc := range deps.Services {
 			if svc.Source.Kind == "git" {
-				if err := git.EnsureRepoWithForce(svc.Source, ws.ServicesDir, ciForceReclone); err != nil {
+				if err := uc.deps.GitRepository.EnsureRepoWithForce(svc.Source, ws.ServicesDir, opts.ForceReclone); err != nil {
 					result.Validations = append(result.Validations, ValidationResult{
 						Check:   "git",
 						Status:  "failed",
@@ -172,8 +177,8 @@ func resolveCIGit(deps *config.Deps, ws *workspace.Workspace, result *CIResult) 
 		})
 	} else {
 		result.Validations = append(result.Validations, ValidationResult{
-			Check:  "git",
-			Status: "skipped",
+			Check:   "git",
+			Status:  "skipped",
 			Message: "Git operations skipped (--skip-build)",
 		})
 	}

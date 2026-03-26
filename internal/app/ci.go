@@ -1,7 +1,6 @@
-package cmd
+package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,19 +8,61 @@ import (
 	"time"
 
 	"raioz/internal/config"
-	"raioz/internal/docker"
-	"raioz/internal/lock"
-	"raioz/internal/state"
-	"raioz/internal/validate"
-	"raioz/internal/workspace"
+	"raioz/internal/domain/interfaces"
 )
 
-// executeCICommand performs the CI command execution
-func executeCICommand() error {
+// CIResult represents the result of a CI run
+type CIResult struct {
+	Success     bool               `json:"success"`
+	StartTime   string             `json:"startTime"`
+	EndTime     string             `json:"endTime,omitempty"`
+	Duration    float64            `json:"duration,omitempty"`
+	Message     string             `json:"message,omitempty"`
+	Workspace   string             `json:"workspace,omitempty"`
+	ComposeFile string             `json:"composeFile,omitempty"`
+	StateFile   string             `json:"stateFile,omitempty"`
+	Services    []string           `json:"services,omitempty"`
+	Infra       []string           `json:"infra,omitempty"`
+	Validations []ValidationResult `json:"validations"`
+	Errors      []string           `json:"errors,omitempty"`
+	Warnings    []string           `json:"warnings,omitempty"`
+}
+
+// ValidationResult represents the result of a single validation check
+type ValidationResult struct {
+	Check   string `json:"check"`
+	Status  string `json:"status"` // passed, failed, skipped
+	Message string `json:"message,omitempty"`
+}
+
+// CIOptions contains options for the CI use case
+type CIOptions struct {
+	ConfigPath   string
+	Keep         bool
+	Ephemeral    bool
+	JobID        string
+	SkipBuild    bool
+	SkipPull     bool
+	OnlyValidate bool
+	ForceReclone bool
+}
+
+// CIUseCase handles the "ci" use case
+type CIUseCase struct {
+	deps *Dependencies
+}
+
+// NewCIUseCase creates a new CIUseCase with injected dependencies
+func NewCIUseCase(deps *Dependencies) *CIUseCase {
+	return &CIUseCase{deps: deps}
+}
+
+// Execute runs the CI command and returns the result.
+// The caller is responsible for encoding the result as JSON and handling exit codes.
+func (uc *CIUseCase) Execute(opts CIOptions) (*CIResult, error) {
 	startTime := time.Now()
 
-	// Build result structure for JSON output
-	result := CIResult{
+	result := &CIResult{
 		Success:     false,
 		StartTime:   startTime.Format(time.RFC3339),
 		Validations: []ValidationResult{},
@@ -32,30 +73,17 @@ func executeCICommand() error {
 	defer func() {
 		result.EndTime = time.Now().Format(time.RFC3339)
 		result.Duration = time.Since(startTime).Seconds()
-
-		// Always output JSON at the end
-		encoder := json.NewEncoder(os.Stdout)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(result); err != nil {
-			// If JSON encoding fails, output simple error
-			fmt.Fprintf(os.Stderr, "Failed to encode result: %v\n", err)
-		}
-
-		// Exit with appropriate code
-		if !result.Success {
-			os.Exit(1)
-		}
 	}()
 
-	// Fast preflight checks (skip non-critical checks)
-	if err := validateFastPreflight(); err != nil {
+	// Fast preflight checks
+	if err := uc.validateFastPreflight(); err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "preflight",
 			Status:  "failed",
 			Message: err.Error(),
 		})
 		result.Errors = append(result.Errors, fmt.Sprintf("Preflight check failed: %v", err))
-		return nil // Don't return error, output JSON instead
+		return result, nil
 	}
 
 	result.Validations = append(result.Validations, ValidationResult{
@@ -64,7 +92,7 @@ func executeCICommand() error {
 	})
 
 	// Load configuration
-	deps, warnings, err := config.LoadDeps(configPath)
+	configDeps, warnings, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "load_config",
@@ -72,10 +100,9 @@ func executeCICommand() error {
 			Message: err.Error(),
 		})
 		result.Errors = append(result.Errors, fmt.Sprintf("Failed to load config: %v", err))
-		return nil
+		return result, nil
 	}
 
-	// Add deprecation warnings
 	for _, warning := range warnings {
 		result.Warnings = append(result.Warnings, warning)
 	}
@@ -85,15 +112,15 @@ func executeCICommand() error {
 		Status: "passed",
 	})
 
-	// Fast validation (skip compatibility checks in CI)
-	if err := validateFast(deps); err != nil {
+	// Fast validation
+	if err := uc.validateFast(configDeps); err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "validation",
 			Status:  "failed",
 			Message: err.Error(),
 		})
 		result.Errors = append(result.Errors, fmt.Sprintf("Validation failed: %v", err))
-		return nil
+		return result, nil
 	}
 
 	result.Validations = append(result.Validations, ValidationResult{
@@ -102,14 +129,14 @@ func executeCICommand() error {
 	})
 
 	// Validate feature flags
-	if err := config.ValidateFeatureFlags(deps); err != nil {
+	if err := uc.deps.ConfigLoader.ValidateFeatureFlags(configDeps); err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "feature_flags",
 			Status:  "failed",
 			Message: err.Error(),
 		})
 		result.Errors = append(result.Errors, fmt.Sprintf("Feature flags validation failed: %v", err))
-		return nil
+		return result, nil
 	}
 
 	result.Validations = append(result.Validations, ValidationResult{
@@ -118,33 +145,32 @@ func executeCICommand() error {
 	})
 
 	// If only validation is requested, exit early
-	if ciOnlyValidate {
+	if opts.OnlyValidate {
 		result.Success = true
 		result.Message = "All validations passed"
-		return nil
+		return result, nil
 	}
 
-	// Continue with setup...
-	if err := executeCISetup(deps, &result); err != nil {
-		// Error already added to result
-		return nil
+	// Continue with setup
+	if err := uc.executeSetup(configDeps, opts, result); err != nil {
+		return result, nil
 	}
 
 	result.Success = true
 	result.Message = "CI run completed successfully"
 
-	if ciEphemeral && !ciKeep {
+	if opts.Ephemeral && !opts.Keep {
 		result.Message += " (ephemeral environment will be cleaned up)"
 	}
 
-	return nil
+	return result, nil
 }
 
-// executeCISetup performs the setup phase of CI command
-func executeCISetup(deps *config.Deps, result *CIResult) error {
+// executeSetup performs the setup phase of CI command
+func (uc *CIUseCase) executeSetup(deps *config.Deps, opts CIOptions, result *CIResult) error {
 	// Load environment variables for feature flags
 	envVars := make(map[string]string)
-	for _, key := range os.Environ() {
+	for _, key := range getEnviron() {
 		pair := strings.SplitN(key, "=", 2)
 		if len(pair) == 2 {
 			envVars[pair[0]] = pair[1]
@@ -154,7 +180,7 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	// Filter by profile and feature flags (CI doesn't use profiles by default)
 	profile := ""
 	var mockServices []string
-	deps, mockServices = config.FilterByFeatureFlags(deps, profile, envVars)
+	deps, mockServices = uc.deps.ConfigLoader.FilterByFeatureFlags(deps, profile, envVars)
 
 	if len(mockServices) > 0 {
 		result.Warnings = append(
@@ -166,16 +192,16 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	// Determine workspace name (ephemeral or regular)
 	projectName := deps.Project.Name
 	workspaceName := projectName
-	if ciEphemeral {
-		if ciJobID != "" {
-			workspaceName = fmt.Sprintf("%s-ci-%s", projectName, ciJobID)
+	if opts.Ephemeral {
+		if opts.JobID != "" {
+			workspaceName = fmt.Sprintf("%s-ci-%s", projectName, opts.JobID)
 		} else {
 			workspaceName = fmt.Sprintf("%s-ci-%d", projectName, time.Now().Unix())
 		}
 		result.Workspace = workspaceName
 	}
 
-	ws, err := workspace.Resolve(workspaceName)
+	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "workspace",
@@ -187,7 +213,7 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	}
 
 	// Check workspace permissions
-	if err := validate.CheckWorkspacePermissions(ws.Root); err != nil {
+	if err := uc.deps.Validator.CheckWorkspacePermissions(ws.Root); err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "workspace_permissions",
 			Status:  "failed",
@@ -203,7 +229,7 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	})
 
 	// Acquire lock
-	lockInstance, err := lock.Acquire(ws)
+	lockInstance, err := uc.deps.LockManager.Acquire(ws)
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "lock",
@@ -215,9 +241,9 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	}
 
 	// Schedule cleanup if ephemeral
-	if ciEphemeral && !ciKeep {
+	if opts.Ephemeral && !opts.Keep {
 		defer func() {
-			cleanupEphemeralEnvironment(ws, projectName)
+			uc.cleanupEphemeralEnvironment(ws, projectName)
 		}()
 	}
 
@@ -225,32 +251,32 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	defer lockInstance.Release()
 
 	// Validate ports
-	if err := validateCIPorts(deps, ws, workspaceName, result); err != nil {
+	if err := uc.validateCIPorts(deps, ws, workspaceName, result); err != nil {
 		return err
 	}
 
 	// Validate images
-	if err := validateCIImages(deps, result); err != nil {
+	if err := uc.validateCIImages(deps, opts, result); err != nil {
 		return err
 	}
 
 	// Ensure network
-	if err := ensureCINetwork(deps, result); err != nil {
+	if err := uc.ensureCINetwork(deps, result); err != nil {
 		return err
 	}
 
 	// Ensure volumes
-	if err := ensureCIVolumes(deps, result); err != nil {
+	if err := uc.ensureCIVolumes(deps, result); err != nil {
 		return err
 	}
 
 	// Resolve git repositories
-	if err := resolveCIGit(deps, ws, result); err != nil {
+	if err := uc.resolveCIGit(deps, ws, opts, result); err != nil {
 		return err
 	}
 
 	// Get project directory (where .raioz.json is located)
-	projectDir, err := filepath.Abs(filepath.Dir(configPath))
+	projectDir, err := filepath.Abs(filepath.Dir(opts.ConfigPath))
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "compose",
@@ -262,7 +288,7 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	}
 
 	// Generate compose file
-	composePath, err := docker.GenerateCompose(deps, ws, projectDir)
+	composePath, _, err := uc.deps.DockerRunner.GenerateCompose(deps, ws, projectDir)
 	if err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "compose",
@@ -279,9 +305,9 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 		Status: "passed",
 	})
 
-	// Start services (skip if ciSkipBuild)
-	if !ciSkipBuild {
-		if err := docker.Up(composePath); err != nil {
+	// Start services (skip if SkipBuild)
+	if !opts.SkipBuild {
+		if err := uc.deps.DockerRunner.Up(composePath); err != nil {
 			result.Validations = append(result.Validations, ValidationResult{
 				Check:   "start_services",
 				Status:  "failed",
@@ -297,15 +323,15 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 		})
 
 		// Save state
-		if err := state.Save(ws, deps); err != nil {
+		if err := uc.deps.StateManager.Save(ws, deps); err != nil {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("Failed to save state: %v", err))
 		} else {
-			result.StateFile = workspace.GetStatePath(ws)
+			result.StateFile = uc.deps.Workspace.GetStatePath(ws)
 		}
 	} else {
 		result.Validations = append(result.Validations, ValidationResult{
-			Check:  "start_services",
-			Status: "skipped",
+			Check:   "start_services",
+			Status:  "skipped",
 			Message: "Service startup skipped (--skip-build)",
 		})
 	}
@@ -324,4 +350,28 @@ func executeCISetup(deps *config.Deps, result *CIResult) error {
 	result.Infra = infraNames
 
 	return nil
+}
+
+// cleanupEphemeralEnvironment cleans up an ephemeral CI environment
+func (uc *CIUseCase) cleanupEphemeralEnvironment(ws *interfaces.Workspace, projectName string) {
+	composePath := uc.deps.Workspace.GetComposePath(ws)
+
+	// Stop services if compose file exists
+	if _, err := os.Stat(composePath); err == nil {
+		if err := uc.deps.DockerRunner.Down(composePath); err != nil {
+			// Log but don't fail
+			fmt.Fprintf(os.Stderr, "Warning: Failed to stop ephemeral environment: %v\n", err)
+		}
+	}
+
+	// Remove state file
+	statePath := uc.deps.Workspace.GetStatePath(ws)
+	if err := os.Remove(statePath); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to remove state file: %v\n", err)
+	}
+
+	// Remove workspace directory
+	if err := os.RemoveAll(ws.Root); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to remove ephemeral workspace: %v\n", err)
+	}
 }
