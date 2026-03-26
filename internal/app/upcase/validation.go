@@ -5,18 +5,15 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/docker"
 	"raioz/internal/errors"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/validate"
-	"raioz/internal/workspace"
 )
 
 // validate handles validate.All, workspace permissions, port validation, and dependency conflicts
 func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, dryRun bool) error {
 	// Step 1: Preflight checks (Docker, Git, disk space, network) - as documented
-	if err := validate.PreflightCheckWithContext(ctx); err != nil {
+	if err := uc.deps.Validator.PreflightCheckWithContext(ctx); err != nil {
 		return errors.New(
 			errors.ErrCodeDockerNotInstalled,
 			"Preflight checks failed",
@@ -31,30 +28,27 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 		return err
 	}
 
-	// Convert interfaces.Workspace to concrete workspace.Workspace for operations that need it
-	wsConcrete := (*workspace.Workspace)(ws)
-
 	// Perform migration of legacy services if needed
-	if err := workspace.MigrateLegacyServices(wsConcrete, deps); err != nil {
+	if err := uc.deps.Workspace.MigrateLegacyServices(ws, deps); err != nil {
 		// Log but don't fail - migration is best-effort
 		output.PrintWarning("Migration warning: " + err.Error())
 	}
 
 	// Detect and warn about shared volumes
-	serviceVolumes, err := docker.BuildServiceVolumesMap(deps)
+	serviceVolumes, err := uc.deps.DockerRunner.BuildServiceVolumesMap(deps)
 	if err != nil {
 		// Log error but don't fail - volume detection is informational
 		logging.Warn("Failed to build service volumes map", "error", err)
 	} else {
-		sharedVolumes := docker.DetectSharedVolumes(serviceVolumes)
+		sharedVolumes := uc.deps.DockerRunner.DetectSharedVolumes(serviceVolumes)
 		if len(sharedVolumes) > 0 {
-			warningMsg := docker.FormatSharedVolumesWarning(sharedVolumes)
+			warningMsg := uc.deps.DockerRunner.FormatSharedVolumesWarning(sharedVolumes)
 			output.PrintWarning(warningMsg)
 		}
 	}
 
 	// Check for dependency conflicts first (before checking permissions)
-	shouldContinue, _, err := uc.handleDependencyConflicts(deps, wsConcrete, dryRun)
+	shouldContinue, _, err := uc.handleDependencyConflicts(deps, ws, dryRun)
 	if err != nil {
 		return errors.New(errors.ErrCodeDependencyCycle, "Failed to handle dependency conflicts").WithSuggestion("Check your configuration for conflicting service definitions. " + "Resolve conflicts manually or use dependency assist.").WithError(err)
 	}
@@ -67,7 +61,7 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 	}
 
 	// Check for missing dependencies
-	shouldContinue, _, err = uc.handleDependencyAssist(deps, wsConcrete, dryRun)
+	shouldContinue, _, err = uc.handleDependencyAssist(deps, ws, dryRun)
 	if err != nil {
 		return errors.New(errors.ErrCodeInvalidConfig, "Failed to handle dependency assist").WithSuggestion("Check that dependency definitions are accessible. " + "Verify network connectivity and repository access.").WithError(err)
 	}
@@ -80,7 +74,7 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 	}
 
 	// Check workspace permissions
-	if err := validate.CheckWorkspacePermissions(ws.Root); err != nil {
+	if err := uc.deps.Validator.CheckWorkspacePermissions(ws.Root); err != nil {
 		return err
 	}
 

@@ -5,9 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/env"
 	"raioz/internal/errors"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -30,6 +28,8 @@ type Dependencies struct {
 	Workspace     interfaces.WorkspaceManager
 	StateManager  interfaces.StateManager
 	LockManager   interfaces.LockManager
+	HostRunner    interfaces.HostRunner
+	EnvManager    interfaces.EnvManager
 }
 
 // UseCase handles the "up" use case - starting a project
@@ -64,7 +64,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Resolve project.env (if project.env is ["."], uses .env in project directory as primary)
-	projectEnvPath, err := env.ResolveProjectEnv(ws, deps, projectDir)
+	projectEnvPath, err := uc.deps.EnvManager.ResolveProjectEnv(ws, deps, projectDir)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
@@ -99,7 +99,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 
 	// If only project commands, execute them directly and return
 	if onlyProjectCommands {
-		if err := env.WriteGlobalEnvVariables(ws, deps); err != nil {
+		if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
 			return errors.New(
 				errors.ErrCodeWorkspaceError,
 				"Failed to write global environment variables",
@@ -159,8 +159,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 	// WorkspaceConflictProceed: continue (with deps or merged deps)
 
-	// Write global env variables from env.variables to global.env (after merge so merged config includes all projects' variables)
-	if err := env.WriteGlobalEnvVariables(ws, deps); err != nil {
+	// Write global.env as union of env.files + env.variables (after merge so merged config includes all projects' variables)
+	if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
 			"Failed to write global environment variables",
@@ -257,7 +257,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	// This ensures that project.commands.up runs only after dependencies are ready
 	if hasProjectCommands && (len(serviceNames) > 0 || len(infraNames) > 0) {
 		output.PrintProgress("Waiting for services to be healthy before executing project command...")
-		if err := docker.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, deps.Project.Name); err != nil {
+		if err := uc.deps.DockerRunner.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, deps.Project.Name); err != nil {
 			logging.WarnWithContext(ctx, "Failed to wait for services to be healthy", "error", err.Error())
 			output.PrintWarning("Some services may not be healthy yet, proceeding with project command anyway")
 			// Continue anyway - user may want to proceed even if health checks fail

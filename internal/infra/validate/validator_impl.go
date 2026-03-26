@@ -49,3 +49,48 @@ func (v *ValidatorImpl) ValidateBeforeDown(ctx interface{}, ws interface{}) erro
 func (v *ValidatorImpl) All(deps *config.Deps) error {
 	return validate.All(deps)
 }
+
+// CheckDockerInstalled checks if Docker is installed
+func (v *ValidatorImpl) CheckDockerInstalled() error {
+	return validate.CheckDockerInstalled()
+}
+
+// CheckDockerRunning checks if Docker daemon is running
+func (v *ValidatorImpl) CheckDockerRunning() error {
+	return validate.CheckDockerRunning()
+}
+
+// ValidateSchema validates the configuration schema
+func (v *ValidatorImpl) ValidateSchema(deps *config.Deps) error {
+	return validate.ValidateSchema(deps)
+}
+
+// ValidateProject validates the project configuration
+func (v *ValidatorImpl) ValidateProject(deps *config.Deps) error {
+	return validate.ValidateProject(deps)
+}
+
+// ValidateServices validates services configuration
+func (v *ValidatorImpl) ValidateServices(deps *config.Deps) error {
+	return validate.ValidateServices(deps)
+}
+
+// ValidateInfra validates infra configuration
+func (v *ValidatorImpl) ValidateInfra(deps *config.Deps) error {
+	return validate.ValidateInfra(deps)
+}
+
+// ValidateDependencies validates dependencies configuration
+func (v *ValidatorImpl) ValidateDependencies(deps *config.Deps) error {
+	return validate.ValidateDependencies(deps)
+}
+
+// CheckWorkspacePermissions checks workspace permissions
+func (v *ValidatorImpl) CheckWorkspacePermissions(workspacePath string) error {
+	return validate.CheckWorkspacePermissions(workspacePath)
+}
+
+// PreflightCheckWithContext runs preflight checks (Docker, Git, disk space)
+func (v *ValidatorImpl) PreflightCheckWithContext(ctx context.Context) error {
+	return validate.PreflightCheckWithContext(ctx)
+}

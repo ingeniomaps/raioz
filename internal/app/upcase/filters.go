@@ -23,23 +23,30 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps
 	}
 
 	// Validate feature flags and mocks
-	if err := config.ValidateFeatureFlags(deps); err != nil {
+	if err := uc.deps.ConfigLoader.ValidateFeatureFlags(deps); err != nil {
 		return nil, errors.New(errors.ErrCodeInvalidConfig, "Feature flag or mock configuration validation failed").WithSuggestion("Check your configuration for feature flag and mock configuration errors.").WithError(err)
 	}
 
 	// Filter by profile first
 	if profile != "" {
-		deps = config.FilterByProfile(deps, profile)
-		if len(deps.Services) == 0 {
-			return nil, errors.New(errors.ErrCodeInvalidConfig, fmt.Sprintf("No services found for profile '%s'", profile)).WithSuggestion("Check that services have the profile assigned in your configuration.")
+		deps = uc.deps.ConfigLoader.FilterByProfile(deps, profile)
+		if len(deps.Services) == 0 && len(deps.Infra) == 0 {
+			return nil, errors.New(errors.ErrCodeInvalidConfig, fmt.Sprintf("No services or infra found for profile '%s'", profile)).WithSuggestion("Check that services and/or infra have the profile assigned in your configuration.")
 		}
 		output.PrintInfo(fmt.Sprintf("Using profile: %s", profile))
+	} else if len(deps.Profiles) > 0 {
+		// Default profiles from config: raioz up without --profile uses these
+		deps = uc.deps.ConfigLoader.FilterByProfiles(deps, deps.Profiles)
+		if len(deps.Services) == 0 && len(deps.Infra) == 0 {
+			return nil, errors.New(errors.ErrCodeInvalidConfig, fmt.Sprintf("No services or infra found for default profiles %v", deps.Profiles)).WithSuggestion("Check that services and/or infra have these profiles in your configuration.")
+		}
+		output.PrintInfo(fmt.Sprintf("Using default profiles: %s", strings.Join(deps.Profiles, ", ")))
 	}
 
 	// Apply feature flags and mocks
 	originalServiceCount := len(deps.Services)
 	var mockServices []string
-	deps, mockServices = config.FilterByFeatureFlags(deps, profile, envVars)
+	deps, mockServices = uc.deps.ConfigLoader.FilterByFeatureFlags(deps, profile, envVars)
 	filteredCount := originalServiceCount - len(deps.Services)
 	if filteredCount > 0 {
 		output.PrintInfo(fmt.Sprintf("%d service(s) disabled by feature flags", filteredCount))
@@ -57,7 +64,7 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps
 	}
 	if len(ignoredServiceNames) > 0 {
 		// Check if any services depend on ignored services (before filtering)
-		ignoredDependencies := config.CheckIgnoredDependencies(deps, ignoredServiceNames)
+		ignoredDependencies := uc.deps.ConfigLoader.CheckIgnoredDependencies(deps, ignoredServiceNames)
 		if len(ignoredDependencies) > 0 {
 			output.PrintWarning("Some services depend on ignored services and may fail:")
 			for serviceName, ignoredDeps := range ignoredDependencies {
@@ -65,7 +72,7 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps
 			}
 		}
 		// Filter ignored services
-		deps, ignoredServiceNames, err = config.FilterIgnoredServices(deps)
+		deps, ignoredServiceNames, err = uc.deps.ConfigLoader.FilterIgnoredServices(deps)
 		if err != nil {
 			return nil, errors.New(errors.ErrCodeInvalidConfig, "Failed to filter ignored services").WithSuggestion("Check your configuration for errors. " + "Verify that service names in ignore list match your configuration.").WithError(err)
 		}

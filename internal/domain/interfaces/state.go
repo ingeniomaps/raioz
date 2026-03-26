@@ -21,4 +21,20 @@ type StateManager interface {
 	UpdateProjectState(projectName string, projectState *state.ProjectState) error
 	// RemoveProject removes a project from global state
 	RemoveProject(projectName string) error
+	// LoadGlobalState loads the global state
+	LoadGlobalState() (*state.GlobalState, error)
+	// GetGlobalStatePath returns the path to the global state file
+	GetGlobalStatePath() (string, error)
+	// GetServicePreference returns the preference for a service
+	GetServicePreference(ws *Workspace, serviceName string) (*state.ServicePreference, error)
+	// SetServicePreference saves a service preference
+	SetServicePreference(ws *Workspace, pref state.ServicePreference) error
+	// GetWorkspaceProjectPreference returns the workspace project preference
+	GetWorkspaceProjectPreference(workspaceName string) (*state.WorkspaceProjectPreference, error)
+	// SetWorkspaceProjectPreference saves a workspace project preference
+	SetWorkspaceProjectPreference(workspaceName string, pref state.WorkspaceProjectPreference) error
+	// BuildServiceStates builds ServiceState list from deps and service info
+	BuildServiceStates(deps *config.Deps, serviceInfos map[string]*state.ServiceInfo) []state.ServiceState
+	// FormatIssues formats alignment issues for display
+	FormatIssues(issues []state.AlignmentIssue) string
 }

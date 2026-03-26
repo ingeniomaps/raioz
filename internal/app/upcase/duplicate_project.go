@@ -7,11 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/state"
-	workspacepkg "raioz/internal/workspace"
 )
 
 // checkAndHandleDuplicateProject checks if a project with the same name is running from workspace
@@ -104,19 +101,17 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 	}
 
 	// Stop host processes if any
-	// Convert interfaces.Workspace to concrete workspace.Workspace
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	hostProcesses, err := host.LoadProcessesState(wsConcrete)
+	hostProcesses, err := uc.deps.HostRunner.LoadProcessesState(ws)
 	if err == nil && len(hostProcesses) > 0 {
 		output.PrintInfo(fmt.Sprintf("Stopping %d host service(s) from workspace...", len(hostProcesses)))
 		for name, processInfo := range hostProcesses {
 			logging.InfoWithContext(ctx, "Stopping host service from workspace", "service", name, "pid", processInfo.PID)
-			if err := host.StopServiceWithCommand(ctx, processInfo.PID, processInfo.StopCommand); err != nil {
+			if err := uc.deps.HostRunner.StopServiceWithCommand(ctx, processInfo.PID, processInfo.StopCommand); err != nil {
 				logging.WarnWithContext(ctx, "Failed to stop host service from workspace", "service", name, "error", err.Error())
 			}
 		}
 		// Remove host processes state file
-		if err := host.RemoveProcessesState(wsConcrete); err != nil {
+		if err := uc.deps.HostRunner.RemoveProcessesState(ws); err != nil {
 			logging.WarnWithContext(ctx, "Failed to remove host processes state", "error", err.Error())
 		}
 	}
@@ -128,7 +123,7 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 	}
 
 	// Remove from global state
-	if err := state.RemoveProject(projectName); err != nil {
+	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 		logging.WarnWithContext(ctx, "Failed to remove project from global state", "error", err.Error())
 	}
 

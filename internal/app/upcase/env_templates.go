@@ -5,18 +5,13 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/env"
 	"raioz/internal/logging"
-	workspacepkg "raioz/internal/workspace"
 )
 
 // generateEnvFilesFromTemplates generates .env files from templates for all services
 // projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
 // projectDir is the directory where .raioz.json is located
 func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectEnvPath string, projectDir string) error {
-	// Convert interfaces.Workspace to concrete workspace.Workspace
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-
 	// Process all services
 	for name, svc := range deps.Services {
 		// Skip disabled services
@@ -30,10 +25,10 @@ func (uc *UseCase) generateEnvFilesFromTemplates(ctx context.Context, deps *conf
 		}
 
 		// Get service path
-		servicePath := workspacepkg.GetServicePath(wsConcrete, name, svc)
+		servicePath := uc.deps.Workspace.GetServicePath(ws, name, svc)
 
 		// Generate .env from template
-		if err := env.GenerateEnvFromTemplate(wsConcrete, deps, name, servicePath, svc, projectEnvPath, projectDir); err != nil {
+		if err := uc.deps.EnvManager.GenerateEnvFromTemplate(ws, deps, name, servicePath, svc, projectEnvPath, projectDir); err != nil {
 			logging.WarnWithContext(ctx, "Failed to generate .env from template", "service", name, "error", err.Error())
 			// Continue with other services
 		} else {

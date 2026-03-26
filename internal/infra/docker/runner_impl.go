@@ -100,6 +100,64 @@ func (r *DockerRunnerImpl) ExtractNamedVolumes(volumes []string) ([]string, erro
 	return dockerpkg.ExtractNamedVolumes(volumes)
 }
 
+// GetAvailableServicesWithContext returns the list of services defined in a compose file
+func (r *DockerRunnerImpl) GetAvailableServicesWithContext(ctx context.Context, composePath string) ([]string, error) {
+	return dockerpkg.GetAvailableServicesWithContext(ctx, composePath)
+}
+
+// ViewLogsWithContext displays logs for services
+func (r *DockerRunnerImpl) ViewLogsWithContext(ctx context.Context, composePath string, opts interfaces.LogsOptions) error {
+	return dockerpkg.ViewLogsWithContext(ctx, composePath, dockerpkg.LogsOptions{
+		Follow:   opts.Follow,
+		Tail:     opts.Tail,
+		Services: opts.Services,
+	})
+}
+
+// CleanProjectWithContext cleans a specific project's stopped containers
+func (r *DockerRunnerImpl) CleanProjectWithContext(ctx context.Context, composePath string, dryRun bool) ([]string, error) {
+	return dockerpkg.CleanProjectWithContext(ctx, composePath, dryRun)
+}
+
+// CleanAllProjectsWithContext cleans all projects' stopped containers
+func (r *DockerRunnerImpl) CleanAllProjectsWithContext(ctx context.Context, baseDir string, dryRun bool) ([]string, error) {
+	return dockerpkg.CleanAllProjectsWithContext(ctx, baseDir, dryRun)
+}
+
+// CleanUnusedImagesWithContext removes unused Docker images
+func (r *DockerRunnerImpl) CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, error) {
+	return dockerpkg.CleanUnusedImagesWithContext(ctx, dryRun)
+}
+
+// CleanUnusedVolumesWithContext removes unused Docker volumes
+func (r *DockerRunnerImpl) CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool) ([]string, error) {
+	return dockerpkg.CleanUnusedVolumesWithContext(ctx, dryRun, force)
+}
+
+// CleanUnusedNetworksWithContext removes unused Docker networks
+func (r *DockerRunnerImpl) CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string, error) {
+	return dockerpkg.CleanUnusedNetworksWithContext(ctx, dryRun)
+}
+
+// GetAllActivePorts returns all active ports across projects
+func (r *DockerRunnerImpl) GetAllActivePorts(baseDir string) ([]interfaces.PortInfo, error) {
+	ports, err := dockerpkg.GetAllActivePorts(baseDir)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]interfaces.PortInfo, len(ports))
+	for i, p := range ports {
+		result[i] = interfaces.PortInfo{
+			Port:          p.Port,
+			Project:       p.Project,
+			Service:       p.Service,
+			HostPort:      p.HostPort,
+			ContainerPort: p.ContainerPort,
+		}
+	}
+	return result, nil
+}
+
 // FormatStatusTable formats service information as a table
 func (r *DockerRunnerImpl) FormatStatusTable(services map[string]*interfaces.ServiceInfo, jsonOutput bool) error {
 	// Convert from interfaces.ServiceInfo to docker.ServiceInfo

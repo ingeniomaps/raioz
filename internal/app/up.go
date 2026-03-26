@@ -30,6 +30,8 @@ func NewUpUseCase(deps *Dependencies) *UpUseCase {
 			Workspace:     deps.Workspace,
 			StateManager:  deps.StateManager,
 			LockManager:   deps.LockManager,
+			HostRunner:    deps.HostRunner,
+			EnvManager:    deps.EnvManager,
 		}),
 	}
 }

@@ -10,17 +10,12 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	exectimeout "raioz/internal/exec"
-	"raioz/internal/git"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/workspace"
 )
 
 // processGitRepos handles cloning/updating repos and branch changes
 func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, oldDeps *config.Deps, forceReclone bool, projectDir string) error {
-	// Convert interfaces.Workspace to concrete workspace.Workspace for operations that need it
-	wsConcrete := (*workspace.Workspace)(ws)
-
 	// Update repos if branches changed (this happens during processState, but we handle the actual git updates here)
 	if oldDeps != nil {
 		// Check for branch changes
@@ -39,11 +34,11 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 		if hasBranchChanges {
 			// Use a resolver function to get correct paths based on access mode
 			repoPathResolver := func(name string, svc config.Service) string {
-				return workspace.GetServicePath(wsConcrete, name, svc)
+				return uc.deps.Workspace.GetServicePath(ws, name, svc)
 			}
 			ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
 			defer cancel()
-			if err := git.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, deps); err != nil {
+			if err := uc.deps.GitRepository.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, deps); err != nil {
 				return errors.New(errors.ErrCodeGitCloneFailed, "Failed to update repositories after branch changes").WithSuggestion("Check network connectivity and repository access. " + "Verify that branch names are correct and accessible.").WithError(err)
 			}
 		}
@@ -56,7 +51,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 		}
 		if svc.Source.Kind == "git" {
 		// Check if this service conflicts with a local project or another running service
-			conflict, err := uc.detectServiceConflict(ctx, name, deps, wsConcrete, projectDir, false)
+			conflict, err := uc.detectServiceConflict(ctx, name, deps, ws, projectDir, false)
 			if err != nil {
 				logging.WarnWithContext(ctx, "Failed to detect service conflict", "service", name, "error", err.Error())
 				continue
@@ -75,7 +70,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 					continue
 				}
 				// Apply resolution
-				if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, name, deps, wsConcrete, projectDir, false); err != nil {
+				if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, name, deps, ws, projectDir, false); err != nil {
 					return err
 				}
 			}
@@ -94,7 +89,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 		if svc.Source.Kind == "git" {
 			output.PrintInfo(fmt.Sprintf("ℹ️  resolving %s", name))
 			// Use correct directory based on access mode
-			serviceDir := workspace.GetServiceDir(wsConcrete, svc)
+			serviceDir := uc.deps.Workspace.GetServiceDir(ws, svc)
 
 			// Check if repo exists before operation to determine action
 			repoExistedBefore := false
@@ -106,7 +101,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			var actionMessage string
 			if forceReclone {
 				actionMessage = fmt.Sprintf("Re-cloning repository for service '%s'...", name)
-			} else if git.IsReadonly(svc.Source) {
+			} else if uc.deps.GitRepository.IsReadonly(svc.Source) {
 				// Check if readonly repo exists
 				if repoExistedBefore {
 					actionMessage = fmt.Sprintf("Repository for service '%s' already exists (readonly, skipping update)", name)
@@ -137,7 +132,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			if forceReclone {
 				output.PrintProgressDone(fmt.Sprintf("Repository re-cloned for service '%s'", name))
 				output.PrintServiceCloned(name)
-			} else if git.IsReadonly(svc.Source) {
+			} else if uc.deps.GitRepository.IsReadonly(svc.Source) {
 				if repoExistedBefore {
 					// Already existed, no update needed
 					output.PrintProgressDone(fmt.Sprintf("Repository for service '%s' ready (readonly)", name))

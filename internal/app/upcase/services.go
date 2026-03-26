@@ -6,11 +6,9 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/docker"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
-	"raioz/internal/workspace"
 )
 
 // checkServicesRunning checks if services are already running (if no changes)
@@ -27,9 +25,7 @@ func (uc *UseCase) checkServicesRunning(
 	}
 
 	if len(changes) == 0 && oldDeps != nil {
-		// Convert interfaces.Workspace to concrete workspace.Workspace for operations that need it
-		wsConcrete := (*workspace.Workspace)(ws)
-		composePath := workspace.GetComposePath(wsConcrete)
+		composePath := uc.deps.Workspace.GetComposePath(ws)
 		var expectedServices []string
 		for name := range deps.Services {
 			expectedServices = append(expectedServices, name)
@@ -38,7 +34,7 @@ func (uc *UseCase) checkServicesRunning(
 			expectedServices = append(expectedServices, name)
 		}
 		if len(expectedServices) > 0 {
-			allRunning, err := docker.AreServicesRunning(composePath, expectedServices)
+			allRunning, err := uc.deps.DockerRunner.AreServicesRunning(composePath, expectedServices)
 			if err == nil && allRunning {
 				output.PrintSuccess("All services are already running (no changes detected)")
 				return true, nil

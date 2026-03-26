@@ -7,12 +7,10 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/docker"
 	"raioz/internal/errors"
 	"raioz/internal/logging"
 	"raioz/internal/root"
 	"raioz/internal/state"
-	"raioz/internal/workspace"
 )
 
 // processState loads state, detects changes, and returns old deps, changes, added services, and assisted services map
@@ -34,7 +32,7 @@ func (uc *UseCase) processState(
 	}
 
 	// Compare deps to detect changes
-	changes, err := state.CompareDeps(oldDeps, deps)
+	changes, err := uc.deps.StateManager.CompareDeps(oldDeps, deps)
 	if err != nil {
 		return nil, nil, nil, nil, errors.New(
 			errors.ErrCodeStateLoadError,
@@ -46,7 +44,7 @@ func (uc *UseCase) processState(
 
 	// Log changes if any
 	if len(changes) > 0 {
-		changeSummary := state.FormatChanges(changes)
+		changeSummary := uc.deps.StateManager.FormatChanges(changes)
 		logging.InfoWithContext(ctx, "Configuration changes detected", "changes_count", len(changes))
 		logging.DebugWithContext(ctx, "Changes", "changes", changeSummary)
 	}
@@ -182,16 +180,13 @@ func (uc *UseCase) updateGlobalState(
 	}
 
 	// Get service info from docker
-	// Note: docker.GetServicesInfoWithContext needs concrete workspace, not interface
-	// We'll need to convert it
-	wsConcrete := (*workspace.Workspace)(ws)
-	serviceInfos, err := docker.GetServicesInfoWithContext(
+	serviceInfos, err := uc.deps.DockerRunner.GetServicesInfoWithContext(
 		ctx,
 		composePath,
 		serviceNames,
 		deps.Project.Name,
 		services,
-		wsConcrete,
+		ws,
 	)
 	if err != nil {
 		// Log error but don't fail - service info is optional
@@ -199,30 +194,29 @@ func (uc *UseCase) updateGlobalState(
 		serviceInfos = nil
 	}
 
-	// Convert docker.ServiceInfo to state.ServiceInfo
+	// Convert interfaces.ServiceInfo to state.ServiceInfo
 	stateServiceInfos := make(map[string]*state.ServiceInfo)
-	if serviceInfos != nil {
-		for name, info := range serviceInfos {
-			stateServiceInfos[name] = &state.ServiceInfo{
-				Status:  info.Status,
-				Version: info.Version,
-				Image:   info.Image,
-			}
+	for name, info := range serviceInfos {
+		stateServiceInfos[name] = &state.ServiceInfo{
+			Status:  info.Status,
+			Version: info.Commit,
+			Image:   info.Image,
 		}
 	}
 
 	// Build service states
-	serviceStates := state.BuildServiceStates(deps, stateServiceInfos)
+	serviceStates := uc.deps.StateManager.BuildServiceStates(deps, stateServiceInfos)
 
 	// Create project state
-	projectState := state.ProjectState{
+	projectState := &state.ProjectState{
 		Name:          deps.Project.Name,
+		Workspace:     deps.GetWorkspaceName(),
 		LastExecution: time.Now(),
 		Services:      serviceStates,
 	}
 
 	// Update global state
-	if err := state.UpdateProjectState(deps.Project.Name, projectState); err != nil {
+	if err := uc.deps.StateManager.UpdateProjectState(deps.Project.Name, projectState); err != nil {
 		return fmt.Errorf("failed to update global state: %w", err)
 	}
 

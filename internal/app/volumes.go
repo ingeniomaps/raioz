@@ -9,7 +9,6 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/docker"
 	"raioz/internal/errors"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -61,7 +60,7 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 				errors.ErrCodeInvalidConfig,
 				"Could not determine project name",
 			).WithSuggestion(
-				"Please provide --config or --project flag to specify the project.",
+				"Please provide --file or --project flag to specify the project.",
 			)
 		}
 	} else {
@@ -103,69 +102,89 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 		"workspace", wsRoot,
 	)
 
-	// Try to load state to get volumes from state
-	var allVolumes []string
+	// Try to load state to get volumes from state (same source as compose generation)
+	var serviceVolumes []string
+	var infraVolumes []string
 	var stateDeps *config.Deps
 
 	if uc.deps.StateManager.Exists(ws) {
 		stateDeps, err = uc.deps.StateManager.Load(ws)
 		if err == nil {
-			// Collect volumes from state
 			for _, svc := range stateDeps.Services {
 				if svc.Docker != nil {
-					allVolumes = append(allVolumes, svc.Docker.Volumes...)
+					serviceVolumes = append(serviceVolumes, svc.Docker.Volumes...)
 				}
 			}
-			for _, infra := range stateDeps.Infra {
-				allVolumes = append(allVolumes, infra.Volumes...)
+			for _, entry := range stateDeps.Infra {
+				if entry.Inline != nil {
+					infraVolumes = append(infraVolumes, entry.Inline.Volumes...)
+				}
 			}
 		}
 	}
 
-	// If no state, try to load from config
-	if len(allVolumes) == 0 {
+	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
 		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 		if deps != nil {
 			stateDeps = deps
 			for _, svc := range deps.Services {
 				if svc.Docker != nil {
-					allVolumes = append(allVolumes, svc.Docker.Volumes...)
+					serviceVolumes = append(serviceVolumes, svc.Docker.Volumes...)
 				}
 			}
-			for _, infra := range deps.Infra {
-				allVolumes = append(allVolumes, infra.Volumes...)
+			for _, entry := range deps.Infra {
+				if entry.Inline != nil {
+					infraVolumes = append(infraVolumes, entry.Inline.Volumes...)
+				}
 			}
 		}
 	}
 
-	if len(allVolumes) == 0 {
+	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
 		output.PrintInfo("No volumes found for this project")
 		return nil
 	}
 
-	// Extract named volumes
-	originalNamedVolumes, err := docker.ExtractNamedVolumes(allVolumes)
+	// Normalize the same way as compose: service volumes with project name, infra volumes with workspace name
+	seenNormalized := make(map[string]bool)
+	normalizedVolumes := make([]string, 0)
+
+	serviceNamed, err := uc.deps.DockerRunner.ExtractNamedVolumes(serviceVolumes)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeDockerNotRunning,
-			"Failed to extract named volumes",
+			"Failed to extract named volumes from services",
 		).WithError(err)
 	}
-
-	if len(originalNamedVolumes) == 0 {
-		output.PrintInfo("No named volumes found for this project")
-		return nil
-	}
-
-	// Normalize volume names with project prefix
-	normalizedVolumes := make([]string, 0, len(originalNamedVolumes))
-	for _, volName := range originalNamedVolumes {
-		normalizedName, err := docker.NormalizeVolumeName(projectName, volName)
+	for _, volName := range serviceNamed {
+		normalizedName, err := uc.deps.DockerRunner.NormalizeVolumeName(projectName, volName)
 		if err != nil {
-			logging.WarnWithContext(ctx, "Failed to normalize volume name", "volume", volName, "error", err.Error())
+			logging.WarnWithContext(ctx, "Failed to normalize service volume name", "volume", volName, "error", err.Error())
 			continue
 		}
-		normalizedVolumes = append(normalizedVolumes, normalizedName)
+		if !seenNormalized[normalizedName] {
+			seenNormalized[normalizedName] = true
+			normalizedVolumes = append(normalizedVolumes, normalizedName)
+		}
+	}
+
+	infraNamed, err := uc.deps.DockerRunner.ExtractNamedVolumes(infraVolumes)
+	if err != nil {
+		return errors.New(
+			errors.ErrCodeDockerNotRunning,
+			"Failed to extract named volumes from infra",
+		).WithError(err)
+	}
+	for _, volName := range infraNamed {
+		normalizedName, err := uc.deps.DockerRunner.NormalizeVolumeName(workspaceName, volName)
+		if err != nil {
+			logging.WarnWithContext(ctx, "Failed to normalize infra volume name", "volume", volName, "error", err.Error())
+			continue
+		}
+		if !seenNormalized[normalizedName] {
+			seenNormalized[normalizedName] = true
+			normalizedVolumes = append(normalizedVolumes, normalizedName)
+		}
 	}
 
 	if len(normalizedVolumes) == 0 {
@@ -206,7 +225,7 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 
 	// Show volumes that are in use
 	if len(volumesInUse) > 0 {
-		output.PrintWarning(fmt.Sprintf("⚠️  %d volume(s) are in use by other projects and will not be removed:", len(volumesInUse)))
+		output.PrintWarning(fmt.Sprintf("  %d volume(s) are in use by other projects and will not be removed:", len(volumesInUse)))
 		for volName, projects := range volumesInUse {
 			output.PrintInfo(fmt.Sprintf("  - %s (used by: %s)", volName, strings.Join(projects, ", ")))
 		}
@@ -251,7 +270,7 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 
 	for _, volName := range volumesToRemove {
 		logging.InfoWithContext(ctx, "Removing volume", "volume", volName)
-		if err := docker.RemoveVolumeWithContext(ctx, volName); err != nil {
+		if err := uc.deps.DockerRunner.RemoveVolumeWithContext(ctx, volName); err != nil {
 			logging.WarnWithContext(ctx, "Failed to remove volume", "volume", volName, "error", err.Error())
 			output.PrintWarning(fmt.Sprintf("Failed to remove volume '%s': %v", volName, err))
 			failedCount++

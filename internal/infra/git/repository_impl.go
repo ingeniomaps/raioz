@@ -47,3 +47,8 @@ func (r *GitRepositoryImpl) ForceReclone(ctx context.Context, repoPath string, r
 func (r *GitRepositoryImpl) UpdateReposIfBranchChanged(ctx context.Context, repoPathResolver func(string, config.Service) string, oldDeps, newDeps *config.Deps) error {
 	return gitpkg.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, newDeps)
 }
+
+// IsReadonly checks if a source configuration is readonly
+func (r *GitRepositoryImpl) IsReadonly(src config.SourceConfig) bool {
+	return gitpkg.IsReadonly(src)
+}

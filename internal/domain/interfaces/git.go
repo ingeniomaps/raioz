@@ -19,4 +19,6 @@ type GitRepository interface {
 	ForceReclone(ctx context.Context, repoPath string, repo string, branch string) error
 	// UpdateReposIfBranchChanged updates repositories if their branches changed
 	UpdateReposIfBranchChanged(ctx context.Context, repoPathResolver func(string, config.Service) string, oldDeps, newDeps *config.Deps) error
+	// IsReadonly checks if a source configuration is readonly
+	IsReadonly(src config.SourceConfig) bool
 }
