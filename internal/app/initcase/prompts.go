@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"raioz/internal/i18n"
 )
 
 // promptProjectInfo prompts the user for project name and network name
@@ -12,14 +14,14 @@ func (uc *UseCase) promptProjectInfo() (string, string, error) {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Ask for project name
-	projectName, err := uc.promptString(reader, "Project name", "my-project")
+	projectName, err := uc.promptString(reader, i18n.T("init.prompt_project_name"), "my-project")
 	if err != nil {
 		return "", "", fmt.Errorf("failed to prompt project name: %w", err)
 	}
 
 	// Ask for network name (with suggestion based on project name)
 	defaultNetwork := fmt.Sprintf("%s-network", projectName)
-	networkName, err := uc.promptString(reader, "Docker network name", defaultNetwork)
+	networkName, err := uc.promptString(reader, i18n.T("init.prompt_network_name"), defaultNetwork)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to prompt network name: %w", err)
 	}
@@ -32,7 +34,7 @@ func (uc *UseCase) checkFileExists(outputPath string) (bool, error) {
 	reader := bufio.NewReader(os.Stdin)
 
 	if _, err := os.Stat(outputPath); err == nil {
-		fmt.Printf("⚠️  File '%s' already exists. Overwrite? (y/N): ", outputPath)
+		fmt.Print(i18n.T("init.file_exists_overwrite", outputPath))
 		response, err := reader.ReadString('\n')
 		if err != nil {
 			return false, fmt.Errorf("failed to read response: %w", err)
@@ -62,21 +64,21 @@ func (uc *UseCase) promptString(reader *bufio.Reader, prompt string, defaultValu
 
 // showWelcomeMessage displays the welcome message
 func (uc *UseCase) showWelcomeMessage() {
-	fmt.Println("🚀 Welcome to Raioz!")
+	fmt.Println(i18n.T("init.welcome"))
 	fmt.Println()
-	fmt.Println("This wizard will help you create a basic .raioz.json configuration file.")
-	fmt.Println("You can add services and infrastructure later by editing the file.")
+	fmt.Println(i18n.T("init.wizard_help"))
+	fmt.Println(i18n.T("init.edit_later"))
 	fmt.Println()
 }
 
 // showSuccessMessage displays the success message after creating the config file
 func (uc *UseCase) showSuccessMessage(outputPath string) {
 	fmt.Println()
-	fmt.Printf("✔ Configuration file created: %s\n", outputPath)
+	fmt.Println(i18n.T("init.config_created", outputPath))
 	fmt.Println()
-	fmt.Println("Next steps:")
-	fmt.Println("  1. Review and edit .raioz.json to add your services and infrastructure")
-	fmt.Println("  2. Run 'raioz up' to start your project")
-	fmt.Println("  3. See 'raioz --help' for available commands")
+	fmt.Println(i18n.T("init.next_steps"))
+	fmt.Println(i18n.T("init.step_review"))
+	fmt.Println(i18n.T("init.step_up"))
+	fmt.Println(i18n.T("init.step_help"))
 	fmt.Println()
 }

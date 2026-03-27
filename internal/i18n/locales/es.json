@@ -506,5 +506,20 @@
   "up.dep.conflict_invalid_keeping": "Elección inválida '%s', manteniendo configuración raíz",
   "up.dep.conflict_keeping_root": "Manteniendo configuración raíz para '%s'",
   "up.dep.conflict_replaced": "Configuración raíz reemplazada para '%s' con configuración del servicio",
-  "up.dep.conflict_aborting": "Abortando por conflicto en '%s'"
+  "up.dep.conflict_aborting": "Abortando por conflicto en '%s'",
+  "check.no_state_found": "No se encontró estado guardado. Esto es normal para proyectos nuevos.",
+  "check.run_up_hint": "   Ejecuta 'raioz up' para crear el estado inicial.",
+  "error.check_alignment": "Error al verificar alineación",
+  "error.check_alignment_suggestion": "Esto puede indicar un problema con el archivo de estado o la configuración. Intenta ejecutar 'raioz down' y luego 'raioz up' nuevamente.",
+  "init.welcome": "Bienvenido a Raioz!",
+  "init.wizard_help": "Este asistente te ayudará a crear un archivo de configuración .raioz.json básico.",
+  "init.edit_later": "Puedes agregar servicios e infraestructura después editando el archivo.",
+  "init.file_exists_overwrite": "El archivo '%s' ya existe. ¿Sobreescribir? (s/N): ",
+  "init.config_created": "Archivo de configuración creado: %s",
+  "init.next_steps": "Próximos pasos:",
+  "init.step_review": "  1. Revisa y edita .raioz.json para agregar tus servicios e infraestructura",
+  "init.step_up": "  2. Ejecuta 'raioz up' para iniciar tu proyecto",
+  "init.step_help": "  3. Consulta 'raioz --help' para ver los comandos disponibles",
+  "init.prompt_project_name": "Nombre del proyecto",
+  "init.prompt_network_name": "Nombre de la red Docker"
 }

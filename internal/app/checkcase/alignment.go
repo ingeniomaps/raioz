@@ -7,14 +7,15 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/state"
 	workspacepkg "raioz/internal/workspace"
 )
 
 // handleNoState handles the case when no state exists
 func (uc *UseCase) handleNoState() error {
-	fmt.Println("ℹ️  No saved state found. This is normal for new projects.")
-	fmt.Println("   Run 'raioz up' to create initial state.")
+	fmt.Println(i18n.T("check.no_state_found"))
+	fmt.Println(i18n.T("check.run_up_hint"))
 	os.Exit(0)
 	return nil
 }
@@ -29,10 +30,9 @@ func (uc *UseCase) checkAndDisplayAlignment(ws *interfaces.Workspace, currentDep
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeStateLoadError,
-			"Failed to check alignment",
+			i18n.T("error.check_alignment"),
 		).WithSuggestion(
-			"This may indicate a problem with the state file or configuration. " +
-				"Try running 'raioz down' and then 'raioz up' again.",
+			i18n.T("error.check_alignment_suggestion"),
 		).WithError(err)
 	}
 
