@@ -10,6 +10,7 @@ import (
 	"raioz/internal/audit"
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
 
@@ -40,23 +41,23 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 	}
 
 	// Display missing dependencies
-	output.PrintWarning("Missing dependencies detected:")
+	output.PrintWarning(i18n.T("app.missing_deps_header"))
 	output.PrintInfo("")
 	for _, depsList := range missingByService {
 		for _, dep := range depsList {
-			output.PrintInfo(fmt.Sprintf("  Service: %s", dep.ServiceName))
-			output.PrintInfo(fmt.Sprintf("  Required by: %s", dep.RequiredBy))
+			output.PrintInfo(i18n.T("up.dep.service_detail", dep.ServiceName))
+			output.PrintInfo(i18n.T("up.dep.required_by", dep.RequiredBy))
 			if dep.FoundPath != "" {
-				output.PrintInfo(fmt.Sprintf("  Found definition in: %s", dep.FoundPath))
+				output.PrintInfo(i18n.T("up.dep.found_definition", dep.FoundPath))
 			}
 			if dep.FoundConfig != nil {
-				output.PrintInfo(fmt.Sprintf("  Definition: mode=%s, repo=%s, branch=%s",
+				output.PrintInfo(i18n.T("up.dep.definition_detail",
 					dep.FoundConfig.Source.Kind,
 					dep.FoundConfig.Source.Repo,
 					dep.FoundConfig.Source.Branch,
 				))
 			} else {
-				output.PrintInfo("  Definition: (not found)")
+				output.PrintInfo(i18n.T("up.dep.definition_not_found"))
 			}
 			output.PrintInfo("")
 		}
@@ -64,15 +65,15 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 
 	if dryRun {
 		// Dry-run mode: just show what would be done
-		output.PrintInfo("Dry-run mode: dependencies shown but not added")
+		output.PrintInfo(i18n.T("app.missing_deps_dry_run"))
 		return false, []string{}, nil // Abort in dry-run mode
 	}
 
 	// Interactive mode: ask user what to do
-	output.PrintInfo("Choose action for each dependency:")
-	output.PrintInfo("  [1] Add to root workspace")
-	output.PrintInfo("  [2] Ignore (service will fail)")
-	output.PrintInfo("  [3] Add as stub/missing")
+	output.PrintInfo(i18n.T("app.missing_deps_choose"))
+	output.PrintInfo(i18n.T("app.missing_deps_opt_add"))
+	output.PrintInfo(i18n.T("app.missing_deps_opt_ignore"))
+	output.PrintInfo(i18n.T("app.missing_deps_opt_stub"))
 	output.PrintInfo("")
 
 	var servicesToAdd []config.MissingDependency
@@ -80,11 +81,11 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 
 	reader := bufio.NewReader(os.Stdin)
 	for _, dep := range missing {
-		output.PrintPrompt(fmt.Sprintf("Dependency '%s' (required by '%s'): ", dep.ServiceName, dep.RequiredBy))
+		output.PrintPrompt(i18n.T("up.dep.dependency_prompt", dep.ServiceName, dep.RequiredBy))
 		if dep.FoundConfig != nil {
-			output.PrintPrompt("[1] Add / [2] Ignore / [3] Stub (default: 1): ")
+			output.PrintPrompt(i18n.T("up.dep.add_ignore_stub_default_add"))
 		} else {
-			output.PrintPrompt("[2] Ignore / [3] Stub (default: 2): ")
+			output.PrintPrompt(i18n.T("up.dep.ignore_stub_default_ignore"))
 		}
 
 		input, err := reader.ReadString('\n')
@@ -104,7 +105,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 
 		choice, err := strconv.Atoi(input)
 		if err != nil || choice < 1 || choice > 3 {
-			output.PrintWarning(fmt.Sprintf("Invalid choice '%s', ignoring dependency", input))
+			output.PrintWarning(i18n.T("up.dep.invalid_choice_ignoring", input))
 			servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 			continue
 		}
@@ -113,7 +114,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 		case 1:
 			// Add to root workspace
 			if dep.FoundConfig == nil {
-				output.PrintWarning(fmt.Sprintf("Cannot add dependency '%s': no definition found", dep.ServiceName))
+				output.PrintWarning(i18n.T("app.missing_deps_cannot_add", dep.ServiceName))
 				servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 			} else {
 				servicesToAdd = append(servicesToAdd, dep)
@@ -123,7 +124,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 			servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 		case 3:
 			// Add as stub (not implemented yet, treat as ignore)
-			output.PrintInfo(fmt.Sprintf("Stub mode not implemented yet, ignoring dependency '%s'", dep.ServiceName))
+			output.PrintInfo(i18n.T("app.missing_deps_stub_not_impl", dep.ServiceName))
 			servicesToIgnore = append(servicesToIgnore, dep.ServiceName)
 		}
 	}
@@ -133,7 +134,7 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 
 	// Add services to root config
 	if len(servicesToAdd) > 0 {
-		output.PrintProgress("Adding dependencies to root workspace")
+		output.PrintProgress(i18n.T("app.missing_deps_adding"))
 		for _, dep := range servicesToAdd {
 			// Copy service config from found config
 			if deps.Services == nil {
@@ -149,17 +150,17 @@ func (uc *UseCase) handleDependencyAssist(deps *config.Deps, ws *interfaces.Work
 			reason := fmt.Sprintf("dependency assist: required by %s", dep.RequiredBy)
 			if err := audit.LogServiceAssisted(dep.ServiceName, dep.RequiredBy, reason); err != nil {
 				// Log audit error but don't fail
-				output.PrintWarning(fmt.Sprintf("Failed to log audit event: %v", err))
+				output.PrintWarning(i18n.T("output.failed_log_audit", err))
 			}
 
-			output.PrintSuccess(fmt.Sprintf("Added '%s' (origin: %s)", dep.ServiceName, dep.RequiredBy))
+			output.PrintSuccess(i18n.T("up.dep.added_origin", dep.ServiceName, dep.RequiredBy))
 		}
 	}
 
 	// Show ignored services
 	if len(servicesToIgnore) > 0 {
-		output.PrintWarning(fmt.Sprintf("Ignored %d dependency(ies): %v", len(servicesToIgnore), servicesToIgnore))
-		output.PrintInfo("Services may fail if these dependencies are required")
+		output.PrintWarning(i18n.T("app.missing_deps_ignored", len(servicesToIgnore), servicesToIgnore))
+		output.PrintInfo(i18n.T("app.missing_deps_ignored_warn"))
 	}
 
 	return true, addedServices, nil
@@ -185,28 +186,28 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *interfaces.W
 	}
 
 	// Display conflicts
-	output.PrintWarning("Dependency conflicts detected:")
+	output.PrintWarning(i18n.T("app.conflict_header"))
 	output.PrintInfo("")
 	for _, conflict := range conflicts {
-		output.PrintInfo(fmt.Sprintf("  Service: %s", conflict.ServiceName))
-		output.PrintInfo("  Differences:")
+		output.PrintInfo(i18n.T("up.dep.conflict_service", conflict.ServiceName))
+		output.PrintInfo(i18n.T("up.dep.conflict_differences"))
 		for _, diff := range conflict.Differences {
-			output.PrintInfo(fmt.Sprintf("    - %s", diff))
+			output.PrintInfo(i18n.T("up.dep.conflict_diff_item", diff))
 		}
 		output.PrintInfo("")
 	}
 
 	if dryRun {
 		// Dry-run mode: just show what would be done
-		output.PrintInfo("Dry-run mode: conflicts shown but not resolved")
+		output.PrintInfo(i18n.T("app.conflict_dry_run"))
 		return false, []string{}, nil // Abort in dry-run mode
 	}
 
 	// Interactive mode: ask user what to do
-	output.PrintInfo("Choose action for each conflict:")
-	output.PrintInfo("  [1] Keep root (recommended)")
-	output.PrintInfo("  [2] Replace root")
-	output.PrintInfo("  [3] Abort")
+	output.PrintInfo(i18n.T("app.conflict_choose"))
+	output.PrintInfo(i18n.T("app.conflict_opt_keep"))
+	output.PrintInfo(i18n.T("app.conflict_opt_replace"))
+	output.PrintInfo(i18n.T("app.conflict_opt_abort"))
 	output.PrintInfo("")
 
 	reader := bufio.NewReader(os.Stdin)
@@ -214,7 +215,7 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *interfaces.W
 	var resolutions []string
 
 	for _, conflict := range conflicts {
-		output.PrintPrompt(fmt.Sprintf("Conflict for '%s': [1] Keep root / [2] Replace / [3] Abort (default: 1): ", conflict.ServiceName))
+		output.PrintPrompt(i18n.T("up.dep.conflict_prompt", conflict.ServiceName))
 
 		input, err := reader.ReadString('\n')
 		if err != nil {
@@ -228,7 +229,7 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *interfaces.W
 
 		choice, err := strconv.Atoi(input)
 		if err != nil || choice < 1 || choice > 3 {
-			output.PrintWarning(fmt.Sprintf("Invalid choice '%s', keeping root configuration", input))
+			output.PrintWarning(i18n.T("up.dep.conflict_invalid_keeping", input))
 			continue
 		}
 
@@ -237,18 +238,18 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *interfaces.W
 		case 1:
 			// Keep root (do nothing)
 			resolution = "keep"
-			output.PrintSuccess(fmt.Sprintf("Keeping root configuration for '%s'", conflict.ServiceName))
+			output.PrintSuccess(i18n.T("up.dep.conflict_keeping_root", conflict.ServiceName))
 		case 2:
 			// Replace root with service config
 			if conflict.ServiceConfig != nil {
 				deps.Services[conflict.ServiceName] = *conflict.ServiceConfig
 				resolution = "replace"
-				output.PrintSuccess(fmt.Sprintf("Replaced root configuration for '%s' with service config", conflict.ServiceName))
+				output.PrintSuccess(i18n.T("up.dep.conflict_replaced", conflict.ServiceName))
 			}
 		case 3:
 			// Abort
 			shouldAbort = true
-			output.PrintWarning(fmt.Sprintf("Aborting due to conflict in '%s'", conflict.ServiceName))
+			output.PrintWarning(i18n.T("up.dep.conflict_aborting", conflict.ServiceName))
 		}
 
 		if resolution != "" {
@@ -256,7 +257,7 @@ func (uc *UseCase) handleDependencyConflicts(deps *config.Deps, ws *interfaces.W
 			reason := fmt.Sprintf("conflict resolution: %s (differences: %v)", resolution, conflict.Differences)
 			if err := audit.LogConflictResolved(conflict.ServiceName, resolution, reason); err != nil {
 				// Log audit error but don't fail
-				output.PrintWarning(fmt.Sprintf("Failed to log audit event: %v", err))
+				output.PrintWarning(i18n.T("output.failed_log_audit", err))
 			}
 			resolutions = append(resolutions, fmt.Sprintf("%s:%s", conflict.ServiceName, resolution))
 		}

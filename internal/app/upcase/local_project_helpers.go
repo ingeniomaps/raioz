@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -157,7 +158,7 @@ func executeLocalProjectCommand(ctx context.Context, projectDir string, command 
 		"mode", mode,
 	)
 
-	output.PrintProgress(fmt.Sprintf("Executing local project command: %s", command))
+	output.PrintProgress(i18n.T("up.local.executing_command_detail", command))
 
 	// Parse command (simple split for now)
 	cmdParts := strings.Fields(command)
@@ -190,6 +191,6 @@ func executeLocalProjectCommand(ctx context.Context, projectDir string, command 
 		return fmt.Errorf("failed to execute local project command: %w", err)
 	}
 
-	output.PrintSuccess("Local project command executed successfully")
+	output.PrintSuccess(i18n.T("up.local.command_success"))
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -59,7 +60,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to get project directory",
+			i18n.T("error.project_dir"),
 		).WithError(err)
 	}
 
@@ -68,9 +69,9 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to resolve project environment",
+			i18n.T("error.project_env_resolve"),
 		).WithSuggestion(
-			"Check that you have write permissions for the env directory.",
+			i18n.T("error.project_env_resolve_suggestion"),
 		).WithError(err)
 	}
 
@@ -102,9 +103,9 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
 			return errors.New(
 				errors.ErrCodeWorkspaceError,
-				"Failed to write global environment variables",
+				i18n.T("error.global_env_write"),
 			).WithSuggestion(
-				"Check that you have write permissions for the env directory.",
+				i18n.T("error.global_env_write_suggestion"),
 			).WithError(err)
 		}
 		// Acquire lock
@@ -198,14 +199,14 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Generate .env files from templates for all services (after cloning, before starting)
-	output.PrintProgress("Generating .env files from templates...")
+	output.PrintProgress(i18n.T("up.generating_env_files"))
 	err = uc.generateEnvFilesFromTemplates(ctx, deps, ws, projectEnvPath, projectDir)
 	if err != nil {
 		// Log but don't fail - template generation is optional
 		logging.WarnWithContext(ctx, "Some .env files could not be generated from templates", "error", err.Error())
-		output.PrintProgressError("Some .env files could not be generated from templates")
+		output.PrintProgressError(i18n.T("up.env_files_error"))
 	} else {
-		output.PrintProgressDone(".env files generated from templates")
+		output.PrintProgressDone(i18n.T("up.env_files_done"))
 	}
 
 	// Docker prepare: images, network, volumes
@@ -256,10 +257,10 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	// Wait for services and infra to be healthy before executing project commands
 	// This ensures that project.commands.up runs only after dependencies are ready
 	if hasProjectCommands && (len(serviceNames) > 0 || len(infraNames) > 0) {
-		output.PrintProgress("Waiting for services to be healthy before executing project command...")
+		output.PrintProgress(i18n.T("up.waiting_healthy_before_cmd"))
 		if err := uc.deps.DockerRunner.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, deps.Project.Name); err != nil {
 			logging.WarnWithContext(ctx, "Failed to wait for services to be healthy", "error", err.Error())
-			output.PrintWarning("Some services may not be healthy yet, proceeding with project command anyway")
+			output.PrintWarning(i18n.T("up.services_not_healthy_warning"))
 			// Continue anyway - user may want to proceed even if health checks fail
 		}
 	}

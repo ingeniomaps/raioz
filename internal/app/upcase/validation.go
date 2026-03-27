@@ -6,6 +6,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -16,10 +17,9 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 	if err := uc.deps.Validator.PreflightCheckWithContext(ctx); err != nil {
 		return errors.New(
 			errors.ErrCodeDockerNotInstalled,
-			"Preflight checks failed",
+			i18n.T("error.preflight_failed_detail"),
 		).WithSuggestion(
-			"Ensure Docker is installed and running, Git is installed, and you have sufficient disk space. "+
-				"Check the error details above for specific issues.",
+			i18n.T("error.preflight_suggestion_detail"),
 		).WithError(err)
 	}
 
@@ -31,7 +31,7 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 	// Perform migration of legacy services if needed
 	if err := uc.deps.Workspace.MigrateLegacyServices(ws, deps); err != nil {
 		// Log but don't fail - migration is best-effort
-		output.PrintWarning("Migration warning: " + err.Error())
+		output.PrintWarning(i18n.T("up.validate.migration_warning", err.Error()))
 	}
 
 	// Detect and warn about shared volumes
@@ -50,27 +50,27 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 	// Check for dependency conflicts first (before checking permissions)
 	shouldContinue, _, err := uc.handleDependencyConflicts(deps, ws, dryRun)
 	if err != nil {
-		return errors.New(errors.ErrCodeDependencyCycle, "Failed to handle dependency conflicts").WithSuggestion("Check your configuration for conflicting service definitions. " + "Resolve conflicts manually or use dependency assist.").WithError(err)
+		return errors.New(errors.ErrCodeDependencyCycle, i18n.T("error.dependency_conflicts_failed")).WithSuggestion(i18n.T("error.dependency_conflicts_suggestion")).WithError(err)
 	}
 	if !shouldContinue {
 		if dryRun {
 			return nil
 			// Dry-run mode: just show conflicts, don't fail
 		}
-		return errors.New(errors.ErrCodeDependencyCycle, "Aborted due to dependency conflicts").WithSuggestion("Resolve the conflicts shown above and try again.")
+		return errors.New(errors.ErrCodeDependencyCycle, i18n.T("error.dependency_conflicts_aborted")).WithSuggestion(i18n.T("error.dependency_conflicts_aborted_suggestion"))
 	}
 
 	// Check for missing dependencies
 	shouldContinue, _, err = uc.handleDependencyAssist(deps, ws, dryRun)
 	if err != nil {
-		return errors.New(errors.ErrCodeInvalidConfig, "Failed to handle dependency assist").WithSuggestion("Check that dependency definitions are accessible. " + "Verify network connectivity and repository access.").WithError(err)
+		return errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.dependency_assist_failed")).WithSuggestion(i18n.T("error.dependency_assist_suggestion")).WithError(err)
 	}
 	if !shouldContinue {
 		if dryRun {
 			return nil
 			// Dry-run mode: just show missing dependencies, don't fail
 		}
-		return errors.New(errors.ErrCodeInvalidConfig, "Aborted by user during dependency assist").WithSuggestion("Resolve missing dependencies and try again.")
+		return errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.dependency_assist_aborted")).WithSuggestion(i18n.T("error.dependency_assist_aborted_suggestion"))
 	}
 
 	// Check workspace permissions

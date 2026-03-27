@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -66,10 +67,10 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 		"workspace", uc.deps.Workspace.GetRoot(ws),
 	)
 
-	output.PrintWarning(fmt.Sprintf("⚠️  Project '%s' is already running from workspace.", projectName))
-	output.PrintInfo(fmt.Sprintf("   Workspace location: %s", uc.deps.Workspace.GetRoot(ws)))
-	output.PrintInfo("   This will stop the workspace project and start the local one.")
-	fmt.Print("\nDo you want to continue? (yes/no): ")
+	output.PrintWarning(i18n.T("up.duplicate.already_running", projectName))
+	output.PrintInfo(i18n.T("up.duplicate.workspace_location", uc.deps.Workspace.GetRoot(ws)))
+	output.PrintInfo(i18n.T("up.duplicate.will_stop_workspace"))
+	output.PrintPrompt(i18n.T("up.duplicate.continue_prompt"))
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -79,31 +80,31 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 
 	response = strings.TrimSpace(strings.ToLower(response))
 	if response != "yes" && response != "y" {
-		output.PrintInfo("Operation cancelled. The workspace project remains running.")
-		output.PrintInfo("To start the local project, first stop the workspace project with 'raioz down'.")
+		output.PrintInfo(i18n.T("up.duplicate.cancelled"))
+		output.PrintInfo(i18n.T("up.duplicate.stop_hint"))
 		return fmt.Errorf("user cancelled: workspace project remains running")
 	}
 
-	output.PrintInfo("Stopping workspace project...")
+	output.PrintInfo(i18n.T("up.duplicate.stopping_workspace"))
 
 	// Get compose path
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 
 	// Stop Docker services
 	if composePath != "" {
-		output.PrintInfo("Stopping Docker services from workspace...")
+		output.PrintInfo(i18n.T("up.duplicate.stopping_docker"))
 		if err := uc.deps.DockerRunner.DownWithContext(ctx, composePath); err != nil {
 			logging.WarnWithContext(ctx, "Failed to stop Docker services from workspace", "error", err.Error())
 			// Continue anyway - might already be stopped
 		} else {
-			output.PrintSuccess("Docker services stopped from workspace")
+			output.PrintSuccess(i18n.T("up.duplicate.docker_stopped"))
 		}
 	}
 
 	// Stop host processes if any
 	hostProcesses, err := uc.deps.HostRunner.LoadProcessesState(ws)
 	if err == nil && len(hostProcesses) > 0 {
-		output.PrintInfo(fmt.Sprintf("Stopping %d host service(s) from workspace...", len(hostProcesses)))
+		output.PrintInfo(i18n.T("up.duplicate.stopping_host", len(hostProcesses)))
 		for name, processInfo := range hostProcesses {
 			logging.InfoWithContext(ctx, "Stopping host service from workspace", "service", name, "pid", processInfo.PID)
 			if err := uc.deps.HostRunner.StopServiceWithCommand(ctx, processInfo.PID, processInfo.StopCommand); err != nil {
@@ -127,6 +128,6 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 		logging.WarnWithContext(ctx, "Failed to remove project from global state", "error", err.Error())
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Project '%s' stopped from workspace. Proceeding with local project...", projectName))
+	output.PrintSuccess(i18n.T("up.duplicate.project_stopped", projectName))
 	return nil
 }

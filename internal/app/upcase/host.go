@@ -7,6 +7,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -50,7 +51,7 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 	}
 
 	// Start each host service
-	output.PrintProgress(fmt.Sprintf("Starting %d host service(s)...", len(hostServices)))
+	output.PrintProgress(i18n.T("up.host.starting_services", len(hostServices)))
 	logging.DebugWithContext(ctx, "Starting host services", "count", len(hostServices), "services", hostServices)
 
 	for _, name := range hostServices {
@@ -73,7 +74,7 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 			} else {
 				if isHealthy {
 					logging.InfoWithContext(ctx, "Service is already healthy, skipping start", "service", name)
-					output.PrintInfo(fmt.Sprintf("Service %s is already running and healthy", name))
+					output.PrintInfo(i18n.T("up.host.already_healthy", name))
 					continue
 				}
 			}
@@ -82,7 +83,7 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 			isHealthy, err := checkServiceHealth(ctx, ws, name, svc, mode, uc.deps.Workspace)
 			if err == nil && isHealthy {
 				logging.InfoWithContext(ctx, "Service is already healthy (default check), skipping start", "service", name)
-				output.PrintInfo(fmt.Sprintf("Service %s is already running and healthy", name))
+				output.PrintInfo(i18n.T("up.host.already_healthy", name))
 				continue
 			}
 		}
@@ -185,7 +186,7 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		processInfo, err := uc.deps.HostRunner.StartService(ctx, ws, deps, name, svcWithCommand, projectDir)
 		if err != nil {
 			logging.DebugWithContext(ctx, "Failed to start host service", "service", name, "error", err.Error())
-			output.PrintProgressError(fmt.Sprintf("Failed to start host service %s", name))
+			output.PrintProgressError(i18n.T("up.host.start_error", name))
 			// The error message already includes the command output, so just return it
 			return nil, err
 		}
@@ -196,11 +197,11 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		}
 
 		hostProcessInfo[name] = processInfo
-		output.PrintSuccess(fmt.Sprintf("%s (host) iniciado", name))
+		output.PrintSuccess(i18n.T("up.host.started", name))
 		logging.DebugWithContext(ctx, "Host service started", "service", name, "pid", processInfo.PID, "command", processInfo.Command)
 	}
 
-	output.PrintProgressDone(fmt.Sprintf("Started %d host service(s)", len(hostServices)))
+	output.PrintProgressDone(i18n.T("up.host.all_started", len(hostServices)))
 	return hostProcessInfo, nil
 }
 

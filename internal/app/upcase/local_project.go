@@ -10,6 +10,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -72,10 +73,10 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 						return err
 					}
 					if resolution == "cancel" {
-						return errors.New(errors.ErrCodeWorkspaceError, "Operation cancelled by user")
+						return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.operation_cancelled"))
 					}
 					if resolution == "skip" {
-						output.PrintInfo("Keeping current service, skipping local project execution")
+						output.PrintInfo(i18n.T("up.local.keeping_current_skipping"))
 						return nil
 					}
 					// Apply resolution (stops only the conflicting service)
@@ -95,9 +96,9 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 						// User cancelled, return error to stop execution
 						return errors.New(
 							errors.ErrCodeWorkspaceError,
-							"Operation cancelled by user",
+							i18n.T("error.operation_cancelled"),
 						).WithSuggestion(
-							"The workspace project remains running. To start the local project, first stop the workspace project with 'raioz down'.",
+							i18n.T("error.operation_cancelled_suggestion"),
 						)
 					}
 					logging.WarnWithContext(ctx, "Failed to check/handle duplicate project", "error", err.Error())
@@ -130,14 +131,14 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 				if commandType == "up" {
 					if isHealthy {
 						logging.InfoWithContext(ctx, "Project is already healthy, skipping up command")
-						output.PrintInfo("Project is already running and healthy")
+						output.PrintInfo(i18n.T("up.local.already_healthy"))
 						return nil
 					}
 				} else if commandType == "down" {
 					if !isHealthy {
 						// Project is not healthy (not running), nothing to stop
 						logging.InfoWithContext(ctx, "Project is not healthy, skipping down command")
-						output.PrintInfo("Project is not running, nothing to stop")
+						output.PrintInfo(i18n.T("up.local.not_running"))
 						return nil
 					}
 					// Project is healthy (running), proceed with down
@@ -188,7 +189,7 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		"command", command,
 	)
 
-	output.PrintInfo("Executing local project command...")
+	output.PrintInfo(i18n.T("up.local.executing_command"))
 	if err := executeLocalProjectCommand(ctx, projectDir, command, mode); err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/state"
 )
@@ -279,25 +280,25 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 	changes, _ := uc.deps.StateManager.CompareDeps(oldDeps, deps)
 	changeSummary := uc.deps.StateManager.FormatChanges(changes)
 
-	output.PrintWarning("This workspace is already running a different project")
+	output.PrintWarning(i18n.T("up.conflict.workspace_already_running"))
 	output.PrintInfo("")
-	output.PrintInfo(fmt.Sprintf("  Currently running: project '%s'", oldDeps.Project.Name))
-	output.PrintInfo(fmt.Sprintf("  You are running:  project '%s'", deps.Project.Name))
+	output.PrintInfo(i18n.T("up.conflict.currently_running", oldDeps.Project.Name))
+	output.PrintInfo(i18n.T("up.conflict.you_are_running", deps.Project.Name))
 	output.PrintInfo("")
-	output.PrintInfo("You can merge both configs (volumes and variables from both apply together)")
-	output.PrintInfo("or use only this project's config (replace). Summary of differences:")
+	output.PrintInfo(i18n.T("up.conflict.merge_explanation"))
+	output.PrintInfo(i18n.T("up.conflict.replace_explanation"))
 	output.PrintInfo(changeSummary)
 	output.PrintInfo("")
-	output.PrintInfo("How do you want to proceed?")
-	output.PrintInfo("  [1] Merge: keep current deployment and add this project's volumes and variables (both configs together)")
-	output.PrintInfo("  [2] Replace: use only this project's config (current deployment will match this project only)")
-	output.PrintInfo("  [3] Keep the already running project as-is (do nothing)")
-	output.PrintInfo("  [4] Merge and remember for this workspace")
-	output.PrintInfo("  [5] Replace and remember for this workspace")
-	output.PrintInfo("  [6] Keep the other project and remember for this workspace")
-	output.PrintInfo("  [7] Always ask me next time (do not remember)")
-	output.PrintInfo("  [8] Cancel")
-	output.PrintPrompt("\nYour choice [1-8]: ")
+	output.PrintInfo(i18n.T("up.conflict.how_to_proceed"))
+	output.PrintInfo(i18n.T("up.conflict.opt_merge"))
+	output.PrintInfo(i18n.T("up.conflict.opt_replace"))
+	output.PrintInfo(i18n.T("up.conflict.opt_keep"))
+	output.PrintInfo(i18n.T("up.conflict.opt_merge_remember"))
+	output.PrintInfo(i18n.T("up.conflict.opt_replace_remember"))
+	output.PrintInfo(i18n.T("up.conflict.opt_keep_remember"))
+	output.PrintInfo(i18n.T("up.conflict.opt_always_ask"))
+	output.PrintInfo(i18n.T("up.conflict.opt_cancel_ws"))
+	output.PrintPrompt(i18n.T("up.conflict.ws_choice_prompt"))
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -316,7 +317,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 	case 2:
 		return WorkspaceConflictProceed, nil, nil
 	case 3:
-		output.PrintInfo("Keeping current project. Nothing changed.")
+		output.PrintInfo(i18n.T("up.conflict.keeping_current_project"))
 		return WorkspaceConflictSkip, nil, nil
 	case 4:
 		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
@@ -324,9 +325,9 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 			AlwaysAsk:          false,
 			MergeWhenPreferred: true,
 		}); err != nil {
-			output.PrintWarning("Could not save preference: " + err.Error())
+			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
 		} else {
-			output.PrintSuccess("Preference saved: merge with this project for workspace '" + workspaceName + "'")
+			output.PrintSuccess(i18n.T("up.conflict.pref_saved_merge", workspaceName))
 		}
 		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
 	case 5:
@@ -335,9 +336,9 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 			AlwaysAsk:          false,
 			MergeWhenPreferred: false,
 		}); err != nil {
-			output.PrintWarning("Could not save preference: " + err.Error())
+			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
 		} else {
-			output.PrintSuccess("Preference saved: use this project (replace) for workspace '" + workspaceName + "'")
+			output.PrintSuccess(i18n.T("up.conflict.pref_saved_replace", workspaceName))
 		}
 		return WorkspaceConflictProceed, nil, nil
 	case 6:
@@ -345,24 +346,24 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 			PreferredProject: oldDeps.Project.Name,
 			AlwaysAsk:        false,
 		}); err != nil {
-			output.PrintWarning("Could not save preference: " + err.Error())
+			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
 		} else {
-			output.PrintSuccess("Preference saved: keep project '" + oldDeps.Project.Name + "' for workspace '" + workspaceName + "'")
+			output.PrintSuccess(i18n.T("up.conflict.pref_saved_keep", oldDeps.Project.Name, workspaceName))
 		}
-		output.PrintInfo("Keeping current project. Nothing changed.")
+		output.PrintInfo(i18n.T("up.conflict.keeping_current_project"))
 		return WorkspaceConflictSkip, nil, nil
 	case 7:
 		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
 			AlwaysAsk: true,
 		}); err != nil {
-			output.PrintWarning("Could not save preference: " + err.Error())
+			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
 		} else {
-			output.PrintSuccess("Next time you will be asked again for workspace '" + workspaceName + "'")
+			output.PrintSuccess(i18n.T("up.conflict.pref_saved_always_ask", workspaceName))
 		}
-		output.PrintInfo("Operation cancelled.")
+		output.PrintInfo(i18n.T("output.operation_cancelled"))
 		return WorkspaceConflictCancel, nil, fmt.Errorf("operation cancelled by user")
 	case 8:
-		output.PrintInfo("Operation cancelled.")
+		output.PrintInfo(i18n.T("output.operation_cancelled"))
 		return WorkspaceConflictCancel, nil, fmt.Errorf("operation cancelled by user")
 	default:
 		return WorkspaceConflictCancel, nil, fmt.Errorf("invalid choice: %d", choice)

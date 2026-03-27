@@ -8,6 +8,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/root"
 	"raioz/internal/state"
@@ -25,9 +26,9 @@ func (uc *UseCase) processState(
 	if err != nil {
 		return nil, nil, nil, nil, errors.New(
 			errors.ErrCodeStateLoadError,
-			"Failed to load previous state",
+			i18n.T("error.state_load_previous"),
 		).WithSuggestion(
-			"The state file may be corrupted. You can try removing it and running 'raioz up' again.",
+			i18n.T("error.state_load_previous_suggestion"),
 		).WithContext("workspace", ws.Root).WithError(err)
 	}
 
@@ -36,9 +37,9 @@ func (uc *UseCase) processState(
 	if err != nil {
 		return nil, nil, nil, nil, errors.New(
 			errors.ErrCodeStateLoadError,
-			"Failed to compare configurations",
+			i18n.T("error.state_compare_failed"),
 		).WithSuggestion(
-			"Check your configuration for errors.",
+			i18n.T("error.state_compare_suggestion"),
 		).WithError(err)
 	}
 
@@ -72,9 +73,9 @@ func (uc *UseCase) saveState(
 	if err := uc.deps.StateManager.Save(ws, deps); err != nil {
 		return errors.New(
 			errors.ErrCodeStateSaveError,
-			"Failed to save state",
+			i18n.T("error.state_save_failed"),
 		).WithSuggestion(
-			"Check that you have write permissions for the workspace directory.",
+			i18n.T("error.state_save_suggestion"),
 		).WithContext("workspace", ws.Root).WithError(err)
 	}
 
@@ -95,17 +96,17 @@ func (uc *UseCase) saveState(
 			if err := root.UpdateFromDeps(rootConfig, deps, appliedOverrides, assistedServicesMap); err != nil {
 				return errors.New(
 					errors.ErrCodeStateSaveError,
-					"Failed to update root config",
+					i18n.T("error.root_config_update_failed"),
 				).WithSuggestion(
-					"Check that you have write permissions for the workspace directory.",
+					i18n.T("error.state_save_suggestion"),
 				).WithContext("workspace", ws.Root).WithError(err)
 			}
 			if err := root.Save(ws, rootConfig); err != nil {
 				return errors.New(
 					errors.ErrCodeStateSaveError,
-					"Failed to save root config",
+					i18n.T("error.root_config_save_failed"),
 				).WithSuggestion(
-					"Check that you have write permissions for the workspace directory.",
+					i18n.T("error.state_save_suggestion"),
 				).WithContext("workspace", ws.Root).WithError(err)
 			}
 		} else {
@@ -122,9 +123,9 @@ func (uc *UseCase) saveState(
 			if err := root.Save(ws, rootConfig); err != nil {
 				return errors.New(
 					errors.ErrCodeStateSaveError,
-					"Failed to save root config",
+					i18n.T("error.root_config_save_failed"),
 				).WithSuggestion(
-					"Check that you have write permissions for the workspace directory.",
+					i18n.T("error.state_save_suggestion"),
 				).WithContext("workspace", ws.Root).WithError(err)
 			}
 		}
@@ -134,9 +135,9 @@ func (uc *UseCase) saveState(
 		if err != nil {
 			return errors.New(
 				errors.ErrCodeStateSaveError,
-				"Failed to generate root config",
+				i18n.T("error.root_config_generate_failed"),
 			).WithSuggestion(
-				"Check your configuration for errors.",
+				i18n.T("error.root_config_generate_suggestion"),
 			).WithError(err)
 		}
 		if err := root.Save(ws, rootConfig); err != nil {

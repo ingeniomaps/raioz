@@ -10,6 +10,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -67,7 +68,7 @@ func (uc *UseCase) checkDependencyProjects(ctx context.Context, deps *config.Dep
 				if err := recordUserDecision(depName, false, uc.deps.StateManager); err != nil {
 					logging.WarnWithContext(ctx, "Failed to record user decision", "error", err.Error())
 				}
-				output.PrintInfo(fmt.Sprintf("Keeping existing project '%s' running. Dependency will use the existing instance.", depName))
+				output.PrintInfo(i18n.T("up.dep.keeping_existing", depName))
 			}
 		}
 	}
@@ -85,10 +86,10 @@ func askReplaceRunningProject(ctx context.Context, projectName string, projectSt
 	}
 
 	// No saved decision, ask user
-	output.PrintWarning(fmt.Sprintf("Dependency '%s' is already running as a project.", projectName))
-	output.PrintInfo(fmt.Sprintf("   Project workspace: %s", projectState.Workspace))
-	output.PrintInfo("   This will stop the existing project and start the new one.")
-	fmt.Print("\nDo you want to replace it? (yes/no/always/never): ")
+	output.PrintWarning(i18n.T("up.dep.already_running_warning", projectName))
+	output.PrintInfo(i18n.T("up.dep.project_workspace", projectState.Workspace))
+	output.PrintInfo(i18n.T("up.dep.will_stop_existing"))
+	output.PrintPrompt(i18n.T("up.dep.replace_prompt"))
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -114,7 +115,7 @@ func askReplaceRunningProject(ctx context.Context, projectName string, projectSt
 		return false, nil
 	default:
 		// Invalid response, default to no
-		output.PrintInfo("Invalid response, defaulting to 'no'")
+		output.PrintInfo(i18n.T("up.dep.invalid_response"))
 		_ = recordUserDecision(projectName, false, sm)
 		return false, nil
 	}
@@ -142,7 +143,7 @@ func (uc *UseCase) stopRunningProject(ctx context.Context, projectName string, p
 	}
 
 	// Execute down command using the UseCase
-	output.PrintInfo(fmt.Sprintf("Stopping project '%s'...", projectName))
+	output.PrintInfo(i18n.T("up.dep.stopping_project", projectName))
 	if err := uc.processLocalProject(ctx, configPath, deps, "down", nil); err != nil {
 		logging.WarnWithContext(ctx, "Failed to stop running project", "project", projectName, "error", err.Error())
 		// Continue anyway - might already be stopped
@@ -153,7 +154,7 @@ func (uc *UseCase) stopRunningProject(ctx context.Context, projectName string, p
 		logging.WarnWithContext(ctx, "Failed to remove project from global state", "project", projectName, "error", err.Error())
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Project '%s' stopped successfully", projectName))
+	output.PrintSuccess(i18n.T("up.dep.project_stopped", projectName))
 	return nil
 }
 

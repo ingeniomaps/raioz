@@ -6,6 +6,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -25,9 +26,9 @@ func (uc *UseCase) bootstrap(ctx context.Context, configPath string) (context.Co
 	if err != nil {
 		return nil, nil, nil, errors.New(
 			errors.ErrCodeInvalidConfig,
-			"Failed to load configuration from "+configPath,
+			i18n.T("error.config_load_from", configPath),
 		).WithSuggestion(
-			"Ensure .raioz.json exists and is valid JSON. Use --config flag to specify a different path.",
+			i18n.T("error.config_load_from_suggestion"),
 		).WithContext(
 			"config_path", configPath,
 		).WithError(err)
@@ -43,9 +44,9 @@ func (uc *UseCase) bootstrap(ctx context.Context, configPath string) (context.Co
 	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		return nil, nil, nil, errors.New(
-			errors.ErrCodeWorkspaceError, "Failed to resolve workspace",
+			errors.ErrCodeWorkspaceError, i18n.T("error.workspace_resolve"),
 		).WithSuggestion(
-			"Ensure you have write permissions for workspace directories. Check README.md for workspace locations.",
+			i18n.T("error.workspace_resolve_permissions_suggestion"),
 		).WithContext("project", deps.Project.Name).WithError(err)
 	}
 

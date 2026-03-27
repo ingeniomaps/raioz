@@ -2,7 +2,6 @@ package upcase
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -39,7 +39,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
 			defer cancel()
 			if err := uc.deps.GitRepository.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, deps); err != nil {
-				return errors.New(errors.ErrCodeGitCloneFailed, "Failed to update repositories after branch changes").WithSuggestion("Check network connectivity and repository access. " + "Verify that branch names are correct and accessible.").WithError(err)
+				return errors.New(errors.ErrCodeGitCloneFailed, i18n.T("error.git_update_branch_failed")).WithSuggestion(i18n.T("error.git_update_branch_suggestion")).WithError(err)
 			}
 		}
 	}
@@ -65,7 +65,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 				if resolution == "skip" || resolution == "cancel" {
 					// Skip this service or cancel entire operation
 					if resolution == "cancel" {
-						return errors.New(errors.ErrCodeWorkspaceError, "Operation cancelled by user")
+						return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.operation_cancelled"))
 					}
 					continue
 				}
@@ -83,11 +83,11 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 		// Check if service is disabled
 		if svc.Enabled != nil && !*svc.Enabled {
 			disabledServices = append(disabledServices, name)
-			output.PrintInfo(fmt.Sprintf("Service %s is disabled, skipping", name))
+			output.PrintInfo(i18n.T("up.service_disabled_skipping", name))
 			continue
 		}
 		if svc.Source.Kind == "git" {
-			output.PrintInfo(fmt.Sprintf("ℹ️  resolving %s", name))
+			output.PrintInfo(i18n.T("up.git.resolving", name))
 			// Use correct directory based on access mode
 			serviceDir := uc.deps.Workspace.GetServiceDir(ws, svc)
 
@@ -100,20 +100,20 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			// Check if repo exists to show appropriate message
 			var actionMessage string
 			if forceReclone {
-				actionMessage = fmt.Sprintf("Re-cloning repository for service '%s'...", name)
+				actionMessage = i18n.T("up.git.recloning", name)
 			} else if uc.deps.GitRepository.IsReadonly(svc.Source) {
 				// Check if readonly repo exists
 				if repoExistedBefore {
-					actionMessage = fmt.Sprintf("Repository for service '%s' already exists (readonly, skipping update)", name)
+					actionMessage = i18n.T("up.git.readonly_exists", name)
 				} else {
-					actionMessage = fmt.Sprintf("Cloning repository for service '%s'...", name)
+					actionMessage = i18n.T("up.git.cloning", name)
 				}
 			} else {
 				// Check if editable repo exists
 				if repoExistedBefore {
-					actionMessage = fmt.Sprintf("Updating repository for service '%s'...", name)
+					actionMessage = i18n.T("up.git.updating", name)
 				} else {
-					actionMessage = fmt.Sprintf("Cloning repository for service '%s'...", name)
+					actionMessage = i18n.T("up.git.cloning", name)
 				}
 			}
 
@@ -123,41 +123,41 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			cloneStartTime := time.Now()
 			if err := uc.deps.GitRepository.EnsureRepoWithForce(svc.Source, serviceDir, forceReclone); err != nil {
 				logging.ErrorWithContext(serviceCtx, "Failed to ensure repository", "repo", svc.Source.Repo, "branch", svc.Source.Branch, "duration_ms", time.Since(cloneStartTime).Milliseconds(), "error", err.Error())
-				output.PrintProgressError(fmt.Sprintf("Failed to ensure repository for service '%s'", name))
+				output.PrintProgressError(i18n.T("up.git.ensure_error", name))
 				return err
 			}
 			logging.DebugWithContext(serviceCtx, "Repository ensured successfully", "repo", svc.Source.Repo, "branch", svc.Source.Branch, "duration_ms", time.Since(cloneStartTime).Milliseconds())
 
 			// Show appropriate success message based on what actually happened
 			if forceReclone {
-				output.PrintProgressDone(fmt.Sprintf("Repository re-cloned for service '%s'", name))
+				output.PrintProgressDone(i18n.T("up.git.recloned", name))
 				output.PrintServiceCloned(name)
 			} else if uc.deps.GitRepository.IsReadonly(svc.Source) {
 				if repoExistedBefore {
 					// Already existed, no update needed
-					output.PrintProgressDone(fmt.Sprintf("Repository for service '%s' ready (readonly)", name))
-					output.PrintInfo(fmt.Sprintf("Service %s is readonly (protected from automatic updates, volumes mounted as :ro)", name))
-					output.PrintInfo(fmt.Sprintf("Service %s will be automatically recreated if it fails (restart: unless-stopped)", name))
+					output.PrintProgressDone(i18n.T("up.git.readonly_ready", name))
+					output.PrintInfo(i18n.T("up.git.service_readonly", name))
+					output.PrintInfo(i18n.T("up.git.service_restart", name))
 				} else {
-					output.PrintProgressDone(fmt.Sprintf("Repository cloned for service '%s'", name))
+					output.PrintProgressDone(i18n.T("up.git.cloned", name))
 					output.PrintServiceCloned(name)
-					output.PrintInfo(fmt.Sprintf("Service %s is readonly (protected from automatic updates, volumes mounted as :ro)", name))
-					output.PrintInfo(fmt.Sprintf("Service %s will be automatically recreated if it fails (restart: unless-stopped)", name))
+					output.PrintInfo(i18n.T("up.git.service_readonly", name))
+					output.PrintInfo(i18n.T("up.git.service_restart", name))
 				}
 			} else {
 				// Editable repo
 				if repoExistedBefore {
-					output.PrintProgressDone(fmt.Sprintf("Repository updated for service '%s'", name))
-					output.PrintSuccess(fmt.Sprintf("%s actualizado", name))
+					output.PrintProgressDone(i18n.T("up.git.updated", name))
+					output.PrintSuccess(i18n.T("up.git.service_updated", name))
 				} else {
-					output.PrintProgressDone(fmt.Sprintf("Repository cloned for service '%s'", name))
+					output.PrintProgressDone(i18n.T("up.git.cloned", name))
 					output.PrintServiceCloned(name)
 				}
 			}
 		}
 	}
 	if len(disabledServices) > 0 {
-		output.PrintInfo(fmt.Sprintf("Skipped %d disabled service(s): %v", len(disabledServices), disabledServices))
+		output.PrintInfo(i18n.T("up.skipped_disabled_services", len(disabledServices), disabledServices))
 	}
 
 	return nil

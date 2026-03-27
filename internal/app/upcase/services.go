@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -36,7 +37,7 @@ func (uc *UseCase) checkServicesRunning(
 		if len(expectedServices) > 0 {
 			allRunning, err := uc.deps.DockerRunner.AreServicesRunning(composePath, expectedServices)
 			if err == nil && allRunning {
-				output.PrintSuccess("All services are already running (no changes detected)")
+				output.PrintSuccess(i18n.T("up.all_services_running"))
 				return true, nil
 			}
 		}
