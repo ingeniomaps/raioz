@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 )
 
 // LogsOptions contains options for the Logs use case
@@ -39,7 +40,7 @@ func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to resolve workspace",
+			i18n.T("error.workspace_resolve"),
 		).WithContext("project", projectName).WithError(err)
 	}
 

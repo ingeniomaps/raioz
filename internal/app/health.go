@@ -34,9 +34,9 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,
-			"Failed to load configuration",
+			i18n.T("error.config_load"),
 		).WithSuggestion(
-			"Ensure .raioz.json exists and is valid JSON.",
+			i18n.T("error.config_load_suggestion"),
 		).WithError(err)
 	}
 
@@ -45,7 +45,7 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to get base directory",
+			i18n.T("error.base_dir"),
 		).WithError(err)
 	}
 
@@ -54,7 +54,7 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to check if project is local",
+			i18n.T("error.local_check"),
 		).WithError(err)
 	}
 
@@ -80,7 +80,7 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to check project health",
+			i18n.T("error.health_check"),
 		).WithError(err)
 	}
 

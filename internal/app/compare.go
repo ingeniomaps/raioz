@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/production"
 )
@@ -32,9 +33,9 @@ func (uc *CompareUseCase) Execute(opts CompareOptions) error {
 	if opts.ProductionPath == "" {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,
-			"Production path required",
+			i18n.T("error.production_path_required"),
 		).WithSuggestion(
-			"Please specify the path to the production docker-compose.yml file using --production flag",
+			i18n.T("error.production_path_required_suggestion"),
 		)
 	}
 
@@ -43,7 +44,7 @@ func (uc *CompareUseCase) Execute(opts CompareOptions) error {
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,
-			fmt.Sprintf("Failed to load local config from %s", opts.ConfigPath),
+			i18n.T("error.config_load_local", opts.ConfigPath),
 		).WithError(err).WithContext("config_path", opts.ConfigPath)
 	}
 
@@ -57,7 +58,7 @@ func (uc *CompareUseCase) Execute(opts CompareOptions) error {
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,
-			fmt.Sprintf("Failed to load production config from %s", opts.ProductionPath),
+			i18n.T("error.config_load_production", opts.ProductionPath),
 		).WithError(err).WithContext("production_path", opts.ProductionPath)
 	}
 
@@ -71,7 +72,7 @@ func (uc *CompareUseCase) Execute(opts CompareOptions) error {
 		if err := encoder.Encode(result); err != nil {
 			return errors.New(
 				errors.ErrCodeInvalidConfig,
-				"Failed to encode JSON output",
+				i18n.T("error.json_encode"),
 			).WithError(err)
 		}
 	} else {
@@ -91,9 +92,9 @@ func (uc *CompareUseCase) Execute(opts CompareOptions) error {
 	if hasErrors {
 		return errors.New(
 			errors.ErrCodeCompatibilityError,
-			"Critical differences found between local and production configurations",
+			i18n.T("error.compare_critical"),
 		).WithSuggestion(
-			"Review the differences above and update your .raioz.json to match production",
+			i18n.T("error.compare_critical_suggestion"),
 		)
 	}
 

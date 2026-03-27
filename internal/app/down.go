@@ -87,9 +87,9 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		logging.ErrorWithContext(ctx, "Failed to load project state", "workspace", wsRoot, "error", err.Error())
 		return errors.New(
 			errors.ErrCodeStateLoadError,
-			"Failed to load project state",
+			i18n.T("error.state_load"),
 		).WithSuggestion(
-			"The state file may be corrupted. You can try removing the state file manually.",
+			i18n.T("error.state_load_suggestion"),
 		).WithContext("workspace", wsRoot).WithError(err)
 	}
 	logging.InfoWithContext(ctx, "Project state loaded", "project", stateDeps.Project.Name, "services_count", len(stateDeps.Services))
@@ -109,11 +109,9 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	if err := uc.deps.DockerRunner.DownWithContext(ctx, composePath); err != nil {
 		return errors.New(
 			errors.ErrCodeDockerNotRunning,
-			"Failed to stop Docker Compose services",
+			i18n.T("error.docker_down_failed"),
 		).WithSuggestion(
-			"Check Docker daemon status with 'docker ps'. "+
-				"Verify that Docker Compose is installed and working. "+
-				"Services may already be stopped.",
+			i18n.T("error.docker_down_suggestion"),
 		).WithContext("compose_file", composePath).WithError(err)
 	}
 
@@ -124,9 +122,9 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	if err := os.Remove(statePath); err != nil && !os.IsNotExist(err) {
 		return errors.New(
 			errors.ErrCodeStateSaveError,
-			"Failed to remove state file",
+			i18n.T("error.state_remove"),
 		).WithSuggestion(
-			"Check file permissions. You can try removing the state file manually.",
+			i18n.T("error.state_remove_suggestion"),
 		).WithContext("state_path", statePath).WithError(err)
 	}
 
@@ -166,8 +164,8 @@ func (uc *DownUseCase) resolveProject(ctx context.Context, opts DownOptions) (st
 		logging.ErrorWithContext(ctx, "Could not determine project name")
 		return "", "", errors.New(
 			errors.ErrCodeInvalidConfig,
-			"Could not determine project name",
-		).WithSuggestion("Please provide --config or --project flag to specify the project.")
+			i18n.T("error.no_project"),
+		).WithSuggestion(i18n.T("error.no_project_suggestion"))
 	}
 
 	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
@@ -186,9 +184,9 @@ func (uc *DownUseCase) resolveWorkspace(ctx context.Context, workspaceName, proj
 		logging.ErrorWithContext(ctx, "Failed to resolve workspace", "project", projectName, "error", err.Error())
 		return nil, "", errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to resolve workspace",
+			i18n.T("error.workspace_resolve"),
 		).WithSuggestion(
-			"Check that the project name is correct. Verify workspace directories exist and are accessible.",
+			i18n.T("error.workspace_resolve_suggestion"),
 		).WithContext("project", projectName).WithError(err)
 	}
 	wsRoot := uc.deps.Workspace.GetRoot(ws)
@@ -204,9 +202,9 @@ func (uc *DownUseCase) acquireLock(ctx context.Context, ws *interfaces.Workspace
 		logging.ErrorWithContext(ctx, "Failed to acquire lock", "workspace", wsRoot, "error", err.Error())
 		return nil, errors.New(
 			errors.ErrCodeLockError,
-			"Failed to acquire lock (another raioz process may be running)",
+			i18n.T("error.lock_failed"),
 		).WithSuggestion(
-			"Wait for the other process to finish, or remove the lock file manually if the process crashed.",
+			i18n.T("error.lock_suggestion"),
 		).WithContext("workspace", wsRoot).WithError(err)
 	}
 	logging.DebugWithContext(ctx, "Lock acquired successfully")

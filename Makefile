@@ -1,4 +1,4 @@
-.PHONY: lint format test build install clean check-lines check-length test-coverage check-coverage security
+.PHONY: lint format test build install clean check-lines check-length test-coverage check-coverage security check-i18n
 
 # Default target
 .DEFAULT_GOAL := help
@@ -78,7 +78,11 @@ check-length: ## Check for lines exceeding 120 characters
 		echo "✅ All lines are under 120 characters"; \
 	fi
 
-check: format check-lines check-length lint test ## Run all checks (format, lint, tests, line checks)
+check-i18n: ## Verify all i18n catalogs have the same keys
+	@echo "Checking i18n catalog completeness..."
+	@go test -run TestCatalogCompleteness -count=1 ./internal/i18n/ && echo "All catalogs in sync"
+
+check: format check-lines check-length check-i18n lint test ## Run all checks
 
 generate: ## Generate code (mocks, etc.)
 	@echo "Generating code..."

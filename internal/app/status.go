@@ -53,9 +53,9 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 		} else {
 			return errors.New(
 				errors.ErrCodeInvalidConfig,
-				"Could not determine project name",
+				i18n.T("error.no_project"),
 			).WithSuggestion(
-				"Please provide --config or --project flag to specify the project.",
+				i18n.T("error.no_project_suggestion"),
 			)
 		}
 	} else {
@@ -74,10 +74,9 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to resolve workspace",
+			i18n.T("error.workspace_resolve"),
 		).WithSuggestion(
-			"Check that the project name is correct. " +
-				"Verify workspace directories exist and are accessible.",
+			i18n.T("error.workspace_resolve_suggestion"),
 		).WithContext("project", projectName).WithError(err)
 	}
 
@@ -96,10 +95,9 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,
-			"Failed to load .raioz.json",
+			i18n.T("error.config_load"),
 		).WithSuggestion(
-			"Ensure .raioz.json exists and is valid JSON. " +
-				"Use --config flag to specify a different path if needed.",
+			i18n.T("error.config_load_suggestion"),
 		).WithError(err)
 	}
 
@@ -108,10 +106,9 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeStateLoadError,
-			"Failed to load project state",
+			i18n.T("error.state_load"),
 		).WithSuggestion(
-			"This may indicate a corrupted state file. " +
-				"Try running 'raioz down' and then 'raioz up' again to recreate the state.",
+			i18n.T("error.state_load_suggestion_recreate"),
 		).WithContext("workspace", uc.deps.Workspace.GetRoot(ws)).WithError(err)
 	}
 
