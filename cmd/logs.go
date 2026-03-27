@@ -17,12 +17,7 @@ var (
 var logsCmd = &cobra.Command{
 	Use:   "logs [service...]",
 	Short: "View logs for services",
-	Long: `View logs for one or more services.
-
-If no service is specified and --all is not set, shows logs for all services.
-Use --all to explicitly show logs for all services.
-Use --follow to follow logs in real-time.
-Use --tail N to show only the last N lines.`,
+	Long:  "View logs for one or more services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if ctx == nil {

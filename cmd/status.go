@@ -17,13 +17,7 @@ var statusCmd = &cobra.Command{
 	Use:          "status",
 	Short:        "Show project status",
 	SilenceUsage: true, // Don't show usage/help on execution errors
-	Long: `Show detailed status information for all services including:
-- Status (running/stopped)
-- Health status (healthy/unhealthy/starting)
-- Uptime
-- Resource usage (CPU, Memory)
-- Version/commit information
-- Last update time`,
+	Long:         "Show detailed status information for all services.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Recover from panics in critical operation
 		defer func() {
@@ -52,7 +46,7 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	statusCmd.Flags().StringVarP(&configPath, "config", "c", ".raioz.json", "Path to .raioz.json")
-	statusCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --config)")
+	statusCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	statusCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	statusCmd.Flags().BoolVar(&statusJSON, "json", false, "Output status in JSON format")
 }

@@ -22,11 +22,7 @@ var (
 var migrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Convert production configuration to .raioz.json",
-	Long: `Convert a production Docker Compose file to .raioz.json format.
-
-This command helps you bootstrap a local .raioz.json from an existing
-production docker-compose.yml file. You may need to manually adjust
-the generated configuration for your local development needs.`,
+	Long:  "Convert a production Docker Compose file to .raioz.json format.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if migrateComposePath == "" {
 			return errors.New(

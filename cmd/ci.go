@@ -23,14 +23,7 @@ var (
 var ciCmd = &cobra.Command{
 	Use:   "ci",
 	Short: "CI-optimized command for continuous integration",
-	Long: `Optimized command for CI/CD pipelines with:
-- Fast validations
-- JSON output format
-- Ephemeral environments support
-- Automatic cleanup
-
-This command is designed to be used in CI/CD pipelines where speed and
-parseable output are critical.`,
+	Long:  "Optimized command for CI/CD pipelines with fast validations and JSON output.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath = ResolveConfigPath(configPath)
 

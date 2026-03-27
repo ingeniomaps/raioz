@@ -14,11 +14,7 @@ var (
 var compareCmd = &cobra.Command{
 	Use:   "compare",
 	Short: "Compare local configuration with production",
-	Long: `Compare your local .raioz.json with a production Docker Compose file
-to identify differences in images, ports, volumes, and dependencies.
-
-This helps ensure that your local development environment matches production
-as closely as possible.`,
+	Long:  "Compare your local .raioz.json with a production Docker Compose file.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewCompareUseCase(deps)

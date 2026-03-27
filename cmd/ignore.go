@@ -10,27 +10,15 @@ import (
 var ignoreCmd = &cobra.Command{
 	Use:   "ignore",
 	Short: "Manage ignored services",
-	Long: `Manage services that should be ignored during dependency resolution.
-
-Ignored services will not be cloned, built, or started. However, if other
-services depend on ignored services, a warning will be shown.
-
-Example:
-  raioz ignore add service-name
-  raioz ignore remove service-name
-  raioz ignore list`,
+	Long:  "Manage services that should be ignored during dependency resolution.",
 }
 
 // ignoreAddCmd is the command to add a service to the ignore list
 var ignoreAddCmd = &cobra.Command{
 	Use:   "add <service>",
 	Short: "Add a service to the ignore list",
-	Long: `Add a service to the ignore list. The service will not be cloned,
-built, or started during raioz up.
-
-Example:
-  raioz ignore add old-service`,
-	Args: cobra.ExactArgs(1),
+	Long:  "Add a service to the ignore list. The service will not be cloned, built, or started during raioz up.",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
@@ -43,12 +31,8 @@ var ignoreRemoveCmd = &cobra.Command{
 	Use:     "remove <service>",
 	Aliases: []string{"rm"},
 	Short:   "Remove a service from the ignore list",
-	Long: `Remove a service from the ignore list. The service will be processed
-normally on the next raioz up.
-
-Example:
-  raioz ignore remove service-name`,
-	Args: cobra.ExactArgs(1),
+	Long:    "Remove a service from the ignore list. The service will be processed normally on the next raioz up.",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
@@ -60,10 +44,7 @@ Example:
 var ignoreListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List ignored services",
-	Long: `List all services that are currently in the ignore list.
-
-Example:
-  raioz ignore list`,
+	Long:  "List all services that are currently in the ignore list.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewIgnoreUseCase(deps)

@@ -20,10 +20,7 @@ var (
 var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Clean up stopped services and unused resources",
-	Long: `Clean up stopped services and unused Docker resources.
-
-By default, cleans stopped services for the current project.
-Use flags to clean additional resources or all projects.`,
+	Long:  "Clean up stopped services and unused Docker resources.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		if ctx == nil {

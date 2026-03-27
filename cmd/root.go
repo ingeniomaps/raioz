@@ -20,7 +20,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:          "raioz",
 	Short:        "Raioz local microservices orchestrator",
-	SilenceUsage: true, // Don't show usage/help on execution errors (only show on invalid command usage)
+	SilenceUsage: true, // Don't show usage/help on execution errors
 }
 
 func Execute() {
@@ -32,8 +32,12 @@ func Execute() {
 }
 
 func init() {
-	// Initialize i18n before anything else (detects system locale)
-	i18n.Init("")
+	// Detect --lang flag early from os.Args so i18n is initialized
+	// with the right language before Cobra renders help text.
+	langOverride := detectLangFlag()
+
+	// Initialize i18n before anything else
+	i18n.Init(langOverride)
 
 	// Initialize logging from environment or use defaults
 	logging.InitFromEnv()
@@ -41,7 +45,7 @@ func init() {
 	// Add global flags
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "", "Set log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().BoolVar(&logJSON, "log-json", false, "Output logs in JSON format")
-	rootCmd.PersistentFlags().StringVar(&langFlag, "lang", "", i18n.T("flag.lang"))
+	rootCmd.PersistentFlags().StringVar(&langFlag, "lang", "", "Override display language (en, es)")
 
 	// Hook to update logging and language when flags are parsed
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
@@ -74,4 +78,21 @@ func init() {
 	rootCmd.AddCommand(ignoreCmd)
 	rootCmd.AddCommand(linkCmd)
 	rootCmd.AddCommand(langCmd)
+
+	// NOTE: i18n description overrides are applied in zzz_i18n_descriptions.go init()
+	// which runs AFTER all other init() functions (Go processes files alphabetically).
+}
+
+// detectLangFlag scans os.Args for --lang <value> or --lang=<value> before
+// Cobra parses flags, so i18n can be initialized with the right language.
+func detectLangFlag() string {
+	for i, arg := range os.Args {
+		if arg == "--lang" && i+1 < len(os.Args) {
+			return os.Args[i+1]
+		}
+		if len(arg) > 7 && arg[:7] == "--lang=" {
+			return arg[7:]
+		}
+	}
+	return ""
 }

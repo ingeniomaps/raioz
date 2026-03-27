@@ -17,11 +17,7 @@ var initCmd = &cobra.Command{
 	Use:          "init",
 	Short:        "Initialize a new .raioz.json configuration file",
 	SilenceUsage: true, // Don't show usage/help on execution errors
-	Long: `Initialize a new .raioz.json configuration file interactively.
-
-This command will guide you through creating a basic .raioz.json configuration
-for your project. You can add services and infrastructure later by editing
-the generated file.`,
+	Long:         "Initialize a new .raioz.json configuration file interactively.",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		// Recover from panics in critical operation
 		defer func() {

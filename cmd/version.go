@@ -8,20 +8,16 @@ import (
 
 // Version information (set at build time with -ldflags)
 var (
-	Version   = "dev"      // Set with -ldflags "-X 'raioz/cmd.Version=...'"
-	Commit    = "unknown"  // Set with -ldflags "-X 'raioz/cmd.Commit=...'"
-	BuildDate = "unknown"  // Set with -ldflags "-X 'raioz/cmd.BuildDate=...'"
-	SchemaVersion = "1.0"  // Supported schema version
+	Version       = "dev"     // Set with -ldflags "-X 'raioz/cmd.Version=...'"
+	Commit        = "unknown" // Set with -ldflags "-X 'raioz/cmd.Commit=...'"
+	BuildDate     = "unknown" // Set with -ldflags "-X 'raioz/cmd.BuildDate=...'"
+	SchemaVersion = "1.0"     // Supported schema version
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
-	Long: `Show version information for raioz including:
-- Binary version
-- Git commit (if available)
-- Build date
-- Supported schema version`,
+	Long:  "Show version information for raioz.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Printf("raioz version %s\n", Version)
 		fmt.Printf("Schema version: %s\n", SchemaVersion)

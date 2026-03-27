@@ -11,18 +11,8 @@ var overridePath string
 var overrideCmd = &cobra.Command{
 	Use:   "override <service>",
 	Short: "Override a service with a local path",
-	Long: `Override a service to use a local path instead of the Git repository or image
-defined in .raioz.json.
-
-This command does NOT modify .raioz.json. Instead, it registers an override
-in ~/.raioz/overrides.json that takes precedence over .raioz.json.
-
-The override will be automatically reverted if the path no longer exists.
-
-Example:
-  raioz override orders --path ~/dev/orders
-  raioz override api --path /opt/custom/api`,
-	Args: cobra.ExactArgs(1),
+	Long:  "Override a service to use a local path instead of the Git repository or image defined in .raioz.json.",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewOverrideUseCase(deps)
@@ -33,7 +23,7 @@ Example:
 var overrideListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all service overrides",
-	Long:  `List all registered service overrides from ~/.raioz/overrides.json.`,
+	Long:  "List all registered service overrides from ~/.raioz/overrides.json.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewOverrideUseCase(deps)
@@ -45,9 +35,8 @@ var overrideRemoveCmd = &cobra.Command{
 	Use:     "remove <service>",
 	Aliases: []string{"rm"},
 	Short:   "Remove a service override",
-	Long: `Remove a service override. The service will fall back to the configuration
-in .raioz.json.`,
-	Args: cobra.ExactArgs(1),
+	Long:    "Remove a service override. The service will fall back to the configuration in .raioz.json.",
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewOverrideUseCase(deps)

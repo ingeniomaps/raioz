@@ -10,27 +10,15 @@ import (
 var workspaceCmd = &cobra.Command{
 	Use:   "workspace",
 	Short: "Manage workspaces",
-	Long: `Manage workspaces for organizing multiple projects.
-
-A workspace allows you to organize multiple projects and switch between them.
-The active workspace is stored in ~/.raioz/active-workspace and can be used
-as a default when working with projects.`,
+	Long:  "Manage workspaces for organizing multiple projects.",
 }
 
 // workspaceUseCmd is the command to set the active workspace
 var workspaceUseCmd = &cobra.Command{
 	Use:   "use <workspace-name>",
 	Short: "Set the active workspace",
-	Long: `Set the active workspace to use for future commands.
-
-If the workspace does not exist, it will be created automatically.
-The active workspace will be loaded automatically when using raioz commands
-if no project is explicitly specified.
-
-Example:
-  raioz workspace use empresa-x
-  raioz workspace use billing-platform`,
-	Args: cobra.ExactArgs(1),
+	Long:  "Set the active workspace to use for future commands.",
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewWorkspaceUseCase(deps)
@@ -42,10 +30,7 @@ Example:
 var workspaceListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available workspaces",
-	Long: `List all available workspaces and show which one is currently active.
-
-Example:
-  raioz workspace list`,
+	Long:  "List all available workspaces and show which one is currently active.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewWorkspaceUseCase(deps)

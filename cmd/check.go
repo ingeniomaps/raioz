@@ -13,17 +13,7 @@ var checkCmd = &cobra.Command{
 	Use:          "check",
 	Short:        "Check for alignment issues between config and state",
 	SilenceUsage: true, // Don't show usage/help on execution errors
-	Long: `Check if the current configuration aligns with the saved state.
-
-Detects:
-- Configuration changes (branches, tags, ports, dependencies)
-- Branch drift (manual branch changes in repositories)
-- Image tag changes
-- Other misalignments
-
-Exit codes:
-- 0: All checks passed or only info issues (branch drift)
-- 1: Critical or warning issues found`,
+	Long:         "Check if the current configuration aligns with the saved state.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Recover from panics in critical operation
 		defer func() {
@@ -51,6 +41,6 @@ Exit codes:
 }
 
 func init() {
-	checkCmd.Flags().StringVarP(&configPath, "config", "c", ".raioz.json", "Path to .raioz.json")
-	checkCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --config)")
+	checkCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	checkCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 }

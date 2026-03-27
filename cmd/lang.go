@@ -11,7 +11,7 @@ import (
 
 var langCmd = &cobra.Command{
 	Use:   "lang",
-	Short: i18n.T("cmd.lang.short"),
+	Short: "Manage language settings",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println(i18n.T("lang.current", i18n.GetLang()))
 		return nil
@@ -20,7 +20,7 @@ var langCmd = &cobra.Command{
 
 var langSetCmd = &cobra.Command{
 	Use:   "set <language>",
-	Short: i18n.T("cmd.lang.set.short"),
+	Short: "Set the display language",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		lang := strings.ToLower(args[0])
@@ -41,7 +41,7 @@ var langSetCmd = &cobra.Command{
 
 var langListCmd = &cobra.Command{
 	Use:   "list",
-	Short: i18n.T("cmd.lang.list.short"),
+	Short: "List available languages",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println(i18n.T("lang.available"))
 		current := i18n.GetLang()

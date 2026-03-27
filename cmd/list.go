@@ -15,17 +15,7 @@ var (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all active projects",
-	Long: `List all active projects tracked in the global state.
-
-This command shows:
-- Project names
-- Last execution time
-- Number of active services per project
-- Workspace paths
-
-Filters:
-- Use --filter to show only projects matching a name pattern
-- Use --status to filter by service status (running, stopped)`,
+	Long:  "List all active projects tracked in the global state.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
 		useCase := app.NewListUseCase(deps)
