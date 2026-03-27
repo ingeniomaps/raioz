@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"raioz/internal/i18n"
 	"raioz/internal/link"
 	"raioz/internal/output"
 )
@@ -69,7 +70,7 @@ func (uc *LinkUseCase) Add(serviceName string, externalPath string, configPath s
 				return fmt.Errorf("failed to resolve existing target: %w", err)
 			}
 			if absTarget == absExternalPath {
-				output.PrintInfo(fmt.Sprintf("Service '%s' is already linked to: %s", serviceName, absExternalPath))
+				output.PrintInfo(i18n.T("output.link_already_linked", serviceName, absExternalPath))
 				return nil
 			}
 			return fmt.Errorf(
@@ -85,8 +86,8 @@ func (uc *LinkUseCase) Add(serviceName string, externalPath string, configPath s
 		return fmt.Errorf("failed to create symlink: %w", err)
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Linked service '%s' to: %s", serviceName, absExternalPath))
-	output.PrintInfo(fmt.Sprintf("Service path: %s", servicePath))
+	output.PrintSuccess(i18n.T("output.link_created", serviceName, absExternalPath))
+	output.PrintInfo(i18n.T("output.link_service_path", servicePath))
 
 	return nil
 }
@@ -121,7 +122,7 @@ func (uc *LinkUseCase) Remove(serviceName string, configPath string) error {
 	}
 
 	if !isLinked {
-		output.PrintInfo(fmt.Sprintf("Service '%s' is not linked", serviceName))
+		output.PrintInfo(i18n.T("output.link_not_linked", serviceName))
 		return nil
 	}
 
@@ -130,8 +131,8 @@ func (uc *LinkUseCase) Remove(serviceName string, configPath string) error {
 		return fmt.Errorf("failed to remove symlink: %w", err)
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Removed symlink for service '%s' (was pointing to: %s)", serviceName, target))
-	output.PrintInfo("The external directory was not deleted")
+	output.PrintSuccess(i18n.T("output.link_removed", serviceName, target))
+	output.PrintInfo(i18n.T("output.link_external_not_deleted"))
 
 	return nil
 }
@@ -172,11 +173,11 @@ func (uc *LinkUseCase) List(configPath string) error {
 	}
 
 	if len(linkedServices) == 0 {
-		fmt.Println("No services are currently linked.")
+		fmt.Println(i18n.T("output.link_empty_list"))
 		return nil
 	}
 
-	fmt.Println("Linked services:")
+	fmt.Println(i18n.T("output.link_list_header"))
 	for _, linked := range linkedServices {
 		fmt.Printf("  %s -> %s\n", linked.name, linked.target)
 	}

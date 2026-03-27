@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -73,10 +73,10 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	if !uc.deps.StateManager.Exists(ws) {
 		logging.WarnWithContext(ctx, "Project state not found", "workspace", wsRoot)
 		if len(hostProcesses) > 0 {
-			output.PrintInfo("No state file found, but host services have been stopped")
+			output.PrintInfo(i18n.T("output.no_state_host_stopped"))
 			return nil
 		}
-		output.PrintInfo("No state file found. Nothing to stop (workspace already stopped).")
+		output.PrintInfo(i18n.T("output.no_state_found"))
 		return nil
 	}
 
@@ -105,7 +105,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	}
 
 	// Full workspace down
-	output.PrintInfo("Stopping Docker services...")
+	output.PrintInfo(i18n.T("output.stopping_services"))
 	if err := uc.deps.DockerRunner.DownWithContext(ctx, composePath); err != nil {
 		return errors.New(
 			errors.ErrCodeDockerNotRunning,
@@ -137,13 +137,13 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	uc.handleProjectComposeDown(ctx, stateDeps, opts)
 	uc.executeProjectDownCommand(ctx, stateDeps, ws, opts, workspaceName)
 
-	output.PrintSuccess(fmt.Sprintf("Project '%s' stopped successfully", stateDeps.Project.Name))
+	output.PrintSuccess(i18n.T("output.project_stopped", stateDeps.Project.Name))
 
 	networkName := stateDeps.Network.GetName()
 	if remainingNetworkProjects > 0 {
-		output.PrintInfo(fmt.Sprintf("Network '%s' is still in use by %d other project(s), leaving it", networkName, remainingNetworkProjects))
+		output.PrintInfo(i18n.T("output.network_in_use", networkName, remainingNetworkProjects))
 	} else if isInUse {
-		output.PrintInfo(fmt.Sprintf("Network '%s' is still in use by containers, leaving it", networkName))
+		output.PrintInfo(i18n.T("output.network_in_use_containers", networkName))
 	}
 
 	uc.cleanupDockerResources(ctx)
@@ -223,7 +223,7 @@ func (uc *DownUseCase) stopProjectServices(
 ) (bool, error) {
 	currentDeps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	if currentDeps == nil {
-		output.PrintWarning("Could not load current config; falling back to full workspace down. Use --file to target project-only down.")
+		output.PrintWarning(i18n.T("output.config_load_fallback"))
 		return false, nil
 	}
 
@@ -255,9 +255,9 @@ func (uc *DownUseCase) stopProjectServices(
 	}
 
 	if len(servicesToStop) == 0 {
-		output.PrintInfo("No project services to stop in current config.")
+		output.PrintInfo(i18n.T("output.no_services_to_stop"))
 	} else {
-		output.PrintInfo("Stopping project services...")
+		output.PrintInfo(i18n.T("output.stopping_project_services"))
 		for name := range servicesToStop {
 			if err := uc.deps.DockerRunner.StopServiceWithContext(ctx, composePath, name); err != nil {
 				logging.WarnWithContext(ctx, "Failed to stop service during project down", "service", name, "error", err.Error())
@@ -270,10 +270,10 @@ func (uc *DownUseCase) stopProjectServices(
 	}
 
 	if canPruneInfra {
-		output.PrintInfo("Unused shared infra for this project was also pruned.")
+		output.PrintInfo(i18n.T("output.infra_pruned"))
 	} else if opts.PruneShared {
-		output.PrintInfo("Shared infra kept because other active projects exist in this workspace.")
+		output.PrintInfo(i18n.T("output.infra_kept"))
 	}
-	output.PrintSuccess(fmt.Sprintf("Project '%s' stopped successfully", projectName))
+	output.PrintSuccess(i18n.T("output.project_stopped", projectName))
 	return true, nil
 }

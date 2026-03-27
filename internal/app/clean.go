@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -101,13 +102,13 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 
 	// Display actions
 	if opts.DryRun {
-		output.PrintSectionHeader("Dry Run - Actions That Would Be Taken")
+		output.PrintSectionHeader(i18n.T("output.dry_run_header"))
 	} else {
-		output.PrintSectionHeader("Actions Taken")
+		output.PrintSectionHeader(i18n.T("output.actions_header"))
 	}
 
 	if len(actions) == 0 {
-		output.PrintInfo("Nothing to clean")
+		output.PrintInfo(i18n.T("output.nothing_to_clean"))
 	} else {
 		output.PrintList(actions, 0)
 	}
@@ -151,7 +152,7 @@ func (uc *CleanUseCase) cleanVolumes(ctx context.Context, opts CleanOptions) ([]
 
 	if !opts.Force && !opts.DryRun {
 		logging.Warn("Volume removal requires confirmation. Use --force to proceed.")
-		output.PrintPrompt("Are you sure you want to remove unused volumes? (yes/no): ")
+		output.PrintPrompt(i18n.T("output.confirm_remove_volumes"))
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
 		if err != nil {

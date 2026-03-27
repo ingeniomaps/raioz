@@ -6,6 +6,7 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
 
@@ -49,11 +50,11 @@ func (uc *PortsUseCase) Execute(ctx context.Context, opts PortsOptions) error {
 	}
 
 	if len(ports) == 0 {
-		output.PrintInfo("No active ports found")
+		output.PrintInfo(i18n.T("output.no_active_ports"))
 		return nil
 	}
 
-	output.PrintSectionHeader("Active Ports")
+	output.PrintSectionHeader(i18n.T("output.active_ports_header"))
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
 	fmt.Fprintln(w, "PORT\tPROJECT\tSERVICE")

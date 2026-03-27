@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -145,27 +146,27 @@ func HandleLocalProjectDown(ctx context.Context, configPath string, baseDir stri
 		isHealthy, healthErr := CheckLocalProjectHealth(ctx, projectDir, healthCommand)
 		if healthErr == nil && !isHealthy {
 			logging.InfoWithContext(ctx, "Project is not healthy, skipping down command")
-			output.PrintInfo("Project is not running, nothing to stop")
+			output.PrintInfo(i18n.T("output.project_not_running"))
 			return true, nil
 		}
 	}
 
 	if downErr != nil {
 		if raiozErr, ok := downErr.(*errors.RaiozError); ok && raiozErr.Code == errors.ErrCodeStateLoadError {
-			output.PrintInfo("No raioz state found, but executing local project down command...")
+			output.PrintInfo(i18n.T("output.no_raioz_state_exec_down"))
 		} else {
-			output.PrintInfo("Executing local project down command...")
+			output.PrintInfo(i18n.T("output.executing_down_cmd"))
 		}
 	} else {
-		output.PrintInfo("Executing local project down command...")
+		output.PrintInfo(i18n.T("output.executing_down_cmd"))
 	}
 
 	if execErr := ExecuteLocalProjectCommand(ctx, projectDir, downCommand, mode); execErr != nil {
 		logging.WarnWithContext(ctx, "Failed to execute local project down command", "error", execErr.Error())
-		output.PrintError("Failed to execute local project down command")
+		output.PrintError(i18n.T("output.failed_local_down_cmd"))
 		return true, execErr
 	}
 
-	output.PrintSuccess("Local project down command executed successfully")
+	output.PrintSuccess(i18n.T("output.local_down_cmd_success"))
 	return true, nil
 }

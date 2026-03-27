@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
 
@@ -38,7 +39,7 @@ func (uc *StatusUseCase) outputJSON(servicesInfo map[string]*interfaces.ServiceI
 // outputHumanReadable outputs status in human-readable format
 func (uc *StatusUseCase) outputHumanReadable(servicesInfo map[string]*interfaces.ServiceInfo, disabledServices []string, stateDeps *config.Deps, activeWorkspace string) error {
 	// Table output - these are user-facing output, not logs
-	output.PrintSectionHeader("Project Status")
+	output.PrintSectionHeader(i18n.T("output.project_status_header"))
 	output.PrintKeyValue("Project", stateDeps.Project.Name)
 	networkName := stateDeps.Network.GetName()
 	if stateDeps.Network.HasSubnet() {
@@ -48,10 +49,10 @@ func (uc *StatusUseCase) outputHumanReadable(servicesInfo map[string]*interfaces
 
 	// Show active workspace if set
 	if activeWorkspace != "" {
-		output.PrintKeyValue("Active Workspace", activeWorkspace)
+		output.PrintKeyValue(i18n.T("output.active_workspace"), activeWorkspace)
 	}
 
-	output.PrintSubsection("Services")
+	output.PrintSubsection(i18n.T("output.services_header"))
 	if len(servicesInfo) == 0 {
 		output.PrintEmptyState("services running")
 	} else {
@@ -62,7 +63,7 @@ func (uc *StatusUseCase) outputHumanReadable(servicesInfo map[string]*interfaces
 
 	// Show disabled services if any
 	if len(disabledServices) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Disabled Services (%d)", len(disabledServices)))
+		output.PrintSubsection(i18n.T("output.disabled_services_header", len(disabledServices)))
 		output.PrintList(disabledServices, 0)
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -58,7 +59,7 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 	}
 
 	if !isLocal {
-		output.PrintInfo("This is not a local project. Health check only applies to local projects.")
+		output.PrintInfo(i18n.T("output.not_local_project"))
 		return nil
 	}
 
@@ -84,11 +85,11 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 	}
 
 	if isHealthy {
-		output.PrintSuccess("Project is healthy and running")
+		output.PrintSuccess(i18n.T("output.project_healthy"))
 		return nil
 	}
 
 	// Project is not healthy
-	output.PrintWarning("Project is not healthy (not running)")
+	output.PrintWarning(i18n.T("output.project_not_healthy"))
 	return nil
 }

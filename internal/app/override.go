@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"raioz/internal/audit"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/override"
 )
@@ -42,13 +43,7 @@ func (uc *OverrideUseCase) Apply(serviceName string, overridePath string, config
 		if deps != nil {
 			projectName = deps.Project.Name
 			if _, ok := deps.Services[serviceName]; !ok {
-				output.PrintWarning(
-					fmt.Sprintf(
-						"Service '%s' not found in current .raioz.json. "+
-							"Override will still be registered.",
-						serviceName,
-					),
-				)
+				output.PrintWarning(i18n.T("output.override_service_not_found", serviceName))
 			}
 		}
 	}
@@ -64,14 +59,8 @@ func (uc *OverrideUseCase) Apply(serviceName string, overridePath string, config
 		if err != nil {
 			return fmt.Errorf("failed to get existing override: %w", err)
 		}
-		output.PrintWarning(
-			fmt.Sprintf(
-				"Service '%s' already has an override pointing to: %s",
-				serviceName,
-				existingOverride.Path,
-			),
-		)
-		output.PrintInfo("Overriding existing override...")
+		output.PrintWarning(i18n.T("output.override_already_exists", serviceName, existingOverride.Path))
+		output.PrintInfo(i18n.T("output.override_replacing"))
 	}
 
 	// Add override
@@ -87,26 +76,15 @@ func (uc *OverrideUseCase) Apply(serviceName string, overridePath string, config
 
 	// Log audit event
 	if err := audit.LogOverrideApplied(serviceName, absPath); err != nil {
-		output.PrintWarning(fmt.Sprintf("Failed to log audit event: %v", err))
+		output.PrintWarning(i18n.T("output.failed_log_audit", err))
 	}
 
-	output.PrintSuccess(
-		fmt.Sprintf(
-			"Override registered for service '%s' -> %s",
-			serviceName,
-			absPath,
-		),
-	)
+	output.PrintSuccess(i18n.T("output.override_registered", serviceName, absPath))
 
 	if projectName != "" {
-		output.PrintInfo(
-			fmt.Sprintf(
-				"Run 'raioz up' in project '%s' to apply the override.",
-				projectName,
-			),
-		)
+		output.PrintInfo(i18n.T("output.override_run_up_project", projectName))
 	} else {
-		output.PrintInfo("Run 'raioz up' to apply the override.")
+		output.PrintInfo(i18n.T("output.override_run_up"))
 	}
 
 	return nil
@@ -120,11 +98,11 @@ func (uc *OverrideUseCase) List() error {
 	}
 
 	if len(overrides) == 0 {
-		fmt.Println("No overrides registered.")
+		fmt.Println(i18n.T("output.override_empty_list"))
 		return nil
 	}
 
-	fmt.Println("Registered overrides:")
+	fmt.Println(i18n.T("output.override_list_header"))
 	fmt.Println()
 	for serviceName, overrideConfig := range overrides {
 		pathStatus := "✓"
@@ -142,7 +120,7 @@ func (uc *OverrideUseCase) List() error {
 	// Clean invalid overrides
 	removed, err := override.CleanInvalidOverrides()
 	if err != nil {
-		output.PrintWarning(fmt.Sprintf("Failed to clean invalid overrides: %v", err))
+		output.PrintWarning(i18n.T("output.failed_clean_overrides", err))
 	} else if len(removed) > 0 {
 		fmt.Printf("⚠️  Removed %d invalid override(s): %v\n", len(removed), removed)
 	}
@@ -167,11 +145,11 @@ func (uc *OverrideUseCase) Remove(serviceName string) error {
 
 	// Log audit event
 	if err := audit.LogOverrideReverted(serviceName, "user removed override"); err != nil {
-		output.PrintWarning(fmt.Sprintf("Failed to log audit event: %v", err))
+		output.PrintWarning(i18n.T("output.failed_log_audit", err))
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Override removed for service '%s'", serviceName))
-	output.PrintInfo("Run 'raioz up' to apply the change.")
+	output.PrintSuccess(i18n.T("output.override_removed", serviceName))
+	output.PrintInfo(i18n.T("output.override_run_up_apply"))
 
 	return nil
 }

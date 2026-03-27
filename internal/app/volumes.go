@@ -10,6 +10,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -141,7 +142,7 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 	}
 
 	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
-		output.PrintInfo("No volumes found for this project")
+		output.PrintInfo(i18n.T("output.no_volumes_found"))
 		return nil
 	}
 
@@ -188,7 +189,7 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 	}
 
 	if len(normalizedVolumes) == 0 {
-		output.PrintInfo("No volumes to remove")
+		output.PrintInfo(i18n.T("output.no_volumes_to_remove"))
 		return nil
 	}
 
@@ -225,28 +226,28 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 
 	// Show volumes that are in use
 	if len(volumesInUse) > 0 {
-		output.PrintWarning(fmt.Sprintf("  %d volume(s) are in use by other projects and will not be removed:", len(volumesInUse)))
+		output.PrintWarning(i18n.T("output.volumes_in_use_warning", len(volumesInUse)))
 		for volName, projects := range volumesInUse {
-			output.PrintInfo(fmt.Sprintf("  - %s (used by: %s)", volName, strings.Join(projects, ", ")))
+			output.PrintInfo(i18n.T("output.volume_detail", volName, strings.Join(projects, ", ")))
 		}
 		fmt.Println()
 	}
 
 	// Show volumes that can be removed
 	if len(volumesToRemove) == 0 {
-		output.PrintInfo("All volumes are in use by other projects. Nothing to remove.")
+		output.PrintInfo(i18n.T("output.all_volumes_in_use"))
 		return nil
 	}
 
-	output.PrintInfo(fmt.Sprintf("Found %d volume(s) that can be removed:", len(volumesToRemove)))
+	output.PrintInfo(i18n.T("output.found_volumes_removable", len(volumesToRemove)))
 	for _, volName := range volumesToRemove {
-		output.PrintInfo(fmt.Sprintf("  - %s", volName))
+		output.PrintInfo(i18n.T("output.volume_item", volName))
 	}
 	fmt.Println()
 
 	// Ask for confirmation unless --force is used
 	if !opts.Force {
-		fmt.Print("Do you want to remove these volumes? (yes/no): ")
+		fmt.Print(i18n.T("output.confirm_remove_volumes_prompt"))
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
 		if err != nil {
@@ -258,13 +259,13 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "yes" && response != "y" {
-			output.PrintInfo("Operation cancelled. Volumes were not removed.")
+			output.PrintInfo(i18n.T("output.volumes_cancelled"))
 			return nil
 		}
 	}
 
 	// Remove volumes
-	output.PrintProgress(fmt.Sprintf("Removing %d volume(s)...", len(volumesToRemove)))
+	output.PrintProgress(i18n.T("output.removing_volumes", len(volumesToRemove)))
 	removedCount := 0
 	failedCount := 0
 
@@ -272,20 +273,20 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 		logging.InfoWithContext(ctx, "Removing volume", "volume", volName)
 		if err := uc.deps.DockerRunner.RemoveVolumeWithContext(ctx, volName); err != nil {
 			logging.WarnWithContext(ctx, "Failed to remove volume", "volume", volName, "error", err.Error())
-			output.PrintWarning(fmt.Sprintf("Failed to remove volume '%s': %v", volName, err))
+			output.PrintWarning(i18n.T("output.failed_remove_volume", volName, err))
 			failedCount++
 		} else {
-			output.PrintSuccess(fmt.Sprintf("Removed volume '%s'", volName))
+			output.PrintSuccess(i18n.T("output.removed_volume", volName))
 			removedCount++
 		}
 	}
 
 	fmt.Println()
 	if removedCount > 0 {
-		output.PrintSuccess(fmt.Sprintf("Successfully removed %d volume(s)", removedCount))
+		output.PrintSuccess(i18n.T("output.volumes_removed_success", removedCount))
 	}
 	if failedCount > 0 {
-		output.PrintWarning(fmt.Sprintf("Failed to remove %d volume(s)", failedCount))
+		output.PrintWarning(i18n.T("output.volumes_removed_failed", failedCount))
 	}
 
 	logging.InfoWithContext(ctx, "Volumes removal completed",

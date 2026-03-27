@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 
+	"raioz/internal/i18n"
 	"raioz/internal/ignore"
 	"raioz/internal/output"
 )
@@ -30,7 +31,7 @@ func (uc *IgnoreUseCase) Add(serviceName string, configPath string) error {
 	}
 
 	if isIgnored {
-		output.PrintInfo(fmt.Sprintf("Service '%s' is already ignored", serviceName))
+		output.PrintInfo(i18n.T("output.ignore_already_ignored", serviceName))
 		return nil
 	}
 
@@ -39,8 +40,8 @@ func (uc *IgnoreUseCase) Add(serviceName string, configPath string) error {
 		return fmt.Errorf("failed to add service to ignore list: %w", err)
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Service '%s' added to ignore list", serviceName))
-	output.PrintInfo("The service will not be started on the next 'raioz up'")
+	output.PrintSuccess(i18n.T("output.ignore_added", serviceName))
+	output.PrintInfo(i18n.T("output.ignore_next_up"))
 
 	// Check if service exists in current config and warn about dependencies
 	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
@@ -57,11 +58,7 @@ func (uc *IgnoreUseCase) Add(serviceName string, configPath string) error {
 			}
 			if len(dependents) > 0 {
 				output.PrintWarning(
-					fmt.Sprintf(
-						"Service '%s' is required by: %v. These services may fail without it.",
-						serviceName,
-						dependents,
-					),
+					i18n.T("output.ignore_dependents_warning", serviceName, dependents),
 				)
 			}
 		}
@@ -79,7 +76,7 @@ func (uc *IgnoreUseCase) Remove(serviceName string) error {
 	}
 
 	if !isIgnored {
-		output.PrintInfo(fmt.Sprintf("Service '%s' is not in the ignore list", serviceName))
+		output.PrintInfo(i18n.T("output.ignore_not_in_list", serviceName))
 		return nil
 	}
 
@@ -88,8 +85,8 @@ func (uc *IgnoreUseCase) Remove(serviceName string) error {
 		return fmt.Errorf("failed to remove service from ignore list: %w", err)
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Service '%s' removed from ignore list", serviceName))
-	output.PrintInfo("The service will be processed normally on the next 'raioz up'")
+	output.PrintSuccess(i18n.T("output.ignore_removed", serviceName))
+	output.PrintInfo(i18n.T("output.ignore_next_up_normal"))
 
 	return nil
 }
@@ -102,11 +99,11 @@ func (uc *IgnoreUseCase) List() error {
 	}
 
 	if len(ignoredServices) == 0 {
-		fmt.Println("No services in ignore list.")
+		fmt.Println(i18n.T("output.ignore_empty_list"))
 		return nil
 	}
 
-	fmt.Println("Ignored services:")
+	fmt.Println(i18n.T("output.ignore_list_header"))
 	for _, name := range ignoredServices {
 		fmt.Printf("  - %s\n", name)
 	}

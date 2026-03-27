@@ -10,6 +10,7 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 )
 
 // StatusOptions contains options for the Status use case
@@ -85,7 +86,7 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 		if opts.JSON {
 			fmt.Println("{}")
 		} else {
-			fmt.Println("Project is not running (no state file found)")
+			fmt.Println(i18n.T("output.project_not_running_status"))
 		}
 		return nil
 	}

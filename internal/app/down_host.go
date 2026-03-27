@@ -9,6 +9,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -35,19 +36,19 @@ func (uc *DownUseCase) stopHostProcesses(
 		currentDeps, _, _ = uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	}
 
-	output.PrintInfo(fmt.Sprintf("Stopping %d host service(s)...", len(hostProcesses)))
+	output.PrintInfo(i18n.T("output.stopping_host_services", len(hostProcesses)))
 	for name, processInfo := range hostProcesses {
 		stopCommand, servicePath := uc.resolveHostStopCommand(ctx, name, *processInfo, currentDeps, ws)
 
 		logging.InfoWithContext(ctx, "Stopping host service", "service", name, "pid", processInfo.PID, "stopCommand", stopCommand, "servicePath", servicePath)
 		if err := uc.deps.HostRunner.StopServiceWithCommandAndPath(ctx, processInfo.PID, stopCommand, servicePath); err != nil {
 			logging.WarnWithContext(ctx, "Failed to stop host service", "service", name, "pid", processInfo.PID, "error", err.Error())
-			output.PrintWarning(fmt.Sprintf("Failed to stop host service %s (PID: %d): %v", name, processInfo.PID, err))
+			output.PrintWarning(i18n.T("output.failed_stop_host", name, processInfo.PID, err))
 		} else {
 			if stopCommand != "" {
-				output.PrintSuccess(fmt.Sprintf("Stopped host service %s (PID: %d) using stop command", name, processInfo.PID))
+				output.PrintSuccess(i18n.T("output.stopped_host_service_cmd", name, processInfo.PID))
 			} else {
-				output.PrintSuccess(fmt.Sprintf("Stopped host service %s (PID: %d)", name, processInfo.PID))
+				output.PrintSuccess(i18n.T("output.stopped_host_service", name, processInfo.PID))
 			}
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/state"
 )
@@ -50,14 +51,14 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 	// Table output
 	if len(filteredState.ActiveProjects) == 0 {
 		if opts.Filter != "" || opts.Status != "" {
-			output.PrintInfo("No projects match the specified filters")
+			output.PrintInfo(i18n.T("output.no_projects_match_filters"))
 		} else {
-			output.PrintInfo("No active projects found")
+			output.PrintInfo(i18n.T("output.no_active_projects"))
 		}
 		return nil
 	}
 
-	output.PrintSectionHeader("Active Projects")
+	output.PrintSectionHeader(i18n.T("output.active_projects_header"))
 
 	for i, projectName := range filteredState.ActiveProjects {
 		projectState, exists := filteredState.Projects[projectName]

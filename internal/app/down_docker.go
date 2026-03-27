@@ -10,6 +10,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -73,8 +74,7 @@ func (uc *DownUseCase) handleNetworkAndVolumes(
 					}
 				}
 				if remainingVolProjects > 0 {
-					output.PrintInfo(fmt.Sprintf("Volume '%s' is still in use by %d other project(s), leaving it",
-						volName, remainingVolProjects))
+					output.PrintInfo(i18n.T("output.volume_in_use", volName, remainingVolProjects))
 				}
 			}
 		}
@@ -111,13 +111,13 @@ func (uc *DownUseCase) handleProjectComposeDown(ctx context.Context, stateDeps *
 		return
 	}
 
-	output.PrintInfo("Stopping Docker Compose services from project directory...")
+	output.PrintInfo(i18n.T("output.stopping_compose_project_dir"))
 	logging.InfoWithContext(ctx, "Found docker-compose.yml in project directory, stopping it", "composePath", projectComposePath)
 	if err := uc.deps.DockerRunner.DownWithContext(ctx, projectComposePath); err != nil {
 		logging.WarnWithContext(ctx, "Failed to stop Docker Compose services from project directory", "error", err.Error())
-		output.PrintWarning("Failed to stop Docker Compose services from project directory (may already be stopped)")
+		output.PrintWarning(i18n.T("output.failed_stop_compose_project_dir"))
 	} else {
-		output.PrintSuccess("Docker Compose services stopped from project directory")
+		output.PrintSuccess(i18n.T("output.compose_stopped_project_dir"))
 	}
 }
 
@@ -170,7 +170,7 @@ func (uc *DownUseCase) runDownCommand(ctx context.Context, downCommand, mode str
 		projectDir = uc.deps.Workspace.GetRoot(ws)
 	}
 
-	output.PrintInfo(fmt.Sprintf("Executing project down command: %s", downCommand))
+	output.PrintInfo(i18n.T("output.executing_project_down_cmd", downCommand))
 	logging.InfoWithContext(ctx, "Executing project down command", "command", downCommand, "projectDir", projectDir)
 
 	cmdParts := strings.Fields(downCommand)
@@ -192,9 +192,9 @@ func (uc *DownUseCase) runDownCommand(ctx context.Context, downCommand, mode str
 
 	if err := cmd.Run(); err != nil {
 		logging.WarnWithContext(ctx, "Failed to execute project down command", "error", err.Error())
-		output.PrintWarning(fmt.Sprintf("Failed to execute project down command (may already be stopped): %v", err))
+		output.PrintWarning(i18n.T("output.failed_project_down_cmd", err))
 	} else {
-		output.PrintSuccess("Project down command executed successfully")
+		output.PrintSuccess(i18n.T("output.project_down_cmd_success"))
 	}
 }
 
@@ -214,7 +214,7 @@ func (uc *DownUseCase) stopCommandOnlyProjectContainers(ctx context.Context, sta
 		if err := uc.deps.DockerRunner.StopContainerWithContext(ctx, name); err != nil {
 			logging.WarnWithContext(ctx, "Failed to stop container by name", "container", name, "error", err.Error())
 		} else {
-			output.PrintSuccess(fmt.Sprintf("Stopped container %s", name))
+			output.PrintSuccess(i18n.T("output.stopped_container", name))
 			break
 		}
 	}
@@ -222,27 +222,27 @@ func (uc *DownUseCase) stopCommandOnlyProjectContainers(ctx context.Context, sta
 
 // cleanupDockerResources cleans unused Docker images and volumes after down.
 func (uc *DownUseCase) cleanupDockerResources(ctx context.Context) {
-	output.PrintProgress("Cleaning up unused Docker images and volumes...")
+	output.PrintProgress(i18n.T("output.cleanup_progress"))
 
 	imageActions, err := uc.deps.DockerRunner.CleanUnusedImagesWithContext(ctx, false)
 	if err != nil {
 		logging.WarnWithContext(ctx, "Failed to clean unused images", "error", err.Error())
-		output.PrintProgressError("Failed to clean unused images")
+		output.PrintProgressError(i18n.T("output.cleanup_failed_images"))
 	} else {
 		for _, action := range imageActions {
 			logging.DebugWithContext(ctx, "Image cleanup action", "action", action)
 		}
-		output.PrintProgressDone("Unused images cleaned")
+		output.PrintProgressDone(i18n.T("output.unused_images_cleaned"))
 	}
 
 	volumeActions, err := uc.deps.DockerRunner.CleanUnusedVolumesWithContext(ctx, false, true)
 	if err != nil {
 		logging.WarnWithContext(ctx, "Failed to clean unused volumes", "error", err.Error())
-		output.PrintProgressError("Failed to clean unused volumes")
+		output.PrintProgressError(i18n.T("output.cleanup_failed_volumes"))
 	} else {
 		for _, action := range volumeActions {
 			logging.DebugWithContext(ctx, "Volume cleanup action", "action", action)
 		}
-		output.PrintProgressDone("Unused volumes cleaned")
+		output.PrintProgressDone(i18n.T("output.unused_volumes_cleaned"))
 	}
 }

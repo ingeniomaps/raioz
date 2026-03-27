@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"raioz/internal/audit"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/root"
 )
@@ -36,10 +37,10 @@ func (uc *WorkspaceUseCase) Use(workspaceName string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create workspace: %w", err)
 		}
-		output.PrintInfo(fmt.Sprintf("Created workspace: %s", workspaceName))
+		output.PrintInfo(i18n.T("output.workspace_created_name", workspaceName))
 		_ = ws
 	} else {
-		output.PrintInfo(fmt.Sprintf("Workspace %s already exists", workspaceName))
+		output.PrintInfo(i18n.T("output.workspace_already_exists", workspaceName))
 	}
 
 	// Load raioz.root.json if it exists (to validate it)
@@ -54,7 +55,7 @@ func (uc *WorkspaceUseCase) Use(workspaceName string) error {
 			return fmt.Errorf("failed to load raioz.root.json: %w", err)
 		}
 		if rootConfig != nil {
-			output.PrintInfo(fmt.Sprintf("Loaded raioz.root.json for workspace %s", workspaceName))
+			output.PrintInfo(i18n.T("output.workspace_loaded_root", workspaceName))
 		}
 	}
 
@@ -69,11 +70,11 @@ func (uc *WorkspaceUseCase) Use(workspaceName string) error {
 	// Log audit event if workspace changed
 	if oldWorkspace != workspaceName {
 		if err := audit.LogWorkspaceChanged(oldWorkspace, workspaceName); err != nil {
-			output.PrintWarning(fmt.Sprintf("Failed to log audit event: %v", err))
+			output.PrintWarning(i18n.T("output.failed_log_audit", err))
 		}
 	}
 
-	output.PrintSuccess(fmt.Sprintf("Active workspace set to: %s", workspaceName))
+	output.PrintSuccess(i18n.T("output.workspace_active_set", workspaceName))
 	return nil
 }
 
@@ -92,13 +93,13 @@ func (uc *WorkspaceUseCase) List() error {
 	}
 
 	if len(workspaces) == 0 {
-		fmt.Println("No workspaces found.")
-		fmt.Println("Create a workspace by running: raioz workspace use <name>")
+		fmt.Println(i18n.T("output.workspace_no_workspaces"))
+		fmt.Println(i18n.T("output.workspace_create_hint"))
 		return nil
 	}
 
 	// Print workspaces
-	fmt.Println("Available workspaces:")
+	fmt.Println(i18n.T("output.workspace_available"))
 	for _, ws := range workspaces {
 		marker := " "
 		if ws == activeWorkspace {
@@ -106,14 +107,15 @@ func (uc *WorkspaceUseCase) List() error {
 		}
 		fmt.Printf("  %s %s", marker, ws)
 		if ws == activeWorkspace {
-			fmt.Print(" (active)")
+			fmt.Printf(" %s", i18n.T("output.workspace_active_label"))
 		}
 		fmt.Println()
 	}
 
 	if activeWorkspace == "" {
-		fmt.Println("\nNo active workspace set.")
-		fmt.Println("Set an active workspace by running: raioz workspace use <name>")
+		fmt.Println()
+		fmt.Println(i18n.T("output.workspace_no_active"))
+		fmt.Println(i18n.T("output.workspace_set_hint"))
 	}
 
 	return nil
