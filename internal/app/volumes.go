@@ -19,232 +19,129 @@ import (
 type VolumesOptions struct {
 	ConfigPath  string
 	ProjectName string
-	Force       bool // Skip confirmation prompt
 }
 
-// VolumesUseCase handles the "volumes" use case - removing project volumes
+// VolumesRemoveOptions contains options for the volumes remove operation
+type VolumesRemoveOptions struct {
+	ConfigPath  string
+	ProjectName string
+	All         bool
+	Force       bool
+	Volumes     []string // specific volume names to remove
+}
+
+// VolumeInfo represents a project volume with usage information
+type VolumeInfo struct {
+	Name      string
+	InUseBy   []string // other projects using this volume
+	Source    string   // "service" or "infra"
+}
+
+// VolumesUseCase handles the "volumes" use case
 type VolumesUseCase struct {
 	deps *Dependencies
 }
 
 // NewVolumesUseCase creates a new VolumesUseCase with injected dependencies
 func NewVolumesUseCase(deps *Dependencies) *VolumesUseCase {
-	return &VolumesUseCase{
-		deps: deps,
-	}
+	return &VolumesUseCase{deps: deps}
 }
 
-// Execute executes the volumes use case
-func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) error {
-	// Add request ID and operation context for logging correlation
-	ctx = logging.WithRequestID(ctx)
-	ctx = logging.WithOperation(ctx, "raioz volumes")
-
-	var ws *interfaces.Workspace
-	var err error
-
-	// Determine project name and workspace
-	projectName := opts.ProjectName
-	var workspaceName string
-	if projectName == "" {
-		logging.DebugWithContext(ctx, "Project name not provided, loading from config",
-			"config_path", opts.ConfigPath,
-		)
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
-		if deps != nil {
-			projectName = deps.Project.Name
-			workspaceName = deps.GetWorkspaceName()
-			ctx = logging.WithProject(ctx, projectName)
-		} else {
-			logging.ErrorWithContext(ctx, "Could not determine project name")
-			return errors.New(
-				errors.ErrCodeInvalidConfig,
-				i18n.T("error.no_project"),
-			).WithSuggestion(
-				i18n.T("error.no_project_suggestion"),
-			)
-		}
-	} else {
-		ctx = logging.WithProject(ctx, projectName)
-		// If project name comes from CLI, load config to get workspace name
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
-		if deps != nil && deps.Project.Name == projectName {
-			workspaceName = deps.GetWorkspaceName()
-		} else {
-			// Fallback: use project name as workspace (backward compatibility)
-			workspaceName = projectName
-		}
-	}
-
-	// Log operation start
-	logging.LogOperationStart(ctx, "raioz volumes",
-		"project", projectName,
-	)
-
-	// Resolve workspace using workspace name
-	ws, err = uc.deps.Workspace.Resolve(workspaceName)
+// List lists all volumes for a project
+func (uc *VolumesUseCase) List(ctx context.Context, opts VolumesOptions) error {
+	projectName, ws, err := uc.resolveProject(ctx, opts.ConfigPath, opts.ProjectName)
 	if err != nil {
-		logging.ErrorWithContext(ctx, "Failed to resolve workspace",
-			"project", projectName,
-			"error", err.Error(),
-		)
-		return errors.New(
-			errors.ErrCodeWorkspaceError,
-			i18n.T("error.workspace_resolve"),
-		).WithSuggestion(
-			i18n.T("error.workspace_resolve_suggestion"),
-		).WithContext("project", projectName).WithError(err)
+		return err
 	}
 
-	// Get workspace root using interface method
-	wsRoot := uc.deps.Workspace.GetRoot(ws)
-	logging.InfoWithContext(ctx, "Workspace resolved",
-		"workspace", wsRoot,
-	)
-
-	// Try to load state to get volumes from state (same source as compose generation)
-	var serviceVolumes []string
-	var infraVolumes []string
-	var stateDeps *config.Deps
-
-	if uc.deps.StateManager.Exists(ws) {
-		stateDeps, err = uc.deps.StateManager.Load(ws)
-		if err == nil {
-			for _, svc := range stateDeps.Services {
-				if svc.Docker != nil {
-					serviceVolumes = append(serviceVolumes, svc.Docker.Volumes...)
-				}
-			}
-			for _, entry := range stateDeps.Infra {
-				if entry.Inline != nil {
-					infraVolumes = append(infraVolumes, entry.Inline.Volumes...)
-				}
-			}
-		}
+	volumes, err := uc.collectVolumes(ctx, projectName, ws, opts.ConfigPath)
+	if err != nil {
+		return err
 	}
 
-	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
-		if deps != nil {
-			stateDeps = deps
-			for _, svc := range deps.Services {
-				if svc.Docker != nil {
-					serviceVolumes = append(serviceVolumes, svc.Docker.Volumes...)
-				}
-			}
-			for _, entry := range deps.Infra {
-				if entry.Inline != nil {
-					infraVolumes = append(infraVolumes, entry.Inline.Volumes...)
-				}
-			}
-		}
-	}
-
-	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
+	if len(volumes) == 0 {
 		output.PrintInfo(i18n.T("output.no_volumes_found"))
 		return nil
 	}
 
-	// Normalize the same way as compose: service volumes with project name, infra volumes with workspace name
-	seenNormalized := make(map[string]bool)
-	normalizedVolumes := make([]string, 0)
+	output.PrintSectionHeader(i18n.T("output.volumes_list_header", projectName))
 
-	serviceNamed, err := uc.deps.DockerRunner.ExtractNamedVolumes(serviceVolumes)
+	for _, vol := range volumes {
+		if len(vol.InUseBy) > 0 {
+			output.PrintInfo(i18n.T("output.volume_list_shared", vol.Name, vol.Source, strings.Join(vol.InUseBy, ", ")))
+		} else {
+			output.PrintInfo(i18n.T("output.volume_list_item", vol.Name, vol.Source))
+		}
+	}
+
+	return nil
+}
+
+// Remove removes volumes for a project
+func (uc *VolumesUseCase) Remove(ctx context.Context, opts VolumesRemoveOptions) error {
+	projectName, ws, err := uc.resolveProject(ctx, opts.ConfigPath, opts.ProjectName)
 	if err != nil {
-		return errors.New(
-			errors.ErrCodeDockerNotRunning,
-			i18n.T("error.volumes_extract_services"),
-		).WithError(err)
-	}
-	for _, volName := range serviceNamed {
-		normalizedName, err := uc.deps.DockerRunner.NormalizeVolumeName(projectName, volName)
-		if err != nil {
-			logging.WarnWithContext(ctx, "Failed to normalize service volume name", "volume", volName, "error", err.Error())
-			continue
-		}
-		if !seenNormalized[normalizedName] {
-			seenNormalized[normalizedName] = true
-			normalizedVolumes = append(normalizedVolumes, normalizedName)
-		}
+		return err
 	}
 
-	infraNamed, err := uc.deps.DockerRunner.ExtractNamedVolumes(infraVolumes)
+	volumes, err := uc.collectVolumes(ctx, projectName, ws, opts.ConfigPath)
 	if err != nil {
-		return errors.New(
-			errors.ErrCodeDockerNotRunning,
-			i18n.T("error.volumes_extract_infra"),
-		).WithError(err)
-	}
-	for _, volName := range infraNamed {
-		normalizedName, err := uc.deps.DockerRunner.NormalizeVolumeName(workspaceName, volName)
-		if err != nil {
-			logging.WarnWithContext(ctx, "Failed to normalize infra volume name", "volume", volName, "error", err.Error())
-			continue
-		}
-		if !seenNormalized[normalizedName] {
-			seenNormalized[normalizedName] = true
-			normalizedVolumes = append(normalizedVolumes, normalizedName)
-		}
+		return err
 	}
 
-	if len(normalizedVolumes) == 0 {
-		output.PrintInfo(i18n.T("output.no_volumes_to_remove"))
+	if len(volumes) == 0 {
+		output.PrintInfo(i18n.T("output.no_volumes_found"))
 		return nil
 	}
 
-	// Get base directory for checking volume usage
-	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
+	// Filter volumes to remove
+	var toRemove []VolumeInfo
+	var inUse []VolumeInfo
 
-	// Check which volumes are in use by other projects
-	volumesToRemove := make([]string, 0)
-	volumesInUse := make(map[string][]string) // volume -> list of projects using it
-
-	for _, volName := range normalizedVolumes {
-		volProjects, err := uc.deps.DockerRunner.GetVolumeProjects(volName, baseDir)
+	if len(opts.Volumes) > 0 {
+		// Specific volumes requested
+		toRemove, inUse, err = uc.filterSpecificVolumes(volumes, opts.Volumes)
 		if err != nil {
-			logging.WarnWithContext(ctx, "Failed to check volume usage", "volume", volName, "error", err.Error())
-			// Assume it's safe to remove if we can't check
-			volumesToRemove = append(volumesToRemove, volName)
-			continue
+			return err
 		}
-
-		// Filter out current project
-		otherProjects := make([]string, 0)
-		for _, p := range volProjects {
-			if p != projectName {
-				otherProjects = append(otherProjects, p)
+	} else if opts.All {
+		// All volumes
+		for _, vol := range volumes {
+			if len(vol.InUseBy) > 0 {
+				inUse = append(inUse, vol)
+			} else {
+				toRemove = append(toRemove, vol)
 			}
 		}
-
-		if len(otherProjects) > 0 {
-			volumesInUse[volName] = otherProjects
-		} else {
-			volumesToRemove = append(volumesToRemove, volName)
-		}
+	} else {
+		return errors.New(
+			errors.ErrCodeInvalidField,
+			i18n.T("error.volumes_no_target"),
+		)
 	}
 
-	// Show volumes that are in use
-	if len(volumesInUse) > 0 {
-		output.PrintWarning(i18n.T("output.volumes_in_use_warning", len(volumesInUse)))
-		for volName, projects := range volumesInUse {
-			output.PrintInfo(i18n.T("output.volume_detail", volName, strings.Join(projects, ", ")))
+	// Show volumes in use by other projects
+	if len(inUse) > 0 {
+		output.PrintWarning(i18n.T("output.volumes_in_use_warning", len(inUse)))
+		for _, vol := range inUse {
+			output.PrintInfo(i18n.T("output.volume_detail", vol.Name, strings.Join(vol.InUseBy, ", ")))
 		}
 		fmt.Println()
 	}
 
-	// Show volumes that can be removed
-	if len(volumesToRemove) == 0 {
+	if len(toRemove) == 0 {
 		output.PrintInfo(i18n.T("output.all_volumes_in_use"))
 		return nil
 	}
 
-	output.PrintInfo(i18n.T("output.found_volumes_removable", len(volumesToRemove)))
-	for _, volName := range volumesToRemove {
-		output.PrintInfo(i18n.T("output.volume_item", volName))
+	// Show what will be removed
+	output.PrintInfo(i18n.T("output.found_volumes_removable", len(toRemove)))
+	for _, vol := range toRemove {
+		output.PrintInfo(i18n.T("output.volume_item", vol.Name))
 	}
 	fmt.Println()
 
-	// Ask for confirmation unless --force is used
+	// Ask for confirmation
 	if !opts.Force {
 		fmt.Print(i18n.T("output.confirm_remove_volumes_prompt"))
 		reader := bufio.NewReader(os.Stdin)
@@ -255,7 +152,6 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 				i18n.T("error.read_input"),
 			).WithError(err)
 		}
-
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "yes" && response != "y" {
 			output.PrintInfo(i18n.T("output.volumes_cancelled"))
@@ -264,18 +160,164 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 	}
 
 	// Remove volumes
-	output.PrintProgress(i18n.T("output.removing_volumes", len(volumesToRemove)))
+	return uc.removeVolumes(ctx, toRemove)
+}
+
+// resolveProject resolves project name and workspace
+func (uc *VolumesUseCase) resolveProject(ctx context.Context, configPath string, projectName string) (string, *interfaces.Workspace, error) {
+	var workspaceName string
+	if projectName == "" {
+		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
+		if deps != nil {
+			projectName = deps.Project.Name
+			workspaceName = deps.GetWorkspaceName()
+		} else {
+			return "", nil, errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("error.no_project"),
+			).WithSuggestion(i18n.T("error.no_project_suggestion"))
+		}
+	} else {
+		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
+		if deps != nil && deps.Project.Name == projectName {
+			workspaceName = deps.GetWorkspaceName()
+		} else {
+			workspaceName = projectName
+		}
+	}
+
+	ws, err := uc.deps.Workspace.Resolve(workspaceName)
+	if err != nil {
+		return "", nil, errors.New(
+			errors.ErrCodeWorkspaceError,
+			i18n.T("error.workspace_resolve"),
+		).WithContext("project", projectName).WithError(err)
+	}
+
+	return projectName, ws, nil
+}
+
+// collectVolumes collects and normalizes all project volumes
+func (uc *VolumesUseCase) collectVolumes(ctx context.Context, projectName string, ws *interfaces.Workspace, configPath string) ([]VolumeInfo, error) {
+	var serviceVolumes []string
+	var infraVolumes []string
+	workspaceName := projectName
+
+	// Try state first, then config
+	if uc.deps.StateManager.Exists(ws) {
+		stateDeps, err := uc.deps.StateManager.Load(ws)
+		if err == nil {
+			workspaceName = stateDeps.GetWorkspaceName()
+			serviceVolumes, infraVolumes = extractVolumesFromDeps(stateDeps)
+		}
+	}
+
+	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
+		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
+		if deps != nil {
+			workspaceName = deps.GetWorkspaceName()
+			serviceVolumes, infraVolumes = extractVolumesFromDeps(deps)
+		}
+	}
+
+	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
+		return nil, nil
+	}
+
+	// Normalize and deduplicate
+	seen := make(map[string]bool)
+	var volumes []VolumeInfo
+
+	// Service volumes normalized with project name
+	serviceNamed, err := uc.deps.DockerRunner.ExtractNamedVolumes(serviceVolumes)
+	if err != nil {
+		return nil, errors.New(errors.ErrCodeDockerNotRunning, i18n.T("error.volumes_extract_services")).WithError(err)
+	}
+	for _, volName := range serviceNamed {
+		normalized, err := uc.deps.DockerRunner.NormalizeVolumeName(projectName, volName)
+		if err != nil {
+			logging.WarnWithContext(ctx, "Failed to normalize service volume", "volume", volName, "error", err.Error())
+			continue
+		}
+		if !seen[normalized] {
+			seen[normalized] = true
+			volumes = append(volumes, VolumeInfo{Name: normalized, Source: "service"})
+		}
+	}
+
+	// Infra volumes normalized with workspace name
+	infraNamed, err := uc.deps.DockerRunner.ExtractNamedVolumes(infraVolumes)
+	if err != nil {
+		return nil, errors.New(errors.ErrCodeDockerNotRunning, i18n.T("error.volumes_extract_infra")).WithError(err)
+	}
+	for _, volName := range infraNamed {
+		normalized, err := uc.deps.DockerRunner.NormalizeVolumeName(workspaceName, volName)
+		if err != nil {
+			logging.WarnWithContext(ctx, "Failed to normalize infra volume", "volume", volName, "error", err.Error())
+			continue
+		}
+		if !seen[normalized] {
+			seen[normalized] = true
+			volumes = append(volumes, VolumeInfo{Name: normalized, Source: "infra"})
+		}
+	}
+
+	// Check usage by other projects
+	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
+	for i, vol := range volumes {
+		projects, err := uc.deps.DockerRunner.GetVolumeProjects(vol.Name, baseDir)
+		if err != nil {
+			continue
+		}
+		var others []string
+		for _, p := range projects {
+			if p != projectName {
+				others = append(others, p)
+			}
+		}
+		volumes[i].InUseBy = others
+	}
+
+	return volumes, nil
+}
+
+// filterSpecificVolumes filters volumes by name
+func (uc *VolumesUseCase) filterSpecificVolumes(volumes []VolumeInfo, names []string) (toRemove []VolumeInfo, inUse []VolumeInfo, err error) {
+	volMap := make(map[string]VolumeInfo)
+	for _, vol := range volumes {
+		volMap[vol.Name] = vol
+	}
+
+	for _, name := range names {
+		vol, ok := volMap[name]
+		if !ok {
+			return nil, nil, errors.New(
+				errors.ErrCodeInvalidField,
+				i18n.T("error.volume_not_found", name),
+			).WithContext("volume", name)
+		}
+		if len(vol.InUseBy) > 0 {
+			inUse = append(inUse, vol)
+		} else {
+			toRemove = append(toRemove, vol)
+		}
+	}
+	return toRemove, inUse, nil
+}
+
+// removeVolumes removes the given volumes
+func (uc *VolumesUseCase) removeVolumes(ctx context.Context, volumes []VolumeInfo) error {
+	output.PrintProgress(i18n.T("output.removing_volumes", len(volumes)))
 	removedCount := 0
 	failedCount := 0
 
-	for _, volName := range volumesToRemove {
-		logging.InfoWithContext(ctx, "Removing volume", "volume", volName)
-		if err := uc.deps.DockerRunner.RemoveVolumeWithContext(ctx, volName); err != nil {
-			logging.WarnWithContext(ctx, "Failed to remove volume", "volume", volName, "error", err.Error())
-			output.PrintWarning(i18n.T("output.failed_remove_volume", volName, err))
+	for _, vol := range volumes {
+		if err := uc.deps.DockerRunner.RemoveVolumeWithContext(ctx, vol.Name); err != nil {
+			logging.WarnWithContext(ctx, "Failed to remove volume", "volume", vol.Name, "error", err.Error())
+			output.PrintWarning(i18n.T("output.failed_remove_volume", vol.Name, err))
 			failedCount++
 		} else {
-			output.PrintSuccess(i18n.T("output.removed_volume", volName))
+			output.PrintSuccess(i18n.T("output.removed_volume", vol.Name))
 			removedCount++
 		}
 	}
@@ -287,11 +329,20 @@ func (uc *VolumesUseCase) Execute(ctx context.Context, opts VolumesOptions) erro
 	if failedCount > 0 {
 		output.PrintWarning(i18n.T("output.volumes_removed_failed", failedCount))
 	}
-
-	logging.InfoWithContext(ctx, "Volumes removal completed",
-		"removed", removedCount,
-		"failed", failedCount,
-	)
-
 	return nil
+}
+
+// extractVolumesFromDeps extracts service and infra volumes from deps
+func extractVolumesFromDeps(deps *config.Deps) (serviceVolumes []string, infraVolumes []string) {
+	for _, svc := range deps.Services {
+		if svc.Docker != nil {
+			serviceVolumes = append(serviceVolumes, svc.Docker.Volumes...)
+		}
+	}
+	for _, entry := range deps.Infra {
+		if entry.Inline != nil {
+			infraVolumes = append(infraVolumes, entry.Inline.Volumes...)
+		}
+	}
+	return
 }
