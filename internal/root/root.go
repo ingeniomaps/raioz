@@ -39,7 +39,7 @@ type RootConfig struct {
 	Network       config.NetworkConfig      `json:"network"`       // Network configuration (shared by workspace)
 	Project       config.Project            `json:"project"`
 	Services      map[string]config.Service `json:"services"`
-	Infra         map[string]config.Infra   `json:"infra"`
+	Infra         map[string]config.InfraEntry `json:"infra"`
 	Env           config.EnvConfig          `json:"env"`
 	// Metadata tracks the origin of each service
 	Metadata map[string]ServiceMetadata `json:"metadata,omitempty"`

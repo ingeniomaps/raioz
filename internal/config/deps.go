@@ -112,15 +112,15 @@ type ServiceCommands struct {
 }
 
 type SourceConfig struct {
-	Kind    string `json:"kind"`              // git | image | local
-	Repo    string `json:"repo"`              // Required if kind == "git"
-	Branch  string `json:"branch"`            // Required if kind == "git"
-	Image   string `json:"image"`             // Required if kind == "image"
-	Tag     string `json:"tag"`               // Required if kind == "image"
-	Path    string `json:"path"`              // Required if kind == "git" or "local"
-	Access  string `json:"access,omitempty"`  // "readonly" | "editable" (default: "editable", only for git)
-	Command string `json:"command,omitempty"` // Command to run directly on host (without Docker)
-	Runtime string `json:"runtime,omitempty"` // Runtime type for host execution (optional)
+	Kind    string `json:"kind"`                        // git | image | local
+	Repo    string `json:"repo,omitempty"`              // Required if kind == "git"
+	Branch  string `json:"branch,omitempty"`            // Required if kind == "git"
+	Image   string `json:"image,omitempty"`             // Required if kind == "image"
+	Tag     string `json:"tag,omitempty"`               // Required if kind == "image"
+	Path    string `json:"path,omitempty"`              // Required if kind == "git" or "local"
+	Access  string `json:"access,omitempty"`            // "readonly" | "editable" (default: "editable", only for git)
+	Command string `json:"command,omitempty"`           // Command to run directly on host (without Docker)
+	Runtime string `json:"runtime,omitempty"`           // Runtime type for host execution (optional)
 }
 
 type DockerConfig struct {

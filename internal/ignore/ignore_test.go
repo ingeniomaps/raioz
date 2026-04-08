@@ -74,6 +74,19 @@ func TestLoad(t *testing.T) {
 		}
 	})
 
+	t.Run("load corrupted file", func(t *testing.T) {
+		path, _ := GetIgnorePath()
+		os.WriteFile(path, []byte("invalid json"), 0644)
+
+		_, err := Load()
+		if err == nil {
+			t.Error("Expected error loading corrupted ignore file, got nil")
+		}
+
+		// Clean up for next test
+		os.Remove(path)
+	})
+
 	t.Run("load file with nil services", func(t *testing.T) {
 		// Create ignore file with nil services
 		path, _ := GetIgnorePath()

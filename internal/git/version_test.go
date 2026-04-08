@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,7 +42,7 @@ func TestGetCommitSHA(t *testing.T) {
 	}
 
 	// Test GetCommitSHA
-	sha, err := GetCommitSHA(tmpDir)
+	sha, err := GetCommitSHA(context.Background(), tmpDir)
 	if err != nil {
 		t.Errorf("GetCommitSHA() error = %v", err)
 	}
@@ -64,7 +65,7 @@ func TestGetCommitSHA_NotGitRepo(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Test with non-git directory
-	_, err = GetCommitSHA(tmpDir)
+	_, err = GetCommitSHA(context.Background(), tmpDir)
 	if err == nil {
 		t.Error("GetCommitSHA() should return error for non-git directory")
 	}
@@ -104,7 +105,7 @@ func TestGetCommitDate(t *testing.T) {
 	}
 
 	// Test GetCommitDate
-	date, err := GetCommitDate(tmpDir)
+	date, err := GetCommitDate(context.Background(), tmpDir)
 	if err != nil {
 		t.Errorf("GetCommitDate() error = %v", err)
 	}
@@ -123,7 +124,7 @@ func TestGetCommitDate_NotGitRepo(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Test with non-git directory
-	_, err = GetCommitDate(tmpDir)
+	_, err = GetCommitDate(context.Background(), tmpDir)
 	if err == nil {
 		t.Error("GetCommitDate() should return error for non-git directory")
 	}

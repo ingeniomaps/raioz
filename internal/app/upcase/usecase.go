@@ -2,9 +2,12 @@ package upcase
 
 import (
 	"context"
+	"io"
+	"os"
 	"path/filepath"
 	"time"
 
+	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
@@ -18,6 +21,7 @@ type Options struct {
 	Profile      string
 	ForceReclone bool
 	DryRun       bool
+	Only         []string
 }
 
 // Dependencies contains the dependencies needed by the up use case
@@ -36,24 +40,38 @@ type Dependencies struct {
 // UseCase handles the "up" use case - starting a project
 type UseCase struct {
 	deps *Dependencies
+	Out  io.Writer
 }
 
 // NewUseCase creates a new UpUseCase with injected dependencies
 func NewUseCase(deps *Dependencies) *UseCase {
 	return &UseCase{
 		deps: deps,
+		Out:  os.Stdout,
 	}
+}
+
+// out returns the output writer
+func (uc *UseCase) out() io.Writer {
+	if uc.Out != nil {
+		return uc.Out
+	}
+	return os.Stdout
 }
 
 // Execute executes the up use case
 func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	startTime := time.Now()
 
-	// Bootstrap: context, logging, config loading
-	ctx, deps, ws, err := uc.bootstrap(ctx, opts.ConfigPath)
+	// Bootstrap: context, logging, config loading, overrides
+	br, err := uc.bootstrap(ctx, opts.ConfigPath)
 	if err != nil {
 		return err
 	}
+	ctx = br.ctx
+	deps := br.deps
+	ws := br.ws
+	appliedOverrides := br.appliedOverrides
 
 	// Get project directory (where .raioz.json is located)
 	projectDir, err := filepath.Abs(filepath.Dir(opts.ConfigPath))
@@ -75,10 +93,17 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		).WithError(err)
 	}
 
-	// Filters: profile, feature flags, ignore list
-	deps, err = uc.applyFilters(deps, opts.Profile)
+	// Filters: profile, feature flags, ignore list, --only
+	deps, err = uc.applyFilters(deps, opts.Profile, opts.Only)
 	if err != nil {
 		return err
+	}
+
+	// Save filtered deps for re-applying --only after merge
+	var onlyFilteredDeps *config.Deps
+	if len(opts.Only) > 0 {
+		copy := *deps
+		onlyFilteredDeps = &copy
 	}
 
 	// Check what we have: services, infra, or project commands
@@ -92,10 +117,15 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	onlyProjectCommands := !hasServices && !hasInfra && hasProjectCommands
 
 	// Validation: validate.All, permissions, ports, dependency conflicts
-	// Skip some validations if we only have project commands
 	err = uc.validate(ctx, deps, ws, opts.DryRun)
 	if err != nil {
 		return err
+	}
+
+	// Dry-run: show what would happen and exit
+	if opts.DryRun {
+		uc.showDryRunSummary(deps, appliedOverrides)
+		return nil
 	}
 
 	// If only project commands, execute them directly and return
@@ -157,6 +187,11 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 	if mergedDeps != nil {
 		deps = mergedDeps
+		// Re-apply --only filter from original config (merge may have overwritten with state data)
+		if onlyFilteredDeps != nil {
+			svcNames, infraNames := config.ResolveDependencies(onlyFilteredDeps, opts.Only)
+			deps = config.FilterByServices(onlyFilteredDeps, svcNames, infraNames)
+		}
 	}
 	// WorkspaceConflictProceed: continue (with deps or merged deps)
 
@@ -164,9 +199,9 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
-			"Failed to write global environment variables",
+			i18n.T("error.global_env_write"),
 		).WithSuggestion(
-			"Check that you have write permissions for the env directory.",
+			i18n.T("error.global_env_write_suggestion"),
 		).WithError(err)
 	}
 
@@ -235,7 +270,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 
 	// State: save state, root config, drift detection, audit (persist project root so merge can resolve volumes per project)
 	deps.ProjectRoot = projectDir
-	err = uc.saveState(ctx, deps, ws, composePath, serviceNames, addedServices, assistedServicesMap)
+	err = uc.saveState(ctx, deps, ws, composePath, serviceNames, addedServices, assistedServicesMap, appliedOverrides)
 	if err != nil {
 		return err
 	}

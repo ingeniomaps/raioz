@@ -100,3 +100,8 @@ func (m *WorkspaceManagerImpl) WorkspaceExists(workspaceName string) (bool, erro
 func (m *WorkspaceManagerImpl) SetActiveWorkspace(workspaceName string) error {
 	return workspacepkg.SetActiveWorkspace(workspaceName)
 }
+
+// DeleteWorkspace removes a workspace directory
+func (m *WorkspaceManagerImpl) DeleteWorkspace(workspaceName string) error {
+	return workspacepkg.DeleteWorkspace(workspaceName)
+}

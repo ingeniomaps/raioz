@@ -158,6 +158,7 @@ type Infra struct {
 	IP          string             `json:"ip,omitempty"`       // Static IP address in the network (e.g., "150.150.0.10")
 	Healthcheck *HealthcheckConfig `json:"healthcheck,omitempty"` // Optional: same format as Docker Compose healthcheck
 	Profiles    []string           `json:"profiles,omitempty"`  // If set, this infra is only included when using --profile <name>
+	Seed        []string           `json:"seed,omitempty"`      // Optional: files/dirs to mount in /docker-entrypoint-initdb.d/ (postgres, mysql, mongo)
 }
 
 // InfraEntry is a single infra entry: either a path to a YAML file (Path) or an inline spec (Inline).

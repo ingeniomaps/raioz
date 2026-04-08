@@ -36,4 +36,6 @@ type WorkspaceManager interface {
 	WorkspaceExists(workspaceName string) (bool, error)
 	// SetActiveWorkspace sets the active workspace
 	SetActiveWorkspace(workspaceName string) error
+	// DeleteWorkspace removes a workspace directory
+	DeleteWorkspace(workspaceName string) error
 }

@@ -19,9 +19,9 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X 'raioz/cmd.Version={{.Version}}'
-      - -X 'raioz/cmd.Commit={{.Commit}}'
-      - -X 'raioz/cmd.BuildDate={{.Date}}'
+      - -X 'raioz/internal/cli.Version={{.Version}}'
+      - -X 'raioz/internal/cli.Commit={{.Commit}}'
+      - -X 'raioz/internal/cli.BuildDate={{.Date}}'
     hooks:
       pre:
         - go mod download

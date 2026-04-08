@@ -104,6 +104,25 @@ func buildInlineInfraConfig(
 		infraConfig["volumes"] = normalizedVolumes
 	}
 
+	// Seed data: mount files/dirs in /docker-entrypoint-initdb.d/
+	if len(infra.Seed) > 0 {
+		initDir := getInitDir(infra.Image)
+		var seedVolumes []string
+		for _, seedPath := range infra.Seed {
+			absPath := seedPath
+			if !filepath.IsAbs(seedPath) {
+				absPath = filepath.Join(projectDir, seedPath)
+			}
+			seedVolumes = append(seedVolumes, absPath+":"+initDir+"/"+filepath.Base(seedPath)+":ro")
+		}
+		// Append to existing volumes
+		if existing, ok := infraConfig["volumes"].([]string); ok {
+			infraConfig["volumes"] = append(existing, seedVolumes...)
+		} else {
+			infraConfig["volumes"] = seedVolumes
+		}
+	}
+
 	// Resolve env
 	envVars, hasEnvFile, err := resolveInfraEnv(infraConfig, name, infra, deps, ws, projectDir)
 	if err != nil {
@@ -332,5 +351,20 @@ func collectInfraEnvFromFiles(
 				target[k] = v
 			}
 		}
+	}
+}
+
+// getInitDir returns the init directory for seed data based on the image name
+func getInitDir(image string) string {
+	img := strings.ToLower(image)
+	switch {
+	case strings.Contains(img, "postgres"):
+		return "/docker-entrypoint-initdb.d"
+	case strings.Contains(img, "mysql"), strings.Contains(img, "mariadb"):
+		return "/docker-entrypoint-initdb.d"
+	case strings.Contains(img, "mongo"):
+		return "/docker-entrypoint-initdb.d"
+	default:
+		return "/docker-entrypoint-initdb.d"
 	}
 }

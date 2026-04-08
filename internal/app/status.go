@@ -167,7 +167,7 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 		ws,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to get services info: %w", err)
+		return errors.New(errors.ErrCodeDockerNotRunning, i18n.T("error.status_services_info")).WithError(err)
 	}
 
 	// If project has its own docker-compose.yml, include services from it

@@ -43,11 +43,69 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
 			defer cancel()
 
-			// Build command: docker compose -f <path> up -d [service1 service2 ...]
-			args := []string{"compose", "-f", composePath, "up", "-d"}
+			// Build command: docker compose -f <path> up -d --remove-orphans [service1 service2 ...]
+			// --remove-orphans cleans up containers from services no longer in the compose file
+			// (e.g., after a Replace operation in a shared workspace)
+			args := []string{"compose", "-f", composePath, "up", "-d", "--remove-orphans"}
 			if len(serviceNames) > 0 {
 				args = append(args, serviceNames...)
 			}
+
+			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			err := cmd.Run()
+			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
+		})
+	})
+}
+
+// RestartServicesWithContext restarts specific Docker Compose services
+func RestartServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+	if err := ValidateComposePath(composePath); err != nil {
+		return fmt.Errorf("invalid compose path: %w", err)
+	}
+
+	dockerCB := resilience.GetDockerCircuitBreaker()
+	retryConfig := resilience.DockerRetryConfig()
+	operationName := fmt.Sprintf("docker compose restart %v", serviceNames)
+
+	return resilience.RetryWithContext(ctx, retryConfig, operationName, func(ctx context.Context) error {
+		return dockerCB.ExecuteWithContext(ctx, operationName, func(ctx context.Context) error {
+			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
+			defer cancel()
+
+			args := []string{"compose", "-f", composePath, "restart"}
+			args = append(args, serviceNames...)
+
+			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			err := cmd.Run()
+			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
+		})
+	})
+}
+
+// ForceRecreateServicesWithContext recreates containers (docker compose up -d --force-recreate)
+func ForceRecreateServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+	if err := ValidateComposePath(composePath); err != nil {
+		return fmt.Errorf("invalid compose path: %w", err)
+	}
+
+	dockerCB := resilience.GetDockerCircuitBreaker()
+	retryConfig := resilience.DockerRetryConfig()
+	operationName := fmt.Sprintf("docker compose up --force-recreate %v", serviceNames)
+
+	return resilience.RetryWithContext(ctx, retryConfig, operationName, func(ctx context.Context) error {
+		return dockerCB.ExecuteWithContext(ctx, operationName, func(ctx context.Context) error {
+			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
+			defer cancel()
+
+			args := []string{"compose", "-f", composePath, "up", "-d", "--force-recreate", "--no-deps"}
+			args = append(args, serviceNames...)
 
 			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
 			cmd.Stdout = os.Stdout

@@ -20,6 +20,21 @@ func (r *DockerRunnerImpl) UpServicesWithContext(ctx context.Context, composePat
 	return dockerpkg.UpServicesWithContext(ctx, composePath, serviceNames)
 }
 
+// RestartServicesWithContext restarts specific Docker Compose services
+func (r *DockerRunnerImpl) RestartServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+	return dockerpkg.RestartServicesWithContext(ctx, composePath, serviceNames)
+}
+
+// ForceRecreateServicesWithContext recreates and starts services
+func (r *DockerRunnerImpl) ForceRecreateServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+	return dockerpkg.ForceRecreateServicesWithContext(ctx, composePath, serviceNames)
+}
+
+// ExecInService runs a command inside a running container
+func (r *DockerRunnerImpl) ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error {
+	return dockerpkg.ExecInService(ctx, composePath, serviceName, command, interactive)
+}
+
 // WaitForServicesHealthy waits for services to become healthy
 func (r *DockerRunnerImpl) WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error {
 	return dockerpkg.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, projectName)

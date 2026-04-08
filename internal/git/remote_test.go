@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,7 +38,7 @@ func TestBranchExists(t *testing.T) {
 	// Test with existing branch (should return true for local branch)
 	// Note: For remote branches, we'd need a remote, but for testing purposes
 	// we'll test the function exists and works
-	exists, err := BranchExists(tmpDir, "test-branch")
+	exists, err := BranchExists(context.Background(), tmpDir, "test-branch")
 	if err != nil {
 		// This might fail if there's no remote, which is ok for testing
 		// Just verify function exists and handles errors gracefully
@@ -60,7 +61,7 @@ func TestHasUncommittedChanges(t *testing.T) {
 	}
 
 	// Test with no changes
-	hasChanges, err := HasUncommittedChanges(tmpDir)
+	hasChanges, err := HasUncommittedChanges(context.Background(), tmpDir)
 	if err != nil {
 		t.Fatalf("HasUncommittedChanges() error = %v", err)
 	}
@@ -72,7 +73,7 @@ func TestHasUncommittedChanges(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("test"), 0644)
 
 	// Test with uncommitted changes
-	hasChanges, err = HasUncommittedChanges(tmpDir)
+	hasChanges, err = HasUncommittedChanges(context.Background(), tmpDir)
 	if err != nil {
 		t.Fatalf("HasUncommittedChanges() error = %v", err)
 	}
@@ -93,7 +94,7 @@ func TestHasMergeConflicts(t *testing.T) {
 	}
 
 	// Test with no conflicts
-	hasConflicts, err := HasMergeConflicts(tmpDir)
+	hasConflicts, err := HasMergeConflicts(context.Background(), tmpDir)
 	if err != nil {
 		t.Fatalf("HasMergeConflicts() error = %v", err)
 	}
@@ -125,7 +126,7 @@ func TestForceReclone(t *testing.T) {
 	// Test ForceReclone with a fake repo (will fail, but tests the function)
 	// Note: This test requires a real remote repo to fully test
 	// For now, we just verify the function exists and removes the directory
-	err := ForceReclone(repoPath, "https://github.com/test/test.git", "main")
+	err := ForceReclone(context.Background(), repoPath, "https://github.com/test/test.git", "main")
 	if err != nil {
 		// Expected to fail since it's not a real repo, but directory should be removed
 		if _, err := os.Stat(repoPath); err == nil {

@@ -69,15 +69,15 @@ func TestValidatePorts(t *testing.T) {
 		},
 		Services: map[string]config.Service{
 			"service1": {
-				Docker: config.DockerConfig{
+				Docker: &config.DockerConfig{
 					Ports: []string{"3000:8080"},
 				},
 			},
 		},
-		Infra: map[string]config.Infra{
-			"infra1": {
+		Infra: map[string]config.InfraEntry{
+			"infra1": {Inline: &config.Infra{
 				Ports: []string{"5432:5432"},
-			},
+			}},
 		},
 	}
 

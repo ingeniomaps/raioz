@@ -232,8 +232,7 @@ func TestFilterByFeatureFlags(t *testing.T) {
 	deps := &Deps{
 		SchemaVersion: "1.0",
 		Project: Project{
-			Name:    "test",
-			Network: "test",
+			Name: "test",
 		},
 		Services: map[string]Service{
 			"enabled-service": {
@@ -242,7 +241,7 @@ func TestFilterByFeatureFlags(t *testing.T) {
 					Image: "real/image",
 					Tag:   "latest",
 				},
-				Docker: DockerConfig{
+				Docker: &DockerConfig{
 					Mode:  "dev",
 					Ports: []string{"3000:3000"},
 				},
@@ -256,7 +255,7 @@ func TestFilterByFeatureFlags(t *testing.T) {
 					Image: "real/image2",
 					Tag:   "latest",
 				},
-				Docker: DockerConfig{
+				Docker: &DockerConfig{
 					Mode:  "dev",
 					Ports: []string{"3001:3000"},
 				},
@@ -270,7 +269,7 @@ func TestFilterByFeatureFlags(t *testing.T) {
 					Image: "real/image3",
 					Tag:   "latest",
 				},
-				Docker: DockerConfig{
+				Docker: &DockerConfig{
 					Mode:  "dev",
 					Ports: []string{"3002:3000"},
 				},
@@ -282,7 +281,7 @@ func TestFilterByFeatureFlags(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]Infra{},
+		Infra: map[string]InfraEntry{},
 		Env:   EnvConfig{},
 	}
 
@@ -376,7 +375,7 @@ func TestValidateFeatureFlags(t *testing.T) {
 				Services: map[string]Service{
 					"test": {
 						FeatureFlag: &FeatureFlagConfig{
-							Profiles: []string{"invalid"},
+							Profiles: []string{"INVALID_PROFILE!"},
 						},
 					},
 				},

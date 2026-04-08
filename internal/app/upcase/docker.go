@@ -14,8 +14,10 @@ import (
 // prepareDockerResources handles validation of images, network, and volumes
 func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace) error {
 	// Validate ports before starting
+	// Use workspace name (not project name) because Docker Compose uses workspace name as project prefix
 	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
-	conflicts, err := uc.deps.DockerRunner.ValidatePorts(deps, baseDir, deps.Project.Name)
+	workspaceNameForPorts := deps.GetWorkspaceName()
+	conflicts, err := uc.deps.DockerRunner.ValidatePorts(deps, baseDir, workspaceNameForPorts)
 	if err != nil {
 		return errors.New(errors.ErrCodePortConflict, i18n.T("error.port_validate_failed")).WithSuggestion(i18n.T("error.port_validate_suggestion")).WithError(err)
 	}

@@ -2,68 +2,68 @@ package app
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 
 	"raioz/internal/audit"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
-	"raioz/internal/output"
 	"raioz/internal/override"
 )
 
 // OverrideUseCase handles override operations for services
 type OverrideUseCase struct {
 	deps *Dependencies
+	Out  io.Writer
 }
 
 // NewOverrideUseCase creates a new OverrideUseCase
 func NewOverrideUseCase(deps *Dependencies) *OverrideUseCase {
-	return &OverrideUseCase{deps: deps}
+	return &OverrideUseCase{deps: deps, Out: os.Stdout}
 }
 
 // Apply applies an override for a service
 func (uc *OverrideUseCase) Apply(serviceName string, overridePath string, configPath string) error {
 	if overridePath == "" {
-		return fmt.Errorf("--path is required")
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.override_path_required"))
 	}
 
-	// Validate path
+	w := uc.Out
+
 	absPath, err := filepath.Abs(overridePath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve override path: %w", err)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.override_resolve_path")).WithError(err)
 	}
 
 	if err := override.ValidateOverridePath(absPath); err != nil {
-		return fmt.Errorf("invalid override path: %w", err)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.override_invalid_path")).WithError(err)
 	}
 
-	// Check if service exists in current config (optional check)
 	var projectName string
 	if configPath != "" {
 		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
 		if deps != nil {
 			projectName = deps.Project.Name
 			if _, ok := deps.Services[serviceName]; !ok {
-				output.PrintWarning(i18n.T("output.override_service_not_found", serviceName))
+				fmt.Fprintf(w, "⚠️  %s\n", i18n.T("output.override_service_not_found", serviceName))
 			}
 		}
 	}
 
-	// Check if override already exists
-	hasOverride, err := override.HasOverride(serviceName)
+	hasExisting, err := override.HasOverride(serviceName)
 	if err != nil {
-		return fmt.Errorf("failed to check existing override: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.override_check")).WithError(err)
 	}
 
-	if hasOverride {
-		existingOverride, err := override.GetOverride(serviceName)
-		if err != nil {
-			return fmt.Errorf("failed to get existing override: %w", err)
+	if hasExisting {
+		existing, _ := override.GetOverride(serviceName)
+		if existing != nil {
+			fmt.Fprintf(w, "⚠️  %s\n", i18n.T("output.override_already_exists", serviceName, existing.Path))
+			fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("output.override_replacing"))
 		}
-		output.PrintWarning(i18n.T("output.override_already_exists", serviceName, existingOverride.Path))
-		output.PrintInfo(i18n.T("output.override_replacing"))
 	}
 
-	// Add override
 	overrideConfig := override.Override{
 		Path:   absPath,
 		Mode:   "local",
@@ -71,20 +71,19 @@ func (uc *OverrideUseCase) Apply(serviceName string, overridePath string, config
 	}
 
 	if err := override.AddOverride(serviceName, overrideConfig); err != nil {
-		return fmt.Errorf("failed to add override: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.override_add")).WithError(err)
 	}
 
-	// Log audit event
 	if err := audit.LogOverrideApplied(serviceName, absPath); err != nil {
-		output.PrintWarning(i18n.T("output.failed_log_audit", err))
+		fmt.Fprintf(w, "⚠️  %s\n", i18n.T("output.failed_log_audit", err))
 	}
 
-	output.PrintSuccess(i18n.T("output.override_registered", serviceName, absPath))
+	fmt.Fprintf(w, "✔ %s\n", i18n.T("output.override_registered", serviceName, absPath))
 
 	if projectName != "" {
-		output.PrintInfo(i18n.T("output.override_run_up_project", projectName))
+		fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("output.override_run_up_project", projectName))
 	} else {
-		output.PrintInfo(i18n.T("output.override_run_up"))
+		fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("output.override_run_up"))
 	}
 
 	return nil
@@ -92,37 +91,38 @@ func (uc *OverrideUseCase) Apply(serviceName string, overridePath string, config
 
 // List lists all service overrides
 func (uc *OverrideUseCase) List() error {
+	w := uc.Out
+
 	overrides, err := override.LoadOverrides()
 	if err != nil {
-		return fmt.Errorf("failed to load overrides: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.override_load")).WithError(err)
 	}
 
 	if len(overrides) == 0 {
-		fmt.Println(i18n.T("output.override_empty_list"))
+		fmt.Fprintln(w, i18n.T("output.override_empty_list"))
 		return nil
 	}
 
-	fmt.Println(i18n.T("output.override_list_header"))
-	fmt.Println()
+	fmt.Fprintln(w, i18n.T("output.override_list_header"))
+	fmt.Fprintln(w)
 	for serviceName, overrideConfig := range overrides {
 		pathStatus := "✓"
 		if err := override.ValidateOverridePath(overrideConfig.Path); err != nil {
 			pathStatus = "✗ (path does not exist)"
 		}
 
-		fmt.Printf("  %s:\n", serviceName)
-		fmt.Printf("    Path:   %s %s\n", overrideConfig.Path, pathStatus)
-		fmt.Printf("    Mode:   %s\n", overrideConfig.Mode)
-		fmt.Printf("    Source: %s\n", overrideConfig.Source)
-		fmt.Println()
+		fmt.Fprintf(w, "  %s:\n", serviceName)
+		fmt.Fprintf(w, "    Path:   %s %s\n", overrideConfig.Path, pathStatus)
+		fmt.Fprintf(w, "    Mode:   %s\n", overrideConfig.Mode)
+		fmt.Fprintf(w, "    Source: %s\n", overrideConfig.Source)
+		fmt.Fprintln(w)
 	}
 
-	// Clean invalid overrides
 	removed, err := override.CleanInvalidOverrides()
 	if err != nil {
-		output.PrintWarning(i18n.T("output.failed_clean_overrides", err))
+		fmt.Fprintf(w, "⚠️  %s\n", i18n.T("output.failed_clean_overrides", err))
 	} else if len(removed) > 0 {
-		fmt.Printf("⚠️  Removed %d invalid override(s): %v\n", len(removed), removed)
+		fmt.Fprintf(w, "⚠️  %s\n", i18n.T("output.override_removed_invalid", len(removed), removed))
 	}
 
 	return nil
@@ -130,26 +130,27 @@ func (uc *OverrideUseCase) List() error {
 
 // Remove removes a service override
 func (uc *OverrideUseCase) Remove(serviceName string) error {
+	w := uc.Out
+
 	hasOverride, err := override.HasOverride(serviceName)
 	if err != nil {
-		return fmt.Errorf("failed to check override: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.override_check")).WithError(err)
 	}
 
 	if !hasOverride {
-		return fmt.Errorf("no override found for service '%s'", serviceName)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.override_not_found", serviceName))
 	}
 
 	if err := override.RemoveOverride(serviceName); err != nil {
-		return fmt.Errorf("failed to remove override: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.override_remove")).WithError(err)
 	}
 
-	// Log audit event
 	if err := audit.LogOverrideReverted(serviceName, "user removed override"); err != nil {
-		output.PrintWarning(i18n.T("output.failed_log_audit", err))
+		fmt.Fprintf(w, "⚠️  %s\n", i18n.T("output.failed_log_audit", err))
 	}
 
-	output.PrintSuccess(i18n.T("output.override_removed", serviceName))
-	output.PrintInfo(i18n.T("output.override_run_up_apply"))
+	fmt.Fprintf(w, "✔ %s\n", i18n.T("output.override_removed", serviceName))
+	fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("output.override_run_up_apply"))
 
 	return nil
 }

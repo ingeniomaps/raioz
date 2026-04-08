@@ -51,8 +51,7 @@ func TestMigrateLegacyServices(t *testing.T) {
 		SchemaVersion: "1.0",
 		Project: config.Project{
 			Name:    "test-project",
-			Network: "test-network",
-		},
+			},
 		Services: map[string]config.Service{
 			"legacy-service": {
 				Source: config.SourceConfig{
@@ -64,7 +63,7 @@ func TestMigrateLegacyServices(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.Infra{},
+		Infra: map[string]config.InfraEntry{},
 	}
 
 	// Perform migration
@@ -128,8 +127,7 @@ func TestMigrateLegacyServicesReadonly(t *testing.T) {
 		SchemaVersion: "1.0",
 		Project: config.Project{
 			Name:    "test-project",
-			Network: "test-network",
-		},
+			},
 		Services: map[string]config.Service{
 			"readonly-service": {
 				Source: config.SourceConfig{
@@ -141,7 +139,7 @@ func TestMigrateLegacyServicesReadonly(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.Infra{},
+		Infra: map[string]config.InfraEntry{},
 	}
 
 	// Perform migration
@@ -201,8 +199,7 @@ func TestMigrateLegacyServicesSkipIfExists(t *testing.T) {
 		SchemaVersion: "1.0",
 		Project: config.Project{
 			Name:    "test-project",
-			Network: "test-network",
-		},
+			},
 		Services: map[string]config.Service{
 			"existing-service": {
 				Source: config.SourceConfig{
@@ -214,7 +211,7 @@ func TestMigrateLegacyServicesSkipIfExists(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.Infra{},
+		Infra: map[string]config.InfraEntry{},
 	}
 
 	// Perform migration - should skip since service already exists in new location

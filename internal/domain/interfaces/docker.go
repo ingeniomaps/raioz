@@ -72,6 +72,12 @@ type DockerRunner interface {
 	GenerateCompose(deps *models.Deps, ws *Workspace, projectDir string) (string, []string, error)
 	// UpServicesWithContext starts specific Docker Compose services with context support
 	UpServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error
+	// RestartServicesWithContext restarts specific Docker Compose services
+	RestartServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error
+	// ForceRecreateServicesWithContext recreates and starts services
+	ForceRecreateServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error
+	// ExecInService runs a command inside a running container
+	ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error
 	// WaitForServicesHealthy waits for services to become healthy
 	WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error
 	// ValidatePorts checks if all ports in a project are available

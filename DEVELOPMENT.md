@@ -1,14 +1,16 @@
-# Guía de Desarrollo - Raioz
+# Development Guide - Raioz
 
-Esta guía explica cómo desarrollar y contribuir al proyecto Raioz siguiendo los estándares establecidos.
+How to set up your environment and contribute to the project.
 
-## 📋 Requisitos Previos
+## Prerequisites
 
-- Go 1.22 o superior
-- `golangci-lint` (ver instalación abajo)
-- `make` (opcional, pero recomendado)
+- Go 1.22+
+- `golangci-lint`
+- `goimports`
+- `make`
+- Docker (for integration tests)
 
-## 🛠️ Instalación de Herramientas
+## Tool Installation
 
 ### golangci-lint
 
@@ -16,11 +18,8 @@ Esta guía explica cómo desarrollar y contribuir al proyecto Raioz siguiendo lo
 # Linux/macOS
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
 
-# O con Homebrew (macOS)
+# macOS via Homebrew
 brew install golangci-lint
-
-# Verificar instalación
-golangci-lint --version
 ```
 
 ### goimports
@@ -29,130 +28,72 @@ golangci-lint --version
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
-### Mockery (Opcional - Para Generación de Mocks)
+### Security tools (optional)
 
 ```bash
-go install github.com/vektra/mockery/v2@latest
+go install golang.org/x/vuln/cmd/govulncheck@latest
+# gosec is already included in golangci-lint
 ```
 
-**Nota**: Mockery es necesario solo si vas a generar mocks automáticamente. La configuración está lista en `.mockery.yaml` para cuando se creen interfaces en el código.
+## Development Workflow
 
-## 📏 Estándares de Código
-
-### Reglas Principales
-
-1. **Máximo 400 líneas por archivo**
-   - Si excedes, divide el archivo por responsabilidad
-   - Ver `.ia/REGLA_400_LINEAS.md` para estrategias
-
-2. **Máximo 120 caracteres por línea**
-   - Divide líneas largas de manera legible
-   - Funciones con muchos parámetros: dividir en múltiples líneas
-
-3. **Un archivo, un propósito**
-   - Cada archivo debe tener una responsabilidad clara
-   - Nombre del archivo debe reflejar su propósito
-
-4. **Estándares de Go**
-   - Seguir convenciones de naming de Go
-   - Manejo apropiado de errores
-   - Documentación para funciones exportadas
-   - Ver `.ia/CODIGO_STANDARDS.md` para detalles
-
-## 🔍 Verificación de Código
-
-### Verificar Todo
+### 1. Create a branch
 
 ```bash
-make check
+git checkout -b feature/my-change
 ```
 
-Esto ejecuta:
-- Formateo de código
-- Verificación de líneas (400 max)
-- Verificación de longitud de línea (120 max)
-- Linter
-- Tests
-
-### Verificación Individual
+### 2. Make changes and verify
 
 ```bash
-# Solo formateo
-make format
-
-# Solo linter
-make lint
-
-# Solo tests
-make test
-
-# Verificar líneas
-make check-lines
-
-# Verificar longitud
-make check-length
-
-# Script manual
-./scripts/check-code-standards.sh
+make check    # format + lint + check-i18n + tests
 ```
 
-## 📝 Workflow de Desarrollo
-
-### 1. Antes de Empezar
-
-Lee la documentación en `.ia/`:
-- `DEFINICIONES_PROYECTO.md` - Contexto del proyecto
-- `CODIGO_STANDARDS.md` - Estándares de código
-
-### 2. Crear Feature/Bugfix
+### 3. Before pushing
 
 ```bash
-# Crear rama
-git checkout -b feature/nueva-funcionalidad
-
-# Hacer cambios
-# ...
-
-# Verificar antes de commit
-make check
-
-# Commit
-git commit -m "feat: descripción del cambio"
+make ci       # full CI: check + build
 ```
 
-### 3. Antes de Push
+See `CLAUDE.md` for the complete list of `make` targets.
 
-```bash
-# Ejecutar todas las verificaciones
-make ci
+## Code Standards
 
-# Si todo pasa, push
-git push origin feature/nueva-funcionalidad
+| Rule | Limit | Check |
+|------|-------|-------|
+| Max lines per file (non-test) | 400 | `make check-lines` |
+| Max line length | 120 chars | `make check-length` |
+| Test coverage | >= 80% | `make check-coverage` |
+| i18n catalog sync | all keys present | `make check-i18n` |
+
+### Splitting long lines
+
+```go
+// Multi-param functions
+func longFunction(
+    param1, param2 string,
+    param3, param4 string,
+) error
+
+// Long strings
+msg := "This is a very long " +
+    "string that needs to be " +
+    "split across lines"
 ```
 
-## 🧪 Testing
+### Linter issues
 
-### Ejecutar Tests
+1. Read the error message
+2. Check the linter documentation
+3. Fix according to the recommendation
+4. If necessary, add an exception in `.golangci.yml`
 
-```bash
-# Todos los tests
-make test
+## Testing
 
-# Tests con cobertura
-make test-coverage
+- One test file per source file: `{file}_test.go`
+- Table-driven tests with `t.Run`
+- Mocks live in `internal/mocks/` (manual implementations for 9 domain interfaces)
 
-# Tests de un paquete específico
-go test ./internal/env -v
-```
-
-### Escribir Tests
-
-- Un archivo de test por archivo de código
-- Nombre: `{archivo}_test.go`
-- Funciones de test: `TestXxx`
-- Usar tabla de tests cuando sea apropiado
-
-Ejemplo:
 ```go
 func TestLoadFiles(t *testing.T) {
     tests := []struct {
@@ -161,7 +102,6 @@ func TestLoadFiles(t *testing.T) {
     }{
         // ...
     }
-
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             // test
@@ -170,110 +110,55 @@ func TestLoadFiles(t *testing.T) {
 }
 ```
 
-## 🔧 Comandos Útiles
+## Tools Status
 
-### Build
+Summary of tooling that is in place vs planned improvements.
 
-```bash
-# Build local
-make build
+### Implemented
 
-# Instalar
-make install
-```
+| Category | Tool | Notes |
+|----------|------|-------|
+| Linting | golangci-lint, gofmt, goimports | Strict rules in `.golangci.yml` |
+| Testing | go test, manual mocks | `internal/mocks/` covers all domain interfaces |
+| Build/CI | Makefile, validation scripts | `scripts/check-code-standards.sh` |
+| Git hooks | pre-commit | `scripts/setup-hooks.sh` |
+| Security | gosec (via lint), govulncheck | `make security` |
+| i18n | embedded JSON catalogs | 503 keys, en + es |
 
-### Limpieza
+### Not Yet Implemented
 
-```bash
-# Limpiar artefactos
-make clean
-```
+| Tool | Priority | Purpose |
+|------|----------|---------|
+| GitHub Actions CI | High | Automated lint, test, build, coverage on push/PR |
+| Codecov / Coveralls | High | Coverage reporting and badges |
+| Dependabot | High | Automated dependency updates |
+| goreleaser | Medium | Cross-platform release binaries |
+| Go fuzzing | Medium | Fuzz JSON parsing, env files, path validation |
+| Benchmarks | Medium | Performance regression detection |
+| godoc | Medium | Package documentation generation |
+| Mockery | Low | Auto-generated mocks (manual mocks work fine for now) |
+| Dev Containers | Low | Reproducible dev environment |
+| git-chglog | Low | Automated CHANGELOG from conventional commits |
 
-### Desarrollo
+### Recommended implementation order
 
-```bash
-# Formatear código
-make format
+1. GitHub Actions CI (`.github/workflows/ci.yml`)
+2. Code coverage reporting (Codecov integration)
+3. Dependabot (`.github/dependabot.yml`)
+4. goreleaser for releases
+5. Fuzzing and benchmarks
 
-# Solo verificar sin modificar
-golangci-lint run
+## Contributing
 
-# Generar código (mocks, etc.) - requiere //go:generate directives
-make generate
+1. Read `CLAUDE.md` for architecture and conventions
+2. Create a branch and make changes
+3. Follow code standards (400 lines, 120 chars, i18n)
+4. Write tests (table-driven, >= 80% coverage)
+5. Run `make check`
+6. Create a PR with a clear description
 
-# Generar mocks usando mockery - requiere mockery instalado
-make mock
-```
-
-**Nota sobre generación de mocks**: Actualmente no hay interfaces en el código, por lo que la generación de mocks no es necesaria. Los mocks manuales en `internal/mocks/` seguirán funcionando hasta que se implementen interfaces y se integre Mockery completamente. La configuración está lista en `.mockery.yaml` para cuando se creen interfaces.
-
-## 🚨 Problemas Comunes
-
-### Archivo excede 400 líneas
-
-1. Identificar responsabilidades múltiples
-2. Ver `.ia/REGLA_400_LINEAS.md` para estrategias
-3. Dividir en múltiples archivos
-4. Mantener coherencia en nombres
-
-### Línea excede 120 caracteres
-
-1. Dividir función con muchos parámetros:
-```go
-// ❌ Mal
-func longFunction(param1, param2, param3, param4 string) error
-
-// ✅ Bien
-func longFunction(
-    param1, param2 string,
-    param3, param4 string,
-) error
-```
-
-2. Dividir strings largos:
-```go
-// ✅ Bien
-msg := "This is a very long " +
-    "string that needs to be " +
-    "split across lines"
-```
-
-### Errores del Linter
-
-1. Leer el mensaje de error
-2. Verificar documentación del linter
-3. Ajustar código según la recomendación
-4. Si es necesario, agregar excepción en `.golangci.yml`
-
-## 📚 Documentación
-
-### Para Agentes IA
-
-Toda la documentación para agentes IA está en `.ia/`:
-- `README.md` - Índice de documentación
-- `DEFINICIONES_PROYECTO.md` - Contexto y arquitectura
-- `CODIGO_STANDARDS.md` - Estándares detallados
-- `REGLA_400_LINEAS.md` - Guía de división de archivos
-
-### Para Desarrolladores
-
-- Este archivo: guía de desarrollo
-- `TODO.md`: tareas pendientes y plan
-- `project.md`: visión del proyecto
-- `como-funciona.md`: funcionamiento desde perspectiva usuario
-
-## 🤝 Contribuir
-
-1. Leer `DEFINICIONES_PROYECTO.md` para entender contexto
-2. Revisar `TODO.md` para ver qué está pendiente
-3. Crear rama y hacer cambios
-4. Seguir estándares de código
-5. Escribir tests
-6. Verificar con `make check`
-7. Crear PR con descripción clara
-
-## 🔗 Enlaces Útiles
+## Useful Links
 
 - [Effective Go](https://go.dev/doc/effective_go)
 - [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
-- [golangci-lint](https://golangci-lint.run/)
+- [golangci-lint docs](https://golangci-lint.run/)

@@ -18,24 +18,17 @@ func TestSaveAndLoad(t *testing.T) {
 
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
-			Name:    "test-project",
-			Network: "test-network",
-		},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.Infra{},
-		Env: config.EnvConfig{
-			UseGlobal: true,
-			Files:     []string{},
-		},
+		Network:       config.NetworkConfig{Name: "test-network"},
+		Project:       config.Project{Name: "test-project"},
+		Services:      map[string]config.Service{},
+		Infra:         map[string]config.InfraEntry{},
+		Env:           config.EnvConfig{UseGlobal: true, Files: []string{}},
 	}
 
-	// Save
 	if err := Save(ws, deps); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	// Load
 	loaded, err := Load(ws)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -61,28 +54,23 @@ func TestExists(t *testing.T) {
 		ServicesDir: filepath.Join(tmpDir, "services"),
 	}
 
-	// Should not exist initially
 	if Exists(ws) {
 		t.Error("State should not exist initially")
 	}
 
-	// Create state
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
-			Name:    "test",
-			Network: "test",
-		},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.Infra{},
-		Env:      config.EnvConfig{},
+		Network:       config.NetworkConfig{Name: "test"},
+		Project:       config.Project{Name: "test"},
+		Services:      map[string]config.Service{},
+		Infra:         map[string]config.InfraEntry{},
+		Env:           config.EnvConfig{},
 	}
 
 	if err := Save(ws, deps); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	// Should exist now
 	if !Exists(ws) {
 		t.Error("State should exist after saving")
 	}
@@ -95,7 +83,6 @@ func TestLoadNonExistent(t *testing.T) {
 		ServicesDir: filepath.Join(tmpDir, "services"),
 	}
 
-	// Load non-existent state
 	loaded, err := Load(ws)
 	if err != nil {
 		t.Fatalf("Load should not return error for non-existent file: %v", err)
@@ -115,42 +102,24 @@ func TestSaveWithServices(t *testing.T) {
 
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
-			Name:    "test-project",
-			Network: "test-network",
-		},
+		Network:       config.NetworkConfig{Name: "test-network"},
+		Project:       config.Project{Name: "test-project"},
 		Services: map[string]config.Service{
 			"api": {
-				Source: config.SourceConfig{
-					Kind:   "git",
-					Repo:   "git@github.com:org/api.git",
-					Branch: "main",
-					Path:   "./services/api",
-				},
-				Docker: config.DockerConfig{
-					Mode:  "dev",
-					Ports: []string{"3000:3000"},
-				},
+				Source: config.SourceConfig{Kind: "git", Repo: "git@github.com:org/api.git", Branch: "main", Path: "./services/api"},
+				Docker: &config.DockerConfig{Mode: "dev", Ports: []string{"3000:3000"}},
 			},
 		},
-		Infra: map[string]config.Infra{
-			"database": {
-				Image: "postgres",
-				Tag:   "15",
-			},
+		Infra: map[string]config.InfraEntry{
+			"database": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
 		},
-		Env: config.EnvConfig{
-			UseGlobal: true,
-			Files:     []string{"global"},
-		},
+		Env: config.EnvConfig{UseGlobal: true, Files: []string{"global"}},
 	}
 
-	// Save
 	if err := Save(ws, deps); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	// Load and verify
 	loaded, err := Load(ws)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -176,21 +145,17 @@ func TestSavePermissions(t *testing.T) {
 
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
-			Name:    "test",
-			Network: "test",
-		},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.Infra{},
-		Env:      config.EnvConfig{},
+		Network:       config.NetworkConfig{Name: "test"},
+		Project:       config.Project{Name: "test"},
+		Services:      map[string]config.Service{},
+		Infra:         map[string]config.InfraEntry{},
+		Env:           config.EnvConfig{},
 	}
 
-	// Save
 	if err := Save(ws, deps); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	// Verify file permissions (should be 0600)
 	statePath := filepath.Join(ws.Root, stateFileName)
 	info, err := os.Stat(statePath)
 	if err != nil {

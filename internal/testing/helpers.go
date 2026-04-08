@@ -33,7 +33,7 @@ func CreateMinimalTestDeps() *config.Deps {
 			Name: "test-project",
 		},
 		Services: map[string]config.Service{},
-		Infra:    map[string]config.Infra{},
+		Infra:    map[string]config.InfraEntry{},
 		Env: config.EnvConfig{
 			UseGlobal: true,
 			Files:     []string{},
@@ -83,11 +83,11 @@ func CreateTestDepsWithService(serviceName string, sourceKind string) *config.De
 // CreateTestDepsWithInfra creates a test Deps with one infra service
 func CreateTestDepsWithInfra(infraName string) *config.Deps {
 	deps := CreateMinimalTestDeps()
-	deps.Infra[infraName] = config.Infra{
+	deps.Infra[infraName] = config.InfraEntry{Inline: &config.Infra{
 		Image: "postgres",
 		Tag:   "15",
 		Ports: []string{"5432:5432"},
-	}
+	}}
 	return deps
 }
 

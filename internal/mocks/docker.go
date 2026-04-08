@@ -33,8 +33,11 @@ type MockDockerRunner struct {
 	CleanUnusedNetworksWithContextFunc func(ctx context.Context, dryRun bool) ([]string, error)
 	GetAllActivePortsFunc             func(baseDir string) ([]interfaces.PortInfo, error)
 	GenerateComposeFunc               func(deps *config.Deps, ws *interfaces.Workspace, projectDir string) (string, []string, error)
-	UpServicesWithContextFunc         func(ctx context.Context, composePath string, serviceNames []string) error
-	WaitForServicesHealthyFunc        func(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error
+	UpServicesWithContextFunc              func(ctx context.Context, composePath string, serviceNames []string) error
+	RestartServicesWithContextFunc         func(ctx context.Context, composePath string, serviceNames []string) error
+	ForceRecreateServicesWithContextFunc   func(ctx context.Context, composePath string, serviceNames []string) error
+	ExecInServiceFunc                      func(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error
+	WaitForServicesHealthyFunc             func(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error
 	ValidatePortsFunc                 func(deps *config.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error)
 	FormatPortConflictsFunc           func(conflicts []interfaces.PortConflict) string
 	ValidateAllImagesFunc             func(deps *config.Deps) error

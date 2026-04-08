@@ -71,6 +71,19 @@ func TestLoadOverrides(t *testing.T) {
 		}
 	})
 
+	t.Run("load corrupted file", func(t *testing.T) {
+		path, _ := GetOverridesPath()
+		os.WriteFile(path, []byte("invalid json"), 0644)
+
+		_, err := LoadOverrides()
+		if err == nil {
+			t.Error("Expected error loading corrupted override file, got nil")
+		}
+
+		// Clean up for next test
+		os.Remove(path)
+	})
+
 	t.Run("load file with nil map", func(t *testing.T) {
 		// Create overrides file with null
 		path, _ := GetOverridesPath()

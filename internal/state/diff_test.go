@@ -7,46 +7,38 @@ import (
 
 func TestCompareDeps(t *testing.T) {
 	tests := []struct {
-		name     string
-		oldDeps  *config.Deps
-		newDeps  *config.Deps
+		name        string
+		oldDeps     *config.Deps
+		newDeps     *config.Deps
 		wantChanges int
 	}{
 		{
-			name:     "no previous state",
-			oldDeps:  nil,
-			newDeps:  &config.Deps{},
+			name:        "no previous state",
+			oldDeps:     nil,
+			newDeps:     &config.Deps{},
 			wantChanges: 0,
 		},
 		{
 			name: "same config",
 			oldDeps: &config.Deps{
-				Project: config.Project{
-					Name:    "test",
-					Network: "test-net",
-				},
+				Network: config.NetworkConfig{Name: "test-net"},
+				Project: config.Project{Name: "test"},
 			},
 			newDeps: &config.Deps{
-				Project: config.Project{
-					Name:    "test",
-					Network: "test-net",
-				},
+				Network: config.NetworkConfig{Name: "test-net"},
+				Project: config.Project{Name: "test"},
 			},
 			wantChanges: 0,
 		},
 		{
 			name: "network changed",
 			oldDeps: &config.Deps{
-				Project: config.Project{
-					Name:    "test",
-					Network: "old-net",
-				},
+				Network: config.NetworkConfig{Name: "old-net"},
+				Project: config.Project{Name: "test"},
 			},
 			newDeps: &config.Deps{
-				Project: config.Project{
-					Name:    "test",
-					Network: "new-net",
-				},
+				Network: config.NetworkConfig{Name: "new-net"},
+				Project: config.Project{Name: "test"},
 			},
 			wantChanges: 1,
 		},
@@ -55,20 +47,14 @@ func TestCompareDeps(t *testing.T) {
 			oldDeps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Source: config.SourceConfig{
-							Kind:   "git",
-							Branch: "main",
-						},
+						Source: config.SourceConfig{Kind: "git", Branch: "main"},
 					},
 				},
 			},
 			newDeps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Source: config.SourceConfig{
-							Kind:   "git",
-							Branch: "develop",
-						},
+						Source: config.SourceConfig{Kind: "git", Branch: "develop"},
 					},
 				},
 			},
@@ -82,9 +68,7 @@ func TestCompareDeps(t *testing.T) {
 			newDeps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Source: config.SourceConfig{
-							Kind: "git",
-						},
+						Source: config.SourceConfig{Kind: "git"},
 					},
 				},
 			},
@@ -108,45 +92,33 @@ func TestCompareDeps(t *testing.T) {
 
 func TestHasSignificantChanges(t *testing.T) {
 	tests := []struct {
-		name     string
-		changes  []ConfigChange
+		name            string
+		changes         []ConfigChange
 		wantSignificant bool
 	}{
 		{
-			name:     "no changes",
-			changes:  []ConfigChange{},
+			name:            "no changes",
+			changes:         []ConfigChange{},
 			wantSignificant: false,
 		},
 		{
 			name: "branch change",
 			changes: []ConfigChange{
-				{
-					Field: "source.branch",
-					OldValue: "main",
-					NewValue: "develop",
-				},
+				{Field: "source.branch", OldValue: "main", NewValue: "develop"},
 			},
 			wantSignificant: true,
 		},
 		{
 			name: "ports change",
 			changes: []ConfigChange{
-				{
-					Field: "docker.ports",
-					OldValue: "[3000:3000]",
-					NewValue: "[3001:3000]",
-				},
+				{Field: "docker.ports", OldValue: "[3000:3000]", NewValue: "[3001:3000]"},
 			},
 			wantSignificant: true,
 		},
 		{
 			name: "minor change",
 			changes: []ConfigChange{
-				{
-					Field: "env",
-					OldValue: "[]",
-					NewValue: "[\"test\"]",
-				},
+				{Field: "env", OldValue: "[]", NewValue: "[\"test\"]"},
 			},
 			wantSignificant: false,
 		},
@@ -164,20 +136,8 @@ func TestHasSignificantChanges(t *testing.T) {
 
 func TestFormatChanges(t *testing.T) {
 	changes := []ConfigChange{
-		{
-			Type:     "service",
-			Name:     "service1",
-			Field:    "source.branch",
-			OldValue: "main",
-			NewValue: "develop",
-		},
-		{
-			Type:     "service",
-			Name:     "service2",
-			Field:    "added",
-			OldValue: "",
-			NewValue: "new service",
-		},
+		{Type: "service", Name: "service1", Field: "source.branch", OldValue: "main", NewValue: "develop"},
+		{Type: "service", Name: "service2", Field: "added", OldValue: "", NewValue: "new service"},
 	}
 
 	formatted := FormatChanges(changes)

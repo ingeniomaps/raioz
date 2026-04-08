@@ -145,6 +145,41 @@ func ListWorkspaces() ([]string, error) {
 	return workspaces, nil
 }
 
+// DeleteWorkspace removes a workspace directory and its contents
+func DeleteWorkspace(workspaceName string) error {
+	baseDir, err := GetBaseDir()
+	if err != nil {
+		return fmt.Errorf("failed to get base directory: %w", err)
+	}
+
+	workspacePath := filepath.Join(baseDir, "workspaces", workspaceName)
+	if err := validatePathInBase(workspacePath, filepath.Join(baseDir, "workspaces")); err != nil {
+		return fmt.Errorf("invalid workspace path: %w", err)
+	}
+
+	if err := os.RemoveAll(workspacePath); err != nil {
+		return fmt.Errorf("failed to delete workspace directory: %w", err)
+	}
+
+	return nil
+}
+
+// validatePathInBase ensures path is inside base to prevent path traversal
+func validatePathInBase(path, base string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	absBase, err := filepath.Abs(base)
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) && absPath != absBase {
+		return fmt.Errorf("path %s is outside base %s", absPath, absBase)
+	}
+	return nil
+}
+
 // WorkspaceExists checks if a workspace exists
 func WorkspaceExists(workspaceName string) (bool, error) {
 	baseDir, err := GetBaseDir()

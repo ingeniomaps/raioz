@@ -28,12 +28,12 @@ func TestValidateDependencyCycle(t *testing.T) {
 				Services: map[string]config.Service{
 					"service1": {},
 					"service2": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
 					"service3": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
@@ -46,12 +46,12 @@ func TestValidateDependencyCycle(t *testing.T) {
 			deps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
@@ -65,17 +65,17 @@ func TestValidateDependencyCycle(t *testing.T) {
 			deps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service3"},
 						},
 					},
 					"service2": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
 					"service3": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
@@ -89,7 +89,7 @@ func TestValidateDependencyCycle(t *testing.T) {
 			deps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
@@ -105,7 +105,7 @@ func TestValidateDependencyCycle(t *testing.T) {
 					"service1": {},
 					"service2": {},
 					"service3": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service1", "service2"},
 						},
 					},
@@ -119,17 +119,17 @@ func TestValidateDependencyCycle(t *testing.T) {
 				Services: map[string]config.Service{
 					"base": {},
 					"service1": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"base"},
 						},
 					},
 					"service2": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"base"},
 						},
 					},
 					"service3": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service1", "service2"},
 						},
 					},
@@ -184,9 +184,9 @@ func TestGetAllServiceNames(t *testing.T) {
 			"service1": {},
 			"service2": {},
 		},
-		Infra: map[string]config.Infra{
-			"infra1": {},
-			"infra2": {},
+		Infra: map[string]config.InfraEntry{
+			"infra1": {Inline: &config.Infra{}},
+			"infra2": {Inline: &config.Infra{}},
 		},
 	}
 

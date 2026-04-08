@@ -3,7 +3,7 @@ package config
 const SchemaJSON = `{
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["schemaVersion", "project", "services", "infra", "env"],
+  "required": ["schemaVersion", "project", "services", "env"],
   "properties": {
     "schemaVersion": {
       "type": "string",
@@ -14,6 +14,15 @@ const SchemaJSON = `{
       "minLength": 1,
       "pattern": "^[a-z0-9-]+$",
       "description": "Workspace name (optional). If not specified, uses project.name as workspace. Multiple projects with the same workspace share the same workspace directory."
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z0-9-]+$"
+      },
+      "description": "Default profiles when running raioz up without --profile. If missing or empty, all services and infra are started. Example: frontend, backend, load-balancer, nginx."
     },
     "network": {
       "oneOf": [
@@ -251,13 +260,33 @@ const SchemaJSON = `{
                 "description": "Runtime type for Docker wrapper mode (optional, for documentation purposes)"
               },
               "ip": {
-                "type": "string",
-                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
-                "description": "Static IP address in the network (e.g., '150.150.0.10'). Only works if network has a subnet configured."
+                "oneOf": [
+                  { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" },
+                  { "type": "string", "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$" }
+                ],
+                "description": "Static IP address in the network (e.g., '150.150.0.10') or env var (e.g., '${NGINX_IP}'). Only works if network has a subnet configured."
               },
               "envVolume": {
                 "type": "string",
                 "description": "Optional: mount the generated .env file as a volume at this path inside the container (e.g., '/app/.env'). The .env file will be available both via env_file (for environment variables) and as a mounted file at this path."
+              },
+              "healthcheck": {
+                "type": "object",
+                "description": "Docker healthcheck (same format as docker-compose). test: string or array (e.g. [\"CMD\", \"curl\", \"-f\", \"http://localhost/health\"]), interval, timeout, retries, start_period, start_interval (duration strings), disable (bool).",
+                "properties": {
+                  "test": {
+                    "oneOf": [
+                      { "type": "string" },
+                      { "type": "array", "items": { "type": "string" } }
+                    ]
+                  },
+                  "interval": { "type": "string" },
+                  "timeout": { "type": "string" },
+                  "retries": { "type": "integer" },
+                  "start_period": { "type": "string" },
+                  "start_interval": { "type": "string" },
+                  "disable": { "type": "boolean" }
+                }
               }
             },
             "additionalProperties": false
@@ -285,8 +314,10 @@ const SchemaJSON = `{
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["frontend", "backend"]
-            }
+              "minLength": 1,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "description": "Include this service only when using raioz up --profile <name> or when profile is in root profiles. Example: frontend, backend, load-balancer."
           },
           "enabled": {
             "type": ["boolean", "null"],
@@ -339,7 +370,8 @@ const SchemaJSON = `{
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["frontend", "backend"]
+                  "minLength": 1,
+                  "pattern": "^[a-z0-9-]+$"
                 }
               }
             },
@@ -415,8 +447,15 @@ const SchemaJSON = `{
     "infra": {
       "type": "object",
       "additionalProperties": {
-        "type": "object",
-        "required": ["image"],
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path to a Docker Compose YAML fragment (relative to config file or absolute). Merged into the generated compose."
+          },
+          {
+            "type": "object",
+            "required": ["image"],
         "properties": {
           "image": {
             "type": "string",
@@ -441,9 +480,29 @@ const SchemaJSON = `{
             "description": "Array of volume mappings or null if no volumes"
           },
           "ip": {
-            "type": "string",
-            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
-            "description": "Static IP address in the network (e.g., '150.150.0.10'). Only works if project.network has a subnet configured."
+            "oneOf": [
+              { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" },
+              { "type": "string", "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$" }
+            ],
+            "description": "Static IP address in the network (e.g., '150.150.0.10') or env var (e.g., '${POSTGRES_IP}'). Only works if project.network has a subnet configured."
+          },
+          "healthcheck": {
+            "type": "object",
+            "description": "Docker healthcheck (same format as docker-compose). test: string or array, interval, timeout, retries, start_period, start_interval (duration strings), disable (bool).",
+            "properties": {
+              "test": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "array", "items": { "type": "string" } }
+                ]
+              },
+              "interval": { "type": "string" },
+              "timeout": { "type": "string" },
+              "retries": { "type": "integer" },
+              "start_period": { "type": "string" },
+              "start_interval": { "type": "string" },
+              "disable": { "type": "boolean" }
+            }
           },
           "env": {
             "oneOf": [
@@ -463,9 +522,27 @@ const SchemaJSON = `{
               }
             ],
             "description": "Can be either an array of file paths or an object with variables. If object, variables will be written to projects/{project}/services/{service}.env"
+          },
+          "profiles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "description": "If set, this infra is only included when using raioz up --profile <name> or when profile is in root profiles."
+          },
+          "seed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Files or directories to mount in /docker-entrypoint-initdb.d/ for automatic database initialization (supports postgres, mysql, mongo)"
           }
         },
-        "additionalProperties": false
+            "additionalProperties": false
+          }
+        ]
       }
     },
     "env": {

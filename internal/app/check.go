@@ -12,6 +12,9 @@ type CheckOptions struct {
 	ConfigPath  string
 }
 
+// CheckResult wraps the result from the check use case
+type CheckResult = checkcase.CheckResult
+
 // CheckUseCase handles the "check" use case - checking alignment between config and state
 type CheckUseCase struct {
 	useCase *checkcase.UseCase
@@ -29,7 +32,7 @@ func NewCheckUseCase(deps *Dependencies) *CheckUseCase {
 }
 
 // Execute executes the check use case
-func (uc *CheckUseCase) Execute(ctx context.Context, opts CheckOptions) error {
+func (uc *CheckUseCase) Execute(ctx context.Context, opts CheckOptions) (*CheckResult, error) {
 	options := checkcase.Options{
 		ProjectName: opts.ProjectName,
 		ConfigPath:  opts.ConfigPath,

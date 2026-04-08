@@ -24,6 +24,7 @@ type MockWorkspaceManager struct {
 	ListWorkspacesFunc        func() ([]string, error)
 	WorkspaceExistsFunc       func(workspaceName string) (bool, error)
 	SetActiveWorkspaceFunc    func(workspaceName string) error
+	DeleteWorkspaceFunc       func(workspaceName string) error
 }
 
 func (m *MockWorkspaceManager) Resolve(projectName string) (*workspace.Workspace, error) {
@@ -113,6 +114,13 @@ func (m *MockWorkspaceManager) WorkspaceExists(workspaceName string) (bool, erro
 func (m *MockWorkspaceManager) SetActiveWorkspace(workspaceName string) error {
 	if m.SetActiveWorkspaceFunc != nil {
 		return m.SetActiveWorkspaceFunc(workspaceName)
+	}
+	return nil
+}
+
+func (m *MockWorkspaceManager) DeleteWorkspace(workspaceName string) error {
+	if m.DeleteWorkspaceFunc != nil {
+		return m.DeleteWorkspaceFunc(workspaceName)
 	}
 	return nil
 }

@@ -68,6 +68,7 @@ func (uc *UseCase) saveState(
 	serviceNames []string,
 	addedServices []string,
 	assistedServicesMap map[string]string,
+	appliedOverrides []string,
 ) error {
 	// Save state
 	if err := uc.deps.StateManager.Save(ws, deps); err != nil {
@@ -82,9 +83,7 @@ func (uc *UseCase) saveState(
 	// Only log at debug level - technical detail not useful for end users
 	logging.DebugWithContext(ctx, "State saved successfully", "workspace", ws.Root)
 
-	// Generate or update root config
-	// Note: appliedOverrides should be passed from somewhere, but for now we use empty slice
-	appliedOverrides := []string{}
+	// Generate or update root config with applied overrides
 	if root.Exists(ws) {
 		// Update existing root config
 		rootConfig, err := root.Load(ws)
@@ -115,9 +114,9 @@ func (uc *UseCase) saveState(
 			if err != nil {
 				return errors.New(
 					errors.ErrCodeStateSaveError,
-					"Failed to generate root config",
+					i18n.T("error.root_config_generate_failed"),
 				).WithSuggestion(
-					"Check your configuration for errors.",
+					i18n.T("error.root_config_generate_suggestion"),
 				).WithError(err)
 			}
 			if err := root.Save(ws, rootConfig); err != nil {
@@ -143,9 +142,9 @@ func (uc *UseCase) saveState(
 		if err := root.Save(ws, rootConfig); err != nil {
 			return errors.New(
 				errors.ErrCodeStateSaveError,
-				"Failed to save root config",
+				i18n.T("error.root_config_save_failed"),
 			).WithSuggestion(
-				"Check that you have write permissions for the workspace directory.",
+				i18n.T("error.state_save_suggestion"),
 			).WithContext("workspace", ws.Root).WithError(err)
 		}
 	}

@@ -129,8 +129,11 @@ func ValidateInfraImages(deps *config.Deps) error {
 
 // ValidateInfraImagesWithContext validates all images for infra with context support
 func ValidateInfraImagesWithContext(ctx context.Context, deps *config.Deps) error {
-	for name, infra := range deps.Infra {
-		image := BuildImageName(infra.Image, infra.Tag)
+	for name, entry := range deps.Infra {
+		if entry.Inline == nil {
+			continue
+		}
+		image := BuildImageName(entry.Inline.Image, entry.Inline.Tag)
 		if err := EnsureImageWithContext(ctx, image); err != nil {
 			return fmt.Errorf("infra %s: %w", name, err)
 		}

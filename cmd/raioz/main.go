@@ -1,7 +1,7 @@
 package main
 
-import "raioz/cmd"
+import "raioz/internal/cli"
 
 func main() {
-	cmd.Execute()
+	cli.Execute()
 }

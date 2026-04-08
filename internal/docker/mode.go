@@ -206,9 +206,12 @@ func ApplyModeConfig(
 		AddDevBindMount(serviceConfig, serviceName, svc, ws)
 	}
 
-	// Add healthcheck (optional, can be overridden by dockerfile)
-	if mode == "prod" {
-		// Prod mode requires healthcheck
+	// Add healthcheck: use config if set (same format as Docker), else prod gets a default
+	if svc.Docker != nil && svc.Docker.Healthcheck != nil {
+		if m := HealthcheckToMap(svc.Docker.Healthcheck); len(m) > 0 {
+			serviceConfig["healthcheck"] = m
+		}
+	} else if mode == "prod" {
 		healthcheck := GetHealthcheckConfig(mode)
 		serviceConfig["healthcheck"] = healthcheck
 	}

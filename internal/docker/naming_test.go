@@ -71,45 +71,55 @@ func TestNormalizeName(t *testing.T) {
 
 func TestNormalizeContainerName(t *testing.T) {
 	tests := []struct {
-		name     string
-		project  string
-		service  string
-		expected string
-		wantErr  bool
+		name                 string
+		workspace            string
+		service              string
+		project              string
+		hasExplicitWorkspace bool
+		expected             string
+		wantErr              bool
 	}{
 		{
-			name:     "simple container name",
-			project:  "billing",
-			service:  "api",
-			expected: "raioz-billing-api",
-			wantErr:  false,
+			name:                 "simple container name",
+			workspace:            "",
+			service:              "api",
+			project:              "billing",
+			hasExplicitWorkspace: false,
+			expected:             "raioz-billing-api",
+			wantErr:              false,
 		},
 		{
-			name:     "uppercase conversion",
-			project:  "BILLING",
-			service:  "API",
-			expected: "raioz-billing-api",
-			wantErr:  false,
+			name:                 "uppercase conversion",
+			workspace:            "",
+			service:              "API",
+			project:              "BILLING",
+			hasExplicitWorkspace: false,
+			expected:             "raioz-billing-api",
+			wantErr:              false,
 		},
 		{
-			name:     "special characters",
-			project:  "billing-platform",
-			service:  "api_v2",
-			expected: "raioz-billing-platform-api-v2",
-			wantErr:  false,
+			name:                 "special characters",
+			workspace:            "",
+			service:              "api_v2",
+			project:              "billing-platform",
+			hasExplicitWorkspace: false,
+			expected:             "raioz-billing-platform-api-v2",
+			wantErr:              false,
 		},
 		{
-			name:     "long name truncation",
-			project:  "very-long-project-name",
-			service:  "very-long-service-name-that-exceeds-limit",
-			expected: "raioz-very-long-project-name-very-long-service-name-that-ex", // Truncated
-			wantErr:  false,
+			name:                 "long name truncation",
+			workspace:            "",
+			service:              "very-long-service-name-that-exceeds-limit",
+			project:              "very-long-project-name",
+			hasExplicitWorkspace: false,
+			expected:             "raioz-very-long-project-name-very-long-service-name-that-ex", // Truncated
+			wantErr:              false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := NormalizeContainerName(tt.project, tt.service)
+			result, err := NormalizeContainerName(tt.workspace, tt.service, tt.project, tt.hasExplicitWorkspace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NormalizeContainerName() error = %v, wantErr %v", err, tt.wantErr)
 				return

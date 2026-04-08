@@ -5,6 +5,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -107,7 +108,7 @@ func TestResolve(t *testing.T) {
 		t.Errorf("Workspace ServicesDir = %v, want %v", ws.ServicesDir, expectedServices)
 	}
 
-	expectedEnv := filepath.Join(testDir, "env")
+	expectedEnv := filepath.Join(testDir, "workspaces", "test-project", "env")
 	if ws.EnvDir != expectedEnv {
 		t.Errorf("Workspace EnvDir = %v, want %v", ws.EnvDir, expectedEnv)
 	}
@@ -136,6 +137,52 @@ func TestResolve(t *testing.T) {
 	if _, err := os.Stat(envProjects); os.IsNotExist(err) {
 		t.Errorf("Env projects directory does not exist: %v", envProjects)
 	}
+}
+
+func TestResolveEdgeCases(t *testing.T) {
+	originalHome := os.Getenv("RAIOZ_HOME")
+	defer os.Setenv("RAIOZ_HOME", originalHome)
+
+	t.Run("empty project name", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		os.Setenv("RAIOZ_HOME", tmpDir)
+
+		ws, err := Resolve("")
+		if err != nil {
+			t.Logf("Resolve with empty name returned error: %v", err)
+		}
+		if ws != nil {
+			// Workspace was created, which is valid behavior
+		}
+	})
+
+	t.Run("project name with special characters", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		os.Setenv("RAIOZ_HOME", tmpDir)
+
+		ws, err := Resolve("test-project_123-456")
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if ws == nil {
+			t.Fatal("Workspace should not be nil")
+		}
+	})
+
+	t.Run("very long project name", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		os.Setenv("RAIOZ_HOME", tmpDir)
+
+		longName := "a" + strings.Repeat("b", 200)
+		ws, err := Resolve(longName)
+		if err != nil {
+			t.Logf("Resolve with very long name returned error (acceptable): %v", err)
+			return
+		}
+		if ws == nil {
+			t.Fatal("Workspace should not be nil")
+		}
+	})
 }
 
 func TestGetBaseDirFromWorkspace(t *testing.T) {

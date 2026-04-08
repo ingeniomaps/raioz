@@ -63,6 +63,27 @@ func (m *MockDockerRunner) UpServicesWithContext(ctx context.Context, composePat
 	return nil
 }
 
+func (m *MockDockerRunner) RestartServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+	if m.RestartServicesWithContextFunc != nil {
+		return m.RestartServicesWithContextFunc(ctx, composePath, serviceNames)
+	}
+	return nil
+}
+
+func (m *MockDockerRunner) ForceRecreateServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+	if m.ForceRecreateServicesWithContextFunc != nil {
+		return m.ForceRecreateServicesWithContextFunc(ctx, composePath, serviceNames)
+	}
+	return nil
+}
+
+func (m *MockDockerRunner) ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error {
+	if m.ExecInServiceFunc != nil {
+		return m.ExecInServiceFunc(ctx, composePath, serviceName, command, interactive)
+	}
+	return nil
+}
+
 func (m *MockDockerRunner) WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error {
 	if m.WaitForServicesHealthyFunc != nil {
 		return m.WaitForServicesHealthyFunc(ctx, composePath, serviceNames, infraNames, projectName)
