@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -42,7 +43,10 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 		if deps != nil {
 			projectName = deps.Project.Name
 		} else {
-			return fmt.Errorf("could not determine project name. Please provide --file, --project, or use --all")
+			return errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("error.no_project"),
+			).WithSuggestion(i18n.T("error.no_project_suggestion"))
 		}
 	}
 
@@ -52,12 +56,18 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 	if opts.All {
 		baseDir, err := uc.deps.Workspace.GetBaseDir()
 		if err != nil {
-			return fmt.Errorf("failed to get base directory: %w", err)
+			return errors.New(
+				errors.ErrCodeWorkspaceError,
+				i18n.T("error.base_dir"),
+			).WithSuggestion(i18n.T("error.base_dir_suggestion")).WithError(err)
 		}
 		logging.Info("Cleaning all projects")
 		projectActions, err := uc.deps.DockerRunner.CleanAllProjectsWithContext(ctx, baseDir, opts.DryRun)
 		if err != nil {
-			return fmt.Errorf("failed to clean all projects: %w", err)
+			return errors.New(
+				errors.ErrCodeDockerNotRunning,
+				i18n.T("error.clean_all_failed"),
+			).WithSuggestion(i18n.T("error.clean_all_suggestion")).WithError(err)
 		}
 		actions = append(actions, projectActions...)
 	} else {
@@ -73,7 +83,10 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 		logging.Info("Cleaning unused images")
 		imageActions, err := uc.deps.DockerRunner.CleanUnusedImagesWithContext(ctx, opts.DryRun)
 		if err != nil {
-			return fmt.Errorf("failed to clean images: %w", err)
+			return errors.New(
+				errors.ErrCodeDockerNotRunning,
+				i18n.T("error.clean_images_failed"),
+			).WithSuggestion(i18n.T("error.clean_images_suggestion")).WithError(err)
 		}
 		actions = append(actions, imageActions...)
 	}
@@ -95,7 +108,10 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 		logging.Info("Cleaning unused networks")
 		networkActions, err := uc.deps.DockerRunner.CleanUnusedNetworksWithContext(ctx, opts.DryRun)
 		if err != nil {
-			return fmt.Errorf("failed to clean networks: %w", err)
+			return errors.New(
+				errors.ErrCodeNetworkError,
+				i18n.T("error.clean_networks_failed"),
+			).WithSuggestion(i18n.T("error.clean_networks_suggestion")).WithError(err)
 		}
 		actions = append(actions, networkActions...)
 	}
@@ -119,7 +135,10 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 func (uc *CleanUseCase) cleanProject(ctx context.Context, projectName string, opts CleanOptions) ([]string, error) {
 	ws, err := uc.deps.Workspace.Resolve(projectName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve workspace: %w", err)
+		return nil, errors.New(
+			errors.ErrCodeWorkspaceError,
+			i18n.T("error.workspace_resolve"),
+		).WithSuggestion(i18n.T("error.workspace_resolve_suggestion")).WithError(err)
 	}
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
@@ -127,7 +146,10 @@ func (uc *CleanUseCase) cleanProject(ctx context.Context, projectName string, op
 
 	projectActions, err := uc.deps.DockerRunner.CleanProjectWithContext(ctx, composePath, opts.DryRun)
 	if err != nil {
-		return nil, fmt.Errorf("failed to clean project: %w", err)
+		return nil, errors.New(
+			errors.ErrCodeDockerNotRunning,
+			i18n.T("error.clean_project_failed"),
+		).WithSuggestion(i18n.T("error.clean_project_suggestion")).WithError(err)
 	}
 
 	// Remove state file if exists
@@ -156,7 +178,10 @@ func (uc *CleanUseCase) cleanVolumes(ctx context.Context, opts CleanOptions) ([]
 		reader := bufio.NewReader(os.Stdin)
 		response, err := reader.ReadString('\n')
 		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
+			return nil, errors.New(
+				errors.ErrCodeInternalError,
+				i18n.T("error.read_input"),
+			).WithError(err)
 		}
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "yes" && response != "y" {
@@ -167,7 +192,10 @@ func (uc *CleanUseCase) cleanVolumes(ctx context.Context, opts CleanOptions) ([]
 
 	volumeActions, err := uc.deps.DockerRunner.CleanUnusedVolumesWithContext(ctx, opts.DryRun, opts.Force || opts.DryRun)
 	if err != nil {
-		return nil, fmt.Errorf("failed to clean volumes: %w", err)
+		return nil, errors.New(
+			errors.ErrCodeVolumeError,
+			i18n.T("error.clean_volumes_failed"),
+		).WithSuggestion(i18n.T("error.clean_volumes_suggestion")).WithError(err)
 	}
 	return volumeActions, nil
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -40,13 +41,13 @@ func (uc *PortsUseCase) Execute(ctx context.Context, opts PortsOptions) error {
 		var err error
 		baseDir, err = uc.deps.Workspace.GetBaseDir()
 		if err != nil {
-			return fmt.Errorf("failed to get base directory: %w", err)
+			return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.base_dir")).WithError(err)
 		}
 	}
 
 	ports, err := uc.deps.DockerRunner.GetAllActivePorts(baseDir)
 	if err != nil {
-		return fmt.Errorf("failed to get active ports: %w", err)
+		return errors.New(errors.ErrCodeDockerNotRunning, i18n.T("error.ports_get_active")).WithError(err)
 	}
 
 	if len(ports) == 0 {

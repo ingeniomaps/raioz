@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -33,7 +34,7 @@ func NewListUseCase(deps *Dependencies) *ListUseCase {
 func (uc *ListUseCase) Execute(opts ListOptions) error {
 	globalState, err := uc.deps.StateManager.LoadGlobalState()
 	if err != nil {
-		return fmt.Errorf("failed to load global state: %w", err)
+		return errors.New(errors.ErrCodeStateLoadError, i18n.T("error.list_load_state")).WithError(err)
 	}
 
 	// Apply filters
@@ -43,7 +44,7 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(filteredState); err != nil {
-			return fmt.Errorf("failed to encode JSON: %w", err)
+			return errors.New(errors.ErrCodeInternalError, i18n.T("error.list_encode_json")).WithError(err)
 		}
 		return nil
 	}

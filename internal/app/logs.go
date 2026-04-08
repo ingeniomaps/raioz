@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
@@ -45,12 +44,18 @@ func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
 	}
 
 	if !uc.deps.StateManager.Exists(ws) {
-		return fmt.Errorf("project is not running (no state file found)")
+		return errors.New(
+			errors.ErrCodeWorkspaceError,
+			i18n.T("error.logs_not_running"),
+		).WithContext("project", projectName)
 	}
 
 	stateDeps, err := uc.deps.StateManager.Load(ws)
 	if err != nil {
-		return fmt.Errorf("failed to load project state: %w", err)
+		return errors.New(
+			errors.ErrCodeStateLoadError,
+			i18n.T("error.state_load_previous"),
+		).WithError(err)
 	}
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
@@ -72,7 +77,10 @@ func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
 			Services: services,
 		}
 		if err := uc.deps.DockerRunner.ViewLogsWithContext(ctx, composePath, logsOpts); err != nil {
-			return fmt.Errorf("failed to view logs: %w", err)
+			return errors.New(
+				errors.ErrCodeDockerNotRunning,
+				i18n.T("error.logs_view_failed"),
+			).WithError(err)
 		}
 	}
 
@@ -84,7 +92,10 @@ func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
 			Services: projectComposeServices,
 		}
 		if err := uc.deps.DockerRunner.ViewLogsWithContext(ctx, stateDeps.ProjectComposePath, logsOpts); err != nil {
-			return fmt.Errorf("failed to view project compose logs: %w", err)
+			return errors.New(
+				errors.ErrCodeDockerNotRunning,
+				i18n.T("error.logs_view_failed"),
+			).WithError(err)
 		}
 	}
 
@@ -100,7 +111,10 @@ func (uc *LogsUseCase) resolveProject(opts LogsOptions) (string, string, error) 
 		if deps != nil {
 			return deps.Project.Name, deps.GetWorkspaceName(), nil
 		}
-		return "", "", fmt.Errorf("could not determine project name. Please provide --file or --project flag")
+		return "", "", errors.New(
+			errors.ErrCodeInvalidConfig,
+			i18n.T("error.no_project"),
+		).WithSuggestion(i18n.T("error.no_project_suggestion"))
 	}
 
 	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
@@ -121,7 +135,10 @@ func (uc *LogsUseCase) resolveServices(
 	if opts.All || len(opts.Services) == 0 {
 		allServices, err := uc.deps.DockerRunner.GetAvailableServicesWithContext(ctx, composePath)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get available services: %w", err)
+			return nil, nil, errors.New(
+				errors.ErrCodeDockerNotRunning,
+				i18n.T("error.exec_services_failed"),
+			).WithError(err)
 		}
 
 		var projectComposeServices []string

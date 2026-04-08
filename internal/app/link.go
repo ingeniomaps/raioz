@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/link"
 	"raioz/internal/output"
@@ -25,25 +26,25 @@ func (uc *LinkUseCase) Add(serviceName string, externalPath string, configPath s
 	// Resolve external path to absolute
 	absExternalPath, err := filepath.Abs(externalPath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve external path: %w", err)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.link_resolve_path")).WithError(err)
 	}
 
 	// Load config to get project name
 	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.link_load_config")).WithError(err)
 	}
 
 	// Resolve workspace
 	ws, err := uc.deps.Workspace.Resolve(deps.Project.Name)
 	if err != nil {
-		return fmt.Errorf("failed to resolve workspace: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_resolve_workspace")).WithError(err)
 	}
 
 	// Check if service exists in config
 	svc, exists := deps.Services[serviceName]
 	if !exists {
-		return fmt.Errorf("service '%s' not found in configuration", serviceName)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.link_service_not_found", serviceName))
 	}
 
 	// Get service path in workspace
@@ -55,35 +56,27 @@ func (uc *LinkUseCase) Add(serviceName string, externalPath string, configPath s
 			// Check if it's a symlink
 			isLinked, target, err := link.IsLinked(servicePath)
 			if err != nil {
-				return fmt.Errorf("failed to check if service is linked: %w", err)
+				return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_check_status")).WithError(err)
 			}
 			if !isLinked {
-				return fmt.Errorf(
-					"service path already exists as a directory: %s\n"+
-						"To create a symlink, you must first remove or move the existing directory",
-					servicePath,
-				)
+				return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_path_exists_as_dir", servicePath))
 			}
 			// Already linked, check if it points to the same target
 			absTarget, err := filepath.Abs(target)
 			if err != nil {
-				return fmt.Errorf("failed to resolve existing target: %w", err)
+				return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_resolve_target")).WithError(err)
 			}
 			if absTarget == absExternalPath {
 				output.PrintInfo(i18n.T("output.link_already_linked", serviceName, absExternalPath))
 				return nil
 			}
-			return fmt.Errorf(
-				"service '%s' is already linked to: %s\n"+
-					"Use 'raioz link remove %s' first to unlink it",
-				serviceName, target, serviceName,
-			)
+			return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_already_linked_different", serviceName, target, serviceName))
 		}
 	}
 
 	// Create symlink
 	if err := link.CreateLink(servicePath, absExternalPath); err != nil {
-		return fmt.Errorf("failed to create symlink: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_create")).WithError(err)
 	}
 
 	output.PrintSuccess(i18n.T("output.link_created", serviceName, absExternalPath))
@@ -97,19 +90,19 @@ func (uc *LinkUseCase) Remove(serviceName string, configPath string) error {
 	// Load config to get project name
 	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.link_load_config")).WithError(err)
 	}
 
 	// Resolve workspace
 	ws, err := uc.deps.Workspace.Resolve(deps.Project.Name)
 	if err != nil {
-		return fmt.Errorf("failed to resolve workspace: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_resolve_workspace")).WithError(err)
 	}
 
 	// Check if service exists in config
 	svc, exists := deps.Services[serviceName]
 	if !exists {
-		return fmt.Errorf("service '%s' not found in configuration", serviceName)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.link_service_not_found", serviceName))
 	}
 
 	// Get service path in workspace
@@ -118,7 +111,7 @@ func (uc *LinkUseCase) Remove(serviceName string, configPath string) error {
 	// Check if service is linked
 	isLinked, target, err := link.IsLinked(servicePath)
 	if err != nil {
-		return fmt.Errorf("failed to check if service is linked: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_check_status")).WithError(err)
 	}
 
 	if !isLinked {
@@ -128,7 +121,7 @@ func (uc *LinkUseCase) Remove(serviceName string, configPath string) error {
 
 	// Remove symlink
 	if err := link.RemoveLink(servicePath); err != nil {
-		return fmt.Errorf("failed to remove symlink: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_remove")).WithError(err)
 	}
 
 	output.PrintSuccess(i18n.T("output.link_removed", serviceName, target))
@@ -142,13 +135,13 @@ func (uc *LinkUseCase) List(configPath string) error {
 	// Load config to get project name
 	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.link_load_config")).WithError(err)
 	}
 
 	// Resolve workspace
 	ws, err := uc.deps.Workspace.Resolve(deps.Project.Name)
 	if err != nil {
-		return fmt.Errorf("failed to resolve workspace: %w", err)
+		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.link_resolve_workspace")).WithError(err)
 	}
 
 	var linkedServices []struct {
