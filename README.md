@@ -95,6 +95,15 @@ raioz --help
 raioz version
 ```
 
+## 📖 Documentación
+
+- **[Getting Started](./docs/GETTING_STARTED.md)** — Guía paso a paso para nuevos usuarios
+- **[Guía de Comandos](./docs/COMMANDS.md)** — Referencia completa de todos los comandos
+- **[Schema Reference](./docs/SCHEMA_REFERENCE.md)** — Todos los campos de `.raioz.json`
+- **[Ejemplos](./examples/)** — Proyectos de ejemplo listos para usar
+- **[Roadmap](./docs/ROADMAP.md)** — Plan de desarrollo y features futuras
+- **[Changelog](./CHANGELOG.md)** — Historial de cambios
+
 ## 🚀 Quick Start
 
 1. **Crear archivo `.raioz.json`** en la raíz de tu proyecto:
@@ -175,7 +184,7 @@ Levanta todos los servicios del proyecto.
 raioz up
 
 # Especificar archivo de configuración
-raioz up --config custom-raioz.json
+raioz up --file custom-raioz.json
 
 # Usar un perfil específico
 raioz up --profile frontend
@@ -441,7 +450,7 @@ raioz ci --ephemeral --job-id $CI_JOB_ID
 raioz ci --ephemeral --keep
 
 # Configuración personalizada
-raioz ci --config custom-raioz.json
+raioz ci --file custom-raioz.json
 ```
 
 **Características:**
@@ -1476,8 +1485,8 @@ Error: image org/image:tag not found
 
 - [Documento de Límites](./docs/limits.md) - Qué NO hace Raioz, casos no soportados y decisiones de diseño
 - [Guía de Desarrollo](DEVELOPMENT.md) - Cómo contribuir al proyecto
-- [Definiciones del Proyecto](.ia/DEFINICIONES_PROYECTO.md) - Arquitectura y decisiones
-- [Estándares de Código](.ia/CODIGO_STANDARDS.md) - Reglas de desarrollo
+- [Definiciones del Proyecto](.context/DEFINICIONES_PROYECTO.md) - Arquitectura y decisiones
+- [Estándares de Código](.context/CODIGO_STANDARDS.md) - Reglas de desarrollo
 
 ## 🐛 Reportar problemas
 
