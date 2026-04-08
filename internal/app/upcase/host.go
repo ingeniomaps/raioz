@@ -7,24 +7,19 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	workspacepkg "raioz/internal/workspace"
 )
 
 // saveHostProcessesState saves the host processes state to disk
 func (uc *UseCase) saveHostProcessesState(ctx context.Context, ws *interfaces.Workspace, processes map[string]*host.ProcessInfo) error {
-	// Convert interfaces.Workspace to concrete workspace.Workspace
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return host.SaveProcessesState(wsConcrete, processes)
+	return uc.deps.HostRunner.SaveProcessesState(ws, processes)
 }
 
 // processHostServices starts services that run directly on the host (without Docker)
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
 func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectDir string) (map[string]*host.ProcessInfo, error) {
-	// Convert interfaces.Workspace to concrete workspace.Workspace
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-
 	// Collect host services:
 	// 1. Services with source.command (host execution)
 	// 2. Services with custom commands (no docker, no source.command, but has commands)
@@ -56,7 +51,7 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 	}
 
 	// Start each host service
-	output.PrintProgress(fmt.Sprintf("Starting %d host service(s)...", len(hostServices)))
+	output.PrintProgress(i18n.T("up.host.starting_services", len(hostServices)))
 	logging.DebugWithContext(ctx, "Starting host services", "count", len(hostServices), "services", hostServices)
 
 	for _, name := range hostServices {
@@ -72,23 +67,23 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		// For services, always check health if available
 		healthCommand := getServiceHealthCommand(svc, mode)
 		if healthCommand != "" {
-			isHealthy, err := checkServiceHealth(ctx, wsConcrete, name, svc, mode)
+			isHealthy, err := checkServiceHealth(ctx, ws, name, svc, mode, uc.deps.Workspace)
 			if err != nil {
 				logging.WarnWithContext(ctx, "Failed to check service health", "service", name, "error", err.Error())
 				// Continue anyway
 			} else {
 				if isHealthy {
 					logging.InfoWithContext(ctx, "Service is already healthy, skipping start", "service", name)
-					output.PrintInfo(fmt.Sprintf("Service %s is already running and healthy", name))
+					output.PrintInfo(i18n.T("up.host.already_healthy", name))
 					continue
 				}
 			}
 		} else {
 			// No health command, use default health check
-			isHealthy, err := checkServiceHealth(ctx, wsConcrete, name, svc, mode)
+			isHealthy, err := checkServiceHealth(ctx, ws, name, svc, mode, uc.deps.Workspace)
 			if err == nil && isHealthy {
 				logging.InfoWithContext(ctx, "Service is already healthy (default check), skipping start", "service", name)
-				output.PrintInfo(fmt.Sprintf("Service %s is already running and healthy", name))
+				output.PrintInfo(i18n.T("up.host.already_healthy", name))
 				continue
 			}
 		}
@@ -116,8 +111,8 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		// Priority 3: If still no command, check if cloned repo has .raioz.json with project.commands
 		// Only check if source.command was NOT specified (to avoid overriding explicit commands)
 		if command == "" && svc.Source.Kind == "git" {
-			servicePath := workspacepkg.GetServicePath(wsConcrete, name, svc)
-			if serviceDeps, _, err := config.FindServiceConfig(servicePath); err == nil {
+			servicePath := uc.deps.Workspace.GetServicePath(ws, name, svc)
+			if serviceDeps, _, err := uc.deps.ConfigLoader.FindServiceConfig(servicePath); err == nil {
 				// Found .raioz.json in cloned repo, check for project.commands
 				if serviceDeps.Project.Commands != nil {
 					if mode == "prod" && serviceDeps.Project.Commands.Prod != nil && serviceDeps.Project.Commands.Prod.Up != "" {
@@ -188,10 +183,10 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		}
 
 		// Start service
-		processInfo, err := host.StartService(ctx, wsConcrete, deps, name, svcWithCommand, projectDir)
+		processInfo, err := uc.deps.HostRunner.StartService(ctx, ws, deps, name, svcWithCommand, projectDir)
 		if err != nil {
 			logging.DebugWithContext(ctx, "Failed to start host service", "service", name, "error", err.Error())
-			output.PrintProgressError(fmt.Sprintf("Failed to start host service %s", name))
+			output.PrintProgressError(i18n.T("up.host.start_error", name))
 			// The error message already includes the command output, so just return it
 			return nil, err
 		}
@@ -202,11 +197,11 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		}
 
 		hostProcessInfo[name] = processInfo
-		output.PrintSuccess(fmt.Sprintf("%s (host) iniciado", name))
+		output.PrintSuccess(i18n.T("up.host.started", name))
 		logging.DebugWithContext(ctx, "Host service started", "service", name, "pid", processInfo.PID, "command", processInfo.Command)
 	}
 
-	output.PrintProgressDone(fmt.Sprintf("Started %d host service(s)", len(hostServices)))
+	output.PrintProgressDone(i18n.T("up.host.all_started", len(hostServices)))
 	return hostProcessInfo, nil
 }
 
@@ -218,7 +213,7 @@ func (uc *UseCase) stopHostServices(ctx context.Context, processInfoMap map[stri
 
 	for name, processInfo := range processInfoMap {
 		logging.InfoWithContext(ctx, "Stopping host service", "service", name, "pid", processInfo.PID, "stopCommand", processInfo.StopCommand)
-		if err := host.StopServiceWithCommand(ctx, processInfo.PID, processInfo.StopCommand); err != nil {
+		if err := uc.deps.HostRunner.StopServiceWithCommand(ctx, processInfo.PID, processInfo.StopCommand); err != nil {
 			logging.WarnWithContext(ctx, "Failed to stop host service", "service", name, "pid", processInfo.PID, "error", err.Error())
 			// Continue stopping other services even if one fails
 			continue

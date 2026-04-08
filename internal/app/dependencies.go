@@ -4,7 +4,9 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/infra/config"
 	"raioz/internal/infra/docker"
+	"raioz/internal/infra/env"
 	"raioz/internal/infra/git"
+	"raioz/internal/infra/host"
 	"raioz/internal/infra/lock"
 	"raioz/internal/infra/state"
 	"raioz/internal/infra/validate"
@@ -20,6 +22,8 @@ type Dependencies struct {
 	Workspace      interfaces.WorkspaceManager
 	StateManager   interfaces.StateManager
 	LockManager    interfaces.LockManager
+	HostRunner     interfaces.HostRunner
+	EnvManager     interfaces.EnvManager
 }
 
 // NewDependencies creates a new Dependencies instance with default implementations
@@ -32,6 +36,8 @@ func NewDependencies() *Dependencies {
 		Workspace:     workspace.NewWorkspaceManager(),
 		StateManager:  state.NewStateManager(),
 		LockManager:   lock.NewLockManager(),
+		HostRunner:    host.NewHostRunner(),
+		EnvManager:    env.NewEnvManager(),
 	}
 }
 
@@ -44,6 +50,8 @@ func NewDependenciesWithMocks(
 	workspace interfaces.WorkspaceManager,
 	stateManager interfaces.StateManager,
 	lockManager interfaces.LockManager,
+	hostRunner interfaces.HostRunner,
+	envManager interfaces.EnvManager,
 ) *Dependencies {
 	return &Dependencies{
 		ConfigLoader:  configLoader,
@@ -53,5 +61,7 @@ func NewDependenciesWithMocks(
 		Workspace:     workspace,
 		StateManager:  stateManager,
 		LockManager:   lockManager,
+		HostRunner:    hostRunner,
+		EnvManager:    envManager,
 	}
 }

@@ -16,9 +16,9 @@ func TestValidateProject(t *testing.T) {
 			name: "valid project",
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
+				Network: config.NetworkConfig{Name: "test-network"},
 				Project: config.Project{
-					Name:    "test-project",
-					Network: "test-network",
+					Name: "test-project",
 				},
 				Services: map[string]config.Service{
 					"test": {
@@ -28,17 +28,17 @@ func TestValidateProject(t *testing.T) {
 							Branch: "main",
 							Path:   "services/test",
 						},
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							Mode:       "dev",
 							Dockerfile: "Dockerfile",
 							Ports:      []string{},
 							Volumes:    []string{},
 							DependsOn:  []string{},
 						},
-						Env: []string{},
+						Env: &config.EnvValue{Files: []string{}},
 					},
 				},
-				Infra: map[string]config.Infra{},
+				Infra: map[string]config.InfraEntry{},
 				Env: config.EnvConfig{
 					UseGlobal: true,
 					Files:     []string{},
@@ -50,11 +50,10 @@ func TestValidateProject(t *testing.T) {
 			name: "missing project name",
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
-				Project: config.Project{
-					Network: "test-network",
-				},
+				Network: config.NetworkConfig{Name: "test-network"},
+				Project: config.Project{},
 				Services: map[string]config.Service{},
-				Infra:    map[string]config.Infra{},
+				Infra:    map[string]config.InfraEntry{},
 				Env:      config.EnvConfig{},
 			},
 			wantErr: true,
@@ -63,9 +62,9 @@ func TestValidateProject(t *testing.T) {
 			name: "missing service source fields for git",
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
+				Network: config.NetworkConfig{Name: "test"},
 				Project: config.Project{
-					Name:    "test",
-					Network: "test",
+					Name: "test",
 				},
 				Services: map[string]config.Service{
 					"test": {
@@ -73,12 +72,12 @@ func TestValidateProject(t *testing.T) {
 							Kind: "git",
 							// Missing repo, branch, path
 						},
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							Mode: "dev",
 						},
 					},
 				},
-				Infra: map[string]config.Infra{},
+				Infra: map[string]config.InfraEntry{},
 				Env:   config.EnvConfig{},
 			},
 			wantErr: true,

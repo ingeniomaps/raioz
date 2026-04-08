@@ -88,10 +88,14 @@ func TestFilterByProfile(t *testing.T) {
 				Profiles: []string{},
 			},
 		},
-		Infra: map[string]Infra{},
+		Infra: map[string]InfraEntry{
+			"redis":    {Inline: &Infra{Image: "redis", Tag: "7", Profiles: []string{"frontend"}}},
+			"database": {Inline: &Infra{Image: "postgres", Tag: "15", Profiles: []string{"backend"}}},
+			"shared-db": {Inline: &Infra{Image: "postgres", Tag: "15", Profiles: []string{}}},
+		},
 	}
 
-	// Test frontend profile
+	// Test frontend profile (services + infra)
 	frontendDeps := FilterByProfile(deps, "frontend")
 	if len(frontendDeps.Services) != 2 {
 		t.Errorf("Expected 2 services for frontend profile, got %d", len(frontendDeps.Services))
@@ -105,8 +109,20 @@ func TestFilterByProfile(t *testing.T) {
 	if _, exists := frontendDeps.Services["backend-svc"]; exists {
 		t.Error("backend-svc should not be included")
 	}
+	if len(frontendDeps.Infra) != 2 {
+		t.Errorf("Expected 2 infra for frontend profile, got %d", len(frontendDeps.Infra))
+	}
+	if _, exists := frontendDeps.Infra["redis"]; !exists {
+		t.Error("redis should be included for frontend")
+	}
+	if _, exists := frontendDeps.Infra["shared-db"]; !exists {
+		t.Error("shared-db should be included (no profiles)")
+	}
+	if _, exists := frontendDeps.Infra["database"]; exists {
+		t.Error("database should not be included for frontend")
+	}
 
-	// Test backend profile
+	// Test backend profile (services + infra)
 	backendDeps := FilterByProfile(deps, "backend")
 	if len(backendDeps.Services) != 2 {
 		t.Errorf("Expected 2 services for backend profile, got %d", len(backendDeps.Services))
@@ -119,5 +135,17 @@ func TestFilterByProfile(t *testing.T) {
 	}
 	if _, exists := backendDeps.Services["frontend-svc"]; exists {
 		t.Error("frontend-svc should not be included")
+	}
+	if len(backendDeps.Infra) != 2 {
+		t.Errorf("Expected 2 infra for backend profile, got %d", len(backendDeps.Infra))
+	}
+	if _, exists := backendDeps.Infra["database"]; !exists {
+		t.Error("database should be included for backend")
+	}
+	if _, exists := backendDeps.Infra["shared-db"]; !exists {
+		t.Error("shared-db should be included (no profiles)")
+	}
+	if _, exists := backendDeps.Infra["redis"]; exists {
+		t.Error("redis should not be included for backend")
 	}
 }

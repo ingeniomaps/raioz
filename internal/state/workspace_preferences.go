@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	raiozErrors "raioz/internal/errors"
 	"raioz/internal/workspace"
 )
 
@@ -27,7 +28,9 @@ type WorkspacePreferences struct {
 func getWorkspacePreferencesPath() (string, error) {
 	base, err := workspace.GetBaseDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to get base directory: %w", err)
+		return "", raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to get base directory for workspace preferences").
+			WithError(err).
+			WithSuggestion("Ensure the raioz base directory is properly configured")
 	}
 	return filepath.Join(base, workspacePreferencesFileName), nil
 }
@@ -44,11 +47,17 @@ func loadWorkspacePreferences() (*WorkspacePreferences, error) {
 				ByWorkspace: make(map[string]WorkspaceProjectPreference),
 			}, nil
 		}
-		return nil, fmt.Errorf("failed to read workspace preferences: %w", err)
+		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to read workspace preferences file").
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("Check that the workspace preferences file exists and is readable")
 	}
 	var prefs WorkspacePreferences
 	if err := json.Unmarshal(data, &prefs); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal workspace preferences: %w", err)
+		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to parse workspace preferences file").
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("The workspace preferences file may be corrupted. Try deleting it — preferences will be re-created when needed")
 	}
 	if prefs.ByWorkspace == nil {
 		prefs.ByWorkspace = make(map[string]WorkspaceProjectPreference)
@@ -63,14 +72,23 @@ func saveWorkspacePreferences(prefs *WorkspacePreferences) error {
 	}
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("failed to create preferences directory: %w", err)
+		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to create workspace preferences directory").
+			WithContext("directory", dir).
+			WithError(err).
+			WithSuggestion("Verify file permissions and available disk space")
 	}
 	data, err := json.MarshalIndent(prefs, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal workspace preferences: %w", err)
+		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, fmt.Sprintf("failed to marshal workspace preferences: %v", err)).
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("The preferences data may be corrupted. Try deleting the preferences file and setting preferences again")
 	}
 	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("failed to write workspace preferences: %w", err)
+		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to write workspace preferences file").
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("Verify file permissions and available disk space")
 	}
 	return nil
 }

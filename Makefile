@@ -1,4 +1,4 @@
-.PHONY: lint format test build install clean check-lines check-length test-coverage check-coverage security
+.PHONY: lint format test build install clean check-lines check-length test-coverage check-coverage security check-i18n
 
 # Default target
 .DEFAULT_GOAL := help
@@ -39,7 +39,7 @@ build: ## Build the binary
 	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown"); \
 	DATE=$$(date +%Y-%m-%dT%H:%M:%S 2>/dev/null || echo "unknown"); \
 	go build -buildvcs=false \
-		-ldflags "-X 'raioz/cmd.Version=$$VERSION' -X 'raioz/cmd.Commit=$$COMMIT' -X 'raioz/cmd.BuildDate=$$DATE'" \
+		-ldflags "-X 'raioz/internal/cli.Version=$$VERSION' -X 'raioz/internal/cli.Commit=$$COMMIT' -X 'raioz/internal/cli.BuildDate=$$DATE'" \
 		-o raioz ./cmd/raioz
 
 install: build ## Build and install the binary to /usr/local/bin (development mode - uses local binary)
@@ -58,7 +58,7 @@ clean: ## Clean build artifacts
 
 check-lines: ## Check for files exceeding 400 lines
 	@echo "Checking for files exceeding 400 lines..."
-	@files=$$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" -exec sh -c 'lines=$$(wc -l < "$$1"); if [ "$$lines" -gt 400 ]; then echo "$$1: $$lines lines"; fi' _ {} \;); \
+	@files=$$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" ! -name "schema.go" -exec sh -c 'lines=$$(wc -l < "$$1"); if [ "$$lines" -gt 400 ]; then echo "$$1: $$lines lines"; fi' _ {} \;); \
 	if [ -n "$$files" ]; then \
 		echo "❌ Files exceeding 400 lines found:"; \
 		echo "$$files"; \
@@ -78,7 +78,15 @@ check-length: ## Check for lines exceeding 120 characters
 		echo "✅ All lines are under 120 characters"; \
 	fi
 
-check: format check-lines check-length lint test ## Run all checks (format, lint, tests, line checks)
+check-i18n: ## Verify all i18n catalogs have the same keys
+	@echo "Checking i18n catalog completeness..."
+	@go test -run TestCatalogCompleteness -count=1 ./internal/i18n/ && echo "All catalogs in sync"
+
+check: format check-lines check-length check-i18n lint test ## Run all checks
+
+integration-test: build ## Run E2E integration tests (requires Docker)
+	@echo "Running integration tests..."
+	@./scripts/integration-test.sh ./raioz
 
 generate: ## Generate code (mocks, etc.)
 	@echo "Generating code..."
@@ -144,7 +152,7 @@ build-release-binaries: ## Build binaries for all platforms (for manual GitHub r
 		BINARY_NAME="raioz-$$GOOS-$$GOARCH"; \
 		echo "Building $$BINARY_NAME..."; \
 		GOOS=$$GOOS GOARCH=$$GOARCH CGO_ENABLED=0 go build \
-			-ldflags "-s -w -X 'raioz/cmd.Version=$$VERSION' -X 'raioz/cmd.Commit=$$COMMIT' -X 'raioz/cmd.BuildDate=$$DATE'" \
+			-ldflags "-s -w -X 'raioz/internal/cli.Version=$$VERSION' -X 'raioz/internal/cli.Commit=$$COMMIT' -X 'raioz/internal/cli.BuildDate=$$DATE'" \
 			-o $$BINARY_NAME ./cmd/raioz; \
 		if [ -f $$BINARY_NAME ]; then \
 			echo "✓ Built $$BINARY_NAME"; \

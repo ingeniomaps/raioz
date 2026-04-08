@@ -95,7 +95,7 @@ func TestApplyModeConfig(t *testing.T) {
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: config.DockerConfig{
+		Docker: &config.DockerConfig{
 			Mode:    "dev",
 			Volumes: []string{"mongo-data:/data", "./app:/app"},
 			Runtime: "node",
@@ -143,7 +143,7 @@ func TestApplyModeConfigProd(t *testing.T) {
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: config.DockerConfig{
+		Docker: &config.DockerConfig{
 			Mode:    "prod",
 			Volumes: []string{"mongo-data:/data", "./app:/app"},
 		},
@@ -163,17 +163,11 @@ func TestApplyModeConfigProd(t *testing.T) {
 	// Apply prod mode config
 	ApplyModeConfig(serviceConfig, "test-service", svc, ws)
 
-	// Check that bind mounts are removed in prod
+	// Check that user-specified bind mounts are preserved in prod
+	// (only auto-added dev bind mounts from servicePath are removed)
 	if volumes, ok := serviceConfig["volumes"].([]string); ok {
-		hasBindMount := false
-		for _, vol := range volumes {
-			if vol == "./app:/app" {
-				hasBindMount = true
-				break
-			}
-		}
-		if hasBindMount {
-			t.Error("ApplyModeConfig(prod) should remove bind mounts")
+		if len(volumes) < 2 {
+			t.Error("ApplyModeConfig(prod) should preserve user-specified volumes")
 		}
 	}
 

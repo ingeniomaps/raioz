@@ -17,12 +17,12 @@ func TestValidateTransitiveDependencies(t *testing.T) {
 			deps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service3"},
 						},
 					},
@@ -37,12 +37,12 @@ func TestValidateTransitiveDependencies(t *testing.T) {
 			deps: &config.Deps{
 				Services: map[string]config.Service{
 					"service1": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"missing-service"},
 						},
 					},
@@ -120,7 +120,7 @@ func TestValidateVersionCompatibility(t *testing.T) {
 							Kind: "image",
 							Tag:  "v1.2.3",
 						},
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
@@ -144,7 +144,7 @@ func TestValidateVersionCompatibility(t *testing.T) {
 							Kind: "image",
 							Tag:  "v1.2.3",
 						},
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},

@@ -12,7 +12,7 @@ import (
 	"syscall"
 
 	"raioz/internal/config"
-	"raioz/internal/workspace"
+	"raioz/internal/domain/interfaces"
 )
 
 // getServiceHealthCommand gets the health command for a service
@@ -39,7 +39,7 @@ func getServiceHealthCommand(svc config.Service, mode string) string {
 }
 
 // checkServiceHealthDefault checks service health using default method (process/port)
-func checkServiceHealthDefault(ctx context.Context, ws *workspace.Workspace, serviceName string, svc config.Service) (bool, error) {
+func checkServiceHealthDefault(ctx context.Context, ws *interfaces.Workspace, serviceName string, svc config.Service) (bool, error) {
 	// Try to check if process is running by checking PID file or process list
 	// For now, we'll check if there's a port exposed and try to connect to it
 	if svc.Docker != nil && len(svc.Docker.Ports) > 0 {
@@ -67,13 +67,13 @@ func checkServiceHealthDefault(ctx context.Context, ws *workspace.Workspace, ser
 }
 
 // checkServiceHealth checks if a service is healthy
-func checkServiceHealth(ctx context.Context, ws *workspace.Workspace, serviceName string, svc config.Service, mode string) (bool, error) {
+func checkServiceHealth(ctx context.Context, ws *interfaces.Workspace, serviceName string, svc config.Service, mode string, wm interfaces.WorkspaceManager) (bool, error) {
 	// Get health command
 	healthCommand := getServiceHealthCommand(svc, mode)
 
 	if healthCommand != "" {
 		// Use custom health command
-		servicePath := workspace.GetServicePath(ws, serviceName, svc)
+		servicePath := wm.GetServicePath(ws, serviceName, svc)
 		cmdParts := strings.Fields(healthCommand)
 		if len(cmdParts) == 0 {
 			return false, nil

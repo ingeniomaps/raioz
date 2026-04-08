@@ -170,9 +170,13 @@ func compareInfra(local *config.Deps, prod *ProductionConfig, result *Comparison
 		prodServiceMap[name] = true
 	}
 
-	// Compare infra services (assume infra are also in prod services for now)
+	// Compare inline infra services (path-based entries are skipped)
 	for name := range localInfra {
-		localInf := local.Infra[name]
+		localEntry := local.Infra[name]
+		if localEntry.Inline == nil {
+			continue
+		}
+		localInf := *localEntry.Inline
 		prodSvc, inProd := prod.Services[name]
 
 		if !inProd {

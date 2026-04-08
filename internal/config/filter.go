@@ -2,7 +2,10 @@ package config
 
 import (
 	"fmt"
+	"regexp"
 )
+
+var profileNameRegex = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 // FilterByFeatureFlags filters services based on feature flags and profile
 // Returns filtered deps and a list of services that were replaced with mocks
@@ -99,11 +102,11 @@ func ValidateFeatureFlags(deps *Deps) error {
 				)
 			}
 
-			// Validate profile values
+			// Validate profile values (lowercase letters, digits, hyphens only)
 			for _, p := range svc.FeatureFlag.Profiles {
-				if p != "frontend" && p != "backend" {
+				if !profileNameRegex.MatchString(p) {
 					return fmt.Errorf(
-						"service %s: invalid profile '%s' in featureFlag (must be 'frontend' or 'backend')",
+						"service %s: invalid profile '%s' in featureFlag (use lowercase letters, digits, hyphens)",
 						name, p,
 					)
 				}

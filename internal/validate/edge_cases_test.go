@@ -18,10 +18,9 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
 				Project: config.Project{
-					Network: "test-network",
-				},
+						},
 				Services: map[string]config.Service{},
-				Infra:    map[string]config.Infra{},
+				Infra:    map[string]config.InfraEntry{},
 				Env:      config.EnvConfig{},
 			},
 			want: true,
@@ -34,7 +33,7 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 					Name: "test-project",
 				},
 				Services: map[string]config.Service{},
-				Infra:    map[string]config.Infra{},
+				Infra:    map[string]config.InfraEntry{},
 				Env:      config.EnvConfig{},
 			},
 			want: true,
@@ -44,10 +43,9 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 			deps: &config.Deps{
 				Project: config.Project{
 					Name:    "test-project",
-					Network: "test-network",
-				},
+						},
 				Services: map[string]config.Service{},
-				Infra:    map[string]config.Infra{},
+				Infra:    map[string]config.InfraEntry{},
 				Env:      config.EnvConfig{},
 			},
 			want: true,
@@ -58,10 +56,9 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 				SchemaVersion: "2.0", // Invalid, must be 1.0
 				Project: config.Project{
 					Name:    "test-project",
-					Network: "test-network",
-				},
+						},
 				Services: map[string]config.Service{},
-				Infra:    map[string]config.Infra{},
+				Infra:    map[string]config.InfraEntry{},
 				Env:      config.EnvConfig{},
 			},
 			want: true,
@@ -93,8 +90,7 @@ func TestInvalidServiceConfig(t *testing.T) {
 				SchemaVersion: "1.0",
 				Project: config.Project{
 					Name:    "test",
-					Network: "test",
-				},
+						},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -103,12 +99,12 @@ func TestInvalidServiceConfig(t *testing.T) {
 							Path:   "services/test",
 							// Missing repo
 						},
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							Mode: "dev",
 						},
 					},
 				},
-				Infra: map[string]config.Infra{},
+				Infra: map[string]config.InfraEntry{},
 				Env:   config.EnvConfig{},
 			},
 			want: true,
@@ -119,8 +115,7 @@ func TestInvalidServiceConfig(t *testing.T) {
 				SchemaVersion: "1.0",
 				Project: config.Project{
 					Name:    "test",
-					Network: "test",
-				},
+						},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -129,12 +124,12 @@ func TestInvalidServiceConfig(t *testing.T) {
 							Path: "services/test",
 							// Missing branch
 						},
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							Mode: "dev",
 						},
 					},
 				},
-				Infra: map[string]config.Infra{},
+				Infra: map[string]config.InfraEntry{},
 				Env:   config.EnvConfig{},
 			},
 			want: true,
@@ -145,8 +140,7 @@ func TestInvalidServiceConfig(t *testing.T) {
 				SchemaVersion: "1.0",
 				Project: config.Project{
 					Name:    "test",
-					Network: "test",
-				},
+						},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -154,12 +148,12 @@ func TestInvalidServiceConfig(t *testing.T) {
 							Tag:  "latest",
 							// Missing image
 						},
-						Docker: config.DockerConfig{
+						Docker: &config.DockerConfig{
 							Mode: "dev",
 						},
 					},
 				},
-				Infra: map[string]config.Infra{},
+				Infra: map[string]config.InfraEntry{},
 				Env:   config.EnvConfig{},
 			},
 			want: true,
@@ -170,8 +164,7 @@ func TestInvalidServiceConfig(t *testing.T) {
 				SchemaVersion: "1.0",
 				Project: config.Project{
 					Name:    "test",
-					Network: "test",
-				},
+						},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -182,7 +175,7 @@ func TestInvalidServiceConfig(t *testing.T) {
 						// Missing docker config
 					},
 				},
-				Infra: map[string]config.Infra{},
+				Infra: map[string]config.InfraEntry{},
 				Env:   config.EnvConfig{},
 			},
 			want: true,
@@ -206,8 +199,7 @@ func TestEdgeCaseCircularDependencies(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "test",
-			Network: "test",
+			Name: "test",
 		},
 		Services: map[string]config.Service{
 			"service1": {
@@ -216,7 +208,7 @@ func TestEdgeCaseCircularDependencies(t *testing.T) {
 					Image: "test/image1",
 					Tag:   "latest",
 				},
-				Docker: config.DockerConfig{
+				Docker: &config.DockerConfig{
 					Mode:      "dev",
 					DependsOn: []string{"service2"},
 				},
@@ -227,13 +219,13 @@ func TestEdgeCaseCircularDependencies(t *testing.T) {
 					Image: "test/image2",
 					Tag:   "latest",
 				},
-				Docker: config.DockerConfig{
+				Docker: &config.DockerConfig{
 					Mode:      "dev",
 					DependsOn: []string{"service1"}, // Circular!
 				},
 			},
 		},
-		Infra: map[string]config.Infra{},
+		Infra: map[string]config.InfraEntry{},
 		Env:   config.EnvConfig{},
 	}
 
@@ -248,8 +240,7 @@ func TestEdgeCaseInvalidPortFormat(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "test",
-			Network: "test",
+			Name: "test",
 		},
 		Services: map[string]config.Service{
 			"test": {
@@ -258,13 +249,13 @@ func TestEdgeCaseInvalidPortFormat(t *testing.T) {
 					Image: "test/image",
 					Tag:   "latest",
 				},
-				Docker: config.DockerConfig{
+				Docker: &config.DockerConfig{
 					Mode:  "dev",
 					Ports: []string{"invalid-port"}, // Invalid format
 				},
 			},
 		},
-		Infra: map[string]config.Infra{},
+		Infra: map[string]config.InfraEntry{},
 		Env:   config.EnvConfig{},
 	}
 
@@ -280,11 +271,10 @@ func TestEdgeCaseInvalidProjectName(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "Invalid Name!", // Invalid: contains spaces and special chars
-			Network: "test-network",
+			Name: "Invalid Name!", // Invalid: contains spaces and special chars
 		},
 		Services: map[string]config.Service{},
-		Infra:    map[string]config.Infra{},
+		Infra:    map[string]config.InfraEntry{},
 		Env:      config.EnvConfig{},
 	}
 
@@ -298,12 +288,12 @@ func TestEdgeCaseInvalidProjectName(t *testing.T) {
 func TestEdgeCaseInvalidNetworkName(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
+		Network: config.NetworkConfig{Name: "Invalid Network!"}, // Invalid: contains spaces
 		Project: config.Project{
-			Name:    "test-project",
-			Network: "Invalid Network!", // Invalid: contains spaces
+			Name: "test-project",
 		},
 		Services: map[string]config.Service{},
-		Infra:    map[string]config.Infra{},
+		Infra:    map[string]config.InfraEntry{},
 		Env:      config.EnvConfig{},
 	}
 

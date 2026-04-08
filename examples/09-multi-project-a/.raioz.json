@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "workspace": "shared-workspace",
+  "network": "shared-network",
+  "project": {
+    "name": "billing"
+  },
+  "services": {
+    "billing-api": {
+      "source": {
+        "kind": "image",
+        "image": "hashicorp/http-echo",
+        "tag": "latest"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["3001:5678"],
+        "command": "-text='billing-api response'"
+      }
+    },
+    "payments": {
+      "source": {
+        "kind": "image",
+        "image": "hashicorp/http-echo",
+        "tag": "latest"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["3002:5678"],
+        "command": "-text='payments response'",
+        "dependsOn": ["billing-api"]
+      }
+    }
+  },
+  "infra": {
+    "postgres": {
+      "image": "postgres",
+      "tag": "15-alpine",
+      "ports": ["5435:5432"],
+      "volumes": ["shared-pg-data:/var/lib/postgresql/data"],
+      "env": {
+        "POSTGRES_PASSWORD": "dev123",
+        "POSTGRES_DB": "billing"
+      }
+    },
+    "redis": {
+      "image": "redis",
+      "tag": "7-alpine",
+      "ports": ["6380:6379"]
+    }
+  },
+  "env": {
+    "useGlobal": true,
+    "files": ["global"]
+  }
+}

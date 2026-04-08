@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "network": "disabled-network",
+  "project": {
+    "name": "disabled-demo"
+  },
+  "services": {
+    "api": {
+      "source": {
+        "kind": "image",
+        "image": "hashicorp/http-echo",
+        "tag": "latest"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["5678:5678"],
+        "command": "-text='active api'"
+      }
+    },
+    "legacy-service": {
+      "enabled": false,
+      "source": {
+        "kind": "image",
+        "image": "nginx",
+        "tag": "alpine"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["9999:80"]
+      }
+    },
+    "experimental": {
+      "enabled": false,
+      "source": {
+        "kind": "image",
+        "image": "busybox",
+        "tag": "latest"
+      },
+      "docker": {
+        "mode": "prod",
+        "command": "sh -c 'echo experimental'"
+      }
+    }
+  },
+  "infra": {
+    "redis": {
+      "image": "redis",
+      "tag": "7-alpine",
+      "ports": ["6379:6379"]
+    }
+  },
+  "env": {
+    "useGlobal": true,
+    "files": ["global"]
+  }
+}

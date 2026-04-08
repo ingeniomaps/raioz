@@ -67,10 +67,9 @@ func TestLoad(t *testing.T) {
 			SchemaVersion: "1.0",
 			Project: config.Project{
 				Name:    "test-project",
-				Network: "test-network",
 			},
 			Services: make(map[string]config.Service),
-			Infra:    make(map[string]config.Infra),
+			Infra:    make(map[string]config.InfraEntry),
 			Env:      config.EnvConfig{},
 		}
 		Save(ws, root)
@@ -118,10 +117,9 @@ func TestSave(t *testing.T) {
 			SchemaVersion: "1.0",
 			Project: config.Project{
 				Name:    "test-project",
-				Network: "test-network",
 			},
 			Services: make(map[string]config.Service),
-			Infra:    make(map[string]config.Infra),
+			Infra:    make(map[string]config.InfraEntry),
 			Env:      config.EnvConfig{},
 		}
 
@@ -152,10 +150,9 @@ func TestSave(t *testing.T) {
 			GeneratedAt:   originalTime,
 			Project: config.Project{
 				Name:    "test",
-				Network: "test",
 			},
 			Services: make(map[string]config.Service),
-			Infra:    make(map[string]config.Infra),
+			Infra:    make(map[string]config.InfraEntry),
 			Env:      config.EnvConfig{},
 		}
 
@@ -187,11 +184,11 @@ func TestGenerateFromDeps(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.Infra{
-			"database": {
+		Infra: map[string]config.InfraEntry{
+			"database": {Inline: &config.Infra{
 				Image: "postgres",
 				Tag:   "15",
-			},
+			}},
 		},
 		Env: config.EnvConfig{
 			UseGlobal: true,
@@ -255,7 +252,6 @@ func TestUpdateFromDeps(t *testing.T) {
 		GeneratedAt:   "2024-01-01T00:00:00Z",
 		Project: config.Project{
 			Name:    "old-project",
-			Network: "old-network",
 		},
 		Services: map[string]config.Service{
 			"old-service": {
@@ -265,7 +261,7 @@ func TestUpdateFromDeps(t *testing.T) {
 				},
 			},
 		},
-		Infra:    make(map[string]config.Infra),
+		Infra:    make(map[string]config.InfraEntry),
 		Env:      config.EnvConfig{},
 		Metadata: map[string]ServiceMetadata{
 			"old-service": {
@@ -279,7 +275,6 @@ func TestUpdateFromDeps(t *testing.T) {
 		SchemaVersion: "1.0",
 		Project: config.Project{
 			Name:    "new-project",
-			Network: "new-network",
 		},
 		Services: map[string]config.Service{
 			"new-service": {
@@ -289,7 +284,7 @@ func TestUpdateFromDeps(t *testing.T) {
 				},
 			},
 		},
-		Infra: make(map[string]config.Infra),
+		Infra: make(map[string]config.InfraEntry),
 		Env:   config.EnvConfig{},
 	}
 
@@ -349,7 +344,7 @@ func TestUpdateFromDeps(t *testing.T) {
 
 		deps := &config.Deps{
 			SchemaVersion: "1.0",
-			Project:      config.Project{Name: "test", Network: "test"},
+			Project:      config.Project{Name: "test"},
 			Services: map[string]config.Service{
 				"api": {
 					Source: config.SourceConfig{
@@ -358,7 +353,7 @@ func TestUpdateFromDeps(t *testing.T) {
 					},
 				},
 			},
-			Infra: make(map[string]config.Infra),
+			Infra: make(map[string]config.InfraEntry),
 			Env:   config.EnvConfig{},
 		}
 
@@ -377,16 +372,16 @@ func TestUpdateFromDeps(t *testing.T) {
 	t.Run("update with assisted service", func(t *testing.T) {
 		root := &RootConfig{
 			SchemaVersion: "1.0",
-			Project:       config.Project{Name: "test", Network: "test"},
+			Project:       config.Project{Name: "test"},
 			Services:      make(map[string]config.Service),
-			Infra:         make(map[string]config.Infra),
+			Infra:         make(map[string]config.InfraEntry),
 			Env:           config.EnvConfig{},
 			Metadata:      make(map[string]ServiceMetadata),
 		}
 
 		deps := &config.Deps{
 			SchemaVersion: "1.0",
-			Project:      config.Project{Name: "test", Network: "test"},
+			Project:      config.Project{Name: "test"},
 			Services: map[string]config.Service{
 				"new-service": {
 					Source: config.SourceConfig{
@@ -395,7 +390,7 @@ func TestUpdateFromDeps(t *testing.T) {
 					},
 				},
 			},
-			Infra: make(map[string]config.Infra),
+			Infra: make(map[string]config.InfraEntry),
 			Env:   config.EnvConfig{},
 		}
 
@@ -431,11 +426,11 @@ func TestToDeps(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.Infra{
-			"database": {
+		Infra: map[string]config.InfraEntry{
+			"database": {Inline: &config.Infra{
 				Image: "postgres",
 				Tag:   "15",
-			},
+			}},
 		},
 		Env: config.EnvConfig{
 			UseGlobal: true,
@@ -460,9 +455,9 @@ func TestToDeps(t *testing.T) {
 func TestAddAssistedService(t *testing.T) {
 	root := &RootConfig{
 		SchemaVersion: "1.0",
-		Project:       config.Project{Name: "test", Network: "test"},
+		Project:       config.Project{Name: "test"},
 		Services:      make(map[string]config.Service),
-		Infra:         make(map[string]config.Infra),
+		Infra:         make(map[string]config.InfraEntry),
 		Env:           config.EnvConfig{},
 		Metadata:      make(map[string]ServiceMetadata),
 	}

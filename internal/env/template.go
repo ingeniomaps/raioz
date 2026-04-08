@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	raiozErr "raioz/internal/errors"
 	pathvalidate "raioz/internal/path"
 	"raioz/internal/workspace"
 )
@@ -62,7 +63,11 @@ func GenerateEnvFromTemplate(
 	// Read template content
 	templateContent, err := os.ReadFile(templatePath)
 	if err != nil {
-		return fmt.Errorf("failed to read template file %s: %w", templatePath, err)
+		return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to read env template file").
+			WithContext("file", templatePath).
+			WithContext("service", serviceName).
+			WithSuggestion("Check that the template file exists and is readable").
+			WithError(err)
 	}
 
 	// Resolve ALL env files (global, project, service) to get variables
@@ -139,7 +144,7 @@ func GenerateEnvFromTemplate(
 					// Only use projectEnvPath if this is the project itself
 					serviceProjectEnvPath = projectEnvPath
 				}
-				resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, serviceEnvFiles, serviceProjectEnvPath)
+				resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, serviceEnvFiles, serviceProjectEnvPath, false, projectDir)
 				if err == nil {
 					allResolvedPaths = append(allResolvedPaths, resolvedPaths...)
 				}
@@ -152,7 +157,10 @@ func GenerateEnvFromTemplate(
 	if len(allResolvedPaths) > 0 {
 		loaded, err := LoadFiles(allResolvedPaths)
 		if err != nil {
-			return fmt.Errorf("failed to load env files: %w", err)
+			return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to load env files for template generation").
+				WithContext("service", serviceName).
+				WithSuggestion("Check that all referenced env files exist and have valid format").
+				WithError(err)
 		}
 		envVars = loaded
 	}
@@ -226,13 +234,21 @@ func GenerateEnvFromTemplate(
 
 		// Write merged .env file (preserving existing + adding global + service-specific)
 		if err := writeEnvFile(envFilePath, finalVars); err != nil {
-			return fmt.Errorf("failed to write .env file: %w", err)
+			return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to write .env file").
+				WithContext("file", envFilePath).
+				WithContext("service", serviceName).
+				WithSuggestion("Check file permissions and disk space").
+				WithError(err)
 		}
 		fmt.Printf("✅ .env file updated for service '%s' (merged with global + service-specific variables)\n", serviceName)
 	} else {
 		// .env doesn't exist, create it from template + global + service-specific
 		if err := writeEnvFile(envFilePath, newVars); err != nil {
-			return fmt.Errorf("failed to write .env file: %w", err)
+			return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to write .env file from template").
+				WithContext("file", envFilePath).
+				WithContext("service", serviceName).
+				WithSuggestion("Check file permissions and disk space").
+				WithError(err)
 		}
 		fmt.Printf("✅ .env file created for service '%s' with %d variables\n", serviceName, len(newVars))
 	}
@@ -277,7 +293,10 @@ func parseEnvContent(content string) map[string]string {
 func writeEnvFile(filePath string, vars map[string]string) error {
 	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		return fmt.Errorf("failed to create .env file: %w", err)
+		return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to create .env file").
+			WithContext("file", filePath).
+			WithSuggestion("Check file permissions and that the directory exists").
+			WithError(err)
 	}
 	defer file.Close()
 
@@ -296,7 +315,11 @@ func writeEnvFile(filePath string, vars map[string]string) error {
 			escapedValue = fmt.Sprintf("\"%s\"", strings.ReplaceAll(value, "\"", "\\\""))
 		}
 		if _, err := fmt.Fprintf(file, "%s=%s\n", key, escapedValue); err != nil {
-			return fmt.Errorf("failed to write to .env file: %w", err)
+			return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to write to .env file").
+				WithContext("file", filePath).
+				WithContext("key", key).
+				WithSuggestion("Check disk space and file permissions").
+				WithError(err)
 		}
 	}
 

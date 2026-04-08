@@ -19,7 +19,7 @@ echo "🔍 Checking code standards..."
 # Check file line count
 echo ""
 echo "📏 Checking file line count (max: $MAX_LINES lines)..."
-LONG_FILES=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" ! -path "*/scripts/*" -exec sh -c 'lines=$(wc -l < "$1"); if [ "$lines" -gt '"$MAX_LINES"' ]; then echo "$1:$lines"; fi' _ {} \;)
+LONG_FILES=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.context/*" ! -path "*/scripts/*" -exec sh -c 'lines=$(wc -l < "$1"); if [ "$lines" -gt '"$MAX_LINES"' ]; then echo "$1:$lines"; fi' _ {} \;)
 
 if [ -n "$LONG_FILES" ]; then
     echo -e "${RED}❌ Files exceeding $MAX_LINES lines found:${NC}"
@@ -34,7 +34,7 @@ fi
 # Check line length
 echo ""
 echo "📐 Checking line length (max: $MAX_LINE_LENGTH characters)..."
-LONG_LINES=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" ! -path "*/scripts/*" -exec awk -v max="$MAX_LINE_LENGTH" 'length > max {print FILENAME":"NR":"length($0)}' {} \;)
+LONG_LINES=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.context/*" ! -path "*/scripts/*" -exec awk -v max="$MAX_LINE_LENGTH" 'length > max {print FILENAME":"NR":"length($0)}' {} \;)
 
 if [ -n "$LONG_LINES" ]; then
     echo -e "${RED}❌ Lines exceeding $MAX_LINE_LENGTH characters found:${NC}"
@@ -52,7 +52,7 @@ fi
 # Check for files with multiple responsibilities (heuristic: multiple exported types/functions)
 echo ""
 echo "🎯 Checking file focus (files should have single responsibility)..."
-MULTI_PURPOSE=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" ! -path "*/scripts/*" -exec sh -c '
+MULTI_PURPOSE=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.context/*" ! -path "*/scripts/*" -exec sh -c '
     file="$1"
     exported_types=$(grep -c "^type [A-Z]" "$file" 2>/dev/null || true)
     exported_funcs=$(grep -c "^func [A-Z]" "$file" 2>/dev/null || true)

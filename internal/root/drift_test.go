@@ -39,8 +39,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 	rootConfig := &RootConfig{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "test-project",
-			Network: "test-network",
+			Name: "test-project",
 		},
 		Services: map[string]config.Service{
 			serviceName: {
@@ -50,7 +49,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 					Branch: "main",
 					Path:   filepath.Join("services", serviceName),
 				},
-				Docker: config.DockerConfig{
+				Docker: &config.DockerConfig{
 					Mode:  "dev",
 					Ports: []string{"3000:3000"},
 				},
@@ -72,7 +71,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 			SchemaVersion: "1.0",
 			Project: config.Project{
 				Name:    "test-project",
-				Network: "test-network",
+
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -82,13 +81,13 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 						Branch: "main",
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: config.DockerConfig{
+					Docker: &config.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"3000:3000"},
 					},
 				},
 			},
-			Infra: map[string]config.Infra{},
+			Infra: map[string]config.InfraEntry{},
 			Env: config.EnvConfig{
 				UseGlobal: true,
 				Files:     []string{},
@@ -122,7 +121,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 			SchemaVersion: "1.0",
 			Project: config.Project{
 				Name:    "test-project",
-				Network: "test-network",
+
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -132,13 +131,13 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 						Branch: "develop", // Different branch
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: config.DockerConfig{
+					Docker: &config.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"3000:3000"},
 					},
 				},
 			},
-			Infra: map[string]config.Infra{},
+			Infra: map[string]config.InfraEntry{},
 			Env: config.EnvConfig{
 				UseGlobal: true,
 				Files:     []string{},
@@ -199,7 +198,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 			SchemaVersion: "1.0",
 			Project: config.Project{
 				Name:    "test-project",
-				Network: "test-network",
+
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -209,13 +208,13 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 						Branch: "main",
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: config.DockerConfig{
+					Docker: &config.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"8080:8080"}, // Different ports
 					},
 				},
 			},
-			Infra: map[string]config.Infra{},
+			Infra: map[string]config.InfraEntry{},
 			Env: config.EnvConfig{
 				UseGlobal: true,
 				Files:     []string{},
@@ -261,7 +260,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 			SchemaVersion: "1.0",
 			Project: config.Project{
 				Name:    "test-project",
-				Network: "test-network",
+
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -271,7 +270,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 						Branch: "main",
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: config.DockerConfig{
+					Docker: &config.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"3000:3000"},
 					},

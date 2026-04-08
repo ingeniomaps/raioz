@@ -1,18 +1,18 @@
 package upcase
 
 import (
-	"fmt"
 	"os"
 	"strings"
 
 	"raioz/internal/config"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/ignore"
 	"raioz/internal/output"
 )
 
-// applyFilters handles profile filtering, feature flags, mocks, and ignore list
-func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps, error) {
+// applyFilters handles profile filtering, feature flags, mocks, ignore list, and --only selection
+func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string) (*config.Deps, error) {
 	// Load environment variables for feature flags
 	envVars := make(map[string]string)
 	for _, key := range os.Environ() {
@@ -23,55 +23,78 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps
 	}
 
 	// Validate feature flags and mocks
-	if err := config.ValidateFeatureFlags(deps); err != nil {
-		return nil, errors.New(errors.ErrCodeInvalidConfig, "Feature flag or mock configuration validation failed").WithSuggestion("Check your configuration for feature flag and mock configuration errors.").WithError(err)
+	if err := uc.deps.ConfigLoader.ValidateFeatureFlags(deps); err != nil {
+		return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.feature_flag_validation_failed")).WithSuggestion(i18n.T("error.feature_flag_validation_suggestion")).WithError(err)
 	}
 
 	// Filter by profile first
 	if profile != "" {
-		deps = config.FilterByProfile(deps, profile)
-		if len(deps.Services) == 0 {
-			return nil, errors.New(errors.ErrCodeInvalidConfig, fmt.Sprintf("No services found for profile '%s'", profile)).WithSuggestion("Check that services have the profile assigned in your configuration.")
+		deps = uc.deps.ConfigLoader.FilterByProfile(deps, profile)
+		if len(deps.Services) == 0 && len(deps.Infra) == 0 {
+			return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.no_services_for_profile", profile)).WithSuggestion(i18n.T("error.no_services_for_profile_suggestion"))
 		}
-		output.PrintInfo(fmt.Sprintf("Using profile: %s", profile))
+		output.PrintInfo(i18n.T("up.validate.using_profile", profile))
+	} else if len(deps.Profiles) > 0 {
+		// Default profiles from config: raioz up without --profile uses these
+		deps = uc.deps.ConfigLoader.FilterByProfiles(deps, deps.Profiles)
+		if len(deps.Services) == 0 && len(deps.Infra) == 0 {
+			return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.no_services_for_default_profiles", deps.Profiles)).WithSuggestion(i18n.T("error.no_services_for_default_profiles_suggestion"))
+		}
+		output.PrintInfo(i18n.T("up.validate.using_default_profiles", strings.Join(deps.Profiles, ", ")))
 	}
 
 	// Apply feature flags and mocks
 	originalServiceCount := len(deps.Services)
 	var mockServices []string
-	deps, mockServices = config.FilterByFeatureFlags(deps, profile, envVars)
+	deps, mockServices = uc.deps.ConfigLoader.FilterByFeatureFlags(deps, profile, envVars)
 	filteredCount := originalServiceCount - len(deps.Services)
 	if filteredCount > 0 {
-		output.PrintInfo(fmt.Sprintf("%d service(s) disabled by feature flags", filteredCount))
+		output.PrintInfo(i18n.T("up.validate.disabled_by_flags", filteredCount))
 	}
 	if len(mockServices) > 0 {
 		for _, mockName := range mockServices {
-			output.PrintInfo(fmt.Sprintf("Using mock for service: %s", mockName))
+			output.PrintInfo(i18n.T("up.validate.using_mock", mockName))
 		}
 	}
 
 	// Filter ignored services (must check dependencies before filtering)
 	ignoredServiceNames, err := ignore.GetIgnoredServices()
 	if err != nil {
-		return nil, errors.New(errors.ErrCodeWorkspaceError, "Failed to load ignored services list").WithSuggestion("Check that ~/.raioz/ignore.json is valid JSON. " + "You can try removing it and running 'raioz up' again.").WithError(err)
+		return nil, errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.ignored_services_load_failed")).WithSuggestion(i18n.T("error.ignored_services_load_suggestion")).WithError(err)
 	}
 	if len(ignoredServiceNames) > 0 {
 		// Check if any services depend on ignored services (before filtering)
-		ignoredDependencies := config.CheckIgnoredDependencies(deps, ignoredServiceNames)
+		ignoredDependencies := uc.deps.ConfigLoader.CheckIgnoredDependencies(deps, ignoredServiceNames)
 		if len(ignoredDependencies) > 0 {
-			output.PrintWarning("Some services depend on ignored services and may fail:")
+			output.PrintWarning(i18n.T("up.validate.ignored_deps_warning"))
 			for serviceName, ignoredDeps := range ignoredDependencies {
-				output.PrintWarning(fmt.Sprintf(" Service '%s' depends on ignored services: %v", serviceName, ignoredDeps))
+				output.PrintWarning(i18n.T("up.validate.ignored_dep_detail", serviceName, ignoredDeps))
 			}
 		}
 		// Filter ignored services
-		deps, ignoredServiceNames, err = config.FilterIgnoredServices(deps)
+		deps, ignoredServiceNames, err = uc.deps.ConfigLoader.FilterIgnoredServices(deps)
 		if err != nil {
-			return nil, errors.New(errors.ErrCodeInvalidConfig, "Failed to filter ignored services").WithSuggestion("Check your configuration for errors. " + "Verify that service names in ignore list match your configuration.").WithError(err)
+			return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.ignored_services_filter_failed")).WithSuggestion(i18n.T("error.ignored_services_filter_suggestion")).WithError(err)
 		}
 		if len(ignoredServiceNames) > 0 {
-			output.PrintInfo(fmt.Sprintf("Ignoring %d service(s): %v", len(ignoredServiceNames), ignoredServiceNames))
+			output.PrintInfo(i18n.T("up.validate.ignoring_services", len(ignoredServiceNames), ignoredServiceNames))
 		}
+	}
+
+	// Filter by --only: select specific services + their transitive dependencies
+	if len(only) > 0 {
+		// Validate that requested services/infra exist
+		for _, name := range only {
+			_, isSvc := deps.Services[name]
+			_, isInfra := deps.Infra[name]
+			if !isSvc && !isInfra {
+				return nil, errors.New(errors.ErrCodeInvalidField, i18n.T("error.only_service_not_found", name)).WithContext("service", name)
+			}
+		}
+		// Resolve transitive dependencies
+		svcNames, infraNames := config.ResolveDependencies(deps, only)
+		deps = config.FilterByServices(deps, svcNames, infraNames)
+		output.PrintInfo(i18n.T("up.validate.using_only", len(deps.Services)+len(deps.Infra), only))
 	}
 
 	// Check if we have project commands as fallback
@@ -86,9 +109,7 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps
 
 	// Only fail if everything is empty (no services, no infra, no project commands)
 	if !hasServices && !hasInfra && !hasProjectCommands {
-		return nil, errors.New(errors.ErrCodeInvalidConfig, "No services, infrastructure, or project commands configured").WithSuggestion("Configure at least one of the following: " +
-			"services, infrastructure, or 'project.commands.up'. " +
-			"If you have services but they're all filtered out, check feature flag configurations, environment variables, and ignore list.")
+		return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.no_services_or_commands")).WithSuggestion(i18n.T("error.no_services_or_commands_suggestion"))
 	}
 
 	return deps, nil

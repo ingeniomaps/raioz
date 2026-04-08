@@ -7,229 +7,210 @@ import (
 )
 
 func TestIsLinked(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	t.Run("path does not exist", func(t *testing.T) {
-		servicePath := filepath.Join(tmpDir, "nonexistent")
-		isLinked, target, err := IsLinked(servicePath)
+		tmpDir := t.TempDir()
+		isLinked, target, err := IsLinked(filepath.Join(tmpDir, "nonexistent"))
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 		if isLinked {
-			t.Error("Expected not linked")
+			t.Error("expected not linked")
 		}
 		if target != "" {
-			t.Error("Expected empty target")
+			t.Error("expected empty target")
 		}
 	})
 
-	t.Run("path is a directory (not symlink)", func(t *testing.T) {
-		servicePath := filepath.Join(tmpDir, "service")
-		os.MkdirAll(servicePath, 0755)
+	t.Run("path is a directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dirPath := filepath.Join(tmpDir, "service-dir")
+		os.MkdirAll(dirPath, 0755)
 
-		isLinked, target, err := IsLinked(servicePath)
+		isLinked, target, err := IsLinked(dirPath)
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 		if isLinked {
-			t.Error("Expected not linked")
+			t.Error("expected not linked")
 		}
 		if target != "" {
-			t.Error("Expected empty target")
+			t.Error("expected empty target")
 		}
 	})
 
 	t.Run("path is a symlink", func(t *testing.T) {
+		tmpDir := t.TempDir()
 		externalPath := filepath.Join(tmpDir, "external")
 		os.MkdirAll(externalPath, 0755)
 
-		servicePath := filepath.Join(tmpDir, "service")
+		linkPath := filepath.Join(tmpDir, "link-abs")
 		absExternal, _ := filepath.Abs(externalPath)
-		os.Symlink(absExternal, servicePath)
+		os.Symlink(absExternal, linkPath)
 
-		isLinked, target, err := IsLinked(servicePath)
+		isLinked, target, err := IsLinked(linkPath)
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 		if !isLinked {
-			t.Error("Expected linked")
+			t.Error("expected linked")
 		}
 		if target == "" {
-			t.Error("Expected non-empty target")
+			t.Error("expected non-empty target")
 		}
-		// Target should be absolute
 		if !filepath.IsAbs(target) {
-			t.Errorf("Expected absolute target, got %s", target)
+			t.Errorf("expected absolute target, got %s", target)
 		}
 	})
 
 	t.Run("path is a relative symlink", func(t *testing.T) {
-		externalPath := filepath.Join(tmpDir, "external")
+		tmpDir := t.TempDir()
+		externalPath := filepath.Join(tmpDir, "ext-rel")
 		os.MkdirAll(externalPath, 0755)
 
-		servicePath := filepath.Join(tmpDir, "service")
-		// Create relative symlink
-		os.Symlink("external", servicePath)
+		linkPath := filepath.Join(tmpDir, "link-rel")
+		os.Symlink("ext-rel", linkPath)
 
-		isLinked, target, err := IsLinked(servicePath)
+		isLinked, target, err := IsLinked(linkPath)
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 		if !isLinked {
-			t.Error("Expected linked")
+			t.Error("expected linked")
 		}
 		if !filepath.IsAbs(target) {
-			t.Error("Expected absolute target path")
+			t.Errorf("expected absolute target, got %s", target)
 		}
 	})
 }
 
 func TestCreateLink(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	t.Run("create new link", func(t *testing.T) {
+		tmpDir := t.TempDir()
 		externalPath := filepath.Join(tmpDir, "external")
 		os.MkdirAll(externalPath, 0755)
-
-		servicePath := filepath.Join(tmpDir, "service")
+		servicePath := filepath.Join(tmpDir, "svc")
 
 		err := CreateLink(servicePath, externalPath)
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 
-		// Verify symlink was created
 		isLinked, target, _ := IsLinked(servicePath)
 		if !isLinked {
-			t.Error("Expected symlink to be created")
+			t.Error("expected symlink to be created")
 		}
 		if target == "" {
-			t.Error("Expected non-empty target")
+			t.Error("expected non-empty target")
 		}
 	})
 
 	t.Run("external path does not exist", func(t *testing.T) {
-		servicePath := filepath.Join(tmpDir, "service")
-		externalPath := filepath.Join(tmpDir, "nonexistent")
-
-		err := CreateLink(servicePath, externalPath)
+		tmpDir := t.TempDir()
+		err := CreateLink(filepath.Join(tmpDir, "svc"), filepath.Join(tmpDir, "ghost"))
 		if err == nil {
-			t.Error("Expected error for non-existent external path")
+			t.Error("expected error for non-existent external path")
 		}
 	})
 
 	t.Run("external path is not a directory", func(t *testing.T) {
-		externalFile := filepath.Join(tmpDir, "file.txt")
-		os.WriteFile(externalFile, []byte("test"), 0644)
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "file.txt")
+		os.WriteFile(filePath, []byte("test"), 0644)
 
-		servicePath := filepath.Join(tmpDir, "service")
-
-		err := CreateLink(servicePath, externalFile)
+		err := CreateLink(filepath.Join(tmpDir, "svc"), filePath)
 		if err == nil {
-			t.Error("Expected error for file (not directory)")
+			t.Error("expected error for file (not directory)")
 		}
 	})
 
 	t.Run("service path already exists as directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
 		externalPath := filepath.Join(tmpDir, "external")
 		os.MkdirAll(externalPath, 0755)
-
-		servicePath := filepath.Join(tmpDir, "service")
+		servicePath := filepath.Join(tmpDir, "svc-dir")
 		os.MkdirAll(servicePath, 0755)
 
 		err := CreateLink(servicePath, externalPath)
 		if err == nil {
-			t.Error("Expected error when service path exists as directory")
-		} else {
-			// Verify error message mentions directory or symlink
-			errMsg := err.Error()
-			if errMsg == "" {
-				t.Error("Expected error message")
-			}
-			// The error should mention that it's a directory or not a symlink
+			t.Error("expected error when service path exists as directory")
 		}
 	})
 
-	t.Run("service path already exists as symlink to same target", func(t *testing.T) {
+	t.Run("same target is no-op", func(t *testing.T) {
+		tmpDir := t.TempDir()
 		externalPath := filepath.Join(tmpDir, "external")
 		os.MkdirAll(externalPath, 0755)
+		servicePath := filepath.Join(tmpDir, "svc-same")
+		absExt, _ := filepath.Abs(externalPath)
+		os.Symlink(absExt, servicePath)
 
-		servicePath := filepath.Join(tmpDir, "service")
-		os.Symlink(externalPath, servicePath)
-
-		// Try to create link again (should be no-op)
 		err := CreateLink(servicePath, externalPath)
 		if err != nil {
-			t.Fatalf("Expected no error (no-op), got %v", err)
+			t.Fatalf("expected no-op, got error: %v", err)
 		}
 	})
 
-	t.Run("service path already exists as symlink to different target", func(t *testing.T) {
-		externalPath1 := filepath.Join(tmpDir, "external1")
-		externalPath2 := filepath.Join(tmpDir, "external2")
-		os.MkdirAll(externalPath1, 0755)
-		os.MkdirAll(externalPath2, 0755)
+	t.Run("different target returns error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		ext1 := filepath.Join(tmpDir, "ext1")
+		ext2 := filepath.Join(tmpDir, "ext2")
+		os.MkdirAll(ext1, 0755)
+		os.MkdirAll(ext2, 0755)
+		servicePath := filepath.Join(tmpDir, "svc-diff")
+		absExt1, _ := filepath.Abs(ext1)
+		os.Symlink(absExt1, servicePath)
 
-		servicePath := filepath.Join(tmpDir, "service")
-		os.Symlink(externalPath1, servicePath)
-
-		// Try to create link to different target
-		err := CreateLink(servicePath, externalPath2)
+		err := CreateLink(servicePath, ext2)
 		if err == nil {
-			t.Error("Expected error when symlink points to different target")
+			t.Error("expected error when symlink points to different target")
 		}
 	})
 }
 
 func TestRemoveLink(t *testing.T) {
-	tmpDir := t.TempDir()
-
 	t.Run("remove existing symlink", func(t *testing.T) {
+		tmpDir := t.TempDir()
 		externalPath := filepath.Join(tmpDir, "external")
 		os.MkdirAll(externalPath, 0755)
+		linkPath := filepath.Join(tmpDir, "link")
+		os.Symlink(externalPath, linkPath)
 
-		servicePath := filepath.Join(tmpDir, "service")
-		os.Symlink(externalPath, servicePath)
-
-		err := RemoveLink(servicePath)
+		err := RemoveLink(linkPath)
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 
-		// Verify symlink was removed
-		if _, err := os.Lstat(servicePath); !os.IsNotExist(err) {
-			t.Error("Expected symlink to be removed")
+		if _, err := os.Lstat(linkPath); !os.IsNotExist(err) {
+			t.Error("expected symlink to be removed")
 		}
 	})
 
 	t.Run("path does not exist", func(t *testing.T) {
-		servicePath := filepath.Join(tmpDir, "nonexistent")
-
-		err := RemoveLink(servicePath)
+		tmpDir := t.TempDir()
+		err := RemoveLink(filepath.Join(tmpDir, "ghost"))
 		if err == nil {
-			t.Error("Expected error for non-existent path")
+			t.Error("expected error for non-existent path")
 		}
 	})
 
 	t.Run("path is not a symlink", func(t *testing.T) {
-		servicePath := filepath.Join(tmpDir, "service")
-		os.MkdirAll(servicePath, 0755)
+		tmpDir := t.TempDir()
+		dirPath := filepath.Join(tmpDir, "real-dir")
+		os.MkdirAll(dirPath, 0755)
 
-		err := RemoveLink(servicePath)
+		err := RemoveLink(dirPath)
 		if err == nil {
-			t.Error("Expected error when path is not a symlink")
+			t.Error("expected error when path is not a symlink")
 		}
 	})
 }
 
 func TestGetServiceLinkPath(t *testing.T) {
-	t.Run("returns error", func(t *testing.T) {
-		path, err := GetServiceLinkPath(nil, "service", nil)
-		if err == nil {
-			t.Error("Expected error")
-		}
-		if path != "" {
-			t.Error("Expected empty path")
-		}
-	})
+	path, err := GetServiceLinkPath(nil, "service", nil)
+	if err == nil {
+		t.Error("expected error")
+	}
+	if path != "" {
+		t.Error("expected empty path")
+	}
 }

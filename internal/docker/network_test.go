@@ -95,9 +95,9 @@ func TestGetNetworkProjects(t *testing.T) {
 
 	// Create state file for project1 with network "test-network"
 	state1 := map[string]any{
+		"network": "test-network",
 		"project": map[string]any{
-			"name":    "project1",
-			"network": "test-network",
+			"name": "project1",
 		},
 	}
 	state1Data, _ := json.Marshal(state1)
@@ -105,9 +105,9 @@ func TestGetNetworkProjects(t *testing.T) {
 
 	// Create state file for project2 with different network
 	state2 := map[string]any{
+		"network": "other-network",
 		"project": map[string]any{
-			"name":    "project2",
-			"network": "other-network",
+			"name": "project2",
 		},
 	}
 	state2Data, _ := json.Marshal(state2)

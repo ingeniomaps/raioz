@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "network": "project-compose-network",
+  "project": {
+    "name": "project-compose",
+    "commands": {
+      "up": "docker compose up -d",
+      "down": "docker compose down"
+    }
+  },
+  "services": {},
+  "infra": {
+    "redis": {
+      "image": "redis",
+      "tag": "7-alpine",
+      "ports": ["6380:6379"]
+    }
+  },
+  "env": {
+    "useGlobal": true,
+    "files": ["global"]
+  }
+}

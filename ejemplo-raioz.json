@@ -77,10 +77,10 @@
         "path": "services/sub-microservicio-2a",
         "access": "readonly"
       },
+      "dependsOn": ["redis"],
       "docker": {
         "mode": "prod",
-        "ports": ["3005:3000"],
-        "dependsOn": ["redis"]
+        "ports": ["3005:3000"]
       },
       "env": ["services/sub-microservicio-2a"]
     },

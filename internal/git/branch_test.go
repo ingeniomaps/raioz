@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,7 +38,7 @@ func TestGetCurrentBranch(t *testing.T) {
 	cmd.Run()
 
 	// Test GetCurrentBranch
-	branch, err := GetCurrentBranch(tmpDir)
+	branch, err := GetCurrentBranch(context.Background(), tmpDir)
 	if err != nil {
 		t.Fatalf("GetCurrentBranch() error = %v", err)
 	}
@@ -79,7 +80,7 @@ func TestDetectBranchDrift(t *testing.T) {
 	cmd.Run()
 
 	// Test with drift
-	drift, current, err := DetectBranchDrift(tmpDir, "main")
+	drift, current, err := DetectBranchDrift(context.Background(), tmpDir, "main")
 	if err != nil {
 		t.Fatalf("DetectBranchDrift() error = %v", err)
 	}
@@ -93,7 +94,7 @@ func TestDetectBranchDrift(t *testing.T) {
 	}
 
 	// Test without drift
-	drift, current, err = DetectBranchDrift(tmpDir, "develop")
+	drift, current, err = DetectBranchDrift(context.Background(), tmpDir, "develop")
 	if err != nil {
 		t.Fatalf("DetectBranchDrift() error = %v", err)
 	}
@@ -142,6 +143,7 @@ func TestUpdateReposIfBranchChanged(t *testing.T) {
 
 	// Test with no existing repos (should not error)
 	err := UpdateReposIfBranchChanged(
+		context.Background(),
 		func(_ string, svc config.Service) string { // adapt signature to match UpdateReposIfBranchChanged
 			return repoPathResolver(svc)
 		},

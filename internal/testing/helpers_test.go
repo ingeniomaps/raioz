@@ -84,12 +84,12 @@ func TestCreateTestDepsWithInfra(t *testing.T) {
 		t.Fatal("Expected infra 'postgres' to exist")
 	}
 
-	if infra.Image != "postgres" {
-		t.Errorf("Expected image 'postgres', got %s", infra.Image)
+	if infra.Inline.Image != "postgres" {
+		t.Errorf("Expected image 'postgres', got %s", infra.Inline.Image)
 	}
 
-	if infra.Tag != "15" {
-		t.Errorf("Expected tag '15', got %s", infra.Tag)
+	if infra.Inline.Tag != "15" {
+		t.Errorf("Expected tag '15', got %s", infra.Inline.Tag)
 	}
 }
 

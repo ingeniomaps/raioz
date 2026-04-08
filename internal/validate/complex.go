@@ -41,32 +41,41 @@ func ValidateComplexConfiguration(deps *config.Deps) error {
 	return nil
 }
 
-// ValidateProfileConsistency validates that profiles are used consistently
+// ValidateProfileConsistency validates that profiles are used consistently (root, services and infra)
 func ValidateProfileConsistency(deps *config.Deps) error {
-	// Check that services with profiles don't have conflicting configurations
-	profileServices := make(map[string][]string) // profile -> service names
-
-	for name, svc := range deps.Services {
-		for _, profile := range svc.Profiles {
-			profileServices[profile] = append(profileServices[profile], name)
+	for _, p := range deps.Profiles {
+		if !profileNameRegex.MatchString(p) {
+			return errors.New(
+				errors.ErrCodeInvalidField,
+				fmt.Sprintf("Invalid profile '%s' in root 'profiles'", p),
+			).WithSuggestion(
+				"Profile names must be lowercase letters, digits and hyphens only (e.g. frontend, backend, load-balancer).",
+			).WithContext("profile", p)
 		}
 	}
 
-	// Validate that profile names are valid
-	validProfiles := map[string]bool{
-		"frontend": true,
-		"backend":  true,
+	for name, svc := range deps.Services {
+		for _, profile := range svc.Profiles {
+			if !profileNameRegex.MatchString(profile) {
+				return errors.New(
+					errors.ErrCodeInvalidField,
+					fmt.Sprintf("Invalid profile '%s' used by service '%s'", profile, name),
+				).WithSuggestion(
+					"Profile names must be lowercase letters, digits and hyphens only.",
+				).WithContext("profile", profile).WithContext("service_name", name)
+			}
+		}
 	}
-
-	for profile, services := range profileServices {
-		if !validProfiles[profile] {
-			return errors.New(
-				errors.ErrCodeInvalidField,
-				fmt.Sprintf("Invalid profile '%s' used by services: %v", profile, services),
-			).WithSuggestion(
-				"Valid profiles are: 'frontend', 'backend'. "+
-					"Remove invalid profiles or use valid profile names.",
-			).WithContext("profile", profile).WithContext("services", services)
+	for name, entry := range deps.Infra {
+		for _, profile := range entry.Profiles() {
+			if !profileNameRegex.MatchString(profile) {
+				return errors.New(
+					errors.ErrCodeInvalidField,
+					fmt.Sprintf("Invalid profile '%s' used by infra '%s'", profile, name),
+				).WithSuggestion(
+					"Profile names must be lowercase letters, digits and hyphens only.",
+				).WithContext("profile", profile).WithContext("infra_name", name)
+			}
 		}
 	}
 

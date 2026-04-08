@@ -1,24 +1,41 @@
-# Guía Completa de Comandos
+# Guía de Comandos
 
-Esta guía documenta todos los comandos disponibles en Raioz con ejemplos de uso y casos de uso comunes.
+Referencia completa de todos los comandos de Raioz.
 
-## Tabla de Contenidos
+## Resumen
 
-- [Comandos Básicos](#comandos-básicos)
-- [Comandos de Gestión](#comandos-de-gestión)
-- [Comandos Avanzados](#comandos-avanzados)
-- [Comandos de CI/CD](#comandos-de-cicd)
-- [Comandos de Utilidad](#comandos-de-utilidad)
+| Comando | Descripción |
+|---------|-------------|
+| `raioz up` | Levantar servicios e infraestructura |
+| `raioz down` | Detener servicios |
+| `raioz status` | Mostrar estado del proyecto |
+| `raioz restart` | Reiniciar servicios |
+| `raioz exec` | Ejecutar comando en un contenedor |
+| `raioz logs` | Ver logs de servicios |
+| `raioz ports` | Listar puertos en uso |
+| `raioz health` | Verificar salud del proyecto local |
+| `raioz check` | Validar configuración y detectar drift |
+| `raioz init` | Crear `.raioz.json` interactivamente |
+| `raioz list` | Listar proyectos activos |
+| `raioz clean` | Limpiar recursos Docker no utilizados |
+| `raioz volumes` | Gestionar volúmenes del proyecto |
+| `raioz workspace` | Gestionar workspaces |
+| `raioz override` | Sobreescribir servicio con ruta local |
+| `raioz ignore` | Ignorar servicios durante `up` |
+| `raioz link` | Crear symlinks a rutas externas |
+| `raioz migrate` | Convertir docker-compose.yml a .raioz.json |
+| `raioz compare` | Comparar config local vs producción |
+| `raioz ci` | Comando optimizado para CI/CD |
+| `raioz version` | Mostrar versión |
+| `raioz lang` | Gestionar idioma |
 
 ---
 
-## Comandos Básicos
+## Ciclo de vida
 
 ### `raioz up`
 
-Levanta todos los servicios del proyecto definidos en `.raioz.json`.
-
-**Sintaxis:**
+Levanta todos los servicios e infraestructura del proyecto.
 
 ```bash
 raioz up [flags]
@@ -26,126 +43,50 @@ raioz up [flags]
 
 **Flags:**
 
-- `--config, -c`: Ruta al archivo de configuración (default: `.raioz.json`)
-- `--project, -p`: Nombre del proyecto (alternativa a `--config`)
-- `--profile`: Perfil a usar (filtra servicios por perfil)
-- `--force-reclone`: Fuerza re-clonado de todos los repositorios Git
-- `--dry-run`: Muestra qué se haría sin ejecutar cambios
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--profile` | `-p` | | Perfil a usar (frontend/backend) |
+| `--force-reclone` | | `false` | Re-clonar todos los repos Git |
+| `--dry-run` | | `false` | Mostrar qué se haría sin ejecutar |
+
+**Flujo de ejecución:**
+
+1. Carga configuración y aplica overrides
+2. Filtra por profile, feature flags, servicios ignorados
+3. Valida schema, reglas de negocio, dependencias
+4. Resuelve conflictos de workspace/proyecto (interactivo)
+5. Clona/actualiza repos Git
+6. Genera archivos .env
+7. Prepara Docker (imágenes, red, volúmenes)
+8. Inicia infra primero, espera healthy
+9. Inicia servicios
+10. Guarda estado
 
 **Ejemplos:**
 
 ```bash
-# Levantar proyecto con configuración por defecto
-raioz up
-
-# Usar configuración personalizada
-raioz up --config custom-raioz.json
-
-# Levantar solo servicios del perfil frontend
-raioz up --profile frontend
-
-# Levantar solo servicios del perfil backend
-raioz up --profile backend
-
-# Forzar re-clonado de repositorios (útil después de cambios en ramas)
-raioz up --force-reclone
-
-# Ver qué se haría sin ejecutar (dry-run)
-raioz up --dry-run
+raioz up                          # Levantar con defaults
+raioz up -f gateway/.raioz.json   # Config en otra ruta
+raioz up --profile frontend       # Solo servicios frontend
+raioz up --dry-run                # Ver resumen sin ejecutar
+raioz up --force-reclone          # Re-clonar repos editables
 ```
 
-**Qué hace:**
+**Comportamiento multi-proyecto:**
 
-1. Valida la configuración (JSON Schema + validaciones de negocio)
-2. Ejecuta preflight checks (Docker, Git, espacio en disco)
-3. Resuelve workspace y adquiere lock
-4. Clona/actualiza repositorios Git necesarios
-5. Resuelve variables de entorno
-6. **Inicia servicios host** (si hay servicios con `execution: "host"`)
-7. Valida y descarga imágenes Docker
-8. Crea redes y volúmenes Docker
-9. Genera `docker-compose.generated.yml`
-10. Levanta servicios con Docker Compose
-11. Guarda el estado del proyecto
-
-**Casos de uso:**
-
-- Onboarding inicial: `raioz up` levanta todo el entorno
-- Después de cambios en `.raioz.json`: `raioz up` detecta cambios y actualiza
-- Cambio de rama: `raioz up --force-reclone` actualiza repositorios
-- Desarrollo con perfiles: `raioz up --profile frontend` para trabajar solo frontend
-
-**Ejecución Host (sin Docker):**
-
-Los servicios pueden ejecutarse directamente en el host (sin Docker) especificando `source.command` en la configuración. Si `source.command` existe, el servicio se ejecuta directamente en el host y la sección `docker` es opcional. Esto es útil para servicios que no necesitan contenedores Docker o para desarrollo local.
-
-**Ejemplo de configuración host:**
-
-```json
-{
-  "services": {
-    "mi-servicio-host": {
-      "source": {
-        "kind": "git",
-        "repo": "git@github.com:org/mi-servicio.git",
-        "branch": "main",
-        "path": "services/mi-servicio",
-        "command": "npm run dev",
-        "runtime": "node"
-      },
-      "env": ["services/mi-servicio"]
-    }
-  }
-}
-```
-
-**Ejemplo de configuración Docker (comportamiento original):**
-
-```json
-{
-  "services": {
-    "mi-servicio-docker": {
-      "source": {
-        "kind": "git",
-        "repo": "git@github.com:org/mi-servicio.git",
-        "branch": "main",
-        "path": "services/mi-servicio"
-      },
-      "docker": {
-        "mode": "dev",
-        "command": "npm run dev",
-        "runtime": "node",
-        "ports": ["3000:3000"]
-      },
-      "env": ["services/mi-servicio"]
-    }
-  }
-}
-```
-
-**Características de ejecución host:**
-
-- El servicio se ejecuta directamente en el host (no en Docker)
-- Requiere el campo `source.command` para especificar el comando a ejecutar
-- Opcionalmente puede especificar `source.runtime` para documentación
-- La sección `docker` es opcional cuando hay `source.command`
-- Las variables de entorno se resuelven igual que para servicios Docker
-- Los logs se guardan en `workspace/logs/host/<servicio>.stdout.log` y `stderr.log`
-- Los procesos se detienen automáticamente con `raioz down`
-- **Nota:** Solo servicios con `source.kind: "git"` pueden ejecutarse en host. Servicios con `source.kind: "image"` requieren Docker.
-
-**Diferencias entre `source.command` y `docker.command`:**
-
-- `source.command`: Se ejecuta directamente en el host (sin Docker). Activa modo host.
-- `docker.command`: Se ejecuta dentro del contenedor Docker. Solo se usa si no hay `source.command`.
+- Si otro proyecto corre en el mismo workspace, ofrece:
+  - [1] Merge: mantener ambos proyectos juntos
+  - [2] Replace: reemplazar con el nuevo proyecto
+  - [3] Keep: mantener el proyecto actual
+  - [4-7] Recordar decisión para este workspace
+  - [8] Cancelar
 
 ---
 
 ### `raioz down`
 
-Detiene todos los servicios del proyecto.
-
-**Sintaxis:**
+Detiene servicios del proyecto.
 
 ```bash
 raioz down [flags]
@@ -153,36 +94,39 @@ raioz down [flags]
 
 **Flags:**
 
-- `--config, -c`: Ruta al archivo de configuración
-- `--project, -p`: Nombre del proyecto
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--project` | `-p` | | Nombre del proyecto |
+| `--all` | | `false` | Detener todo (servicios + infra) |
+| `--prune-shared` | | `false` | Eliminar infra si ningún otro proyecto la usa |
+
+**Comportamiento:**
+
+- **Sin flags**: Detiene solo los servicios del proyecto. La infraestructura sigue corriendo (puede ser compartida).
+- **`--all`**: Detiene servicios + infraestructura + limpia imágenes/volúmenes no utilizados.
+- **`--prune-shared`**: Detiene servicios. Si la infra no es usada por otro proyecto, la elimina; si es compartida, la mantiene.
 
 **Ejemplos:**
 
 ```bash
-# Detener proyecto actual
-raioz down
-
-# Detener proyecto específico
-raioz down --project my-project
+raioz down                        # Solo servicios (infra sigue)
+raioz down --all                  # Todo, incluyendo infra
+raioz down --prune-shared         # Servicios + infra si no compartida
+raioz down --project my-project   # Por nombre de proyecto
 ```
 
-**Qué hace:**
+**Protecciones:**
 
-1. Adquiere lock para evitar ejecuciones concurrentes
-2. **Detiene servicios host** (si hay servicios con `source.command`)
-3. Detiene servicios con Docker Compose
-4. Elimina archivo de estado (`.state.json`)
-5. Mantiene redes y volúmenes para reutilización
-
-**Nota:** Las redes y volúmenes se mantienen para acelerar el próximo `raioz up`. Usa `raioz clean` si necesitas limpiarlos.
+- Infraestructura compartida entre proyectos NO se elimina (a menos que sea el último proyecto)
+- Volúmenes con datos persisten entre ciclos down/up
+- Idempotente: no falla si ya está detenido
 
 ---
 
 ### `raioz status`
 
-Muestra el estado detallado de todos los servicios del proyecto.
-
-**Sintaxis:**
+Muestra estado detallado del proyecto.
 
 ```bash
 raioz status [flags]
@@ -190,57 +134,33 @@ raioz status [flags]
 
 **Flags:**
 
-- `--config, -c`: Ruta al archivo de configuración
-- `--project, -p`: Nombre del proyecto
-- `--json`: Output en formato JSON (útil para scripts)
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--project` | `-p` | | Nombre del proyecto |
+| `--json` | | `false` | Salida en formato JSON |
+
+**Información mostrada:**
+
+- Estado de cada servicio (running/stopped)
+- Health (healthy/unhealthy/starting)
+- Uptime, CPU, memoria
+- Versión/imagen
+- Servicios deshabilitados
 
 **Ejemplos:**
 
 ```bash
-# Ver estado en formato tabla
-raioz status
-
-# Output en JSON para procesamiento
-raioz status --json
-
-# Estado de proyecto específico
-raioz status --project my-project
-```
-
-**Información mostrada:**
-
-- **NAME**: Nombre del servicio
-- **STATUS**: Estado (running/stopped)
-- **HEALTH**: Estado de salud (healthy/unhealthy/starting/none)
-- **UPTIME**: Tiempo desde que se inició
-- **CPU**: Uso de CPU
-- **MEMORY**: Uso de memoria
-- **VERSION**: Versión/commit del servicio
-- **UPDATED**: Última actualización
-
-**Ejemplo de salida:**
-
-```
-━━━ PROJECT STATUS ━━━
-
-  Project: my-project
-  Network: my-network
-
-▸ Services
-NAME      STATUS    HEALTH    UPTIME    CPU    MEMORY    VERSION    UPDATED
-────      ──────    ──────    ──────    ───    ──────    ───────    ───────
-api       running   healthy   2h 15m    5%     120MB     abc123     2024-01-15 10:30
-frontend  running   healthy   2h 15m    3%     80MB      def456     2024-01-15 10:30
-database  running   healthy   2h 15m    1%     200MB     15.0       2024-01-15 10:30
+raioz status                      # Tabla de estado
+raioz status --json               # JSON para scripts
+raioz status -p my-project        # Por nombre
 ```
 
 ---
 
 ### `raioz logs`
 
-Muestra logs de uno o más servicios.
-
-**Sintaxis:**
+Muestra logs de servicios.
 
 ```bash
 raioz logs [service...] [flags]
@@ -248,103 +168,21 @@ raioz logs [service...] [flags]
 
 **Flags:**
 
-- `--all, -a`: Ver logs de todos los servicios
-- `--follow, -f`: Seguir logs en tiempo real (similar a `tail -f`)
-- `--tail, -n`: Número de líneas a mostrar (default: todas)
-- `--config, -c`: Ruta al archivo de configuración
-- `--project, -p`: Nombre del proyecto
+| Flag | Default | Descripción |
+|------|---------|-------------|
+| `--file, -f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--project, -p` | | Nombre del proyecto |
+| `--follow` | `false` | Seguir logs en tiempo real |
+| `--tail` | `0` | Últimas N líneas (0 = todas, default 100 sin --follow) |
+| `--all` | `false` | Logs de todos los servicios |
 
 **Ejemplos:**
 
 ```bash
-# Ver logs de un servicio
-raioz logs api
-
-# Ver logs de múltiples servicios
-raioz logs api frontend
-
-# Ver logs de todos los servicios
-raioz logs --all
-
-# Seguir logs en tiempo real
-raioz logs --follow api
-
-# Ver últimas 100 líneas
-raioz logs --tail 100 api
-
-# Seguir logs de múltiples servicios
-raioz logs --follow api frontend database
-```
-
-**Casos de uso:**
-
-- Debugging: `raioz logs api` para ver errores
-- Monitoreo: `raioz logs --follow --all` para monitorear todo
-- Troubleshooting: `raioz logs --tail 200 service` para ver contexto
-
----
-
-## Comandos de Gestión
-
-### `raioz list`
-
-Lista todos los proyectos activos desde el estado global.
-
-**Sintaxis:**
-
-```bash
-raioz list [flags]
-```
-
-**Flags:**
-
-- `--json`: Output en formato JSON
-- `--filter <pattern>`: Filtrar proyectos por nombre (búsqueda parcial, case-insensitive)
-- `--status <status>`: Filtrar proyectos por estado de servicios (running, stopped)
-
-**Ejemplos:**
-
-```bash
-# Listar proyectos activos
-raioz list
-
-# Output en JSON
-raioz list --json
-
-# Filtrar por nombre
-raioz list --filter billing
-
-# Filtrar por estado
-raioz list --status running
-
-# Combinar filtros
-raioz list --filter api --status running
-```
-
-**Información mostrada:**
-
-- Nombre del proyecto
-- Ruta del workspace
-- Última ejecución (formato relativo)
-- Cantidad de servicios activos
-- Cantidad de servicios corriendo
-
-**Ejemplo de salida:**
-
-```
-━━━ ACTIVE PROJECTS ━━━
-
-▸ billing-platform
-  Workspace: /opt/raioz-proyecto/workspaces/billing-platform
-  Last Execution: 2 hours ago
-  Active Services: 5
-  Running: 5/5
-
-▸ auth-service
-  Workspace: /opt/raioz-proyecto/workspaces/auth-service
-  Last Execution: 1 day ago
-  Active Services: 3
-  Running: 2/3
+raioz logs api                    # Logs de un servicio
+raioz logs api web                # Logs de múltiples
+raioz logs --all --tail 50        # Últimas 50 líneas de todos
+raioz logs --follow api           # Streaming en tiempo real
 ```
 
 ---
@@ -353,309 +191,147 @@ raioz list --filter api --status running
 
 Lista todos los puertos en uso por proyectos activos.
 
-**Sintaxis:**
-
 ```bash
 raioz ports [flags]
 ```
 
 **Flags:**
 
-- `--project, -p`: Filtrar por proyecto específico
-
-**Ejemplos:**
-
-```bash
-# Ver todos los puertos activos
-raioz ports
-
-# Ver puertos de un proyecto específico
-raioz ports --project my-project
-```
+| Flag | Corto | Descripción |
+|------|-------|-------------|
+| `--project` | `-p` | Filtrar por proyecto |
 
 **Ejemplo de salida:**
 
 ```
 ━━━ ACTIVE PORTS ━━━
-
-PORT    PROJECT          SERVICE
-────    ───────          ───────
-3000    my-project       api
-5432    my-project       database
-8080    other-project    frontend
+PORT         PROJECT       SERVICE
+────         ───────       ───────
+3000:3000    my-project    api
+5432:5432    my-project    postgres
+8080:80      other         frontend
 ```
-
-**Casos de uso:**
-
-- Detectar conflictos de puertos antes de `raioz up`
-- Ver qué puertos están en uso
-- Debugging de problemas de conectividad
 
 ---
 
-### `raioz clean`
+### `raioz health`
 
-Limpia recursos Docker no usados.
-
-**Sintaxis:**
+Verifica la salud del proyecto local.
 
 ```bash
-raioz clean [flags]
+raioz health [flags]
 ```
 
 **Flags:**
 
-- `--all`: Limpiar todos los proyectos
-- `--images`: Eliminar imágenes Docker no usadas
-- `--volumes`: Eliminar volúmenes Docker no usados (requiere confirmación o `--force`)
-- `--networks`: Eliminar redes Docker no usadas
-- `--dry-run`: Mostrar qué se limpiaría sin ejecutar
-- `--force`: Saltar confirmaciones
-- `--config, -c`: Ruta al archivo de configuración
-- `--project, -p`: Nombre del proyecto
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
 
-**Ejemplos:**
+Ejecuta `project.commands.health` (si está definido) y reporta si el proyecto está saludable.
 
-```bash
-# Limpiar proyecto actual (solo contenedores detenidos)
-raioz clean
+### `raioz restart`
 
-# Limpiar todos los proyectos
-raioz clean --all
-
-# Limpiar imágenes no usadas
-raioz clean --images
-
-# Limpiar volúmenes no usados (preguntará confirmación)
-raioz clean --volumes
-
-# Limpiar volúmenes sin confirmación
-raioz clean --volumes --force
-
-# Limpiar todo (proyectos, imágenes, volúmenes, redes)
-raioz clean --all --images --volumes --networks
-
-# Ver qué se limpiaría sin ejecutar
-raioz clean --dry-run --all --images
-```
-
-**Advertencias:**
-
-- `--volumes` elimina datos persistentes. Úsalo con cuidado.
-- `--all` afecta a todos los proyectos. Verifica antes de ejecutar.
-- Usa `--dry-run` primero para ver qué se eliminará.
-
----
-
-## Comandos Avanzados
-
-### `raioz workspace`
-
-Gestiona workspaces para organizar múltiples proyectos.
-
-#### `raioz workspace use <workspace-name>`
-
-Establece el workspace activo.
-
-**Ejemplos:**
+Reinicia uno o más servicios del proyecto.
 
 ```bash
-# Cambiar a workspace específico
-raioz workspace use empresa-x
-
-# Crear y usar nuevo workspace
-raioz workspace use nuevo-proyecto
-```
-
-**Qué hace:**
-
-- Crea el workspace si no existe
-- Establece el workspace como activo en `~/.raioz/active-workspace`
-- Los comandos futuros usarán este workspace por defecto
-
-#### `raioz workspace list`
-
-Lista todos los workspaces disponibles y muestra cuál está activo.
-
-**Ejemplos:**
-
-```bash
-raioz workspace list
-```
-
-**Ejemplo de salida:**
-
-```
-Available Workspaces:
-  - empresa-x (active)
-  - billing-platform
-  - auth-service
-```
-
----
-
-### `raioz override`
-
-Sobrescribe un servicio para usar una ruta local en lugar del repositorio Git o imagen definida en `.raioz.json`.
-
-**Sintaxis:**
-
-```bash
-raioz override <service> --path <local-path>
+raioz restart [service...] [flags]
 ```
 
 **Flags:**
 
-- `--path`: Ruta local al servicio (requerido)
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--project` | `-p` | | Nombre del proyecto |
+| `--all` | | `false` | Reiniciar todos los servicios |
+| `--include-infra` | | `false` | Incluir infraestructura en el reinicio |
+| `--force-recreate` | | `false` | Recrear contenedores en lugar de reiniciar |
 
 **Ejemplos:**
 
 ```bash
-# Sobrescribir servicio con ruta local
-raioz override orders --path ~/dev/orders
-
-# Sobrescribir con ruta absoluta
-raioz override api --path /opt/custom/api
+raioz restart api               # Reiniciar un servicio específico
+raioz restart api worker         # Reiniciar varios servicios
+raioz restart --all              # Reiniciar todos los servicios
+raioz restart --all --include-infra  # Reiniciar todo, incluyendo infra
+raioz restart api --force-recreate   # Recrear contenedor desde cero
 ```
 
-**Qué hace:**
+**Notas:**
+- Los servicios host (`source.command`) no se pueden reiniciar con este comando. Usa `raioz down && raioz up`.
+- Busca servicios tanto en el compose generado como en el `ProjectComposePath`.
 
-- Registra el override en `~/.raioz/overrides.json`
-- El override tiene precedencia sobre `.raioz.json`
-- No modifica `.raioz.json`
-- El override se revierte automáticamente si la ruta no existe
+### `raioz exec`
 
-**Casos de uso:**
-
-- Desarrollo local: trabajar con código local en lugar de clonado
-- Testing: probar cambios sin modificar `.raioz.json`
-- Hot-reload: usar directorio con hot-reload habilitado
-
-**Ver overrides:**
+Ejecuta un comando dentro de un contenedor de servicio en ejecución.
 
 ```bash
-raioz override list
+raioz exec <service> [command...] [flags]
 ```
 
-**Eliminar override:**
+**Flags:**
+
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--project` | `-p` | | Nombre del proyecto |
+| `--interactive` | `-i` | `true` | Mantener stdin abierto y asignar TTY |
+
+**Ejemplos:**
 
 ```bash
-raioz override remove <service>
-# o
-raioz override rm <service>
+raioz exec api sh                        # Abrir shell en servicio
+raioz exec postgres psql -U postgres     # Conectar a PostgreSQL
+raioz exec redis redis-cli               # Abrir CLI de Redis
+raioz exec mongo mongosh --eval "db.stats()"  # Ejecutar comando en MongoDB
+raioz exec -i=false api ls /app          # Ejecutar sin TTY
+raioz exec --project myproject api sh    # Desde otro directorio
 ```
+
+**Notas:**
+- Si no se especifica comando, abre un shell (`sh`) por defecto.
+- Los flags del comando destino (como `-U` en psql) se pasan directamente al contenedor.
+- Busca servicios en el compose generado y en el `ProjectComposePath`.
+- Los servicios host (`source.command`) no soportan exec — se muestra un error claro con sugerencia.
 
 ---
 
-### `raioz ignore`
+## Configuración y validación
 
-Gestiona servicios que deben ser ignorados durante la resolución de dependencias.
+### `raioz init`
 
-#### `raioz ignore add <service>`
-
-Agrega un servicio a la lista de ignorados.
-
-**Ejemplos:**
+Wizard interactivo para crear `.raioz.json`.
 
 ```bash
-# Ignorar un servicio
-raioz ignore add legacy-service
-
-# Ignorar múltiples servicios
-raioz ignore add service1 service2 service3
+raioz init [flags]
 ```
 
-**Qué hace:**
+**Flags:**
 
-- El servicio no se clonará, construirá o iniciará durante `raioz up`
-- Se guarda en `~/.raioz/ignore.json`
-- Útil para servicios que no se necesitan en desarrollo local
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `.raioz.json` | Ruta de salida |
 
-#### `raioz ignore remove <service>`
+**El wizard pregunta:**
 
-Elimina un servicio de la lista de ignorados.
-
-**Ejemplos:**
-
-```bash
-raioz ignore remove legacy-service
-# o
-raioz ignore rm legacy-service
-```
-
-#### `raioz ignore list`
-
-Lista todos los servicios ignorados.
+1. Nombre del proyecto
+2. Nombre de red Docker
+3. ¿Agregar servicios? (loop, git o image por servicio)
+4. ¿Agregar infraestructura? (presets: PostgreSQL, Redis, MySQL, MongoDB, o custom)
 
 **Ejemplos:**
 
 ```bash
-raioz ignore list
-```
-
----
-
-### `raioz link`
-
-Gestiona symlinks desde el workspace de Raioz a rutas externas para edición.
-
-#### `raioz link add <service> <external-path>`
-
-Crea un symlink desde el workspace a una ruta externa.
-
-**Ejemplos:**
-
-```bash
-# Crear symlink para editar servicio externamente
-raioz link add api ~/dev/api
-
-# Crear symlink con ruta absoluta
-raioz link add frontend /opt/my-editor/frontend
-```
-
-**Qué hace:**
-
-- Crea un symlink del servicio en el workspace a la ruta externa
-- Permite editar el código en el editor externo
-- Los cambios se reflejan en el contenedor Docker
-
-**Casos de uso:**
-
-- Usar IDE externo para editar código
-- Compartir código entre proyectos
-- Desarrollo con herramientas externas
-
-#### `raioz link remove <service>`
-
-Elimina un symlink de un servicio.
-
-**Ejemplos:**
-
-```bash
-raioz link remove api
-# o
-raioz link rm api
-# o
-raioz link unlink api
-```
-
-#### `raioz link list`
-
-Lista todos los servicios con symlinks.
-
-**Ejemplos:**
-
-```bash
-raioz link list
+raioz init                        # Crear en directorio actual
+raioz init -o gateway/.raioz.json # Crear en otra ruta
 ```
 
 ---
 
 ### `raioz check`
 
-Verifica la alineación entre la configuración y el estado guardado.
-
-**Sintaxis:**
+Valida la configuración y detecta drift con el estado guardado.
 
 ```bash
 raioz check [flags]
@@ -663,138 +339,282 @@ raioz check [flags]
 
 **Flags:**
 
-- `--config, -c`: Ruta al archivo de configuración
-- `--project, -p`: Nombre del proyecto
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--project` | `-p` | | Nombre del proyecto |
 
-**Ejemplos:**
+**Validaciones:**
+
+1. Schema JSON (formato correcto)
+2. Reglas de negocio (proyecto, servicios, infra, dependencias)
+3. Alignment con estado guardado (si existe)
+
+**Exit codes:**
+
+- `0`: Todo válido / solo info
+- `1`: Errores de validación o drift crítico
+
+---
+
+### `raioz list`
+
+Lista todos los proyectos activos.
 
 ```bash
-# Verificar alineación
-raioz check
+raioz list [flags]
 ```
 
-**Qué detecta:**
+**Flags:**
 
-- Cambios en configuración (servicios agregados/eliminados)
-- Drift de ramas Git (cambios manuales en repositorios)
-- Cambios de versiones (commits diferentes)
-- Desalineaciones (servicios que deberían estar corriendo pero no)
+| Flag | Default | Descripción |
+|------|---------|-------------|
+| `--json` | `false` | Salida JSON |
+| `--filter` | | Filtrar por nombre (parcial, case-insensitive) |
+| `--status` | | Filtrar por estado (running/stopped) |
 
 **Ejemplo de salida:**
 
 ```
-Checking alignment...
+━━━ ACTIVE PROJECTS ━━━
 
-✓ Configuration matches state
-✓ All services are on correct branches
-✓ All services are on correct commits
-✓ All services are running
+▸ billing-platform
+  Workspace: /home/user/.raioz/workspaces/billing-platform
+  Last Execution: 2 hours ago
+  Active Services: 5
+  Running: 5/5
+  Services: ✓ api, ✓ web, ✓ worker, ✓ payments, ✓ notifications
 ```
 
-O si hay problemas:
+---
 
+## Gestión de workspace
+
+### `raioz workspace`
+
+Gestiona workspaces para organizar múltiples proyectos.
+
+```bash
+raioz workspace              # Muestra workspace activo
+raioz workspace use <name>   # Establecer workspace activo
+raioz workspace list          # Listar workspaces
+raioz workspace delete <name> # Eliminar workspace
 ```
-Checking alignment...
 
-⚠ Configuration changes detected:
-  - Service 'new-service' added
-  - Service 'old-service' removed
+**Comportamiento:**
 
-⚠ Branch drift detected:
-  - Service 'api' is on branch 'feature/new' but should be on 'main'
+- `use`: Crea el workspace si no existe y lo marca como activo
+- `list`: Muestra todos con `*` en el activo
+- `delete`: Elimina directorio del workspace. Si era el activo, lo desactiva. NO elimina repos clonados.
+- Sin subcomando: muestra el workspace actual
 
-⚠ Version drift detected:
-  - Service 'frontend' is on commit 'abc123' but should be on 'def456'
+---
+
+## Modificadores de config
+
+### `raioz override`
+
+Sobreescribe un servicio para usar una ruta local en vez del repo Git.
+
+```bash
+raioz override <service> --path <dir>  # Registrar override
+raioz override list                     # Ver overrides
+raioz override remove <service>         # Eliminar override
+raioz override rm <service>             # Alias de remove
 ```
+
+**Comportamiento:**
+
+- NO modifica `.raioz.json` — se guarda en `~/.raioz/overrides.json`
+- Override tiene precedencia: `override > .raioz.json > default`
+- Se aplica automáticamente durante `raioz up`
+- Se revierte si la ruta deja de existir
+- Solo aplica a servicios Git (image services se ignoran)
+
+---
+
+### `raioz ignore`
+
+Ignora servicios durante `raioz up`.
+
+```bash
+raioz ignore add <svc> [svc2 svc3...]  # Agregar (múltiples)
+raioz ignore list                       # Ver ignorados
+raioz ignore remove <svc> [svc2...]     # Eliminar (múltiples)
+raioz ignore rm <svc>                   # Alias de remove
+```
+
+**Comportamiento:**
+
+- El servicio no se clona, construye ni inicia durante `up`
+- Se guarda en `~/.raioz/ignore.json`
+- Advierte si otros servicios dependen del ignorado
+- Operaciones idempotentes (duplicar add = no-op)
+
+---
+
+### `raioz link`
+
+Crea symlinks del workspace a rutas externas.
+
+```bash
+raioz link add <service> <path>  # Crear symlink
+raioz link list                   # Ver servicios enlazados
+raioz link remove <service>       # Eliminar symlink
+raioz link rm <service>           # Alias
+raioz link unlink <service>       # Alias
+```
+
+**Flags:**
+
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+
+**Comportamiento:**
+
+- Permite editar código desde una ubicación externa
+- Los cambios se reflejan en el contenedor Docker (mismo filesystem)
+- Remove elimina solo el symlink, NO el directorio externo
+
+---
+
+## Limpieza
+
+### `raioz clean`
+
+Limpia servicios detenidos y recursos Docker no utilizados.
+
+```bash
+raioz clean [flags]
+```
+
+**Flags:**
+
+| Flag | Default | Descripción |
+|------|---------|-------------|
+| `--file, -f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--project, -p` | | Nombre del proyecto |
+| `--all` | `false` | Limpiar todos los proyectos |
+| `--images` | `false` | Eliminar imágenes Docker no utilizadas |
+| `--volumes` | `false` | Eliminar volúmenes (requiere confirmación) |
+| `--networks` | `false` | Eliminar redes Docker no utilizadas |
+| `--dry-run` | `false` | Mostrar qué se haría sin ejecutar |
+| `--force` | `false` | Omitir confirmaciones |
+
+**Ejemplos:**
+
+```bash
+raioz clean --dry-run --all --images --volumes  # Ver qué se limpiaría
+raioz clean --all --images --force              # Limpiar todo sin preguntar
+```
+
+### `raioz volumes`
+
+Gestiona volúmenes Docker asociados con un proyecto.
+
+```bash
+raioz volumes <subcommand> [flags]
+```
+
+**Subcomandos:**
+
+#### `raioz volumes list`
+
+Lista todos los volúmenes del proyecto, mostrando su origen (servicio o infra) y si están compartidos con otros proyectos.
+
+```bash
+raioz volumes list
+raioz volumes list --project myproject
+```
+
+#### `raioz volumes remove`
+
+Elimina volúmenes del proyecto. Puede eliminar volúmenes específicos por nombre o todos con `--all`.
+
+```bash
+raioz volumes remove [volume...] [flags]
+```
+
+| Flag | Default | Descripción |
+|------|---------|-------------|
+| `--all` | `false` | Eliminar todos los volúmenes del proyecto |
+| `--force` | `false` | Omitir confirmación |
+
+**Ejemplos:**
+
+```bash
+raioz volumes list                                   # Ver volúmenes del proyecto
+raioz volumes remove myproject_postgres-data          # Eliminar uno específico
+raioz volumes remove --all                            # Eliminar todos (con confirmación)
+raioz volumes remove --all --force                    # Eliminar todos sin confirmar
+raioz volumes rm myproject_redis-data                 # Alias: rm = remove
+```
+
+**Notas:**
+- Los volúmenes compartidos con otros proyectos se excluyen automáticamente.
+- Detén el proyecto (`raioz down`) antes de eliminar volúmenes en uso.
+- `volumes list` muestra lo declarado en la config; `volumes remove` opera sobre lo que existe en Docker.
+
+---
+
+## Producción y CI
+
+### `raioz migrate`
+
+Convierte un docker-compose.yml de producción a `.raioz.json`.
+
+```bash
+raioz migrate [flags]
+```
+
+**Flags:**
+
+| Flag | Corto | Default | Requerido | Descripción |
+|------|-------|---------|-----------|-------------|
+| `--compose` | `-c` | | Sí | Ruta al docker-compose.yml |
+| `--project` | `-p` | | Sí | Nombre del proyecto |
+| `--output` | `-o` | `.raioz.json` | No | Ruta de salida |
+| `--network` | | `{project}-network` | No | Nombre de red |
+
+**Ejemplo:**
+
+```bash
+raioz migrate -c docker-compose.prod.yml -p my-project
+```
+
+Separa automáticamente servicios vs infraestructura (postgres, redis, mongo, etc.).
 
 ---
 
 ### `raioz compare`
 
-Compara la configuración local (`.raioz.json`) con una configuración de producción (Docker Compose).
-
-**Sintaxis:**
+Compara configuración local con producción.
 
 ```bash
-raioz compare <docker-compose-file> [flags]
+raioz compare [flags]
 ```
 
 **Flags:**
 
-- `--output, -o`: Archivo de salida para el reporte (default: stdout)
+| Flag | Corto | Default | Requerido | Descripción |
+|------|-------|---------|-----------|-------------|
+| `--file` | `-f` | `.raioz.json` | No | Config local |
+| `--production` | `-p` | | Sí | Docker-compose de producción |
+| `--json` | | `false` | No | Salida JSON |
 
-**Ejemplos:**
+**Detecta diferencias en:**
 
-```bash
-# Comparar con docker-compose.yml de producción
-raioz compare docker-compose.prod.yml
-
-# Guardar reporte en archivo
-raioz compare docker-compose.prod.yml --output diff-report.txt
-```
-
-**Qué compara:**
-
-- Imágenes Docker (nombre y tag)
+- Imágenes (nombre y tag)
 - Puertos mapeados
 - Volúmenes
-- Variables de entorno
 - Dependencias entre servicios
 
-**Casos de uso:**
-
-- Verificar que desarrollo local coincide con producción
-- Identificar diferencias antes de deploy
-- Documentar diferencias entre entornos
-
 ---
-
-### `raioz migrate`
-
-Convierte un archivo Docker Compose de producción a formato `.raioz.json`.
-
-**Sintaxis:**
-
-```bash
-raioz migrate <docker-compose-file> [flags]
-```
-
-**Flags:**
-
-- `--output, -o`: Archivo de salida (default: `.raioz.json`)
-- `--project-name`: Nombre del proyecto (default: se infiere del archivo)
-
-**Ejemplos:**
-
-```bash
-# Migrar docker-compose.yml a .raioz.json
-raioz migrate docker-compose.yml
-
-# Migrar con nombre de proyecto específico
-raioz migrate docker-compose.prod.yml --project-name my-project
-
-# Guardar en archivo diferente
-raioz migrate docker-compose.yml --output custom-raioz.json
-```
-
-**Qué hace:**
-
-- Analiza el Docker Compose
-- Convierte servicios a formato `.raioz.json`
-- Intenta inferir información de Git (si hay build context)
-- Genera configuración lista para usar
-
-**Nota:** La migración es una aproximación. Revisa y ajusta el `.raioz.json` generado.
-
----
-
-## Comandos de CI/CD
 
 ### `raioz ci`
 
-Comando optimizado para pipelines de CI/CD con validaciones rápidas y output en JSON.
-
-**Sintaxis:**
+Comando optimizado para pipelines CI/CD.
 
 ```bash
 raioz ci [flags]
@@ -802,151 +622,55 @@ raioz ci [flags]
 
 **Flags:**
 
-- `--config, -c`: Ruta al archivo de configuración
-- `--keep`: Mantener entorno efímero después de CI (para debugging)
-- `--ephemeral`: Usar entorno efímero (auto-cleanup)
-- `--job-id`: ID del job CI para naming de entorno efímero
-- `--skip-build`: Saltar build y start de servicios (solo validación)
-- `--skip-pull`: Saltar pull de imágenes Docker
-- `--only-validate`: Solo ejecutar validaciones, saltar setup completo
-- `--force-reclone`: Forzar re-clonado de repositorios
+| Flag | Corto | Default | Descripción |
+|------|-------|---------|-------------|
+| `--file` | `-f` | `.raioz.json` | Ruta al archivo de configuración |
+| `--only-validate` | | `false` | Solo validar, no ejecutar |
+| `--skip-build` | | `false` | Omitir build y start |
+| `--skip-pull` | | `false` | Omitir pull de imágenes |
+| `--ephemeral` | | `false` | Ambiente efímero (auto-cleanup) |
+| `--keep` | | `false` | Mantener ambiente efímero (debug) |
+| `--job-id` | | | ID del job CI |
+| `--force-reclone` | | `false` | Re-clonar repos |
 
-**Ejemplos:**
+**Salida JSON** con validaciones, errores, warnings, y tiempos.
+
+**Ejemplo:**
 
 ```bash
-# Ejecutar CI completo
-raioz ci
-
-# Solo validaciones (no levanta servicios)
-raioz ci --only-validate
-
-# Validaciones y compose, sin build
-raioz ci --skip-build
-
-# Saltar pull de imágenes
-raioz ci --skip-pull
-
-# Usar entorno efímero (auto-cleanup)
-raioz ci --ephemeral
-
-# Entorno efímero con job ID
-raioz ci --ephemeral --job-id $CI_JOB_ID
-
-# Mantener entorno para debugging
-raioz ci --ephemeral --keep
-```
-
-**Características:**
-
-- Output siempre en formato JSON (parseable)
-- Validaciones rápidas (solo checks críticos)
-- Entornos efímeros con limpieza automática
-- Exit code 0 si éxito, 1 si falla
-- Validaciones paso a paso con estado (passed/failed/skipped)
-
-**Ejemplo de output JSON:**
-
-```json
-{
-  "success": true,
-  "startTime": "2024-01-15T10:30:00Z",
-  "endTime": "2024-01-15T10:35:00Z",
-  "duration": 300.5,
-  "validations": [
-    {
-      "check": "preflight",
-      "status": "passed"
-    },
-    {
-      "check": "load_config",
-      "status": "passed"
-    },
-    {
-      "check": "validate",
-      "status": "passed"
-    }
-  ],
-  "warnings": [],
-  "errors": []
-}
+raioz ci --only-validate -f .raioz.json
 ```
 
 ---
 
-## Comandos de Utilidad
+## Utilidades
 
 ### `raioz version`
 
-Muestra información de versión.
-
-**Sintaxis:**
-
 ```bash
 raioz version
 ```
 
-**Ejemplos:**
+Muestra: versión, schema version, commit, fecha de build.
+
+### `raioz lang`
 
 ```bash
-raioz version
-```
-
-**Información mostrada:**
-
-- Versión del binario
-- Commit SHA (si está disponible)
-- Fecha de build
-- Información del sistema (OS, arch)
-
-**Ejemplo de salida:**
-
-```
-raioz version 1.0.0
-Commit: abc123def456
-Build Date: 2024-01-15T10:30:00Z
-OS: linux
-Arch: amd64
+raioz lang              # Mostrar idioma actual
+raioz lang set es       # Cambiar a español
+raioz lang set en       # Cambiar a inglés
+raioz lang list         # Listar idiomas disponibles
 ```
 
 ---
 
-## Flags Globales
+## Flags globales
 
-Todos los comandos soportan estos flags globales:
+Disponibles en todos los comandos:
 
-- `--log-level`: Nivel de log (debug, info, warn, error)
-- `--log-json`: Output de logs en formato JSON
-
-**Ejemplos:**
-
-```bash
-# Ver logs de debug
-raioz up --log-level debug
-
-# Logs en JSON para CI
-raioz up --log-json
-```
-
----
-
-## Combinación de Comandos
-
-Ejemplos de uso común combinando comandos:
-
-```bash
-# Workflow completo de desarrollo
-raioz up                    # Levantar entorno
-raioz status               # Verificar estado
-raioz logs --follow api    # Monitorear logs
-raioz down                 # Detener cuando termine
-
-# Debugging
-raioz check                # Verificar alineación
-raioz logs --tail 200 api  # Ver últimos logs
-raioz status --json       # Estado en JSON para análisis
-
-# Limpieza periódica
-raioz clean --dry-run      # Ver qué se limpiaría
-raioz clean --images       # Limpiar imágenes
-raioz clean --all          # Limpiar todo
-```
+| Flag | Descripción |
+|------|-------------|
+| `--lang` | Idioma de la interfaz (en, es) |
+| `--log-level` | Nivel de log (debug, info, warn, error) |
+| `--log-json` | Logs en formato JSON |
+| `-h, --help` | Ayuda del comando |

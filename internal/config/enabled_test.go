@@ -75,8 +75,7 @@ func TestFilterByProfileRespectsEnabled(t *testing.T) {
 	deps := &Deps{
 		SchemaVersion: "1.0",
 		Project: Project{
-			Name:    "test",
-			Network: "test-network",
+			Name: "test",
 		},
 		Services: map[string]Service{
 			"enabled-service": {
@@ -89,7 +88,7 @@ func TestFilterByProfileRespectsEnabled(t *testing.T) {
 				// No enabled field, defaults to enabled
 			},
 		},
-		Infra: map[string]Infra{},
+		Infra: map[string]InfraEntry{},
 	}
 
 	filtered := FilterByProfile(deps, "")
@@ -109,8 +108,7 @@ func TestFilterByFeatureFlagsRespectsEnabled(t *testing.T) {
 	deps := &Deps{
 		SchemaVersion: "1.0",
 		Project: Project{
-			Name:    "test",
-			Network: "test-network",
+			Name: "test",
 		},
 		Services: map[string]Service{
 			"enabled-service": {
@@ -125,7 +123,7 @@ func TestFilterByFeatureFlagsRespectsEnabled(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]Infra{},
+		Infra: map[string]InfraEntry{},
 	}
 
 	envVars := make(map[string]string)

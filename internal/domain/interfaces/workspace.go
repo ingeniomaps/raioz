@@ -1,10 +1,12 @@
 package interfaces
 
-import "raioz/internal/workspace"
+import (
+	models "raioz/internal/domain/models"
+)
 
 // Workspace represents a workspace structure (domain model)
 // This is an alias for the concrete type, keeping it in interfaces allows domain layer to reference it
-type Workspace = workspace.Workspace
+type Workspace = models.Workspace
 
 // WorkspaceManager defines operations for workspace management
 type WorkspaceManager interface {
@@ -22,4 +24,18 @@ type WorkspaceManager interface {
 	GetActiveWorkspace() (string, error)
 	// GetRoot returns the root path of a workspace
 	GetRoot(ws *Workspace) string
+	// GetServicePath returns the full path to a service directory
+	GetServicePath(ws *Workspace, serviceName string, svc models.Service) string
+	// GetServiceDir returns the base directory for a service type
+	GetServiceDir(ws *Workspace, svc models.Service) string
+	// MigrateLegacyServices migrates legacy service directory structures
+	MigrateLegacyServices(ws *Workspace, deps *models.Deps) error
+	// ListWorkspaces returns a list of workspace names
+	ListWorkspaces() ([]string, error)
+	// WorkspaceExists checks if a workspace exists
+	WorkspaceExists(workspaceName string) (bool, error)
+	// SetActiveWorkspace sets the active workspace
+	SetActiveWorkspace(workspaceName string) error
+	// DeleteWorkspace removes a workspace directory
+	DeleteWorkspace(workspaceName string) error
 }

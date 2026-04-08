@@ -229,9 +229,11 @@ func ValidatePorts(deps *config.Deps, baseDir string, projectName string) ([]Por
 		allPorts = append(allPorts, svc.Docker.Ports...)
 	}
 
-	// Extract ports from infra
-	for _, infra := range deps.Infra {
-		allPorts = append(allPorts, infra.Ports...)
+	// Extract ports from inline infra
+	for _, entry := range deps.Infra {
+		if entry.Inline != nil {
+			allPorts = append(allPorts, entry.Inline.Ports...)
+		}
 	}
 
 	// Check each port

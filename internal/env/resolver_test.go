@@ -55,17 +55,17 @@ func TestResolveEnvFiles(t *testing.T) {
 		{
 			name:      "with global, project, and service",
 			envFiles:  []string{"services/test-service"},
-			wantCount: 3, // global + project + service
+			wantCount: 2, // global + service (project not included for service env)
 		},
 		{
 			name:      "with global and project only",
 			envFiles:  []string{},
-			wantCount: 2, // global + project
+			wantCount: 1, // global only (project not included for service env)
 		},
 		{
 			name:      "without global",
 			envFiles:  []string{"services/test-service"},
-			wantCount: 2, // project + service (no global)
+			wantCount: 1, // service only (no global)
 		},
 	}
 
@@ -77,7 +77,7 @@ func TestResolveEnvFiles(t *testing.T) {
 				deps.Env.UseGlobal = true
 			}
 
-			paths, err := ResolveEnvFiles(ws, deps, "test-service", tt.envFiles, "")
+			paths, err := ResolveEnvFiles(ws, deps, "test-service", tt.envFiles, "", false, "")
 			if err != nil {
 				t.Errorf("ResolveEnvFiles() error = %v", err)
 				return
@@ -203,28 +203,17 @@ func TestResolveEnvFileForService(t *testing.T) {
 		},
 	}
 
-	// Test with single file (global only)
-	envPath, err := ResolveEnvFileForService(ws, deps, "my-service", []string{}, "", "")
+	// Test with empty env: returns "" (caller e.g. compose creates file from global only)
+	envPath, err := ResolveEnvFileForService(ws, deps, "my-service", &config.EnvValue{Files: []string{}}, "", "")
 	if err != nil {
 		t.Fatalf("ResolveEnvFileForService() error = %v", err)
 	}
-
-	if envPath == "" {
-		t.Error("ResolveEnvFileForService() should return a path for global env")
+	if envPath != "" {
+		t.Errorf("ResolveEnvFileForService() with empty env should return \"\", got %q", envPath)
 	}
 
-	// Verify the combined file contains both values
-	env, err := LoadFiles([]string{envPath})
-	if err != nil {
-		t.Fatalf("Failed to load combined env file: %v", err)
-	}
-
-	if env["GLOBAL"] != "global_value" {
-		t.Errorf("Combined env GLOBAL = %v, want global_value", env["GLOBAL"])
-	}
-
-	// Test with service file
-	envPath2, err := ResolveEnvFileForService(ws, deps, "my-service", []string{"services/my-service"}, "", "")
+	// Test with service file: returns combined path (global + service)
+	envPath2, err := ResolveEnvFileForService(ws, deps, "my-service", &config.EnvValue{Files: []string{"services/my-service"}}, "", "")
 	if err != nil {
 		t.Fatalf("ResolveEnvFileForService() error = %v", err)
 	}

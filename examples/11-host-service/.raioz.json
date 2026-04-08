@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "network": "host-test-network",
+  "project": {
+    "name": "host-test"
+  },
+  "services": {
+    "docker-api": {
+      "source": {
+        "kind": "image",
+        "image": "hashicorp/http-echo",
+        "tag": "latest"
+      },
+      "docker": {
+        "mode": "prod",
+        "ports": ["5680:5678"],
+        "command": "-text='docker api'"
+      }
+    },
+    "host-worker": {
+      "source": {
+        "kind": "local",
+        "path": "/tmp/host-worker-test",
+        "command": "node -e \"require('fs').writeFileSync('/tmp/host-worker-test/status.txt','host-worker started'); setTimeout(()=>{},3600000)\"",
+        "runtime": "node"
+      }
+    }
+  },
+  "infra": {},
+  "env": {
+    "useGlobal": true,
+    "files": ["global"]
+  }
+}

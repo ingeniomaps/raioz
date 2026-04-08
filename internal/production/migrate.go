@@ -27,7 +27,7 @@ func MigrateComposeToDeps(
 			Name: projectName,
 		},
 		Services: make(map[string]config.Service),
-		Infra:    make(map[string]config.Infra),
+		Infra:    make(map[string]config.InfraEntry),
 		Env: config.EnvConfig{
 			UseGlobal: false,
 			Files:     []string{},
@@ -58,7 +58,8 @@ func MigrateComposeToDeps(
 				infra.Volumes = prodSvc.Volumes
 			}
 
-			deps.Infra[name] = infra
+			infraCopy := infra
+			deps.Infra[name] = config.InfraEntry{Inline: &infraCopy}
 		} else {
 			// Add to services
 			svc := config.Service{
@@ -151,12 +152,15 @@ func ValidateMigratedDeps(deps *config.Deps) []string {
 		}
 	}
 
-	// Check infra
-	for name, infra := range deps.Infra {
-		if infra.Image == "" {
+	// Check inline infra
+	for name, entry := range deps.Infra {
+		if entry.Inline == nil {
+			continue
+		}
+		if entry.Inline.Image == "" {
 			warnings = append(warnings, fmt.Sprintf("Infra '%s': image is required", name))
 		}
-		if infra.Tag == "" {
+		if entry.Inline.Tag == "" {
 			warnings = append(warnings, fmt.Sprintf("Infra '%s': tag defaults to 'latest'", name))
 		}
 	}

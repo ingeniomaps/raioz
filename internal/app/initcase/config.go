@@ -10,24 +10,40 @@ import (
 	"raioz/internal/validate"
 )
 
-// createConfig creates a minimal valid configuration
-func (uc *UseCase) createConfig(projectName string, networkName string) (*config.Deps, error) {
+// createConfig creates a valid configuration from wizard inputs
+func (uc *UseCase) createConfig(
+	projectName string,
+	networkName string,
+	services []serviceResult,
+	infra map[string]config.InfraEntry,
+) (*config.Deps, error) {
+	svcMap := make(map[string]config.Service)
+	for _, svc := range services {
+		svcMap[svc.Name] = config.Service{
+			Source: svc.Source,
+			Docker: svc.Docker,
+		}
+	}
+
+	infraMap := make(map[string]config.InfraEntry)
+	if infra != nil {
+		infraMap = infra
+	}
+
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
 		Network:       config.NetworkConfig{Name: networkName, IsObject: false},
 		Project: config.Project{
 			Name: projectName,
 		},
-		Services: make(map[string]config.Service),
-		Infra:    make(map[string]config.Infra),
+		Services: svcMap,
+		Infra:    infraMap,
 		Env: config.EnvConfig{
 			UseGlobal: true,
-			Files:     []string{"global"},
+			Files:     []string{"global", fmt.Sprintf("projects/%s", projectName)},
 		},
 	}
 
-	// Validate configuration (only schema and project, not services)
-	// This allows creating a minimal config file that can be extended later
 	if err := validate.ValidateSchema(deps); err != nil {
 		return nil, errors.New(
 			errors.ErrCodeInvalidConfig,
@@ -46,7 +62,6 @@ func (uc *UseCase) createConfig(projectName string, networkName string) (*config
 
 // writeConfigFile writes the configuration to a file
 func (uc *UseCase) writeConfigFile(outputPath string, deps *config.Deps) error {
-	// Marshal configuration to JSON
 	data, err := json.MarshalIndent(deps, "", "  ")
 	if err != nil {
 		return errors.New(
@@ -55,7 +70,6 @@ func (uc *UseCase) writeConfigFile(outputPath string, deps *config.Deps) error {
 		).WithError(err)
 	}
 
-	// Write file
 	if err := os.WriteFile(outputPath, data, 0644); err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"raioz/internal/config"
+	raiozErrors "raioz/internal/errors"
 	"raioz/internal/workspace"
 )
 
@@ -40,7 +41,9 @@ type ServiceState struct {
 func GetGlobalStatePath() (string, error) {
 	base, err := workspace.GetBaseDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to get base directory: %w", err)
+		return "", raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to get base directory for global state").
+			WithError(err).
+			WithSuggestion("Ensure the raioz base directory is properly configured")
 	}
 	return filepath.Join(base, globalStateFileName), nil
 }
@@ -61,12 +64,18 @@ func LoadGlobalState() (*GlobalState, error) {
 				Projects:       make(map[string]ProjectState),
 			}, nil
 		}
-		return nil, fmt.Errorf("failed to read global state: %w", err)
+		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to read global state file").
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("Check that the state file exists and is readable. Verify file permissions")
 	}
 
 	var state GlobalState
 	if err := json.Unmarshal(data, &state); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal global state: %w", err)
+		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to parse global state file").
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("The global state file may be corrupted. Try deleting it — it will be recreated on the next 'raioz up'")
 	}
 
 	// Ensure maps are initialized
@@ -90,17 +99,26 @@ func SaveGlobalState(state *GlobalState) error {
 	// Ensure directory exists (use 0700 for security - owner only)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("failed to create state directory: %w", err)
+		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to create state directory").
+			WithContext("directory", dir).
+			WithError(err).
+			WithSuggestion("Verify file permissions and available disk space")
 	}
 
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal global state: %w", err)
+		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, fmt.Sprintf("failed to marshal global state: %v", err)).
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("The state data may be corrupted. Try running 'raioz down' and then 'raioz up' again")
 	}
 
 	// Use 0600 permissions (read/write for owner only) for security
 	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("failed to write global state: %w", err)
+		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to write global state file").
+			WithContext("path", path).
+			WithError(err).
+			WithSuggestion("Verify file permissions and available disk space")
 	}
 
 	return nil
@@ -124,7 +142,9 @@ func GetProjectState(projectName string) (*ProjectState, error) {
 
 	projectState, exists := state.Projects[projectName]
 	if !exists {
-		return nil, fmt.Errorf("project %s not found in global state", projectName)
+		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, fmt.Sprintf("project '%s' not found in global state", projectName)).
+			WithContext("project", projectName).
+			WithSuggestion("Run 'raioz up' first to register the project in the global state")
 	}
 
 	return &projectState, nil

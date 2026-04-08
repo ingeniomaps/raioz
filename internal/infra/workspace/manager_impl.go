@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	workspacepkg "raioz/internal/workspace"
 )
@@ -65,4 +66,42 @@ func (m *WorkspaceManagerImpl) GetRoot(ws *interfaces.Workspace) string {
 	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return wsConcrete.Root
+}
+
+// GetServicePath returns the full path to a service directory
+func (m *WorkspaceManagerImpl) GetServicePath(ws *interfaces.Workspace, serviceName string, svc config.Service) string {
+	wsConcrete := (*workspacepkg.Workspace)(ws)
+	return workspacepkg.GetServicePath(wsConcrete, serviceName, svc)
+}
+
+// GetServiceDir returns the base directory for a service type
+func (m *WorkspaceManagerImpl) GetServiceDir(ws *interfaces.Workspace, svc config.Service) string {
+	wsConcrete := (*workspacepkg.Workspace)(ws)
+	return workspacepkg.GetServiceDir(wsConcrete, svc)
+}
+
+// MigrateLegacyServices migrates legacy service directory structures
+func (m *WorkspaceManagerImpl) MigrateLegacyServices(ws *interfaces.Workspace, deps *config.Deps) error {
+	wsConcrete := (*workspacepkg.Workspace)(ws)
+	return workspacepkg.MigrateLegacyServices(wsConcrete, deps)
+}
+
+// ListWorkspaces returns a list of workspace names
+func (m *WorkspaceManagerImpl) ListWorkspaces() ([]string, error) {
+	return workspacepkg.ListWorkspaces()
+}
+
+// WorkspaceExists checks if a workspace exists
+func (m *WorkspaceManagerImpl) WorkspaceExists(workspaceName string) (bool, error) {
+	return workspacepkg.WorkspaceExists(workspaceName)
+}
+
+// SetActiveWorkspace sets the active workspace
+func (m *WorkspaceManagerImpl) SetActiveWorkspace(workspaceName string) error {
+	return workspacepkg.SetActiveWorkspace(workspaceName)
+}
+
+// DeleteWorkspace removes a workspace directory
+func (m *WorkspaceManagerImpl) DeleteWorkspace(workspaceName string) error {
+	return workspacepkg.DeleteWorkspace(workspaceName)
 }

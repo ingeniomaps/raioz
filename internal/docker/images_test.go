@@ -63,7 +63,7 @@ func TestValidateServiceImages(t *testing.T) {
 func TestValidateInfraImages(t *testing.T) {
 	// Test with no infra (should pass)
 	deps := &config.Deps{
-		Infra: map[string]config.Infra{},
+		Infra: map[string]config.InfraEntry{},
 	}
 
 	if err := ValidateInfraImages(deps); err != nil {
@@ -72,11 +72,11 @@ func TestValidateInfraImages(t *testing.T) {
 
 	// Test with infra (will try to check/pull, may fail if no docker)
 	deps2 := &config.Deps{
-		Infra: map[string]config.Infra{
-			"mongo": {
+		Infra: map[string]config.InfraEntry{
+			"mongo": {Inline: &config.Infra{
 				Image: "mongo",
 				Tag:   "5.0",
-			},
+			}},
 		},
 	}
 
@@ -94,7 +94,7 @@ func TestValidateAllImages(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.Infra{},
+		Infra: map[string]config.InfraEntry{},
 	}
 
 	if err := ValidateAllImages(deps); err != nil {

@@ -42,15 +42,15 @@ func TestGetBaseImageForRuntime(t *testing.T) {
 		runtime   string
 		wantImage string
 	}{
-		{"node", "node:20-alpine"},
-		{"Node", "node:20-alpine"},
-		{"NODEJS", "node:20-alpine"},
+		{"node", "node:22-alpine"},
+		{"Node", "node:22-alpine"},
+		{"NODEJS", "node:22-alpine"},
 		{"go", "golang:1.22-alpine"},
 		{"python", "python:3.11-alpine"},
 		{"java", "openjdk:17-alpine"},
 		{"rust", "rust:1.75-alpine"},
-		{"", "node:20-alpine"}, // default
-		{"unknown", "node:20-alpine"}, // default
+		{"", "node:22-alpine"}, // default
+		{"unknown", "node:22-alpine"}, // default
 	}
 
 	for _, tt := range tests {
@@ -78,7 +78,7 @@ func TestGenerateDockerfileWrapper(t *testing.T) {
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: config.DockerConfig{
+		Docker: &config.DockerConfig{
 			Command: "npm run dev",
 			Runtime: "node",
 		},
@@ -105,7 +105,7 @@ func TestGenerateDockerfileWrapper(t *testing.T) {
 	}
 
 	contentStr := string(content)
-	if !strings.Contains(contentStr, "FROM node:20-alpine") {
+	if !strings.Contains(contentStr, "FROM node:22-alpine") {
 		t.Error("Wrapper should contain base image")
 	}
 	if !strings.Contains(contentStr, "npm run dev") {
@@ -139,7 +139,7 @@ func TestEnsureDockerfile(t *testing.T) {
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: config.DockerConfig{
+		Docker: &config.DockerConfig{
 			Dockerfile: "Dockerfile.dev",
 		},
 	}
@@ -158,7 +158,7 @@ func TestEnsureDockerfile(t *testing.T) {
 			Kind: "git",
 			Path: "test-service-2",
 		},
-		Docker: config.DockerConfig{
+		Docker: &config.DockerConfig{
 			Dockerfile: "Dockerfile.dev",
 		},
 	}
@@ -174,7 +174,7 @@ func TestEnsureDockerfile(t *testing.T) {
 			Kind: "git",
 			Path: "test-service-3",
 		},
-		Docker: config.DockerConfig{
+		Docker: &config.DockerConfig{
 			Dockerfile: "Dockerfile.dev",
 			Command:    "npm run dev",
 			Runtime:    "node",

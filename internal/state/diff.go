@@ -226,10 +226,9 @@ func compareServiceFields(name string, oldSvc config.Service, newSvc config.Serv
 }
 
 // compareInfra compares two infra maps and returns changes
-func compareInfra(oldInfra map[string]config.Infra, newInfra map[string]config.Infra) []ConfigChange {
+func compareInfra(oldInfra map[string]config.InfraEntry, newInfra map[string]config.InfraEntry) []ConfigChange {
 	var changes []ConfigChange
 
-	// Collect all infra names
 	allNames := make(map[string]bool)
 	for name := range oldInfra {
 		allNames[name] = true
@@ -237,71 +236,62 @@ func compareInfra(oldInfra map[string]config.Infra, newInfra map[string]config.I
 	for name := range newInfra {
 		allNames[name] = true
 	}
-
-	// Convert to sorted list
 	var names []string
 	for name := range allNames {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
-	// Compare each infra
 	for _, name := range names {
-		oldInf, oldExists := oldInfra[name]
-		newInf, newExists := newInfra[name]
+		oldEntry, oldExists := oldInfra[name]
+		newEntry, newExists := newInfra[name]
 
 		if !oldExists {
-			// New infra
 			changes = append(changes, ConfigChange{
-				Type:     "infra",
-				Name:     name,
-				Field:    "added",
-				OldValue: "",
-				NewValue: "new infra",
+				Type: "infra", Name: name, Field: "added", OldValue: "", NewValue: "new infra",
 			})
 			continue
 		}
-
 		if !newExists {
-			// Removed infra
 			changes = append(changes, ConfigChange{
-				Type:     "infra",
-				Name:     name,
-				Field:    "removed",
-				OldValue: "infra existed",
-				NewValue: "",
+				Type: "infra", Name: name, Field: "removed", OldValue: "infra existed", NewValue: "",
 			})
 			continue
 		}
 
-		// Compare infra fields
+		if (oldEntry.Path != "") != (newEntry.Path != "") {
+			changes = append(changes, ConfigChange{
+				Type: "infra", Name: name, Field: "definition", OldValue: "path or inline", NewValue: "inline or path",
+			})
+			continue
+		}
+		if oldEntry.Path != "" {
+			if oldEntry.Path != newEntry.Path {
+				changes = append(changes, ConfigChange{
+					Type: "infra", Name: name, Field: "path", OldValue: oldEntry.Path, NewValue: newEntry.Path,
+				})
+			}
+			continue
+		}
+
+		oldInf, newInf := oldEntry.Inline, newEntry.Inline
+		if oldInf == nil || newInf == nil {
+			continue
+		}
 		if oldInf.Image != newInf.Image {
 			changes = append(changes, ConfigChange{
-				Type:     "infra",
-				Name:     name,
-				Field:    "image",
-				OldValue: oldInf.Image,
-				NewValue: newInf.Image,
+				Type: "infra", Name: name, Field: "image", OldValue: oldInf.Image, NewValue: newInf.Image,
 			})
 		}
 		if oldInf.Tag != newInf.Tag {
 			changes = append(changes, ConfigChange{
-				Type:     "infra",
-				Name:     name,
-				Field:    "tag",
-				OldValue: oldInf.Tag,
-				NewValue: newInf.Tag,
+				Type: "infra", Name: name, Field: "tag", OldValue: oldInf.Tag, NewValue: newInf.Tag,
 			})
 		}
 		if !reflect.DeepEqual(oldInf.Ports, newInf.Ports) {
-			oldPorts := formatSlice(oldInf.Ports)
-			newPorts := formatSlice(newInf.Ports)
 			changes = append(changes, ConfigChange{
-				Type:     "infra",
-				Name:     name,
-				Field:    "ports",
-				OldValue: oldPorts,
-				NewValue: newPorts,
+				Type: "infra", Name: name, Field: "ports",
+				OldValue: formatSlice(oldInf.Ports), NewValue: formatSlice(newInf.Ports),
 			})
 		}
 	}

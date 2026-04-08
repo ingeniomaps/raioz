@@ -6,6 +6,8 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"raioz/internal/i18n"
 )
 
 // PrintSuccess prints a success message with checkmark
@@ -47,56 +49,56 @@ func FormatDuration(d time.Duration) string {
 // PrintSummary prints a summary of services started
 func PrintSummary(services []string, infra []string, duration time.Duration) {
 	fmt.Println()
-	PrintSectionHeader("Environment Ready")
+	PrintSectionHeader(i18n.T("output.environment_ready"))
 
 	if len(services) > 0 {
-		PrintSubsection(fmt.Sprintf("Services (%d)", len(services)))
+		PrintSubsection(i18n.T("output.services_count", len(services)))
 		PrintList(services, 1)
 	}
 
 	if len(infra) > 0 {
-		PrintSubsection(fmt.Sprintf("Infrastructure (%d)", len(infra)))
+		PrintSubsection(i18n.T("output.infra_count", len(infra)))
 		PrintList(infra, 1)
 	}
 
 	fmt.Println()
-	PrintKeyValue("Time elapsed", FormatDuration(duration))
+	PrintKeyValue(i18n.T("output.time_elapsed"), FormatDuration(duration))
 	fmt.Println()
 }
 
 // PrintServiceCloned prints a message when a service is cloned
 func PrintServiceCloned(serviceName string) {
-	PrintSuccess(fmt.Sprintf("%s clonado", serviceName))
+	PrintSuccess(i18n.T("output.cloned", serviceName))
 }
 
 // PrintServiceUsingImage prints a message when a service uses an image
 func PrintServiceUsingImage(serviceName string) {
-	PrintSuccess(fmt.Sprintf("%s usando imagen", serviceName))
+	PrintSuccess(i18n.T("output.using_image", serviceName))
 }
 
 // PrintInfraStarted prints a message when infrastructure is started
 func PrintInfraStarted(infraName string) {
-	PrintSuccess(fmt.Sprintf("%s levantado", infraName))
+	PrintSuccess(i18n.T("output.infra_started", infraName))
 }
 
 // PrintWorkspaceCreated prints a message when workspace is created
 func PrintWorkspaceCreated() {
-	PrintSuccess("Workspace creado")
+	PrintSuccess(i18n.T("output.workspace_created"))
 }
 
 // PrintGeneratingCompose prints a message when generating compose
 func PrintGeneratingCompose() {
-	PrintSuccess("generating docker-compose.generated.yml")
+	PrintSuccess(i18n.T("output.generating_compose"))
 }
 
 // PrintStartingServices prints a message when starting services
 func PrintStartingServices() {
-	PrintSuccess("starting services...")
+	PrintSuccess(i18n.T("output.starting_services"))
 }
 
 // PrintProjectStarted prints a success message when project is started
 func PrintProjectStarted(projectName string) {
-	fmt.Printf("✔ Project '%s' started successfully\n", projectName)
+	PrintSuccess(i18n.T("output.project_started", projectName))
 }
 
 // FormatConfigChanges formats configuration changes for display
@@ -213,4 +215,9 @@ func PrintTableRow(values ...string) {
 // PrintEmptyState prints a message when there's no data to show
 func PrintEmptyState(message string) {
 	fmt.Printf("  (no %s)\n", message)
+}
+
+// PrintPrompt prints a prompt message without newline, for user input on the same line
+func PrintPrompt(message string) {
+	fmt.Print(message)
 }

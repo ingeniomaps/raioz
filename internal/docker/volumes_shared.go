@@ -96,10 +96,12 @@ func BuildServiceVolumesMap(deps *config.Deps) (map[string]ServiceVolumes, error
 		}
 	}
 
-	// Process infra (infra services can also share volumes)
-	for infraName, infra := range deps.Infra {
-		// Extract named volumes from infra
-		namedVols, err := ExtractNamedVolumes(infra.Volumes)
+	// Process infra (inline only; path-based YAML defines its own volumes)
+	for infraName, entry := range deps.Infra {
+		if entry.Inline == nil {
+			continue
+		}
+		namedVols, err := ExtractNamedVolumes(entry.Inline.Volumes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract named volumes for infra %s: %w", infraName, err)
 		}
