@@ -12,6 +12,7 @@ type UpOptions struct {
 	Profile      string
 	ForceReclone bool
 	DryRun       bool
+	Only         []string
 }
 
 // UpUseCase handles the "up" use case - starting a project
@@ -43,6 +44,7 @@ func (uc *UpUseCase) Execute(ctx context.Context, opts UpOptions) error {
 		Profile:      opts.Profile,
 		ForceReclone: opts.ForceReclone,
 		DryRun:       opts.DryRun,
+		Only:         opts.Only,
 	}
 	return uc.useCase.Execute(ctx, options)
 }

@@ -11,8 +11,8 @@ import (
 	"raioz/internal/output"
 )
 
-// applyFilters handles profile filtering, feature flags, mocks, and ignore list
-func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps, error) {
+// applyFilters handles profile filtering, feature flags, mocks, ignore list, and --only selection
+func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string) (*config.Deps, error) {
 	// Load environment variables for feature flags
 	envVars := make(map[string]string)
 	for _, key := range os.Environ() {
@@ -79,6 +79,22 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string) (*config.Deps
 		if len(ignoredServiceNames) > 0 {
 			output.PrintInfo(i18n.T("up.validate.ignoring_services", len(ignoredServiceNames), ignoredServiceNames))
 		}
+	}
+
+	// Filter by --only: select specific services + their transitive dependencies
+	if len(only) > 0 {
+		// Validate that requested services/infra exist
+		for _, name := range only {
+			_, isSvc := deps.Services[name]
+			_, isInfra := deps.Infra[name]
+			if !isSvc && !isInfra {
+				return nil, errors.New(errors.ErrCodeInvalidField, i18n.T("error.only_service_not_found", name)).WithContext("service", name)
+			}
+		}
+		// Resolve transitive dependencies
+		svcNames, infraNames := config.ResolveDependencies(deps, only)
+		deps = config.FilterByServices(deps, svcNames, infraNames)
+		output.PrintInfo(i18n.T("up.validate.using_only", len(deps.Services)+len(deps.Infra), only))
 	}
 
 	// Check if we have project commands as fallback
