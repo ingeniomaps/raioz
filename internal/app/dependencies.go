@@ -1,6 +1,7 @@
 package app
 
 import (
+	"raioz/internal/discovery"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/infra/config"
 	"raioz/internal/infra/docker"
@@ -11,6 +12,7 @@ import (
 	"raioz/internal/infra/state"
 	"raioz/internal/infra/validate"
 	"raioz/internal/infra/workspace"
+	"raioz/internal/proxy"
 )
 
 // Dependencies holds all dependencies for use cases
@@ -31,15 +33,17 @@ type Dependencies struct {
 // NewDependencies creates a new Dependencies instance with default implementations
 func NewDependencies() *Dependencies {
 	return &Dependencies{
-		ConfigLoader:  config.NewConfigLoader(),
-		Validator:     validate.NewValidator(),
-		DockerRunner:  docker.NewDockerRunner(),
-		GitRepository: git.NewGitRepository(),
-		Workspace:     workspace.NewWorkspaceManager(),
-		StateManager:  state.NewStateManager(),
-		LockManager:   lock.NewLockManager(),
-		HostRunner:    host.NewHostRunner(),
-		EnvManager:    env.NewEnvManager(),
+		ConfigLoader:     config.NewConfigLoader(),
+		Validator:        validate.NewValidator(),
+		DockerRunner:     docker.NewDockerRunner(),
+		GitRepository:    git.NewGitRepository(),
+		Workspace:        workspace.NewWorkspaceManager(),
+		StateManager:     state.NewStateManager(),
+		LockManager:      lock.NewLockManager(),
+		HostRunner:       host.NewHostRunner(),
+		EnvManager:       env.NewEnvManager(),
+		ProxyManager:     proxy.NewManager(proxy.CertsDir()),
+		DiscoveryManager: discovery.NewManager(),
 	}
 }
 
