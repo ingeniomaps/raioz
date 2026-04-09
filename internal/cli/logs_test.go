@@ -21,7 +21,7 @@ func TestLogsCmdFlags(t *testing.T) {
 		name     string
 		defValue string
 	}{
-		{"file", ".raioz.json"},
+		{"file", ""},
 		{"project", ""},
 		{"follow", "false"},
 		{"tail", "0"},

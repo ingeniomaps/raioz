@@ -44,7 +44,7 @@ func printCurrentLang(w io.Writer) {
 func setLang(w io.Writer, lang string) error {
 	if err := i18n.SetLang(lang); err != nil {
 		available := strings.Join(i18n.Available(), ", ")
-		return fmt.Errorf(i18n.T("lang.invalid", lang, available))
+		return fmt.Errorf("%s", i18n.T("lang.invalid", lang, available))
 	}
 
 	if err := i18n.SavePreference(lang); err != nil {

@@ -15,6 +15,7 @@ var (
 	forceReclone bool
 	dryRun       bool
 	onlyServices []string
+	hostBind     string
 )
 
 var upCmd = &cobra.Command{
@@ -50,14 +51,16 @@ var upCmd = &cobra.Command{
 			ForceReclone: forceReclone,
 			DryRun:       dryRun,
 			Only:         onlyServices,
+			Host:         hostBind,
 		})
 	},
 }
 
 func init() {
-	upCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	upCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file (auto-detects if omitted)")
 	upCmd.Flags().StringVarP(&profile, "profile", "p", "", "Profile to use (frontend/backend)")
 	upCmd.Flags().BoolVar(&forceReclone, "force-reclone", false, "Force re-clone of all git repositories")
 	upCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
 	upCmd.Flags().StringSliceVar(&onlyServices, "only", nil, "Start only these services (with their dependencies)")
+	upCmd.Flags().StringVar(&hostBind, "host", "", "Bind address for shared dev server (e.g., 0.0.0.0)")
 }

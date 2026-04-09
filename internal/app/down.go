@@ -134,6 +134,8 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 
 	uc.handleProjectComposeDown(ctx, stateDeps, opts)
 	uc.executeProjectDownCommand(ctx, stateDeps, ws, opts, workspaceName)
+	uc.stopProxy(ctx, opts)
+	uc.cleanLocalState(ctx, opts)
 
 	output.PrintSuccess(i18n.T("output.project_stopped", stateDeps.Project.Name))
 

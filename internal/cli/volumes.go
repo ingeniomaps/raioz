@@ -62,7 +62,7 @@ var volumesRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	volumesCmd.PersistentFlags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	volumesCmd.PersistentFlags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	volumesCmd.PersistentFlags().StringVarP(&projectName, "project", "p", "", "Project name")
 
 	volumesRemoveCmd.Flags().Bool("all", false, "Remove all project volumes")

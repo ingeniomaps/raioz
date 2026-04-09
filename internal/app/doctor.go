@@ -43,6 +43,9 @@ func (uc *DoctorUseCase) Execute(ctx context.Context) error {
 		uc.checkDiskSpace(),
 		uc.checkRaiozDir(),
 		uc.checkOS(),
+		uc.checkCaddy(ctx),
+		uc.checkMkcert(ctx),
+		uc.checkRuntimes(ctx),
 	}
 
 	hasError := false
@@ -67,7 +70,7 @@ func (uc *DoctorUseCase) Execute(ctx context.Context) error {
 
 	if hasError {
 		output.PrintError(i18n.T("doctor.result_error"))
-		return fmt.Errorf(i18n.T("doctor.result_error"))
+		return fmt.Errorf("%s", i18n.T("doctor.result_error"))
 	}
 	if hasWarning {
 		output.PrintWarning(i18n.T("doctor.result_warning"))

@@ -24,8 +24,8 @@ func TestHealthCmdFlags(t *testing.T) {
 	if f == nil {
 		t.Fatal("flag 'file' not registered")
 	}
-	if f.DefValue != ".raioz.json" {
-		t.Errorf("default = %s, want .raioz.json", f.DefValue)
+	if f.DefValue != "" {
+		t.Errorf("default = %s, want empty", f.DefValue)
 	}
 }
 

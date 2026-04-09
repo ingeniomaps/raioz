@@ -37,6 +37,6 @@ var healthCmd = &cobra.Command{
 }
 
 func init() {
-	healthCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	healthCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	rootCmd.AddCommand(healthCmd)
 }

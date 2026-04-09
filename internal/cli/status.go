@@ -46,7 +46,7 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
-	statusCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	statusCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	statusCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	statusCmd.Flags().BoolVar(&statusJSON, "json", false, "Output status in JSON format")
 }

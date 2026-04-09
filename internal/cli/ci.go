@@ -61,7 +61,7 @@ var ciCmd = &cobra.Command{
 }
 
 func init() {
-	ciCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	ciCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	ciCmd.Flags().BoolVar(&ciKeep, "keep", false, "Keep ephemeral environment after CI run (for debugging)")
 	ciCmd.Flags().BoolVar(&ciEphemeral, "ephemeral", false, "Use ephemeral environment (auto-cleanup)")
 	ciCmd.Flags().StringVar(&ciJobID, "job-id", "", "CI job ID for ephemeral environment naming")

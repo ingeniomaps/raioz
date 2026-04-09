@@ -78,6 +78,6 @@ func displayCheckResult(result *app.CheckResult) {
 }
 
 func init() {
-	checkCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	checkCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	checkCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 }
