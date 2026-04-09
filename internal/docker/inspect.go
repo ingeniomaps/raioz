@@ -10,7 +10,6 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/git"
-	"raioz/internal/link"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/workspace"
 )
@@ -197,13 +196,6 @@ func GetServiceInfoWithContext(
 		// Get version from git if it's a git-based service
 		if svc != nil && svc.Source.Kind == "git" && ws != nil {
 			repoPath := workspace.GetServicePath(ws, serviceName, *svc)
-
-			// Check if service is linked
-			isLinked, linkTarget, err := link.IsLinked(repoPath)
-			if err == nil && isLinked {
-				info.Linked = true
-				info.LinkTarget = linkTarget
-			}
 
 			// Create context with timeout for git operations
 			ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
