@@ -52,18 +52,18 @@ func (uc *DoctorUseCase) Execute(ctx context.Context) error {
 	hasWarning := false
 
 	for _, check := range checks {
-		var icon string
+		var tag string
 		switch check.Status {
 		case "ok":
-			icon = "\u2714"
+			tag = "\033[32m[ok]\033[0m"
 		case "warning":
-			icon = "\u26a0"
+			tag = "\033[33m[!!]\033[0m"
 			hasWarning = true
 		case "error":
-			icon = "\u2718"
+			tag = "\033[31m[fail]\033[0m"
 			hasError = true
 		}
-		fmt.Fprintf(w, "  %s %s — %s\n", icon, check.Name, check.Message)
+		fmt.Fprintf(w, "  %s %-16s %s\n", tag, check.Name, check.Message)
 	}
 
 	fmt.Fprintf(w, "\n")
