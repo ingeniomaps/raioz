@@ -1,0 +1,44 @@
+# 06 — No Docker for services: everything runs on host
+#
+# When Docker is not available or you prefer native execution.
+# Services run directly on the host with their native tools.
+# Only dependencies use Docker (for postgres, redis, etc.).
+#
+# If Docker is not installed at all, you can still use Raioz
+# but dependencies won't work. Services will start normally.
+#
+# Raioz detects:
+#   api/      → go.mod       → go run .
+#   frontend/ → package.json → npm run dev
+#   worker/   → Makefile     → make dev
+#
+# Service discovery still works:
+#   api gets POSTGRES_HOST=localhost (Docker port mapped to host)
+#   frontend gets API_HOST=localhost (both on host)
+
+project: host-only
+
+services:
+  api:
+    path: ./api
+    dependsOn: [postgres]
+    ports: ["8080"]
+
+  frontend:
+    path: ./frontend
+    dependsOn: [api]
+    ports: ["3000"]
+
+  worker:
+    path: ./worker
+    dependsOn: [postgres]
+
+dependencies:
+  # These still run in Docker (just the infra, not your code)
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]

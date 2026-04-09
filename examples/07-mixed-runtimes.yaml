@@ -1,0 +1,54 @@
+# 07 — Mixed runtimes: Go + Node + Python + PHP + Rust
+#
+# Every team uses their preferred language. Raioz detects each
+# runtime and starts them with the correct tool.
+#
+# Raioz detects:
+#   go-api/      → go.mod          → go run .
+#   node-bff/    → package.json    → npm run dev
+#   python-ml/   → pyproject.toml  → python -m flask run
+#   php-admin/   → composer.json   → php artisan serve
+#   rust-engine/ → Cargo.toml      → cargo run
+#
+# All services share the same network and discover each other
+# automatically via injected env vars.
+
+project: polyglot-platform
+proxy: true
+
+services:
+  go-api:
+    path: ./go-api
+    dependsOn: [postgres, redis]
+    health: /health
+    ports: ["8080"]
+
+  node-bff:
+    path: ./node-bff
+    dependsOn: [go-api, python-ml]
+    watch: native
+    ports: ["3000"]
+
+  python-ml:
+    path: ./python-ml
+    dependsOn: [postgres]
+    ports: ["8000"]
+
+  php-admin:
+    path: ./php-admin
+    dependsOn: [postgres]
+    ports: ["8001"]
+
+  rust-engine:
+    path: ./rust-engine
+    dependsOn: [redis]
+    ports: ["9000"]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]

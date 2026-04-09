@@ -1,0 +1,49 @@
+# 13 — Port conflicts: multiple services on the same port
+#
+# Problem: frontend-a and frontend-b both want port 3000.
+# Two solutions:
+#
+# === Solution A: Proxy (recommended) ===
+# With proxy: true, ports don't matter. Each service gets
+# a unique URL: https://frontend-a.localhost, https://frontend-b.localhost
+# Internally they can both run on port 3000 in different containers.
+#
+# === Solution B: Manual port assignment ===
+# Without proxy, assign different host ports explicitly.
+#
+# This example uses the proxy approach (Solution A).
+
+project: multi-frontend
+proxy: true                 # eliminates all port conflicts
+
+services:
+  # Both frontends run on port 3000 internally — no conflict!
+  frontend-a:
+    path: ./frontend-a
+    dependsOn: [api]
+    ports: ["3000"]
+    # Access: https://frontend-a.localhost
+
+  frontend-b:
+    path: ./frontend-b
+    dependsOn: [api]
+    ports: ["3000"]
+    # Access: https://frontend-b.localhost
+
+  # Both APIs run on port 8080 internally — no conflict!
+  api:
+    path: ./api
+    dependsOn: [postgres]
+    ports: ["8080"]
+    # Access: https://api.localhost
+
+  admin-api:
+    path: ./admin-api
+    dependsOn: [postgres]
+    ports: ["8080"]
+    # Access: https://admin-api.localhost
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]

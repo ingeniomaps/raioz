@@ -19,7 +19,7 @@ func FormatError(err error) string {
 	}
 
 	// Default formatting for regular errors
-	return fmt.Sprintf("🔴 Error: %v\n", err)
+	return fmt.Sprintf("\033[31m[error]\033[0m %v\n", err)
 }
 
 // FormatMultipleErrors formats multiple errors for display
@@ -29,7 +29,7 @@ func FormatMultipleErrors(errs []error) string {
 	}
 
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("🔴 Found %d error(s):\n\n", len(errs)))
+	result.WriteString(fmt.Sprintf("\033[31m[error]\033[0m Found %d error(s):\n\n", len(errs)))
 
 	for i, err := range errs {
 		result.WriteString(fmt.Sprintf("%d. %s", i+1, FormatError(err)))

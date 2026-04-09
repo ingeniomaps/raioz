@@ -1,0 +1,41 @@
+# 02 — Fullstack: frontend + backend + infra
+#
+# Classic fullstack project: React/Next.js frontend, Go API backend,
+# PostgreSQL and Redis. Proxy enabled for HTTPS access.
+#
+# Raioz detects:
+#   frontend/ → package.json → npm run dev (hot-reload native)
+#   api/      → go.mod       → go run .
+#
+# Access:
+#   https://frontend.localhost
+#   https://api.localhost
+#
+# Usage:
+#   raioz up
+
+project: my-app
+proxy: true
+
+services:
+  frontend:
+    path: ./frontend
+    dependsOn: [api]
+    watch: native         # Next.js/Vite has its own hot-reload
+
+  api:
+    path: ./api
+    dependsOn: [postgres, redis]
+    health: /api/health
+    watch: true           # Raioz restarts on file changes
+    ports: ["3000"]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    env: .env.postgres
+
+  redis:
+    image: redis:7
+    ports: ["6379"]

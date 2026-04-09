@@ -1,7 +1,7 @@
 {
   "cmd.root.short": "Orquestador local de microservicios Raioz",
   "cmd.up.short": "Levantar dependencias del proyecto",
-  "cmd.up.long": "Levanta todos los servicios e infraestructura del proyecto definido en .raioz.json.\n\nEste comando:\n1. Valida la configuración\n2. Ejecuta verificaciones previas (Docker, Git, espacio en disco)\n3. Resuelve workspace y adquiere lock\n4. Clona/actualiza repositorios Git\n5. Resuelve variables de entorno\n6. Valida y descarga imágenes Docker\n7. Crea redes y volúmenes\n8. Genera docker-compose.generated.yml\n9. Inicia servicios con Docker Compose\n10. Guarda el estado del proyecto",
+  "cmd.up.long": "Inicia todos los servicios y dependencias del proyecto actual.\n\nRaioz auto-detecta el archivo de configuracion (raioz.yaml, .raioz.json) y\nel runtime de cada servicio (Docker Compose, Dockerfile, npm, Go, Make, etc.).\n\nLos servicios inician en orden de dependencias. La infraestructura (imagenes)\ninicia primero, luego los servicios de aplicacion con sus herramientas nativas.",
   "cmd.down.short": "Detener dependencias del proyecto",
   "cmd.down.long": "Detiene todos los servicios e infraestructura del proyecto actual.\n\nUsa --all para detener todos los servicios e infraestructura del workspace.\nUsa --prune-shared para también detener infraestructura compartida si ningún otro proyecto activo la usa.",
   "cmd.status.short": "Mostrar estado del proyecto",
@@ -17,7 +17,7 @@
   "cmd.compare.short": "Comparar configuración local con producción",
   "cmd.compare.long": "Compara tu .raioz.json local con un archivo Docker Compose de producción\npara identificar diferencias en imágenes, puertos, volúmenes y dependencias.\n\nEsto ayuda a asegurar que tu entorno de desarrollo local coincida con producción\nlo más posible.",
   "cmd.health.short": "Verificar salud del proyecto y gestionar ciclo de vida local",
-  "cmd.health.long": "Verifica si el proyecto local está en ejecución y gestiona su ciclo de vida.\n\nEste comando:\n1. Verifica si el proyecto está en ejecución (usando comando health si está definido)\n2. Si no está en ejecución, lo inicia con el comando 'up'\n3. Si está en ejecución, no hace nada\n4. Si necesita detenerse, lo detiene con el comando 'down'\n\nEl comando health se puede definir en .raioz.json bajo project.commands.health",
+  "cmd.health.long": "Verifica si el proyecto esta corriendo y reporta su estado de salud.\n\nUsa el endpoint de salud definido en raioz.yaml (ej: health: /api/health)\no verifica si los contenedores y procesos estan activos.",
   "cmd.ignore.short": "Gestionar servicios ignorados",
   "cmd.ignore.long": "Gestiona servicios que deben ser ignorados durante la resolución de dependencias.\n\nLos servicios ignorados no serán clonados, construidos ni iniciados. Sin embargo, si otros\nservicios dependen de servicios ignorados, se mostrará una advertencia.\n\nEjemplo:\n  raioz ignore add nombre-servicio\n  raioz ignore remove nombre-servicio\n  raioz ignore list",
   "cmd.ignore.add.short": "Agregar un servicio a la lista de ignorados",
@@ -26,8 +26,8 @@
   "cmd.ignore.remove.long": "Quita un servicio de la lista de ignorados. El servicio será procesado\nnormalmente en el próximo raioz up.\n\nEjemplo:\n  raioz ignore remove nombre-servicio",
   "cmd.ignore.list.short": "Listar servicios ignorados",
   "cmd.ignore.list.long": "Lista todos los servicios que están actualmente en la lista de ignorados.\n\nEjemplo:\n  raioz ignore list",
-  "cmd.init.short": "Inicializar un nuevo archivo .raioz.json",
-  "cmd.init.long": "Inicializa un nuevo archivo de configuración .raioz.json de forma interactiva.\n\nEste comando te guiará para crear una configuración básica .raioz.json\npara tu proyecto. Puedes agregar servicios e infraestructura después editando\nel archivo generado.",
+  "cmd.init.short": "Inicializar un nuevo archivo raioz.yaml",
+  "cmd.init.long": "Escanea el directorio actual y genera un archivo de configuracion raioz.yaml.\n\nDetecta servicios en subdirectorios e infiere dependencias de infraestructura\ndesde archivos .env (DATABASE_URL, REDIS_URL, etc.).",
   "cmd.link.short": "Gestionar symlinks de servicios para edición externa",
   "cmd.link.long": "Gestiona symlinks desde el workspace de Raioz a rutas externas.\n\nEsto te permite editar código de servicios en una ubicación externa mientras Raioz\ngestiona el servicio desde su directorio de workspace.\n\nEjemplo:\n  raioz link payments ~/dev/payments\n  raioz unlink payments",
   "cmd.link.add.short": "Crear symlink desde workspace a ruta externa",
@@ -66,9 +66,8 @@
   "cmd.lang.short": "Gestionar configuración de idioma",
   "cmd.lang.set.short": "Establecer el idioma de la interfaz",
   "cmd.lang.list.short": "Listar idiomas disponibles",
-
   "flag.file": "Ruta al archivo de configuración",
-  "flag.up.file": "Ruta al archivo de configuración (cualquier nombre/ruta, ej. .raioz.port.json o gateway/.raioz.json)",
+  "flag.up.file": "Ruta al archivo de configuracion (por defecto: auto-detecta raioz.yaml)",
   "flag.project": "Nombre del proyecto (alternativa a --file)",
   "flag.profile": "Perfil a usar (frontend/backend)",
   "flag.force_reclone": "Forzar re-clonación de todos los repositorios git",
@@ -115,7 +114,6 @@
   "flag.volumes.all": "Eliminar todos los volúmenes del proyecto",
   "flag.volumes.force": "Omitir confirmación",
   "flag.status.json": "Salida de estado en formato JSON",
-
   "output.workspace_created": "Workspace creado",
   "output.generating_compose": "Generando docker-compose.generated.yml",
   "output.starting_services": "Iniciando servicios...",
@@ -159,7 +157,6 @@
   "output.operation_cancelled": "Operación cancelada.",
   "output.infra_pruned": "Infra compartida no utilizada para este proyecto también fue eliminada.",
   "output.infra_kept": "Infra compartida mantenida porque otros proyectos activos existen en este workspace.",
-
   "output.config_load_fallback": "No se pudo cargar la configuración actual; volviendo a apagado completo del workspace. Usa --file para detener solo el proyecto.",
   "output.stopping_compose_project_dir": "Deteniendo servicios Docker Compose del directorio del proyecto...",
   "output.failed_stop_compose_project_dir": "Error al detener servicios Docker Compose del directorio del proyecto (pueden estar ya detenidos)",
@@ -170,15 +167,12 @@
   "output.stopped_container": "Contenedor %s detenido",
   "output.cleanup_failed_images": "Error al limpiar imágenes no utilizadas",
   "output.cleanup_failed_volumes": "Error al limpiar volúmenes no utilizados",
-
   "output.not_local_project": "Este no es un proyecto local. La verificación de salud solo aplica a proyectos locales.",
   "output.project_healthy": "El proyecto está saludable y en ejecución",
   "output.project_not_healthy": "El proyecto no está saludable (no está en ejecución)",
-
   "output.no_raioz_state_exec_down": "No se encontró estado de raioz, pero ejecutando comando down del proyecto local...",
   "output.failed_local_down_cmd": "Error al ejecutar comando down del proyecto local",
   "output.local_down_cmd_success": "Comando down del proyecto local ejecutado exitosamente",
-
   "output.no_volumes_found": "No se encontraron volúmenes para este proyecto",
   "output.no_volumes_to_remove": "No hay volúmenes para eliminar",
   "output.volumes_list_header": "Volúmenes del proyecto '%s'",
@@ -196,17 +190,14 @@
   "output.removed_volume": "Volumen '%s' eliminado",
   "output.volumes_removed_success": "Se eliminaron exitosamente %d volumen(es)",
   "output.volumes_removed_failed": "Error al eliminar %d volumen(es)",
-
   "output.project_status_header": "Estado del Proyecto",
   "output.active_workspace": "Workspace Activo",
   "output.services_header": "Servicios",
   "output.disabled_services_header": "Servicios Deshabilitados (%d)",
   "output.project_not_running_status": "El proyecto no está corriendo (no se encontró archivo de estado)",
-
   "output.no_projects_match_filters": "No hay proyectos que coincidan con los filtros especificados",
   "output.no_active_projects": "No se encontraron proyectos activos",
   "output.active_projects_header": "Proyectos Activos",
-
   "output.ignore_already_ignored": "El servicio '%s' ya está ignorado",
   "output.ignore_added": "Servicio '%s' agregado a la lista de ignorados",
   "output.ignore_next_up": "El servicio no será iniciado en el próximo 'raioz up'",
@@ -216,7 +207,6 @@
   "output.ignore_next_up_normal": "El servicio será procesado normalmente en el próximo 'raioz up'",
   "output.ignore_empty_list": "No hay servicios en la lista de ignorados.",
   "output.ignore_list_header": "Servicios ignorados:",
-
   "output.link_already_linked": "El servicio '%s' ya está enlazado a: %s",
   "output.link_created": "Servicio '%s' enlazado a: %s",
   "output.link_service_path": "Ruta del servicio: %s",
@@ -225,7 +215,6 @@
   "output.link_external_not_deleted": "El directorio externo no fue eliminado",
   "output.link_empty_list": "No hay servicios enlazados actualmente.",
   "output.link_list_header": "Servicios enlazados:",
-
   "output.workspace_created_name": "Workspace creado: %s",
   "output.workspace_already_exists": "El workspace %s ya existe",
   "output.workspace_loaded_root": "Cargado raioz.root.json para workspace %s",
@@ -281,7 +270,6 @@
   "error.ignore_add": "error al agregar a la lista de ignorados",
   "error.ignore_remove": "error al eliminar de la lista de ignorados",
   "error.ignore_list": "error al obtener servicios ignorados",
-
   "output.override_service_not_found": "Servicio '%s' no encontrado en .raioz.json actual. La sobreescritura será registrada de todas formas.",
   "output.override_already_exists": "El servicio '%s' ya tiene una sobreescritura apuntando a: %s",
   "output.override_replacing": "Reemplazando sobreescritura existente...",
@@ -292,10 +280,8 @@
   "output.override_list_header": "Sobreescrituras registradas:",
   "output.override_removed": "Sobreescritura eliminada para servicio '%s'",
   "output.override_run_up_apply": "Ejecuta 'raioz up' para aplicar el cambio.",
-
   "output.failed_log_audit": "Error al registrar evento de auditoría: %v",
   "output.failed_clean_overrides": "Error al limpiar sobreescrituras inválidas: %v",
-
   "app.missing_deps_header": "Dependencias faltantes detectadas:",
   "app.missing_deps_dry_run": "Modo simulación: dependencias mostradas pero no agregadas",
   "app.missing_deps_choose": "Elige una acción para cada dependencia:",
@@ -307,14 +293,12 @@
   "app.missing_deps_adding": "Agregando dependencias al workspace raíz...",
   "app.missing_deps_ignored": "Se ignoraron %d dependencia(s): %v",
   "app.missing_deps_ignored_warn": "Los servicios pueden fallar si estas dependencias son requeridas",
-
   "app.conflict_header": "Conflictos de dependencias detectados:",
   "app.conflict_dry_run": "Modo simulación: conflictos mostrados pero no resueltos",
   "app.conflict_choose": "Elige una acción para cada conflicto:",
   "app.conflict_opt_keep": "[1] Mantener raíz (recomendado)",
   "app.conflict_opt_replace": "[2] Reemplazar raíz",
   "app.conflict_opt_abort": "[3] Abortar",
-
   "error.no_project": "No se pudo determinar el nombre del proyecto. Proporciona --file o --project.",
   "error.workspace_resolve": "Error al resolver workspace",
   "error.workspace_resolve_suggestion": "Verifica que el nombre del proyecto es correcto. Verifica que los directorios del workspace existen y son accesibles.",
@@ -351,14 +335,12 @@
   "error.compare_critical_suggestion": "Revisa las diferencias anteriores y actualiza tu .raioz.json para coincidir con producción",
   "error.logs_not_running": "El proyecto no está corriendo (no se encontró archivo de estado)",
   "error.logs_view_failed": "Error al ver los logs",
-
   "lang.current": "Idioma actual: %s",
   "lang.set_success": "Idioma establecido: %s",
   "lang.available": "Idiomas disponibles:",
   "lang.invalid": "Idioma inválido '%s'. Disponibles: %s",
   "lang.name.en": "Inglés",
   "lang.name.es": "Español",
-
   "error.project_dir": "Error al obtener el directorio del proyecto",
   "error.project_env_resolve": "Error al resolver el entorno del proyecto",
   "error.project_env_resolve_suggestion": "Verifica que tienes permisos de escritura en el directorio de entorno.",
@@ -423,7 +405,6 @@
   "error.no_services_or_commands": "No hay servicios, infraestructura ni comandos de proyecto configurados",
   "error.no_services_or_commands_suggestion": "Configura al menos uno de: servicios, infraestructura o 'project.commands.up'. Si tienes servicios pero están filtrados, revisa las configuraciones de feature flags, variables de entorno y lista de ignorados.",
   "error.operation_cancelled_suggestion": "El proyecto del workspace sigue corriendo. Para iniciar el proyecto local, primero detén el proyecto del workspace con 'raioz down'.",
-
   "up.overrides_applied": "Se aplicaron %d override(s): %v",
   "error.override_apply": "Error al aplicar overrides de servicios",
   "error.override_apply_suggestion": "Verifica ~/.raioz/overrides.json. Ejecuta 'raioz override list' para revisar.",
@@ -562,7 +543,6 @@
   "up.local.executing_command": "Ejecutando comando del proyecto local...",
   "up.local.executing_command_detail": "Ejecutando comando del proyecto local: %s",
   "up.local.command_success": "Comando del proyecto local ejecutado exitosamente",
-
   "up.dep.service_detail": "  Servicio: %s",
   "up.dep.required_by": "  Requerido por: %s",
   "up.dep.found_definition": "  Definición encontrada en: %s",
@@ -650,7 +630,6 @@
   "error.clean_volumes_failed": "Error al limpiar volúmenes no usados",
   "error.clean_volumes_suggestion": "Verifica el estado del daemon Docker y los permisos. Intenta ejecutar 'docker volume prune' manualmente.",
   "error.base_dir_suggestion": "Verifica que los directorios del workspace existen y son accesibles. Verifica los permisos de archivos.",
-
   "cmd.doctor.short": "Verificar requisitos del sistema y salud del entorno",
   "cmd.doctor.long": "Verifica que todas las herramientas y configuraciones necesarias estén en su lugar.\n\nVerificaciones:\n- Docker daemon instalado y corriendo\n- Docker Compose v2 disponible\n- Git instalado\n- Espacio en disco suficiente\n- Directorio de configuración de Raioz existe\n\nEjemplos:\n  raioz doctor",
   "doctor.header": "Diagnóstico del sistema",
@@ -667,5 +646,28 @@
   "doctor.system": "Sistema",
   "doctor.result_ok": "Todas las verificaciones pasaron. Tu sistema está listo para usar raioz.",
   "doctor.result_warning": "Algunas verificaciones tienen advertencias. Raioz debería funcionar pero revisa las advertencias.",
-  "doctor.result_error": "Algunas verificaciones fallaron. Corrige los errores antes de usar raioz."
+  "doctor.result_error": "Algunas verificaciones fallaron. Corrige los errores antes de usar raioz.",
+  "cmd.dev.short": "Promover una dependencia a desarrollo local",
+  "cmd.dev.long": "Cambia una dependencia de su imagen Docker a un path local para desarrollo.\nUsa --reset para volver a la imagen original.\nUsa --list para ver los overrides activos.",
+  "cmd.proxy.short": "Gestionar el proxy reverso",
+  "cmd.proxy.status.short": "Mostrar estado del proxy",
+  "cmd.proxy.stop.short": "Detener el proxy",
+  "cmd.graph.short": "Visualizar grafo de dependencias",
+  "cmd.graph.long": "Muestra el grafo de dependencias entre servicios y dependencias.\nSoporta formatos ASCII (por defecto), DOT (Graphviz) y JSON.",
+  "cmd.snapshot.short": "Gestionar snapshots de volúmenes",
+  "cmd.snapshot.create.short": "Crear un snapshot de los volúmenes del proyecto",
+  "cmd.snapshot.restore.short": "Restaurar volúmenes desde un snapshot",
+  "cmd.snapshot.list.short": "Listar snapshots",
+  "cmd.snapshot.delete.short": "Eliminar un snapshot",
+  "cmd.tunnel.short": "Exponer un servicio local a internet",
+  "cmd.tunnel.long": "Crea un túnel público a un servicio local usando cloudflared o bore.\nÚtil para probar webhooks, desarrollo móvil y compartir con compañeros.",
+  "cmd.tunnel.list.short": "Listar túneles activos",
+  "cmd.tunnel.stop.short": "Detener un túnel",
+  "cmd.tunnel.stopall.short": "Detener todos los túneles",
+  "cmd.migrate.yaml.short": "Convertir .raioz.json a raioz.yaml",
+  "cmd.migrate.yaml.long": "Convierte una configuración .raioz.json existente al nuevo formato raioz.yaml.",
+  "up.detecting_runtimes": "Detectando runtimes de servicios...",
+  "up.runtimes_detected": "Runtimes detectados",
+  "cmd.dashboard.short": "Dashboard interactivo para monitorear servicios",
+  "cmd.dashboard.long": "Abre un dashboard interactivo en terminal mostrando todos los servicios,\nsu estado, logs y uso de recursos en tiempo real.\nAlias: raioz tui"
 }

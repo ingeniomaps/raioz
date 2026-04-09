@@ -97,17 +97,17 @@ func (e *RaiozError) WithError(err error) *RaiozError {
 // Format formats the error for display
 func (e *RaiozError) Format() string {
 	var result string
-	result += fmt.Sprintf("🔴 Error [%s]: %s\n", e.Code, e.Message)
+	result += fmt.Sprintf("\033[31m[error]\033[0m [%s] %s\n", e.Code, e.Message)
 
 	if len(e.Context) > 0 {
-		result += "\nContext:\n"
+		result += "\n  Context:\n"
 		for key, value := range e.Context {
-			result += fmt.Sprintf("  • %s: %v\n", key, value)
+			result += fmt.Sprintf("    %s: %v\n", key, value)
 		}
 	}
 
 	if e.Suggestion != "" {
-		result += fmt.Sprintf("\n💡 Suggestion: %s\n", e.Suggestion)
+		result += fmt.Sprintf("\n  \033[33mSuggestion:\033[0m %s\n", e.Suggestion)
 	}
 
 	if e.OriginalErr != nil {

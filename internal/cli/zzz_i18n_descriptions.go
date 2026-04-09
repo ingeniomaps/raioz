@@ -131,15 +131,6 @@ func setI18nDescriptions() {
 	migrateCmd.Flags().Lookup("project").Usage = i18n.T("flag.migrate.project")
 	migrateCmd.Flags().Lookup("network").Usage = i18n.T("flag.migrate.network")
 
-	// --- override ---
-	overrideCmd.Short = i18n.T("cmd.override.short")
-	overrideCmd.Long = i18n.T("cmd.override.long")
-	overrideCmd.Flags().Lookup("path").Usage = i18n.T("flag.override.path")
-	overrideListCmd.Short = i18n.T("cmd.override.list.short")
-	overrideListCmd.Long = i18n.T("cmd.override.list.long")
-	overrideRemoveCmd.Short = i18n.T("cmd.override.remove.short")
-	overrideRemoveCmd.Long = i18n.T("cmd.override.remove.long")
-
 	// --- ports ---
 	portsCmd.Short = i18n.T("cmd.ports.short")
 	portsCmd.Flags().Lookup("project").Usage = i18n.T("flag.ports.project")
@@ -156,16 +147,6 @@ func setI18nDescriptions() {
 	volumesRemoveCmd.Flags().Lookup("all").Usage = i18n.T("flag.volumes.all")
 	volumesRemoveCmd.Flags().Lookup("force").Usage = i18n.T("flag.volumes.force")
 
-	// --- workspace ---
-	workspaceCmd.Short = i18n.T("cmd.workspace.short")
-	workspaceCmd.Long = i18n.T("cmd.workspace.long")
-	workspaceUseCmd.Short = i18n.T("cmd.workspace.use.short")
-	workspaceUseCmd.Long = i18n.T("cmd.workspace.use.long")
-	workspaceListCmd.Short = i18n.T("cmd.workspace.list.short")
-	workspaceListCmd.Long = i18n.T("cmd.workspace.list.long")
-	workspaceDeleteCmd.Short = i18n.T("cmd.workspace.delete.short")
-	workspaceDeleteCmd.Long = i18n.T("cmd.workspace.delete.long")
-
 	// --- ignore ---
 	ignoreCmd.Short = i18n.T("cmd.ignore.short")
 	ignoreCmd.Long = i18n.T("cmd.ignore.long")
@@ -175,16 +156,6 @@ func setI18nDescriptions() {
 	ignoreRemoveCmd.Long = i18n.T("cmd.ignore.remove.long")
 	ignoreListCmd.Short = i18n.T("cmd.ignore.list.short")
 	ignoreListCmd.Long = i18n.T("cmd.ignore.list.long")
-
-	// --- link ---
-	linkCmd.Short = i18n.T("cmd.link.short")
-	linkCmd.Long = i18n.T("cmd.link.long")
-	linkAddCmd.Short = i18n.T("cmd.link.add.short")
-	linkAddCmd.Long = i18n.T("cmd.link.add.long")
-	linkRemoveCmd.Short = i18n.T("cmd.link.remove.short")
-	linkRemoveCmd.Long = i18n.T("cmd.link.remove.long")
-	linkListCmd.Short = i18n.T("cmd.link.list.short")
-	linkListCmd.Long = i18n.T("cmd.link.list.long")
 
 	// --- lang ---
 	langCmd.Short = i18n.T("cmd.lang.short")
@@ -210,4 +181,39 @@ func setI18nDescriptions() {
 	// --- doctor ---
 	doctorCmd.Short = i18n.T("cmd.doctor.short")
 	doctorCmd.Long = i18n.T("cmd.doctor.long")
+
+	// --- dev ---
+	devCmd.Short = i18n.T("cmd.dev.short")
+	devCmd.Long = i18n.T("cmd.dev.long")
+
+	// --- proxy ---
+	proxyCmd.Short = i18n.T("cmd.proxy.short")
+	proxyStatusCmd.Short = i18n.T("cmd.proxy.status.short")
+	proxyStopCmd.Short = i18n.T("cmd.proxy.stop.short")
+
+	// --- graph ---
+	graphCmd.Short = i18n.T("cmd.graph.short")
+	graphCmd.Long = i18n.T("cmd.graph.long")
+
+	// --- snapshot ---
+	snapshotCmd.Short = i18n.T("cmd.snapshot.short")
+	snapshotCreateCmd.Short = i18n.T("cmd.snapshot.create.short")
+	snapshotRestoreCmd.Short = i18n.T("cmd.snapshot.restore.short")
+	snapshotListCmd.Short = i18n.T("cmd.snapshot.list.short")
+	snapshotDeleteCmd.Short = i18n.T("cmd.snapshot.delete.short")
+
+	// --- tunnel ---
+	tunnelCmd.Short = i18n.T("cmd.tunnel.short")
+	tunnelCmd.Long = i18n.T("cmd.tunnel.long")
+	tunnelListCmd.Short = i18n.T("cmd.tunnel.list.short")
+	tunnelStopCmd.Short = i18n.T("cmd.tunnel.stop.short")
+	tunnelStopAllCmd.Short = i18n.T("cmd.tunnel.stopall.short")
+
+	// --- migrate yaml ---
+	migrateYAMLCmd.Short = i18n.T("cmd.migrate.yaml.short")
+	migrateYAMLCmd.Long = i18n.T("cmd.migrate.yaml.long")
+
+	// --- dashboard ---
+	dashboardCmd.Short = i18n.T("cmd.dashboard.short")
+	dashboardCmd.Long = i18n.T("cmd.dashboard.long")
 }

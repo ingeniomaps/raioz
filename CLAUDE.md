@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Raioz is a CLI tool (in Go) that orchestrates local microservice development environments. It reads a declarative `.raioz.json` config, clones repos, generates Docker Compose files, manages networks/volumes/env vars, and brings everything up with `raioz up`.
+Raioz is a **meta-orchestrator** CLI (Go) for local microservice development. It does NOT replace existing tools — it **complements** them. Raioz reads a minimal `raioz.yaml`, auto-detects how each service runs (Docker Compose, Dockerfile, npm, Go, Make, etc.), and orchestrates them all under a shared network with HTTPS proxy and automatic service discovery.
+
+**Core principle**: the developer uses their preferred tools; Raioz just connects, starts, and stops everything.
+
+### Two config modes (backward compatible)
+- **New**: `raioz.yaml` — minimal YAML with services (local) + dependencies (images)
+- **Legacy**: `.raioz.json` — full JSON config with compose generation (still supported)
 
 ## Build & Development Commands
 
@@ -25,11 +31,6 @@ Run a single test:
 go test -v -run TestFunctionName ./internal/package/...
 ```
 
-Integration tests (require Docker running):
-```bash
-go test -v -tags=integration ./cmd/...
-```
-
 ## Code Quality Constraints (enforced in CI)
 
 - **Max 400 lines per file** (excluding tests) — `make check-lines`
@@ -39,51 +40,96 @@ go test -v -tags=integration ./cmd/...
 
 ## Architecture
 
-Clean Architecture: `cmd/` → `internal/app/` → `internal/domain/` → `internal/infra/`
+Clean Architecture: `cmd/` → `internal/cli/` → `internal/app/` → `internal/domain/` → `internal/infra/`
 
-- **cmd/**: Thin Cobra commands. Each creates `app.NewDependencies()` + use case, calls `Execute()`. No business logic. Descriptions are set via `i18n.T()` in `zzz_i18n_descriptions.go`.
-- **internal/domain/interfaces/**: All port interfaces (DockerRunner, WorkspaceManager, StateManager, ConfigLoader, Validator, GitRepository, LockManager, HostRunner, EnvManager). Types reference `domain/models/` not infra packages.
-- **internal/domain/models/**: Type aliases re-exporting domain types from config/, state/, workspace/, host/ — decouples domain layer from infra.
-- **internal/app/**: Use cases. Each has an `Options` struct and `Execute()` method. Dependencies injected via `*Dependencies` struct from `dependencies.go`. Uses only domain interfaces, not concrete packages (except for type references).
-- **internal/app/upcase/**: The `raioz up` orchestration flow (19 files). Has its own `Dependencies` struct mirroring the parent.
-- **internal/infra/**: Adapters implementing domain interfaces, delegating to concrete packages (docker/, git/, workspace/, etc.).
-- **internal/config/**: Config loading, JSON Schema, domain types (Deps, Service, SourceConfig, etc.).
-- **internal/docker/**: Docker Compose generation, network/volume/port management.
-- **internal/state/**: State persistence (`.state.json`), drift detection, preferences.
+### Core layers
+- **cmd/raioz/**: Entry point, delegates to `internal/cli/`
+- **internal/cli/**: Cobra commands. Thin: create deps, call use case, return error.
+- **internal/app/**: Use cases with `Options` + `Execute()`. DI via `*Dependencies` struct.
+- **internal/app/upcase/**: The `raioz up` orchestration (detect → start deps → start services → proxy).
+- **internal/domain/interfaces/**: Port interfaces (DockerRunner, Orchestrator, ProxyManager, DiscoveryManager, etc.)
+- **internal/infra/**: Thin adapters implementing domain interfaces.
+
+### New meta-orchestrator packages
+- **internal/detect/**: Scans a path, detects runtime (compose, dockerfile, npm, go, make, python, rust).
+- **internal/orchestrate/**: Dispatcher + runners per runtime. ComposeRunner uses overlay (never modifies user's compose). DockerfileRunner builds+runs. HostRunner starts host processes. ImageRunner generates minimal compose per dependency.
+- **internal/proxy/**: Caddy management. Generates Caddyfile, manages container lifecycle, mkcert integration for local HTTPS. Routes support ws/sse/grpc.
+- **internal/discovery/**: Generates service discovery env vars based on cross-runtime network context (container→container, container→host, host→container, host→host).
+- **internal/watch/**: fsnotify-based file watcher with debounce. Restarts services on file changes.
+- **internal/graph/**: Dependency graph visualization (ASCII, DOT/Graphviz, JSON).
+- **internal/snapshot/**: Volume backup/restore via `docker run alpine tar`.
+- **internal/tunnel/**: Expose services via cloudflared or bore.
+
+### Existing packages (preserved)
+- **internal/config/**: Config loading (YAML + JSON), types, filtering, dependency resolution.
+- **internal/docker/**: Docker operations, network/volume/port management, compose reading.
+- **internal/state/**: State persistence. `LocalState` in `.raioz.state.json` (project dir). Docker is source of truth for running state.
 - **internal/env/**: Environment variable resolution and templating.
-- **internal/errors/**: Structured `RaiozError` with codes, context, suggestions. Messages go through `i18n.T()`.
-- **internal/i18n/**: Internationalization. `T(key, args...)` function, embedded JSON catalogs in `locales/`, auto-detection of system locale.
-- **internal/mocks/**: Manual mock implementations for all 9 domain interfaces.
+- **internal/errors/**: Structured `RaiozError` with codes, context, suggestions.
+- **internal/i18n/**: Internationalization with embedded JSON catalogs.
+- **internal/git/**, **internal/host/**, **internal/lock/**, **internal/mocks/**: Unchanged.
 
-## Internationalization (i18n)
+## Config format (raioz.yaml)
 
-- **503 keys** in `internal/i18n/locales/en.json` and `es.json`
-- All user-facing strings go through `i18n.T("key")` or `i18n.T("key", args...)`
-- Fallback chain: saved preference → `RAIOZ_LANG` env → `LANG`/`LC_ALL` → `"en"`
-- Preference persisted in `~/.raioz/config.json`
-- **Adding a language**: copy `locales/en.json` to `locales/<code>.json`, translate values
-- **Cobra descriptions**: set in `cmd/zzz_i18n_descriptions.go` init() (runs last, after i18n.Init)
-- `--lang` flag detected early from `os.Args` so `--help` renders in correct language
-- `make check-i18n` validates catalog completeness via `TestCatalogCompleteness`
+```yaml
+workspace: acme-corp        # optional, groups projects on same Docker network
+project: e-commerce          # required
+proxy: true                  # optional, enables Caddy + HTTPS
 
-## Key Domain Concepts
+pre: ./scripts/fetch-secrets.sh   # run before up (secrets, env setup)
+post: rm -f .env.*.tmp            # run after up (cleanup)
 
-- **Source kinds**: `git` (clone repo), `image` (Docker image), `local` (local path), `command` (host execution)
-- **Docker modes**: `dev` (with source mounts) vs `prod` (built image)
-- **Polymorphic config types**: `EnvValue` (array OR object), `NetworkConfig` (string OR object)
-- **State-based drift detection**: compares `.raioz.json` against saved `.state.json`
+services:                    # what I'm developing (always local)
+  api:
+    path: ./api
+    dependsOn: [postgres, redis]
+    health: /api/health
+    watch: true
+
+dependencies:                # what I need running (Docker images)
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    env: .env.postgres
+  redis:
+    image: redis:7
+```
+
+## Key Concepts
+
+- **Services** = local code I'm developing. Raioz detects runtime and starts with native tool.
+- **Dependencies** = Docker images I need running. Pulled and started as containers.
+- **`raioz dev`** = promote a dependency from image to local (hot-swap). `raioz dev --reset` reverts.
+- **Proxy** = Caddy reverse proxy. `https://<service>.localhost` for all services. DNS aliases in Docker network for container-to-container resolution.
+- **Service discovery** = auto-injected env vars (`POSTGRES_HOST`, `REDIS_URL`, etc.) with correct hosts based on caller/target runtime.
+- **State** = `.raioz.state.json` in project dir (gitignored). Only stores what Docker can't tell us (dev overrides, host PIDs, ignored services).
+- **Networking** = one Docker network per workspace. `host.docker.internal` for container→host. Caddy eliminates port conflicts.
+
+## CLI Commands (27 total)
+
+### Core
+`up`, `down`, `status`, `logs`, `restart`, `exec`, `check`, `clean`, `init`, `doctor`
+
+### Development
+`dev` (hot-swap dep→local), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy)
+
+### Management
+`workspace`, `list`, `version`, `lang`, `ignore`, `volumes`, `compare`, `ci`, `health`, `migrate`
 
 ## Dependencies
 
-- **CLI framework**: spf13/cobra
-- **JSON Schema validation**: xeipuuv/gojsonschema
+- **CLI**: spf13/cobra
+- **JSON Schema**: xeipuuv/gojsonschema
+- **YAML**: gopkg.in/yaml.v3
+- **File watching**: fsnotify/fsnotify
 - **Go version**: 1.22
 
 ## Patterns
 
 - Dependency injection via `Dependencies` struct (never create deps inline)
 - All user messages through `i18n.T()` — never hardcode user-facing strings
-- Structured errors: `errors.New(code, i18n.T("error.xxx")).WithSuggestion(i18n.T("error.xxx_suggestion"))`
+- Structured errors: `errors.New(code, i18n.T("error.xxx")).WithSuggestion(...)`
 - Tests co-located with source, table-driven with `t.Run`; mocks in `internal/mocks/`
-- Logging via `log/slog` — internal only, not translated
-- Commit messages follow `.claude/skills/commit/SKILL.md`: Conventional Commits, English, imperative, max 50 char subject
+- Compose overlay: never modify user's compose file, use `-f original.yml -f raioz-overlay.yml`
+- Detection priority: compose > Dockerfile > package.json > go.mod > Makefile > pyproject.toml > Cargo.toml
+- Commit messages: Conventional Commits, English, imperative, max 50 char subject

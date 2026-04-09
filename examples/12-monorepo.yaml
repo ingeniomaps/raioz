@@ -1,0 +1,55 @@
+# 12 — Monorepo: Turborepo/Nx/pnpm workspace
+#
+# Monorepos have multiple packages in one repository.
+# Each package is a service with its own runtime.
+#
+# Directory structure:
+#   my-monorepo/
+#   ├── raioz.yaml
+#   ├── pnpm-workspace.yaml
+#   ├── packages/
+#   │   ├── web/          ← Next.js frontend
+#   │   ├── api/          ← Express backend
+#   │   ├── admin/        ← React admin panel
+#   │   └── shared/       ← shared libs (not a service)
+#   └── services/
+#       └── worker/       ← Go worker
+#
+# Raioz detects each package's runtime independently.
+# The monorepo tool (turbo/nx/pnpm) handles builds.
+# Raioz handles orchestration and dependencies.
+
+project: my-monorepo
+proxy: true
+
+services:
+  web:
+    path: ./packages/web
+    dependsOn: [api]
+    watch: native           # Turborepo/Next.js handles rebuilds
+
+  api:
+    path: ./packages/api
+    dependsOn: [postgres, redis]
+    watch: native           # Nodemon or tsx watch
+    ports: ["4000"]
+
+  admin:
+    path: ./packages/admin
+    dependsOn: [api]
+    watch: native
+
+  worker:
+    path: ./services/worker
+    dependsOn: [postgres, redis]
+    watch: true             # Go service — Raioz restarts on changes
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    env: .env.postgres
+
+  redis:
+    image: redis:7
+    ports: ["6379"]

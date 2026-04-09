@@ -1,0 +1,35 @@
+# 04b — Multi-project: Backoffice (project B)
+#
+# Same workspace as e-commerce → shares the Docker network.
+# If postgres is already running from e-commerce, Raioz reuses it.
+# If not, Raioz starts it.
+#
+# Usage:
+#   cd backoffice/
+#   raioz up
+#
+# Both projects can communicate:
+#   backoffice admin-panel → store-api.acme-corp (via shared network)
+
+workspace: acme-corp          # must match e-commerce workspace
+project: backoffice
+
+services:
+  admin-panel:
+    path: ./admin
+    dependsOn: [postgres, store-api]
+
+  reports-worker:
+    path: ./reports
+    dependsOn: [postgres]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  # Reference a service from another project by its image
+  # (the other team publishes their service as a Docker image)
+  store-api:
+    image: acme/store-api:latest
+    ports: ["3000"]

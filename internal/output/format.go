@@ -10,27 +10,39 @@ import (
 	"raioz/internal/i18n"
 )
 
-// PrintSuccess prints a success message with checkmark
+// ANSI color codes
+const (
+	reset  = "\033[0m"
+	bold   = "\033[1m"
+	dim    = "\033[2m"
+	green  = "\033[32m"
+	yellow = "\033[33m"
+	red    = "\033[31m"
+	cyan   = "\033[36m"
+	white  = "\033[37m"
+)
+
+// PrintSuccess prints a success message with green checkmark.
 func PrintSuccess(message string) {
-	fmt.Printf("✔ %s\n", message)
+	fmt.Printf("  %s[ok]%s %s\n", green, reset, message)
 }
 
-// PrintWarning prints a warning message with warning emoji
+// PrintWarning prints a warning message in yellow.
 func PrintWarning(message string) {
-	fmt.Printf("⚠️  %s\n", message)
+	fmt.Printf("  %s[!!]%s %s\n", yellow, reset, message)
 }
 
-// PrintError prints an error message with error emoji
+// PrintError prints an error message in red.
 func PrintError(message string) {
-	fmt.Printf("🔴 %s\n", message)
+	fmt.Printf("  %s[error]%s %s\n", red, reset, message)
 }
 
-// PrintInfo prints an info message
+// PrintInfo prints an informational message.
 func PrintInfo(message string) {
-	fmt.Printf("ℹ️  %s\n", message)
+	fmt.Printf("  %s%s%s\n", dim, message, reset)
 }
 
-// FormatDuration formats a duration in human-readable format
+// FormatDuration formats a duration in human-readable format.
 func FormatDuration(d time.Duration) string {
 	seconds := int(d.Seconds())
 	if seconds < 60 {
@@ -46,126 +58,128 @@ func FormatDuration(d time.Duration) string {
 	return fmt.Sprintf("%dh %dm", hours, remainingMinutes)
 }
 
-// PrintSummary prints a summary of services started
+// PrintSummary prints the final summary after raioz up completes.
 func PrintSummary(services []string, infra []string, duration time.Duration) {
 	fmt.Println()
 	PrintSectionHeader(i18n.T("output.environment_ready"))
 
 	if len(services) > 0 {
 		PrintSubsection(i18n.T("output.services_count", len(services)))
-		PrintList(services, 1)
+		PrintList(services, 2)
 	}
 
 	if len(infra) > 0 {
 		PrintSubsection(i18n.T("output.infra_count", len(infra)))
-		PrintList(infra, 1)
+		PrintList(infra, 2)
 	}
 
 	fmt.Println()
-	PrintKeyValue(i18n.T("output.time_elapsed"), FormatDuration(duration))
+	fmt.Printf("  %s%s:%s %s\n", dim, i18n.T("output.time_elapsed"), reset, FormatDuration(duration))
 	fmt.Println()
 }
 
-// PrintServiceCloned prints a message when a service is cloned
+// PrintServiceCloned prints a message when a service is cloned.
 func PrintServiceCloned(serviceName string) {
 	PrintSuccess(i18n.T("output.cloned", serviceName))
 }
 
-// PrintServiceUsingImage prints a message when a service uses an image
+// PrintServiceUsingImage prints a message when a service uses an image.
 func PrintServiceUsingImage(serviceName string) {
-	PrintSuccess(i18n.T("output.using_image", serviceName))
+	PrintInfo(i18n.T("output.using_image", serviceName))
 }
 
-// PrintInfraStarted prints a message when infrastructure is started
+// PrintInfraStarted prints a message when infrastructure is started.
 func PrintInfraStarted(infraName string) {
-	PrintSuccess(i18n.T("output.infra_started", infraName))
+	PrintSuccess(infraName)
 }
 
-// PrintWorkspaceCreated prints a message when workspace is created
+// PrintWorkspaceCreated is a no-op in the new architecture.
+// Workspaces are implicit; no user-facing message needed.
 func PrintWorkspaceCreated() {
-	PrintSuccess(i18n.T("output.workspace_created"))
+	// Intentionally silent — workspace creation is an internal detail
 }
 
-// PrintGeneratingCompose prints a message when generating compose
+// PrintGeneratingCompose prints a message when generating compose.
 func PrintGeneratingCompose() {
-	PrintSuccess(i18n.T("output.generating_compose"))
+	PrintProgress(i18n.T("output.generating_compose"))
 }
 
-// PrintStartingServices prints a message when starting services
+// PrintStartingServices prints a message when starting services.
 func PrintStartingServices() {
-	PrintSuccess(i18n.T("output.starting_services"))
+	PrintProgress(i18n.T("output.starting_services"))
 }
 
-// PrintProjectStarted prints a success message when project is started
+// PrintProjectStarted prints a success message when project is started.
 func PrintProjectStarted(projectName string) {
 	PrintSuccess(i18n.T("output.project_started", projectName))
 }
 
-// FormatConfigChanges formats configuration changes for display
+// FormatConfigChanges formats configuration changes for display.
 func FormatConfigChanges(changes []string) string {
 	if len(changes) == 0 {
 		return ""
 	}
 	var sb strings.Builder
 	for _, change := range changes {
-		sb.WriteString(fmt.Sprintf("  %s\n", change))
+		sb.WriteString(fmt.Sprintf("    %s\n", change))
 	}
 	return sb.String()
 }
 
-// PrintProgress prints a progress message for long-running operations
+// PrintProgress prints a progress step message.
 func PrintProgress(message string) {
-	fmt.Printf("⏳ %s...\n", message)
+	fmt.Printf("  %s--%s %s\n", cyan, reset, message)
 }
 
-// PrintProgressStep prints a progress step message (for multi-step operations)
+// PrintProgressStep prints a numbered progress step.
 func PrintProgressStep(step int, total int, message string) {
-	fmt.Printf("⏳ [%d/%d] %s...\n", step, total, message)
+	fmt.Printf("  %s[%d/%d]%s %s\n", cyan, step, total, reset, message)
 }
 
-// PrintProgressDone prints a completion message for a progress operation
+// PrintProgressDone prints completion of a progress step.
 func PrintProgressDone(message string) {
-	fmt.Printf("✔ %s\n", message)
+	fmt.Printf("  %s[ok]%s %s\n", green, reset, message)
 }
 
-// PrintProgressError prints an error message for a failed progress operation
+// PrintProgressError prints failure of a progress step.
 func PrintProgressError(message string) {
-	fmt.Printf("✗ %s\n", message)
+	fmt.Printf("  %s[fail]%s %s\n", red, reset, message)
 }
 
-// PrintSectionHeader prints a section header with visual separator
+// PrintSectionHeader prints a section header with a clean separator.
 func PrintSectionHeader(title string) {
 	fmt.Println()
-	fmt.Printf("━━━ %s ━━━\n", strings.ToUpper(title))
-	fmt.Println()
+	line := strings.Repeat("-", 50)
+	fmt.Printf("  %s%s%s\n", dim, line, reset)
+	fmt.Printf("  %s%s%s\n", bold, strings.ToUpper(title), reset)
+	fmt.Printf("  %s%s%s\n", dim, line, reset)
 }
 
-// PrintSubsection prints a subsection header
+// PrintSubsection prints a subsection title.
 func PrintSubsection(title string) {
-	fmt.Printf("\n▸ %s\n", title)
+	fmt.Printf("\n  %s%s%s\n", bold, title, reset)
 }
 
-// PrintList prints a formatted list with bullets
+// PrintList prints a formatted list.
 func PrintList(items []string, indent int) {
 	indentStr := strings.Repeat("  ", indent)
 	for _, item := range items {
-		fmt.Printf("%s• %s\n", indentStr, item)
+		fmt.Printf("%s- %s\n", indentStr, item)
 	}
 }
 
-// PrintKeyValue prints a key-value pair in a formatted way
+// PrintKeyValue prints a key-value pair.
 func PrintKeyValue(key, value string) {
-	fmt.Printf("  %s: %s\n", key, value)
+	fmt.Printf("  %s%s:%s %s\n", dim, key, reset, value)
 }
 
-// tableWriterState holds the state for table formatting
+// tableWriterState holds the state for table formatting.
 type tableWriterState struct {
 	writer *tabwriter.Writer
 }
 
 var globalTableState *tableWriterState
 
-// getTableWriter returns a tabwriter instance for table formatting
 func getTableWriter() *tabwriter.Writer {
 	if globalTableState == nil {
 		globalTableState = &tableWriterState{
@@ -175,11 +189,9 @@ func getTableWriter() *tabwriter.Writer {
 	return globalTableState.writer
 }
 
-// PrintTableHeader prints a table header with separator
+// PrintTableHeader prints a table header with separator.
 func PrintTableHeader(headers ...string) {
 	w := getTableWriter()
-
-	// Print headers
 	for i, header := range headers {
 		if i > 0 {
 			fmt.Fprint(w, "\t")
@@ -187,19 +199,13 @@ func PrintTableHeader(headers ...string) {
 		fmt.Fprint(w, header)
 	}
 	fmt.Fprintln(w)
-
-	// Flush to ensure headers are displayed
 	w.Flush()
-
-	// Print separator
-	separator := strings.Repeat("─", 60)
-	fmt.Println(separator)
+	fmt.Printf("  %s%s%s\n", dim, strings.Repeat("-", 60), reset)
 }
 
-// PrintTableRow prints a table row
+// PrintTableRow prints a table row.
 func PrintTableRow(values ...string) {
 	w := getTableWriter()
-
 	for i, value := range values {
 		if i > 0 {
 			fmt.Fprint(w, "\t")
@@ -207,17 +213,15 @@ func PrintTableRow(values ...string) {
 		fmt.Fprint(w, value)
 	}
 	fmt.Fprintln(w)
-
-	// Flush to ensure row is displayed
 	w.Flush()
 }
 
-// PrintEmptyState prints a message when there's no data to show
+// PrintEmptyState prints a message when there's no data.
 func PrintEmptyState(message string) {
-	fmt.Printf("  (no %s)\n", message)
+	fmt.Printf("  %s(no %s)%s\n", dim, message, reset)
 }
 
-// PrintPrompt prints a prompt message without newline, for user input on the same line
+// PrintPrompt prints a prompt for user input.
 func PrintPrompt(message string) {
 	fmt.Print(message)
 }
