@@ -34,15 +34,19 @@ func NewStatusUseCase(deps *Dependencies) *StatusUseCase {
 
 // Execute executes the status use case
 func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error {
-	// Create context for the operation
 	if ctx == nil {
 		ctx = context.Background()
+	}
+
+	// Try YAML mode first
+	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		return uc.StatusYAML(ctx, proj)
 	}
 
 	var ws *interfaces.Workspace
 	var err error
 
-	// Try to determine project name and workspace
+	// Legacy: try to determine project name and workspace
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {

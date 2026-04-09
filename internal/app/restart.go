@@ -38,9 +38,14 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 		ctx = context.Background()
 	}
 
+	// Try YAML mode first
+	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		return RestartYAML(ctx, proj, opts.Services)
+	}
+
 	w := uc.Out
 
-	// Resolve project
+	// Legacy: resolve project
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {

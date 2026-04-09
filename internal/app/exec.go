@@ -33,7 +33,12 @@ func (uc *ExecUseCase) Execute(ctx context.Context, opts ExecOptions) error {
 		ctx = context.Background()
 	}
 
-	// Resolve project
+	// Try YAML mode first
+	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		return ExecYAML(ctx, proj, opts.Service, opts.Command, opts.Interactive)
+	}
+
+	// Legacy: resolve project
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
