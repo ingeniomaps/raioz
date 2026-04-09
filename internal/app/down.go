@@ -36,6 +36,19 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	ctx = logging.WithRequestID(ctx)
 	ctx = logging.WithOperation(ctx, "raioz down")
 
+	// Try orchestrated down for YAML projects first
+	if err := uc.downOrchestrated(ctx, opts); err != nil {
+		return err
+	}
+	// Check if it was handled (YAML project)
+	configPath := opts.ConfigPath
+	if configPath == "" {
+		configPath = resolveDownConfigPath()
+	}
+	if deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath); err == nil && deps != nil && deps.SchemaVersion == "2.0" {
+		return nil // Already handled by downOrchestrated
+	}
+
 	projectName, workspaceName, err := uc.resolveProject(ctx, opts)
 	if err != nil {
 		return err
@@ -150,6 +163,17 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 
 	logging.InfoWithContext(ctx, "Project stopped successfully", "project", projectName)
 	return nil
+}
+
+// resolveDownConfigPath finds the config file in the current directory.
+func resolveDownConfigPath() string {
+	candidates := []string{"raioz.yaml", "raioz.yml", ".raioz.json"}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
 }
 
 // resolveProject determines project name and workspace name from options.
