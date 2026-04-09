@@ -10,6 +10,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -22,19 +23,22 @@ type Options struct {
 	ForceReclone bool
 	DryRun       bool
 	Only         []string
+	Host         string // Bind address for shared dev server (e.g., "0.0.0.0")
 }
 
 // Dependencies contains the dependencies needed by the up use case
 type Dependencies struct {
-	ConfigLoader  interfaces.ConfigLoader
-	Validator     interfaces.Validator
-	DockerRunner  interfaces.DockerRunner
-	GitRepository interfaces.GitRepository
-	Workspace     interfaces.WorkspaceManager
-	StateManager  interfaces.StateManager
-	LockManager   interfaces.LockManager
-	HostRunner    interfaces.HostRunner
-	EnvManager    interfaces.EnvManager
+	ConfigLoader     interfaces.ConfigLoader
+	Validator        interfaces.Validator
+	DockerRunner     interfaces.DockerRunner
+	GitRepository    interfaces.GitRepository
+	Workspace        interfaces.WorkspaceManager
+	StateManager     interfaces.StateManager
+	LockManager      interfaces.LockManager
+	HostRunner       interfaces.HostRunner
+	EnvManager       interfaces.EnvManager
+	ProxyManager     interfaces.ProxyManager     // Optional: nil if proxy not needed
+	DiscoveryManager interfaces.DiscoveryManager  // Optional: nil if discovery not needed
 }
 
 // UseCase handles the "up" use case - starting a project
@@ -251,21 +255,30 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	// Host services: start services that run directly on the host (without Docker)
-	// These may depend on the network being available (e.g., installer scripts that use docker-compose)
-	hostProcessInfo, err := uc.processHostServices(ctx, deps, ws, projectDir)
-	if err != nil {
-		return err
-	}
+	var composePath string
+	var serviceNames, infraNames []string
+	var hostProcessInfo map[string]*host.ProcessInfo
 
-	// Compose: generate compose, docker.Up
-	composePath, serviceNames, infraNames, err := uc.processCompose(ctx, deps, ws, projectDir)
-	if err != nil {
-		// If compose fails, stop host services that were started
-		if len(hostProcessInfo) > 0 {
-			_ = uc.stopHostServices(ctx, hostProcessInfo)
+	if isYAMLMode(deps) {
+		// New orchestrator flow: detect runtimes, start with native tools
+		composePath, serviceNames, infraNames, err = uc.processOrchestration(ctx, deps, ws, projectDir)
+		if err != nil {
+			return err
 		}
-		return err
+	} else {
+		// Legacy flow: host services + generate compose
+		hostProcessInfo, err = uc.processHostServices(ctx, deps, ws, projectDir)
+		if err != nil {
+			return err
+		}
+
+		composePath, serviceNames, infraNames, err = uc.processCompose(ctx, deps, ws, projectDir)
+		if err != nil {
+			if len(hostProcessInfo) > 0 {
+				_ = uc.stopHostServices(ctx, hostProcessInfo)
+			}
+			return err
+		}
 	}
 
 	// State: save state, root config, drift detection, audit (persist project root so merge can resolve volumes per project)

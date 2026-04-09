@@ -16,6 +16,12 @@ type Deps struct {
 	Env                EnvConfig           `json:"env"`
 	ProjectComposePath string             `json:"projectComposePath,omitempty"` // Path to project's docker-compose.yml (if exists)
 	ProjectRoot        string             `json:"projectRoot,omitempty"`        // Absolute path to project dir (where .raioz.json lives). Set at runtime when saving state; used when merging configs to resolve relative volumes per project
+
+	// New fields for raioz.yaml (meta-orchestrator mode)
+	Proxy       bool         `json:"proxy,omitempty"`       // Enable Caddy reverse proxy with HTTPS
+	ProxyConfig *ProxyConfig `json:"-"`                     // Detailed proxy configuration (not serialized to JSON)
+	PreHook     string       `json:"preHook,omitempty"`     // Command(s) to run before raioz up (e.g., fetch secrets)
+	PostHook    string       `json:"postHook,omitempty"`    // Command(s) to run after raioz up (e.g., cleanup)
 }
 
 // LegacyProject represents the old structure where network was inside project
@@ -78,6 +84,12 @@ type Service struct {
 	Mock        *MockConfig        `json:"mock,omitempty"`        // Mock configuration
 	FeatureFlag *FeatureFlagConfig `json:"featureFlag,omitempty"` // Feature flag configuration
 	Commands    *ServiceCommands   `json:"commands,omitempty"`    // Custom commands for launch/stop
+
+	// New fields for raioz.yaml (meta-orchestrator mode)
+	Watch          YAMLWatch      `json:"-"`                         // Watch config: true (raioz watches), "native" (service's own hot-reload)
+	HealthEndpoint string         `json:"healthEndpoint,omitempty"`  // HTTP health check path (e.g., "/api/health")
+	Hostname       string         `json:"hostname,omitempty"`        // Custom hostname for proxy (default: service name)
+	Routing        *RoutingConfig `json:"routing,omitempty"`         // Proxy routing config (ws, sse, grpc, tunnel)
 }
 
 // GetDependsOn returns the effective dependsOn: service-level and docker-level merged (deduplicated).

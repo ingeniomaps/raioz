@@ -15,15 +15,17 @@ import (
 
 // Dependencies holds all dependencies for use cases
 type Dependencies struct {
-	ConfigLoader   interfaces.ConfigLoader
-	Validator      interfaces.Validator
-	DockerRunner   interfaces.DockerRunner
-	GitRepository  interfaces.GitRepository
-	Workspace      interfaces.WorkspaceManager
-	StateManager   interfaces.StateManager
-	LockManager    interfaces.LockManager
-	HostRunner     interfaces.HostRunner
-	EnvManager     interfaces.EnvManager
+	ConfigLoader     interfaces.ConfigLoader
+	Validator        interfaces.Validator
+	DockerRunner     interfaces.DockerRunner
+	GitRepository    interfaces.GitRepository
+	Workspace        interfaces.WorkspaceManager
+	StateManager     interfaces.StateManager
+	LockManager      interfaces.LockManager
+	HostRunner       interfaces.HostRunner
+	EnvManager       interfaces.EnvManager
+	ProxyManager     interfaces.ProxyManager     // Optional: nil if proxy not needed
+	DiscoveryManager interfaces.DiscoveryManager  // Optional: nil if discovery not needed
 }
 
 // NewDependencies creates a new Dependencies instance with default implementations

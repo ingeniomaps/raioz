@@ -288,3 +288,31 @@ func GetNetworkProjects(networkName string, baseDir string) ([]string, error) {
 
 	return projects, nil
 }
+
+// ConnectContainerToNetwork attaches a running container to a Docker network.
+// If the container is already connected, this is a no-op.
+func ConnectContainerToNetwork(ctx context.Context, containerName, networkName string, aliases []string) error {
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerNetworkTimeout)
+	defer cancel()
+
+	args := []string{"network", "connect"}
+	for _, alias := range aliases {
+		args = append(args, "--alias", alias)
+	}
+	args = append(args, networkName, containerName)
+
+	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Already connected is not an error
+		if strings.Contains(string(output), "already exists") {
+			return nil
+		}
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return fmt.Errorf("network connect timed out after %v", exectimeout.DockerNetworkTimeout)
+		}
+		return fmt.Errorf("failed to connect %s to network %s: %w (%s)",
+			containerName, networkName, err, string(output))
+	}
+	return nil
+}

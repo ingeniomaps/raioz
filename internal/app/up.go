@@ -13,6 +13,7 @@ type UpOptions struct {
 	ForceReclone bool
 	DryRun       bool
 	Only         []string
+	Host         string // Bind address for shared dev server (e.g., "0.0.0.0")
 }
 
 // UpUseCase handles the "up" use case - starting a project
@@ -24,15 +25,17 @@ type UpUseCase struct {
 func NewUpUseCase(deps *Dependencies) *UpUseCase {
 	return &UpUseCase{
 		useCase: upcase.NewUseCase(&upcase.Dependencies{
-			ConfigLoader:  deps.ConfigLoader,
-			Validator:     deps.Validator,
-			DockerRunner:  deps.DockerRunner,
-			GitRepository: deps.GitRepository,
-			Workspace:     deps.Workspace,
-			StateManager:  deps.StateManager,
-			LockManager:   deps.LockManager,
-			HostRunner:    deps.HostRunner,
-			EnvManager:    deps.EnvManager,
+			ConfigLoader:     deps.ConfigLoader,
+			Validator:        deps.Validator,
+			DockerRunner:     deps.DockerRunner,
+			GitRepository:    deps.GitRepository,
+			Workspace:        deps.Workspace,
+			StateManager:     deps.StateManager,
+			LockManager:      deps.LockManager,
+			HostRunner:       deps.HostRunner,
+			EnvManager:       deps.EnvManager,
+			ProxyManager:     deps.ProxyManager,
+			DiscoveryManager: deps.DiscoveryManager,
 		}),
 	}
 }
@@ -45,6 +48,7 @@ func (uc *UpUseCase) Execute(ctx context.Context, opts UpOptions) error {
 		ForceReclone: opts.ForceReclone,
 		DryRun:       opts.DryRun,
 		Only:         opts.Only,
+		Host:         opts.Host,
 	}
 	return uc.useCase.Execute(ctx, options)
 }

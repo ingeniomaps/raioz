@@ -16,8 +16,20 @@ func NewConfigLoader() interfaces.ConfigLoader {
 	return &ConfigLoaderImpl{}
 }
 
-// LoadDeps loads dependencies configuration from a file
+// LoadDeps loads dependencies configuration from a file.
+// Supports raioz.yaml (new), .raioz.json (legacy), and auto-detect mode (no file).
 func (l *ConfigLoaderImpl) LoadDeps(configPath string) (*config.Deps, []string, error) {
+	// Auto-detect mode: no config file found
+	if configPath == ":auto:" {
+		deps, err := config.AutoDetect(".")
+		if err != nil {
+			return nil, nil, err
+		}
+		return deps, nil, nil
+	}
+	if config.IsYAMLConfig(configPath) {
+		return config.LoadDepsFromYAML(configPath)
+	}
 	return config.LoadDeps(configPath)
 }
 
