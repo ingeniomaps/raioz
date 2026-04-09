@@ -38,6 +38,7 @@ func (uc *UseCase) mergeDeps(oldDeps, deps *config.Deps, currentProjectDir strin
 		Workspace:     deps.Workspace,
 		Network:       deps.Network,
 		Project:       deps.Project,
+		Profiles:      deps.Profiles,
 		ProjectRoot:   currentProjectDir,
 		Services:      make(map[string]config.Service),
 		Infra:         make(map[string]config.InfraEntry),
@@ -46,6 +47,10 @@ func (uc *UseCase) mergeDeps(oldDeps, deps *config.Deps, currentProjectDir strin
 			Files:     mergeSliceUnique(oldDeps.Env.Files, deps.Env.Files),
 			Variables: mergeVariables(oldDeps.Env.Variables, deps.Env.Variables),
 		},
+		Proxy:       deps.Proxy,
+		ProxyConfig: deps.ProxyConfig,
+		PreHook:     deps.PreHook,
+		PostHook:    deps.PostHook,
 	}
 
 	// Services: union; resolve each project's volumes with its own project dir, then merge

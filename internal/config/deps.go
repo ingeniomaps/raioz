@@ -222,10 +222,15 @@ func FilterByProfile(deps *Deps, profile string) *Deps {
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,
+		Profiles:           deps.Profiles,
 		Services:           make(map[string]Service),
 		Infra:              make(map[string]InfraEntry),
 		Env:                deps.Env,
 		ProjectComposePath: deps.ProjectComposePath,
+		Proxy:              deps.Proxy,
+		ProxyConfig:        deps.ProxyConfig,
+		PreHook:            deps.PreHook,
+		PostHook:           deps.PostHook,
 	}
 
 	for name, svc := range deps.Services {
@@ -281,6 +286,10 @@ func FilterByProfiles(deps *Deps, profiles []string) *Deps {
 		Infra:              make(map[string]InfraEntry),
 		Env:                deps.Env,
 		ProjectComposePath: deps.ProjectComposePath,
+		Proxy:              deps.Proxy,
+		ProxyConfig:        deps.ProxyConfig,
+		PreHook:            deps.PreHook,
+		PostHook:           deps.PostHook,
 	}
 	for name, svc := range deps.Services {
 		if svc.Enabled != nil && !*svc.Enabled {

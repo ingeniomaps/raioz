@@ -25,13 +25,18 @@ func FilterIgnoredServices(deps *Deps) (*Deps, []string, error) {
 
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
-		Workspace:          deps.Workspace, // Preserve workspace
-		Network:            deps.Network,   // Preserve network
+		Workspace:          deps.Workspace,
+		Network:            deps.Network,
 		Project:            deps.Project,
+		Profiles:           deps.Profiles,
 		Services:           make(map[string]Service),
-		Infra:              deps.Infra, // Infra is always included
+		Infra:              deps.Infra,
 		Env:                deps.Env,
 		ProjectComposePath: deps.ProjectComposePath,
+		Proxy:              deps.Proxy,
+		ProxyConfig:        deps.ProxyConfig,
+		PreHook:            deps.PreHook,
+		PostHook:           deps.PostHook,
 	}
 
 	var ignored []string
