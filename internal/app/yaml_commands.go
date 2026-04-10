@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"raioz/internal/detect"
 	"raioz/internal/naming"
@@ -50,7 +51,18 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 				result := detect.Detect(svc.Source.Path)
 				runtime = string(result.Runtime)
 			}
-			status := "host"
+
+			// Check if process is alive via saved PID
+			status := "stopped"
+			pidInfo := ""
+			if localState != nil {
+				if pid, ok := localState.HostPIDs[name]; ok && pid > 0 {
+					if isHostProcessAlive(pid) {
+						status = "running"
+						pidInfo = fmt.Sprintf("pid:%d", pid)
+					}
+				}
+			}
 
 			// Check if it has a dev override
 			devLabel := ""
@@ -58,7 +70,7 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 				devLabel = " (dev)"
 			}
 
-			fmt.Printf("    %-18s %-10s %-10s%s\n", name, runtime, status, devLabel)
+			fmt.Printf("    %-18s %-10s %-10s %-10s%s\n", name, runtime, status, pidInfo, devLabel)
 		}
 	}
 
@@ -225,6 +237,15 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// isHostProcessAlive checks if a process with the given PID is running.
+func isHostProcessAlive(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(syscall.Signal(0)) == nil
 }
 
 // CheckYAML validates a YAML project config.
