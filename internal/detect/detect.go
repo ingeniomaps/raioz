@@ -78,6 +78,28 @@ func Detect(path string) DetectResult {
 		return result
 	}
 
+	// Check for Just (justfile / Justfile)
+	for _, name := range []string{"justfile", "Justfile", ".justfile"} {
+		jf := filepath.Join(path, name)
+		if fileExists(jf) {
+			result.Runtime = RuntimeJust
+			result.Files = append(result.Files, name)
+			result.StartCommand = "just dev"
+			result.DevCommand = "just dev"
+			return result
+		}
+	}
+
+	// Check for Task (Taskfile.yml)
+	taskfile := filepath.Join(path, "Taskfile.yml")
+	if fileExists(taskfile) {
+		result.Runtime = RuntimeTask
+		result.Files = append(result.Files, "Taskfile.yml")
+		result.StartCommand = "task dev"
+		result.DevCommand = "task dev"
+		return result
+	}
+
 	// Check for Python (pyproject.toml or requirements.txt)
 	pyproject := filepath.Join(path, "pyproject.toml")
 	requirements := filepath.Join(path, "requirements.txt")

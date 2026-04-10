@@ -11,6 +11,8 @@ const (
 	RuntimeMake       Runtime = "make"
 	RuntimePython     Runtime = "python"
 	RuntimeRust       Runtime = "rust"
+	RuntimeJust       Runtime = "just"
+	RuntimeTask       Runtime = "task"
 	RuntimePHP        Runtime = "php"
 	RuntimeJava       Runtime = "java"
 	RuntimeDotnet     Runtime = "dotnet"

@@ -121,6 +121,18 @@ func TestDetect_AllRuntimes(t *testing.T) {
 			expected: RuntimeBun,
 			command:  "bun run dev",
 		},
+		{
+			name:     "Just",
+			files:    map[string]string{"justfile": "dev:\n\techo hello"},
+			expected: RuntimeJust,
+			command:  "just dev",
+		},
+		{
+			name:     "Task",
+			files:    map[string]string{"Taskfile.yml": "version: 3"},
+			expected: RuntimeTask,
+			command:  "task dev",
+		},
 		// Existing runtimes (regression tests)
 		{
 			name:     "Go",
