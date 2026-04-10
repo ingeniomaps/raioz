@@ -8,6 +8,7 @@ import (
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
+	"raioz/internal/runtime"
 )
 
 // DockerfileRunner handles services that have a Dockerfile but no compose file.
@@ -22,7 +23,7 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		"service", svc.Name, "path", svc.Path, "image", imageName)
 
 	// Build
-	buildCmd := exec.CommandContext(ctx, "docker", "build",
+	buildCmd := exec.CommandContext(ctx, runtime.Binary(), "build",
 		"-t", imageName,
 		"-f", svc.Detection.Dockerfile,
 		svc.Path)
@@ -56,7 +57,7 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 	logging.InfoWithContext(ctx, "Starting container",
 		"service", svc.Name, "container", svc.ContainerName)
 
-	runCmd := exec.CommandContext(ctx, "docker", args...)
+	runCmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	if output, err := runCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker run failed: %s\n%s", err, string(output))
 	}
@@ -67,11 +68,11 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 // Stop stops and removes the container.
 func (r *DockerfileRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) error {
 	// Stop
-	stopCmd := exec.CommandContext(ctx, "docker", "stop", svc.ContainerName)
+	stopCmd := exec.CommandContext(ctx, runtime.Binary(), "stop", svc.ContainerName)
 	stopCmd.Run() // Ignore error (might not be running)
 
 	// Remove
-	rmCmd := exec.CommandContext(ctx, "docker", "rm", "-f", svc.ContainerName)
+	rmCmd := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", svc.ContainerName)
 	rmCmd.Run() // Ignore error
 
 	return nil
@@ -88,7 +89,7 @@ func (r *DockerfileRunner) Restart(ctx context.Context, svc interfaces.ServiceCo
 
 // Status checks if the container is running.
 func (r *DockerfileRunner) Status(ctx context.Context, svc interfaces.ServiceContext) (string, error) {
-	cmd := exec.CommandContext(ctx, "docker", "inspect",
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
 		"--format", "{{.State.Status}}", svc.ContainerName)
 	output, err := cmd.Output()
 	if err != nil {
@@ -112,7 +113,7 @@ func (r *DockerfileRunner) Logs(ctx context.Context, svc interfaces.ServiceConte
 	}
 	args = append(args, svc.ContainerName)
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	cmd.Stdout = exec.CommandContext(ctx, "echo").Stdout
 	cmd.Stderr = exec.CommandContext(ctx, "echo").Stderr
 	return cmd.Run()

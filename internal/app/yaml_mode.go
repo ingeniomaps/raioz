@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/naming"
+	"raioz/internal/runtime"
 )
 
 func findConfigFile() string {
@@ -62,7 +63,7 @@ func (p *YAMLProject) ContainerPrefix() string {
 
 // ListRunningContainers returns names of running containers for this project.
 func (p *YAMLProject) ListRunningContainers(ctx context.Context) []string {
-	cmd := exec.CommandContext(ctx, "docker", "ps",
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "ps",
 		"--filter", "name="+p.ContainerPrefix(),
 		"--format", "{{.Names}}")
 	out, err := cmd.Output()
@@ -79,7 +80,7 @@ func (p *YAMLProject) ListRunningContainers(ctx context.Context) []string {
 // ContainerStatus returns status of a specific container.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
 	containerName := naming.Container(p.ProjectName, name)
-	cmd := exec.CommandContext(ctx, "docker", "inspect",
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
 		"--format", "{{.State.Status}}", containerName)
 	out, err := cmd.Output()
 	if err != nil {
@@ -91,7 +92,7 @@ func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
 // ContainerStats returns CPU and memory for a container.
 func (p *YAMLProject) ContainerStats(ctx context.Context, name string) (cpu, mem string) {
 	containerName := naming.Container(p.ProjectName, name)
-	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream",
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "stats", "--no-stream",
 		"--format", "{{.CPUPerc}}\t{{.MemUsage}}", containerName)
 	out, err := cmd.Output()
 	if err != nil {

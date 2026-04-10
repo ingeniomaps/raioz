@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"raioz/internal/runtime"
 )
 
 // tickCmd returns a command that sends a TickMsg after the stats interval.
@@ -71,7 +72,7 @@ func (m Model) streamLogs(serviceName string) tea.Cmd {
 		}
 		args = append(args, "logs", "--follow", "--tail", "50", serviceName)
 
-		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			return nil

@@ -12,6 +12,7 @@ import (
 	"raioz/internal/git"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/workspace"
+	"raioz/internal/runtime"
 )
 
 // ServiceInfo contains detailed information about a service
@@ -80,7 +81,7 @@ func GetContainerNameWithContext(ctx context.Context, composePath string, servic
 	}
 
 	// Get container name from ID
-	cmd2 := exec.CommandContext(timeoutCtx, "docker", "inspect", "-f", "{{.Name}}", containerID)
+	cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), "inspect", "-f", "{{.Name}}", containerID)
 	nameOutput, err := cmd2.Output()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -136,7 +137,7 @@ func GetServiceInfoWithContext(
 	defer cancel()
 
 	// Get container inspect data
-	cmd := exec.CommandContext(timeoutCtx, "docker", "inspect", containerName)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "inspect", containerName)
 	output, err := cmd.Output()
 	if err != nil {
 		// If inspect fails, return basic info

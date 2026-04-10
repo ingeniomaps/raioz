@@ -15,6 +15,7 @@ import (
 	"raioz/internal/detect"
 	"raioz/internal/naming"
 	"raioz/internal/output"
+	"raioz/internal/runtime"
 )
 
 // streamForeground streams logs from all services until Ctrl+C (no file watching).
@@ -141,7 +142,7 @@ func tailFile(ctx context.Context, name, logPath, color string, padLen int) {
 
 // tailDocker streams docker logs with colored prefix.
 func tailDocker(ctx context.Context, name, container, color string, padLen int) {
-	cmd := exec.CommandContext(ctx, "docker", "logs", "-f", "--since", "1s", container)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "logs", "-f", "--since", "1s", container)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+	"raioz/internal/runtime"
 )
 
 // Snapshot holds metadata about a saved volume snapshot.
@@ -145,7 +146,7 @@ func (m *Manager) Delete(project, name string) error {
 
 // exportVolume creates a tar.gz of a Docker volume's contents.
 func exportVolume(volumeName, archivePath string) error {
-	cmd := exec.Command("docker", "run", "--rm",
+	cmd := exec.Command(runtime.Binary(), "run", "--rm",
 		"-v", volumeName+":/data:ro",
 		"-v", filepath.Dir(archivePath)+":/backup",
 		"alpine",
@@ -159,7 +160,7 @@ func exportVolume(volumeName, archivePath string) error {
 
 // importVolume restores a tar.gz into a Docker volume.
 func importVolume(volumeName, archivePath string) error {
-	cmd := exec.Command("docker", "run", "--rm",
+	cmd := exec.Command(runtime.Binary(), "run", "--rm",
 		"-v", volumeName+":/data",
 		"-v", filepath.Dir(archivePath)+":/backup:ro",
 		"alpine",

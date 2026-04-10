@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"raioz/internal/runtime"
 )
 
 // restartServiceCmd restarts a service via docker compose.
@@ -42,7 +43,7 @@ func (m Model) stopServiceCmd(serviceName string) tea.Cmd {
 // execInServiceCmd opens an interactive shell in a container.
 // Uses tea.ExecProcess to suspend the TUI during the shell session.
 func (m Model) execInServiceCmd(serviceName string) tea.Cmd {
-	c := exec.Command("docker", "compose", "-f", m.config.ComposePath,
+	c := exec.Command(runtime.Binary(), "compose", "-f", m.config.ComposePath,
 		"exec", serviceName, "sh")
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return ActionResultMsg{

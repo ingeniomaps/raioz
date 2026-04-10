@@ -11,6 +11,7 @@ import (
 
 	"raioz/internal/errors"
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // PreflightCheck performs all preflight checks before executing commands
@@ -69,7 +70,7 @@ func checkDockerInstalledWithContext(ctx context.Context) error {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, 5*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "--version")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "--version")
 	if err := cmd.Run(); err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
 			return errors.New(
@@ -103,7 +104,7 @@ func checkDockerRunningWithContext(ctx context.Context) error {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "info")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "info")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

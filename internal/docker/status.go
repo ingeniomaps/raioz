@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // AreServicesRunning checks if all required services are already running
@@ -52,7 +53,7 @@ func GetServiceNamesWithContext(ctx context.Context, composePath string) ([]stri
 	defer cancel()
 
 	// Use docker compose config to get service names
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "config", "--services")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "config", "--services")
 	output, err := cmd.Output()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

@@ -6,11 +6,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 
 	"raioz/internal/i18n"
 	"raioz/internal/output"
+	"raioz/internal/runtime"
 )
 
 // DoctorCheck represents a single diagnostic check result
@@ -89,7 +90,7 @@ func (uc *DoctorUseCase) checkDocker(ctx context.Context) DoctorCheck {
 		return DoctorCheck{Name: name, Status: "error", Message: i18n.T("doctor.docker_not_installed")}
 	}
 
-	out, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{.ServerVersion}}").Output()
+	out, err := exec.CommandContext(ctx, runtime.Binary(), "info", "--format", "{{.ServerVersion}}").Output()
 	if err != nil {
 		return DoctorCheck{Name: name, Status: "error", Message: i18n.T("doctor.docker_not_running")}
 	}
@@ -101,7 +102,7 @@ func (uc *DoctorUseCase) checkDocker(ctx context.Context) DoctorCheck {
 func (uc *DoctorUseCase) checkDockerCompose(ctx context.Context) DoctorCheck {
 	name := "Docker Compose"
 
-	out, err := exec.CommandContext(ctx, "docker", "compose", "version", "--short").Output()
+	out, err := exec.CommandContext(ctx, runtime.Binary(), "compose", "version", "--short").Output()
 	if err != nil {
 		return DoctorCheck{Name: name, Status: "error", Message: i18n.T("doctor.compose_not_installed")}
 	}
@@ -156,6 +157,6 @@ func (uc *DoctorUseCase) checkOS() DoctorCheck {
 	return DoctorCheck{
 		Name:    name,
 		Status:  "ok",
-		Message: fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		Message: fmt.Sprintf("%s/%s", goruntime.GOOS, goruntime.GOARCH),
 	}
 }

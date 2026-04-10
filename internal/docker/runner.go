@@ -9,6 +9,7 @@ import (
 
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/resilience"
+	"raioz/internal/runtime"
 )
 
 func Up(composePath string) error {
@@ -51,7 +52,7 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 				args = append(args, serviceNames...)
 			}
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -79,7 +80,7 @@ func RestartServicesWithContext(ctx context.Context, composePath string, service
 			args := []string{"compose", "-f", composePath, "restart"}
 			args = append(args, serviceNames...)
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -107,7 +108,7 @@ func ForceRecreateServicesWithContext(ctx context.Context, composePath string, s
 			args := []string{"compose", "-f", composePath, "up", "-d", "--force-recreate", "--no-deps"}
 			args = append(args, serviceNames...)
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -136,7 +137,7 @@ func StopServiceWithContext(ctx context.Context, composePath string, serviceName
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 	defer cancel()
 	// Stop the service (leave other services running)
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "stop", serviceName)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "stop", serviceName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -145,7 +146,7 @@ func StopServiceWithContext(ctx context.Context, composePath string, serviceName
 	// Remove the container so the local project can recreate it
 	rmCtx, rmCancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 	defer rmCancel()
-	rmCmd := exec.CommandContext(rmCtx, "docker", "compose", "-f", composePath, "rm", "-f", serviceName)
+	rmCmd := exec.CommandContext(rmCtx, runtime.Binary(), "compose", "-f", composePath, "rm", "-f", serviceName)
 	rmCmd.Stdout = os.Stdout
 	rmCmd.Stderr = os.Stderr
 	if err := rmCmd.Run(); err != nil {
@@ -177,7 +178,7 @@ func DownWithContext(ctx context.Context, composePath string) error {
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 			defer cancel()
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "down")
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "down")
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -209,7 +210,7 @@ func GetServicesStatusWithContext(ctx context.Context, composePath string) (map[
 	defer cancel()
 
 	// Get running services
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "ps", "--services", "--status", "running")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "ps", "--services", "--status", "running")
 	output, err := cmd.Output()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -228,7 +229,7 @@ func GetServicesStatusWithContext(ctx context.Context, composePath string) (map[
 	}
 
 	// Get all services (running and stopped)
-	cmd2 := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "ps", "--services")
+	cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "ps", "--services")
 	output2, err := cmd2.Output()
 	if err == nil {
 		allLines := strings.Split(string(output2), "\n")
@@ -253,7 +254,7 @@ func StopContainerWithContext(ctx context.Context, containerName string) error {
 	if containerName == "" {
 		return nil
 	}
-	cmd := exec.CommandContext(ctx, "docker", "stop", containerName)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "stop", containerName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(out), "No such container") || strings.Contains(string(out), "is not running") {

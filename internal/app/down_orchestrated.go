@@ -13,6 +13,7 @@ import (
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
+	"raioz/internal/runtime"
 )
 
 // downOrchestrated handles raioz down for YAML-based (orchestrated) projects.
@@ -77,7 +78,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	if networkName != "" {
 		inUse, _ := uc.deps.DockerRunner.IsNetworkInUseWithContext(ctx, networkName)
 		if !inUse {
-			exec.CommandContext(ctx, "docker", "network", "rm", networkName).Run()
+			exec.CommandContext(ctx, runtime.Binary(), "network", "rm", networkName).Run()
 			logging.InfoWithContext(ctx, "Network removed", "network", networkName)
 		}
 	}
@@ -89,7 +90,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 // stopContainersByPrefix stops and removes all containers matching a name prefix.
 func stopContainersByPrefix(ctx context.Context, prefix string) {
 	// List containers matching prefix
-	cmd := exec.CommandContext(ctx, "docker", "ps", "-a",
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "ps", "-a",
 		"--filter", "name="+prefix,
 		"--format", "{{.Names}}")
 	out, err := cmd.Output()
@@ -108,8 +109,8 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 			continue
 		}
 		logging.Info("Stopping container", "name", name)
-		exec.CommandContext(ctx, "docker", "stop", name).Run()
-		exec.CommandContext(ctx, "docker", "rm", "-f", name).Run()
+		exec.CommandContext(ctx, runtime.Binary(), "stop", name).Run()
+		exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", name).Run()
 	}
 }
 
@@ -117,7 +118,7 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps, projectName string) {
 	for name := range deps.Infra {
 		composePath := naming.DepComposePath(projectName, name)
-		cmd := exec.CommandContext(ctx, "docker", "compose", "-f", composePath, "down")
+		cmd := exec.CommandContext(ctx, runtime.Binary(), "compose", "-f", composePath, "down")
 		cmd.Run() // Ignore errors — file might not exist
 	}
 }

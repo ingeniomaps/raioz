@@ -10,6 +10,7 @@ import (
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
+	"raioz/internal/runtime"
 )
 
 // checkInfraHealth waits for infrastructure containers to be healthy.
@@ -57,7 +58,7 @@ func checkInfraHealth(ctx context.Context, infraNames []string, projectName stri
 
 // getContainerStatus returns the status of a Docker container.
 func getContainerStatus(ctx context.Context, containerName string) string {
-	cmd := exec.CommandContext(ctx, "docker", "inspect",
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
 		"--format", "{{.State.Status}}", containerName)
 	out, err := cmd.Output()
 	if err != nil {
@@ -69,7 +70,7 @@ func getContainerStatus(ctx context.Context, containerName string) string {
 // showContainerDiagnostics shows the last few log lines and actionable suggestions.
 func showContainerDiagnostics(ctx context.Context, containerName, serviceName string) {
 	// Get last 10 lines of logs
-	cmd := exec.CommandContext(ctx, "docker", "logs", "--tail", "10", containerName)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "logs", "--tail", "10", containerName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return

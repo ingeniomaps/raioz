@@ -11,6 +11,7 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/runtime"
 )
 
 // Manager implements interfaces.ProxyManager using Caddy as a Docker container.
@@ -125,7 +126,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 
 	logging.InfoWithContext(ctx, "Starting proxy", "container", containerName, "network", networkName)
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to start proxy: %w\n%s", err, string(output))
 	}
@@ -137,10 +138,10 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 func (m *Manager) Stop(ctx context.Context) error {
 	containerName := ContainerName(m.projectName)
 
-	stop := exec.CommandContext(ctx, "docker", "stop", containerName)
+	stop := exec.CommandContext(ctx, runtime.Binary(), "stop", containerName)
 	stop.Run()
 
-	rm := exec.CommandContext(ctx, "docker", "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
 	rm.Run()
 
 	return nil
@@ -177,13 +178,13 @@ func (m *Manager) Reload(ctx context.Context) error {
 	containerName := ContainerName(m.projectName)
 
 	// Copy new Caddyfile into the container
-	cp := exec.CommandContext(ctx, "docker", "cp", caddyfilePath, containerName+":/etc/caddy/Caddyfile")
+	cp := exec.CommandContext(ctx, runtime.Binary(), "cp", caddyfilePath, containerName+":/etc/caddy/Caddyfile")
 	if output, err := cp.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to copy Caddyfile: %w\n%s", err, string(output))
 	}
 
 	// Reload Caddy
-	reload := exec.CommandContext(ctx, "docker", "exec", containerName, "caddy", "reload", "--config", "/etc/caddy/Caddyfile")
+	reload := exec.CommandContext(ctx, runtime.Binary(), "exec", containerName, "caddy", "reload", "--config", "/etc/caddy/Caddyfile")
 	if output, err := reload.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to reload proxy: %w\n%s", err, string(output))
 	}
@@ -199,7 +200,7 @@ func (m *Manager) Status(ctx context.Context) (bool, error) {
 }
 
 func (m *Manager) isRunning(ctx context.Context, containerName string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "docker", "inspect",
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
 		"--format", "{{.State.Status}}", containerName)
 	output, err := cmd.Output()
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/output"
+	"raioz/internal/runtime"
 )
 
 const (
@@ -92,7 +93,7 @@ func isServiceHealthyWithContext(ctx context.Context, composePath string, servic
 	defer cancel()
 
 	// Get container inspect data
-	cmd := exec.CommandContext(timeoutCtx, "docker", "inspect", containerName)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "inspect", containerName)
 	output, err := cmd.Output()
 	if err != nil {
 		return false, nil // Service not healthy if inspect fails
@@ -144,7 +145,7 @@ func checkServiceReadinessWithoutHealthcheck(ctx context.Context, composePath st
 	defer cancel()
 
 	// Get container inspect data to check image and env vars
-	cmd := exec.CommandContext(timeoutCtx, "docker", "inspect", containerName)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "inspect", containerName)
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("failed to inspect container: %w", err)
@@ -180,7 +181,7 @@ func checkServiceReadinessWithoutHealthcheck(ctx context.Context, composePath st
 		}
 
 		// Try to execute pg_isready inside the container
-		pgCmd := exec.CommandContext(timeoutCtx, "docker", "exec", containerName, "pg_isready", "-U", pgUser, "-d", pgDb)
+		pgCmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "exec", containerName, "pg_isready", "-U", pgUser, "-d", pgDb)
 		if err := pgCmd.Run(); err == nil {
 			return true, nil
 		}

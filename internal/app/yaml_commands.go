@@ -12,6 +12,7 @@ import (
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
+	"raioz/internal/runtime"
 )
 
 // StatusYAML shows status for a YAML orchestrated project.
@@ -125,7 +126,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		}
 		args = append(args, dockerContainers...)
 
-		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
@@ -169,7 +170,7 @@ func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) erro
 	for _, name := range services {
 		containerName := naming.Container(proj.ProjectName, name)
 		output.PrintProgress("Restarting " + name + "...")
-		cmd := exec.CommandContext(ctx, "docker", "restart", containerName)
+		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			output.PrintProgressError(name + ": " + strings.TrimSpace(string(out)))
 		} else {
@@ -217,7 +218,7 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 		args = append(args, command...)
 	}
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	if isTTY {
 		cmd.Stdin = os.Stdin
 	}

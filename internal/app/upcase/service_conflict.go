@@ -15,6 +15,7 @@ import (
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/state"
+	"raioz/internal/runtime"
 )
 
 // ServiceConflict represents a detected conflict for a service
@@ -90,7 +91,7 @@ func (uc *UseCase) detectServiceConflict(
 	// Only conflict when the running container is from OUR workspace (same workspace we're deploying to).
 	// Containers from other workspaces (e.g. nunzio-nginx when deploying to roax) do not conflict — they coexist.
 	if isLocalProject {
-		cmd := exec.CommandContext(ctx, "docker", "ps", "--format", "{{.Names}}\t{{.Image}}")
+		cmd := exec.CommandContext(ctx, runtime.Binary(), "ps", "--format", "{{.Names}}\t{{.Image}}")
 		cmdOutput, err := cmd.Output()
 		if err == nil {
 			lines := strings.Split(strings.TrimSpace(string(cmdOutput)), "\n")

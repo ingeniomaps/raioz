@@ -12,6 +12,7 @@ import (
 
 	"raioz/internal/config"
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // NetworkInfo contains information about a Docker network
@@ -105,7 +106,7 @@ func NetworkExistsWithContext(ctx context.Context, name string) (bool, *NetworkI
 	defer cancel()
 
 	format := "{{.Name}}|{{.Driver}}|{{.Scope}}|{{.Options}}"
-	cmd := exec.CommandContext(timeoutCtx, "docker", "network", "inspect", name, "--format", format)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect", name, "--format", format)
 	output, err := cmd.Output()
 
 	if err != nil {
@@ -184,7 +185,7 @@ func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig
 
 	args = append(args, config.Name)
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -197,7 +198,7 @@ func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig
 
 // RemoveNetwork removes a Docker network
 func RemoveNetwork(name string) error {
-	cmd := exec.Command("docker", "network", "rm", name)
+	cmd := exec.Command(runtime.Binary(), "network", "rm", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// If network is in use, that's ok - we don't want to force remove
@@ -220,7 +221,7 @@ func IsNetworkInUseWithContext(ctx context.Context, name string) (bool, error) {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerNetworkTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "network", "inspect", name, "--format", "{{len .Containers}}")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect", name, "--format", "{{len .Containers}}")
 	output, err := cmd.Output()
 	if err != nil {
 		// If network doesn't exist, it's not in use
@@ -301,7 +302,7 @@ func ConnectContainerToNetwork(ctx context.Context, containerName, networkName s
 	}
 	args = append(args, networkName, containerName)
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Already connected is not an error

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // LogsOptions contains options for viewing logs
@@ -69,7 +70,7 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 	}
 
 	// Execute command
-	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -100,7 +101,7 @@ func GetAvailableServicesWithContext(ctx context.Context, composePath string) ([
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerStatusTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "config", "--services")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "config", "--services")
 	output, err := cmd.Output()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

@@ -5,11 +5,12 @@ import (
 	"os/exec"
 
 	"raioz/internal/proxy"
+	"raioz/internal/runtime"
 )
 
 // checkCaddy verifies that the Caddy Docker image is available.
 func (uc *DoctorUseCase) checkCaddy(_ context.Context) DoctorCheck {
-	cmd := exec.Command("docker", "image", "inspect", "caddy:latest")
+	cmd := exec.Command(runtime.Binary(), "image", "inspect", "caddy:latest")
 	if err := cmd.Run(); err != nil {
 		return DoctorCheck{
 			Name:    "Caddy",

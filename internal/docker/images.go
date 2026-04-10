@@ -11,6 +11,7 @@ import (
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 	"raioz/internal/resilience"
+	"raioz/internal/runtime"
 )
 
 // ImageExists checks if a Docker image exists locally
@@ -24,7 +25,7 @@ func ImageExistsWithContext(ctx context.Context, image string) (bool, error) {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "image", "inspect", image)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "image", "inspect", image)
 	err := cmd.Run()
 
 	if err != nil {
@@ -62,7 +63,7 @@ func PullImageWithContext(ctx context.Context, image string) error {
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerPullTimeout)
 			defer cancel()
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", "pull", image)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "pull", image)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -172,7 +173,7 @@ func GetImageInfoWithContext(ctx context.Context, image string) (map[string]stri
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "image", "inspect", image, "--format",
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "image", "inspect", image, "--format",
 		"{{.Id}}|{{.RepoTags}}|{{.Created}}")
 	output, err := cmd.Output()
 	if err != nil {

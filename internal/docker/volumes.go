@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // VolumeType represents the type of volume
@@ -237,7 +238,7 @@ func VolumeExistsWithContext(ctx context.Context, name string) (bool, error) {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerVolumeTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "inspect", name)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "inspect", name)
 	err := cmd.Run()
 
 	if err != nil {
@@ -277,7 +278,7 @@ func EnsureVolumeWithContext(ctx context.Context, name string) error {
 	defer cancel()
 
 	// Create volume
-	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "create", name)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "create", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -312,7 +313,7 @@ func RemoveVolumeWithContext(ctx context.Context, name string) error {
 	defer cancel()
 
 	// Remove volume
-	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "rm", name)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "rm", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
