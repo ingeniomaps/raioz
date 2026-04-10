@@ -77,7 +77,12 @@ func Detect(path string) DetectResult {
 		result.Files = append(result.Files, "go.mod")
 		result.StartCommand = "go run ."
 		result.DevCommand = "go run ."
-		result.HasHotReload = false
+		// Detect air (hot-reload for Go)
+		if fileExists(filepath.Join(path, ".air.toml")) ||
+			fileExists(filepath.Join(path, ".air.conf")) {
+			result.DevCommand = "air"
+			result.HasHotReload = true
+		}
 		return result
 	}
 

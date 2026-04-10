@@ -159,6 +159,12 @@ func TestDetect_AllRuntimes(t *testing.T) {
 			command:  "go run",
 		},
 		{
+			name:     "Go/air",
+			files:    map[string]string{"go.mod": "module example.com/app\ngo 1.22", ".air.toml": "[build]"},
+			expected: RuntimeGo,
+			command:  "air",
+		},
+		{
 			name:     "PHP",
 			files:    map[string]string{"composer.json": "{}"},
 			expected: RuntimePHP,
