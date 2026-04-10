@@ -71,7 +71,7 @@ func TestLocalMode_DefaultDomain(t *testing.T) {
 	if !strings.Contains(content, "api.localhost") {
 		t.Errorf("expected localhost domain, got:\n%s", content)
 	}
-	if !strings.Contains(content, "tls /certs/localhost.pem") {
+	if !strings.Contains(content, "tls /certs/cert.pem") {
 		t.Errorf("expected mkcert TLS, got:\n%s", content)
 	}
 }

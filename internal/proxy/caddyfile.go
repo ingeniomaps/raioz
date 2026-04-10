@@ -62,7 +62,7 @@ func writeRouteBlock(b *strings.Builder, route interfaces.ProxyRoute, domain str
 	case "mkcert":
 		if tls.certsDir != "" {
 			fmt.Fprintf(b, "https://%s {\n", hostname)
-			fmt.Fprintf(b, "\ttls /certs/%s.pem /certs/%s-key.pem\n", tls.domain, tls.domain)
+			fmt.Fprintf(b, "\ttls /certs/%s /certs/%s\n", certFileName, keyFileName)
 		} else {
 			fmt.Fprintf(b, "http://%s {\n", hostname)
 		}

@@ -31,4 +31,10 @@ type ProxyManager interface {
 	Reload(ctx context.Context) error
 	// Status returns whether the proxy is running
 	Status(ctx context.Context) (bool, error)
+	// SetDomain sets a custom domain (e.g., "acme.localhost")
+	SetDomain(domain string)
+	// SetTLSMode sets TLS: "mkcert" (local) or "letsencrypt" (production)
+	SetTLSMode(mode string)
+	// SetBindHost sets the bind address (e.g., "0.0.0.0")
+	SetBindHost(host string)
 }

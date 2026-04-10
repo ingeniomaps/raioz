@@ -9,8 +9,8 @@ import (
 
 const (
 	defaultCertsDir = ".raioz/certs"
-	certFileName    = "localhost.pem"
-	keyFileName     = "localhost-key.pem"
+	certFileName    = "cert.pem"
+	keyFileName     = "cert-key.pem"
 )
 
 // CertsDir returns the default certificate directory (~/.raioz/certs/).
@@ -22,9 +22,15 @@ func CertsDir() string {
 	return filepath.Join(home, defaultCertsDir)
 }
 
-// EnsureCerts checks if mkcert certificates exist. If not, generates them.
+// EnsureCerts generates mkcert certificates for the given domain.
+// Domain defaults to "localhost" if empty (certs cover *.localhost).
+// For custom domains like "acme.localhost", covers *.acme.localhost.
 // Returns the certs directory path, or empty string if mkcert is not available.
-func EnsureCerts() (string, error) {
+func EnsureCerts(domain string) (string, error) {
+	if domain == "" {
+		domain = "localhost"
+	}
+
 	dir := CertsDir()
 	if dir == "" {
 		return "", fmt.Errorf("could not determine home directory")
@@ -52,11 +58,11 @@ func EnsureCerts() (string, error) {
 	install := exec.Command("mkcert", "-install")
 	install.Run() // Ignore error — may already be installed
 
-	// Generate wildcard cert for *.localhost
+	// Generate wildcard cert for the domain
 	gen := exec.Command("mkcert",
 		"-cert-file", certPath,
 		"-key-file", keyPath,
-		"localhost", "*.localhost",
+		domain, "*."+domain,
 	)
 	if output, err := gen.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("mkcert failed: %w\n%s", err, string(output))

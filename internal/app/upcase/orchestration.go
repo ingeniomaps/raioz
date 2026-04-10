@@ -154,6 +154,12 @@ func (uc *UseCase) processOrchestration(
 
 	// Step 4: Start proxy if enabled
 	if deps.Proxy && uc.deps.ProxyManager != nil {
+		// Apply proxy configuration from raioz.yaml
+		if deps.ProxyConfig != nil {
+			uc.deps.ProxyManager.SetDomain(deps.ProxyConfig.Domain)
+			uc.deps.ProxyManager.SetTLSMode(deps.ProxyConfig.TLS)
+		}
+
 		output.PrintProgress("Starting proxy...")
 
 		// Add routes for all services and dependencies

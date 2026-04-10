@@ -65,7 +65,7 @@ func TestCaddyfileGeneration_WithCerts(t *testing.T) {
 	if !strings.Contains(content, "https://api.localhost") {
 		t.Error("expected https with certs")
 	}
-	if !strings.Contains(content, "tls /certs/localhost.pem /certs/localhost-key.pem") {
+	if !strings.Contains(content, "tls /certs/cert.pem /certs/cert-key.pem") {
 		t.Error("expected TLS cert paths")
 	}
 }
