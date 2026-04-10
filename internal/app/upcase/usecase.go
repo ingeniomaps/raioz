@@ -258,13 +258,16 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	var composePath string
 	var serviceNames, infraNames []string
 	var hostProcessInfo map[string]*host.ProcessInfo
+	var orchResult *orchestrationResult
 
 	if isYAMLMode(deps) {
 		// New orchestrator flow: detect runtimes, start with native tools
-		composePath, serviceNames, infraNames, err = uc.processOrchestration(ctx, deps, ws, projectDir)
+		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir)
 		if err != nil {
 			return err
 		}
+		serviceNames = orchResult.serviceNames
+		infraNames = orchResult.infraNames
 	} else {
 		// Legacy flow: host services + generate compose
 		hostProcessInfo, err = uc.processHostServices(ctx, deps, ws, projectDir)
@@ -324,6 +327,12 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 
 	// Final summary
 	uc.showSummary(ctx, deps, serviceNames, infraNames, startTime)
+
+	// Start file watcher for services with watch: true (blocks until Ctrl+C)
+	if orchResult != nil {
+		startWatcher(ctx, deps, orchResult.dispatcher, orchResult.detections,
+			orchResult.networkName, projectDir)
+	}
 
 	return nil
 }

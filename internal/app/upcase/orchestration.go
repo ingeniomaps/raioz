@@ -26,7 +26,7 @@ func (uc *UseCase) processOrchestration(
 	deps *config.Deps,
 	ws *interfaces.Workspace,
 	projectDir string,
-) (string, []string, []string, error) {
+) (*orchestrationResult, error) {
 	// Step 0: Kill stale host processes from previous run
 	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name)
 
@@ -94,7 +94,7 @@ func (uc *UseCase) processOrchestration(
 				if envVars["RAIOZ_IMAGE"] != "" {
 					imageRef = envVars["RAIOZ_IMAGE"]
 				}
-				return "", nil, nil, errors.DependencyStartFailed(name, imageRef, err)
+				return nil, errors.DependencyStartFailed(name, imageRef, err)
 			}
 			output.PrintInfraStarted(name)
 		}
@@ -143,7 +143,7 @@ func (uc *UseCase) processOrchestration(
 			)
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
-				return "", nil, nil, errors.ServiceStartFailed(name, string(detection.Runtime), err)
+				return nil, errors.ServiceStartFailed(name, string(detection.Runtime), err)
 			}
 
 			output.PrintSuccess(name + " (" + string(detection.Runtime) + ")")
@@ -229,7 +229,13 @@ func (uc *UseCase) processOrchestration(
 		}
 	}
 
-	return "", serviceNames, infraNames, nil
+	return &orchestrationResult{
+		serviceNames: serviceNames,
+		infraNames:   infraNames,
+		dispatcher:   dispatcher,
+		detections:   detections,
+		networkName:  networkName,
+	}, nil
 }
 
 // buildEndpoints creates the endpoints map from config and detections for service discovery.

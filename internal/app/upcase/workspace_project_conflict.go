@@ -158,6 +158,9 @@ func cloneService(s config.Service) config.Service {
 		Mock:        s.Mock,
 		FeatureFlag: s.FeatureFlag,
 		Commands:    s.Commands,
+		Watch:       s.Watch,
+		Hostname:    s.Hostname,
+		Routing:     s.Routing,
 	}
 	if s.Docker != nil {
 		out.Docker = &config.DockerConfig{
