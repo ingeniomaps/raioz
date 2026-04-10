@@ -73,34 +73,90 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 }
 
 // LogsYAML shows logs for a YAML orchestrated project.
+// Supports both Docker containers (dependencies) and host processes (services).
 func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow bool, tail int) error {
+	// If no services specified, show all
 	if len(services) == 0 {
-		// Show logs for all containers
-		containers := proj.ListRunningContainers(ctx)
-		if len(containers) == 0 {
-			output.PrintInfo("No running containers")
-			return nil
+		for name := range proj.Deps.Infra {
+			services = append(services, name)
 		}
-		services = containers
-	} else {
-		// Convert service names to container names
-		var containers []string
-		for _, name := range services {
-			containers = append(containers, fmt.Sprintf("raioz-%s-%s", proj.ProjectName, name))
+		for name := range proj.Deps.Services {
+			services = append(services, name)
 		}
-		services = containers
 	}
 
-	args := []string{"logs"}
+	if len(services) == 0 {
+		output.PrintInfo("No services found")
+		return nil
+	}
+
+	// Separate host services from Docker containers
+	var dockerContainers []string
+	var hostLogFiles []string
+
+	for _, name := range services {
+		if _, isService := proj.Deps.Services[name]; isService {
+			// Host service — read from log file
+			logPath := hostServiceLogPath(name)
+			hostLogFiles = append(hostLogFiles, logPath)
+		} else {
+			// Docker container (dependency)
+			dockerContainers = append(dockerContainers, fmt.Sprintf("raioz-%s-%s", proj.ProjectName, name))
+		}
+	}
+
+	// Show host service logs
+	for _, logPath := range hostLogFiles {
+		if err := showHostLogs(ctx, logPath, follow, tail); err != nil {
+			// Log file may not exist yet — not fatal
+			output.PrintWarning(fmt.Sprintf("No logs found: %s", logPath))
+		}
+	}
+
+	// Show Docker container logs
+	if len(dockerContainers) > 0 {
+		args := []string{"logs"}
+		if follow {
+			args = append(args, "-f")
+		}
+		if tail > 0 {
+			args = append(args, "--tail", fmt.Sprintf("%d", tail))
+		}
+		args = append(args, dockerContainers...)
+
+		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+
+	return nil
+}
+
+// hostServiceLogPath returns the log file path for a host service.
+func hostServiceLogPath(serviceName string) string {
+	return filepath.Join(os.TempDir(), "raioz-orchestrate", "logs", serviceName+".log")
+}
+
+// showHostLogs displays logs from a host service log file.
+func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) error {
+	if _, err := os.Stat(logPath); os.IsNotExist(err) {
+		return err
+	}
+
 	if follow {
-		args = append(args, "-f")
+		cmd := exec.CommandContext(ctx, "tail", "-f", logPath)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
 	}
-	if tail > 0 {
-		args = append(args, "--tail", fmt.Sprintf("%d", tail))
-	}
-	args = append(args, services...)
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	tailLines := "50"
+	if tail > 0 {
+		tailLines = fmt.Sprintf("%d", tail)
+	}
+
+	cmd := exec.CommandContext(ctx, "tail", "-n", tailLines, logPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
