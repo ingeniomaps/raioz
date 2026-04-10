@@ -46,6 +46,26 @@ func inferServicePort(svc config.Service, detection detect.DetectResult) int {
 		return 8080
 	case detect.RuntimePHP:
 		return 8000
+	case detect.RuntimeJava, detect.RuntimeScala, detect.RuntimeClojure:
+		return 8080
+	case detect.RuntimeDotnet:
+		return 5000
+	case detect.RuntimeRuby:
+		return 3000
+	case detect.RuntimeElixir:
+		return 4000
+	case detect.RuntimeDart:
+		return 8080
+	case detect.RuntimeSwift:
+		return 8080
+	case detect.RuntimeZig:
+		return 8080
+	case detect.RuntimeGleam:
+		return 8080
+	case detect.RuntimeHaskell:
+		return 3000
+	case detect.RuntimeDeno, detect.RuntimeBun:
+		return 3000
 	}
 
 	return 0

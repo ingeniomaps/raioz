@@ -12,6 +12,19 @@ const (
 	RuntimePython     Runtime = "python"
 	RuntimeRust       Runtime = "rust"
 	RuntimePHP        Runtime = "php"
+	RuntimeJava       Runtime = "java"
+	RuntimeDotnet     Runtime = "dotnet"
+	RuntimeRuby       Runtime = "ruby"
+	RuntimeElixir     Runtime = "elixir"
+	RuntimeDart       Runtime = "dart"
+	RuntimeSwift      Runtime = "swift"
+	RuntimeScala      Runtime = "scala"
+	RuntimeClojure    Runtime = "clojure"
+	RuntimeZig        Runtime = "zig"
+	RuntimeGleam      Runtime = "gleam"
+	RuntimeHaskell    Runtime = "haskell"
+	RuntimeDeno       Runtime = "deno"
+	RuntimeBun        Runtime = "bun"
 	RuntimeImage      Runtime = "image"
 	RuntimeUnknown    Runtime = "unknown"
 )
@@ -35,7 +48,5 @@ func (r *DetectResult) IsDocker() bool {
 
 // IsHost returns true if the service runs directly on the host.
 func (r *DetectResult) IsHost() bool {
-	return r.Runtime == RuntimeNPM || r.Runtime == RuntimeGo ||
-		r.Runtime == RuntimeMake || r.Runtime == RuntimePython ||
-		r.Runtime == RuntimeRust || r.Runtime == RuntimePHP
+	return !r.IsDocker() && r.Runtime != RuntimeUnknown
 }

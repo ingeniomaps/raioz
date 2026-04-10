@@ -94,7 +94,12 @@ func (d *Dispatcher) selectRunner(runtime detect.Runtime) (runner, error) {
 	case detect.RuntimeDockerfile:
 		return d.dockerfile, nil
 	case detect.RuntimeNPM, detect.RuntimeGo, detect.RuntimeMake,
-		detect.RuntimePython, detect.RuntimeRust, detect.RuntimePHP:
+		detect.RuntimePython, detect.RuntimeRust, detect.RuntimePHP,
+		detect.RuntimeJava, detect.RuntimeDotnet, detect.RuntimeRuby,
+		detect.RuntimeElixir, detect.RuntimeDart, detect.RuntimeSwift,
+		detect.RuntimeScala, detect.RuntimeClojure, detect.RuntimeZig,
+		detect.RuntimeGleam, detect.RuntimeHaskell, detect.RuntimeDeno,
+		detect.RuntimeBun:
 		return d.host, nil
 	case detect.RuntimeImage:
 		return d.image, nil
