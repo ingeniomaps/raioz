@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	"raioz/internal/errors"
@@ -75,6 +76,20 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 		output.PrintKeyValue("Workspace", projectState.Workspace)
 		output.PrintKeyValue("Last Execution", formatTime(projectState.LastExecution))
 		output.PrintKeyValue("Active Services", fmt.Sprintf("%d", len(projectState.Services)))
+
+		// Enrich with live host PID checks
+		hostPIDs := uc.loadHostPIDs(projectState.Workspace)
+		for i := range projectState.Services {
+			svc := &projectState.Services[i]
+			if svc.Status != "running" {
+				// Check if host process is alive via PID
+				if pid, ok := hostPIDs[svc.Name]; ok && pid > 0 {
+					if processAlive(pid) {
+						svc.Status = "running"
+					}
+				}
+			}
+		}
 
 		// Show service summary
 		if len(projectState.Services) > 0 {
@@ -170,4 +185,44 @@ func formatTime(t time.Time) string {
 	}
 
 	return t.Format("2006-01-02 15:04:05")
+}
+
+// loadHostPIDs loads host process PIDs for a project.
+// Reads the workspace state to find projectRoot, then loads PIDs from there.
+func (uc *ListUseCase) loadHostPIDs(workspace string) map[string]int {
+	if workspace == "" {
+		return nil
+	}
+
+	ws, err := uc.deps.Workspace.Resolve(workspace)
+	if err != nil {
+		return nil
+	}
+
+	// Try loading from project root (YAML projects store PIDs there)
+	savedDeps, loadErr := uc.deps.StateManager.Load(ws)
+	if loadErr == nil && savedDeps != nil && savedDeps.ProjectRoot != "" {
+		ls, lsErr := state.LoadLocalState(savedDeps.ProjectRoot)
+		if lsErr == nil && ls != nil && len(ls.HostPIDs) > 0 {
+			return ls.HostPIDs
+		}
+	}
+
+	// Fallback: try workspace root
+	wsRoot := uc.deps.Workspace.GetRoot(ws)
+	ls, lsErr := state.LoadLocalState(wsRoot)
+	if lsErr == nil && ls != nil && len(ls.HostPIDs) > 0 {
+		return ls.HostPIDs
+	}
+
+	return nil
+}
+
+// processAlive checks if a PID is running.
+func processAlive(pid int) bool {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	return proc.Signal(syscall.Signal(0)) == nil
 }
