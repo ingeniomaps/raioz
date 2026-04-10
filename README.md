@@ -5,7 +5,6 @@
 Raioz is a meta-orchestrator for local development. It doesn't replace your tools — it connects them. Bring your Docker Compose files, Dockerfiles, npm projects, Go services, Makefiles — Raioz detects what you have and runs everything together with shared networking, HTTPS, and automatic service discovery.
 
 ```bash
-raioz init     # scans your project, generates config
 raioz up       # everything running, connected, HTTPS ready
 ```
 
@@ -18,14 +17,18 @@ raioz up       # everything running, connected, HTTPS ready
 ```
 raioz up
 
-  DEPENDENCIES
-  postgres     image     ready    :5432
-  redis        image     ready    :6379
+  ✓ postgres (image)      :5432
+  ✓ redis (image)          :6379
+  ✓ api (go)               https://api.acme.localhost
+  ✓ frontend (npm)         https://frontend.acme.localhost
 
-  SERVICES
-  api          go/host   ready    https://api.localhost
-  frontend     npm/host  ready    https://frontend.localhost
-  worker       docker    ready    https://worker.localhost
+  Watching 1 service(s): [api]
+  Press Ctrl+C to stop
+
+  api      │ API starting on :8080
+  frontend │ Frontend running on :3000
+  redis    │ Ready to accept connections
+  postgres │ database system is ready
 ```
 
 ## Quick Start
@@ -41,218 +44,242 @@ git clone https://github.com/ingeniomaps/raioz.git
 cd raioz && make install
 ```
 
-### Option A: Auto-scan (recommended)
+### Option A: Zero-config (just run it)
 
 ```bash
 cd your-project/
-raioz init        # scans directories, detects services, infers dependencies from .env files
+raioz up          # auto-detects services and dependencies
+```
+
+Raioz scans subdirectories for project files (go.mod, package.json, Dockerfile, etc.) and reads `.env` files to infer infrastructure needs (`DATABASE_URL=postgres://...` adds postgres automatically).
+
+### Option B: Generate config
+
+```bash
+cd your-project/
+raioz init        # scans and generates raioz.yaml
 raioz up          # done
 ```
 
-### Option B: Write config manually
-
-Create `raioz.yaml`:
+### Option C: Write config manually
 
 ```yaml
+# raioz.yaml
 project: my-app
 
 services:
   api:
     path: ./api
     dependsOn: [postgres, redis]
+    watch: true
 
   frontend:
     path: ./frontend
-    dependsOn: [api]
+    watch: native
 
 dependencies:
   postgres:
     image: postgres:16
     ports: ["5432"]
+    env: .env.postgres
 
   redis:
     image: redis:7
 ```
 
-```bash
-raioz up
-```
+## Supported Runtimes (24)
 
-That's it. Raioz detects that `./api` has a `go.mod` (runs with `go run .`), `./frontend` has a `package.json` (runs with `npm run dev`), and postgres/redis are Docker images. Everything shares a network and can reach each other.
+Raioz auto-detects the runtime from project files:
+
+| Runtime | Trigger file | Start command |
+|---------|-------------|---------------|
+| Docker Compose | `compose.yml` | `docker compose up` |
+| Dockerfile | `Dockerfile` | `docker build + run` |
+| **Node.js** | `package.json` | `npm run dev` / `yarn` / `pnpm` / `bun` |
+| **Go** | `go.mod` | `go run .` (or `air` if `.air.toml` exists) |
+| **Python** | `pyproject.toml` | `python -m flask run` |
+| **Rust** | `Cargo.toml` | `cargo run` |
+| **PHP** | `composer.json` | `php artisan serve` (Laravel) / `php -S` |
+| **Java/Kotlin** | `pom.xml` / `build.gradle` | `./mvnw spring-boot:run` / `./gradlew bootRun` |
+| **C#/.NET** | `*.csproj` | `dotnet watch run` |
+| **Ruby** | `Gemfile` | `bundle exec rails server` |
+| **Elixir** | `mix.exs` | `mix phx.server` |
+| **Scala** | `build.sbt` | `sbt run` |
+| **Swift** | `Package.swift` | `swift run` |
+| **Dart** | `pubspec.yaml` | `dart run` |
+| **Clojure** | `deps.edn` / `project.clj` | `clj -M:dev` / `lein run` |
+| **Haskell** | `stack.yaml` / `*.cabal` | `stack run` / `cabal run` |
+| **Zig** | `build.zig` | `zig build run` |
+| **Gleam** | `gleam.toml` | `gleam run` |
+| **Deno** | `deno.json` | `deno task dev` |
+| **Bun** | `bunfig.toml` | `bun run dev` |
+| Make | `Makefile` | `make dev` |
+| Just | `justfile` | `just dev` |
+| Task | `Taskfile.yml` | `task dev` |
+
+Package managers are auto-detected from lock files: `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm, `bun.lockb` → bun.
+
+## Container Runtimes
+
+Raioz defaults to Docker but supports any compatible CLI:
+
+```bash
+# Docker (default)
+raioz up
+
+# Podman
+RAIOZ_RUNTIME=podman raioz up
+
+# nerdctl (containerd)
+RAIOZ_RUNTIME=nerdctl raioz up
+```
 
 ## Key Features
 
-### Zero learning curve
-
-Raioz reads what you already have. Your docker-compose.yml, your Dockerfile, your package.json — they stay exactly as they are. Raioz just connects them.
-
-### Automatic service discovery
-
-Each service gets environment variables with the correct hosts for its dependencies:
-
-```bash
-# Inside a Docker container calling another container:
-POSTGRES_HOST=postgres          # Docker DNS name
-REDIS_URL=http://redis:6379
-
-# Inside a host process (npm/go) calling a Docker container:
-POSTGRES_HOST=localhost          # Port mapped to host
-REDIS_URL=http://localhost:6379
-
-# With proxy enabled:
-API_HTTPS_URL=https://api.localhost
-```
-
-Raioz calculates the right host automatically based on where each service runs.
-
-### HTTPS everywhere with Caddy proxy
+### HTTPS everywhere
 
 ```yaml
-project: my-app
-proxy: true       # that's it
+proxy: true                    # simple
+proxy:
+  domain: acme.localhost       # custom domain
 ```
 
-Every service gets `https://<name>.localhost` — works from the browser AND from inside Docker containers. No port conflicts, no certificate errors. Uses Caddy + mkcert under the hood.
+Every service gets `https://<name>.acme.localhost`. Uses Caddy + mkcert. The domain structure mirrors production: `api.acme.localhost` → `api.acme.com`.
 
-### Hot-swap dependencies
+### Three modes of operation
 
 ```bash
-# Postgres runs as Docker image by default
-raioz up
-# ✓ postgres (image: postgres:16) :5432
-
-# Need to modify postgres config? Clone it locally:
-git clone git@github.com:org/custom-pg.git ./local-pg
-raioz dev postgres ./local-pg
-# ✓ postgres: image → local (./local-pg)
-# All services still see it as "postgres" — zero config change
-
-# Done? Go back to the image:
-raioz dev --reset postgres
+raioz up                # detach: start everything and exit
+raioz up --attach       # foreground: stream all logs, Ctrl+C to stop
+raioz up                # with watch: true — logs + auto-restart on file changes
 ```
 
-### Smart init
+### Multiplexed logs
 
-`raioz init` scans your project and infers everything:
+When running in foreground mode (`--attach` or `watch: true`), logs from all services are shown with colored prefixes:
 
-- Detects services from subdirectory structure (Dockerfile, package.json, go.mod, Makefile)
-- Reads `.env` files to find infrastructure needs (`DATABASE_URL=postgres://...` → adds postgres dependency)
-- Wires `dependsOn` automatically based on what each service references
-- Reads existing `docker-compose.yml` to extract infra services
-
-### Interactive dashboard
-
-```bash
-raioz dashboard   # or: raioz tui
 ```
-
-Live terminal UI showing all services, their status, CPU/memory, proxy URLs, and streaming logs. Navigate with keyboard, restart/stop services, open shells — all from one terminal.
+  api      │ GET /health 200 2ms
+  frontend │ compiled successfully
+  postgres │ database system is ready
+  redis    │ Ready to accept connections
+```
 
 ### File watching
 
 ```yaml
 services:
   api:
-    path: ./api
-    watch: true       # Raioz restarts on file changes
-
+    watch: true       # Raioz restarts on file changes (debounced)
   frontend:
-    path: ./frontend
-    watch: native     # Next.js/Vite has its own hot-reload, Raioz stays out
+    watch: native     # Service has its own hot-reload (Next.js, Vite)
 ```
 
-### Dependency graph
+### Automatic service discovery
+
+Each service gets environment variables with the correct hosts:
 
 ```bash
-raioz graph
-#   frontend ──> api ──> postgres, redis
-#   worker ──> postgres
-#
-#   Dependencies:
-#     [postgres]
-#     [redis]
+# Host process calling a Docker container:
+POSTGRES_HOST=localhost
+REDIS_URL=http://localhost:6379
 
-raioz graph --format dot | dot -Tpng -o architecture.png
+# Docker container calling another container:
+POSTGRES_HOST=postgres
+REDIS_URL=http://redis:6379
+
+# With proxy:
+API_URL=https://api.acme.localhost
 ```
 
-### Volume snapshots
+### Smart init
+
+`raioz init` scans your project and infers everything:
+
+- Detects services from subdirectory structure
+- Reads `.env` files to find infrastructure needs
+- Auto-detects `.env.postgres` files and wires them to dependencies
+- Wires `dependsOn` automatically
+
+### Workspace naming
+
+```yaml
+workspace: acme          # optional
+project: e-commerce
+```
+
+With workspace set, Docker resources use it as prefix instead of "raioz":
+
+```
+acme-e-commerce-api        # container
+acme-e-commerce-postgres   # container
+acme-net                   # network
+```
+
+### Process lifecycle
+
+Host processes (Go, npm, etc.) are tracked with PIDs:
 
 ```bash
-raioz snapshot create before-migration
-# run your migration...
-# something broke?
-raioz snapshot restore before-migration
+raioz status
+  Dependencies (2)
+    postgres    running    0.02%    66MB    postgres:16
+    redis       running    0.23%    16MB    redis:7
+
+  Services (2)
+    api         go         running    pid:12345
+    frontend    npm        running    pid:12346
 ```
 
-### Tunnel to internet
+`raioz down` kills all processes. `raioz up` cleans stale processes before starting.
+
+### More features
 
 ```bash
-raioz tunnel api
-# ✓ Tunnel active: https://abc123.trycloudflare.com → localhost:3000
-# Share with teammates, test webhooks, mobile development
+raioz list                    # all active projects across workspaces
+raioz graph                   # visualize dependency graph (ASCII/DOT/JSON)
+raioz dev postgres ./local-pg # hot-swap dependency to local code
+raioz snapshot create backup  # backup Docker volumes
+raioz tunnel api              # expose to internet via cloudflared
+raioz doctor                  # check system requirements
+raioz clean                   # remove stopped containers
 ```
-
-## All Commands
-
-| Command | Description |
-|---------|-------------|
-| `raioz up` | Start everything |
-| `raioz down` | Stop everything |
-| `raioz status` | Show service status, runtime, URLs |
-| `raioz logs [service]` | View logs (supports --follow) |
-| `raioz restart [service]` | Restart services |
-| `raioz exec <service> [cmd]` | Run command in container / service dir |
-| `raioz dashboard` | Interactive TUI (alias: `tui`) |
-| `raioz dev <dep> <path>` | Hot-swap dependency to local |
-| `raioz graph` | Visualize dependencies (ASCII/DOT/JSON) |
-| `raioz snapshot` | Backup/restore Docker volumes |
-| `raioz tunnel <service>` | Expose service to internet |
-| `raioz proxy status` | Manage Caddy reverse proxy |
-| `raioz init` | Auto-scan and generate raioz.yaml |
-| `raioz doctor` | Check system requirements |
-| `raioz check` | Validate config |
-| `raioz clean` | Remove stopped containers/volumes |
-| `raioz migrate yaml` | Convert .raioz.json to raioz.yaml |
 
 ## Config Reference
 
 ```yaml
 # raioz.yaml — full reference
-workspace: acme-corp          # optional: groups projects on same network
+workspace: acme-corp          # optional: prefix for Docker resources
 project: e-commerce           # required: project name
-proxy: true                   # optional: enables Caddy + HTTPS
+proxy:                        # optional: enables Caddy + HTTPS
+  domain: acme.localhost      # custom domain (default: localhost)
 
-pre: ./scripts/fetch-secrets.sh   # run before starting (secrets, env)
-post: rm -f .env.*.tmp            # run after starting (cleanup)
+pre: ./scripts/fetch-secrets.sh   # run before starting
+post: rm -f .env.*.tmp            # run after starting
 
 services:
   api:
     path: ./api                   # local directory (auto-detected runtime)
     dependsOn: [postgres, redis]  # start these first
-    health: /api/health           # health check endpoint
     watch: true                   # restart on file changes
+    health: /api/health           # health check endpoint
     ports: ["3000"]               # port mappings
     env: .env.api                 # service-specific env file
     hostname: api                 # custom proxy hostname
     routing:
       ws: true                    # WebSocket support
-      stream: true                # SSE/streaming (disable buffering)
-      grpc: true                  # gRPC (h2c protocol)
-      tunnel: true                # auto-expose via cloudflared
+      stream: true                # SSE/streaming
+      grpc: true                  # gRPC (h2c)
 
   frontend:
     path: ./frontend
-    watch: native                 # has its own hot-reload (Vite, Next.js)
-
-  auth-service:
-    git: git@github.com:org/auth.git   # clone from git
-    branch: develop
+    watch: native                 # has its own hot-reload
 
 dependencies:
   postgres:
     image: postgres:16
     ports: ["5432"]
-    env: .env.postgres            # env file for this dependency
+    env: .env.postgres
 
   redis:
     image: redis:7
@@ -263,28 +290,33 @@ dependencies:
 ```
 raioz up
   │
-  ├── Load raioz.yaml
-  ├── Run pre-hook (fetch secrets, etc.)
+  ├── Load raioz.yaml (or auto-detect)
+  ├── Run pre-hook
   ├── Create Docker network
   │
-  ├── For each dependency:
-  │   └── docker pull + run on shared network
+  ├── Dependencies (Docker images):
+  │   ├── Pull images
+  │   ├── Start containers on shared network
+  │   └── Health check with diagnostics
   │
-  ├── For each service:
-  │   ├── Detect runtime (compose? Dockerfile? npm? go? make?)
+  ├── Services (native runtimes):
+  │   ├── Detect runtime from project files
   │   ├── Inject service discovery env vars
-  │   └── Start with native tool:
-  │       ├── docker compose -f <theirs> up (for compose projects)
-  │       ├── docker build + run (for Dockerfiles)
-  │       ├── npm run dev (for Node.js)
-  │       ├── go run . (for Go)
-  │       └── make dev (for Makefiles)
+  │   ├── Start with native tool (go run, npm dev, etc.)
+  │   └── Save PIDs to state file
   │
-  ├── Start Caddy proxy (if proxy: true)
-  │   └── https://<service>.localhost for each service
+  ├── Proxy (if enabled):
+  │   ├── Generate mkcert certificates
+  │   ├── Start Caddy with per-service routes
+  │   └── https://<service>.<domain> for each service
   │
-  ├── Run post-hook (cleanup)
-  └── Save state
+  ├── File watcher (if watch: true):
+  │   ├── Monitor service directories
+  │   ├── Debounce file changes (500ms)
+  │   └── Auto-restart changed services
+  │
+  ├── Run post-hook
+  └── Stream multiplexed logs (foreground mode)
 ```
 
 ## Zero Lock-in
@@ -293,8 +325,7 @@ Delete `raioz.yaml` and your project works exactly the same. Raioz never modifie
 
 ## Requirements
 
-- Go 1.22+
-- Docker + Docker Compose
+- Docker (or Podman/nerdctl) + Compose plugin
 - Optional: mkcert (for local HTTPS), cloudflared (for tunnels)
 
 ## Development
