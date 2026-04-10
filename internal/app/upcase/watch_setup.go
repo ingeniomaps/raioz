@@ -87,6 +87,7 @@ func startWatcher(
 
 	output.PrintProgressDone(fmt.Sprintf("Watching %d service(s): %v", watchCount, names))
 	output.PrintInfo("Press Ctrl+C to stop")
+	fmt.Println()
 
 	// Handle Ctrl+C gracefully
 	sigCh := make(chan os.Signal, 1)
@@ -95,10 +96,13 @@ func startWatcher(
 	watchCtx, cancel := context.WithCancel(ctx)
 	go w.Run(watchCtx)
 
+	// Stream logs from all services (host + docker)
+	go streamAllLogs(watchCtx, deps, detections)
+
 	// Block until signal
 	<-sigCh
 	fmt.Println()
-	output.PrintInfo("Stopping watcher...")
+	output.PrintInfo("Stopping...")
 	cancel()
 	w.Close()
 }
