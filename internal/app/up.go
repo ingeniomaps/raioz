@@ -14,6 +14,7 @@ type UpOptions struct {
 	DryRun       bool
 	Only         []string
 	Host         string // Bind address for shared dev server (e.g., "0.0.0.0")
+	Attach       bool   // Stay attached and stream logs without file watching
 }
 
 // UpUseCase handles the "up" use case - starting a project
@@ -49,6 +50,7 @@ func (uc *UpUseCase) Execute(ctx context.Context, opts UpOptions) error {
 		DryRun:       opts.DryRun,
 		Only:         opts.Only,
 		Host:         opts.Host,
+		Attach:       opts.Attach,
 	}
 	return uc.useCase.Execute(ctx, options)
 }

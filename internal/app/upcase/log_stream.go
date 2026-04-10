@@ -7,12 +7,32 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sync"
+	"syscall"
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/output"
 )
+
+// streamForeground streams logs from all services until Ctrl+C (no file watching).
+func streamForeground(ctx context.Context, deps *config.Deps, detections DetectionMap) {
+	output.PrintInfo("Streaming logs (Ctrl+C to stop)")
+	fmt.Println()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	streamCtx, cancel := context.WithCancel(ctx)
+	go streamAllLogs(streamCtx, deps, detections)
+
+	<-sigCh
+	fmt.Println()
+	output.PrintInfo("Stopping...")
+	cancel()
+}
 
 // ANSI colors for service log prefixes
 var serviceColors = []string{

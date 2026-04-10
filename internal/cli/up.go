@@ -16,6 +16,7 @@ var (
 	dryRun       bool
 	onlyServices []string
 	hostBind     string
+	attach       bool
 )
 
 var upCmd = &cobra.Command{
@@ -52,6 +53,7 @@ var upCmd = &cobra.Command{
 			DryRun:       dryRun,
 			Only:         onlyServices,
 			Host:         hostBind,
+			Attach:       attach,
 		})
 	},
 }
@@ -63,4 +65,5 @@ func init() {
 	upCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
 	upCmd.Flags().StringSliceVar(&onlyServices, "only", nil, "Start only these services (with their dependencies)")
 	upCmd.Flags().StringVar(&hostBind, "host", "", "Bind address for shared dev server (e.g., 0.0.0.0)")
+	upCmd.Flags().BoolVar(&attach, "attach", false, "Stay attached and stream logs (without file watching)")
 }

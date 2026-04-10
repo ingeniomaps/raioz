@@ -24,6 +24,7 @@ type Options struct {
 	DryRun       bool
 	Only         []string
 	Host         string // Bind address for shared dev server (e.g., "0.0.0.0")
+	Attach       bool   // Stay attached and stream logs without file watching
 }
 
 // Dependencies contains the dependencies needed by the up use case
@@ -328,10 +329,16 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	// Final summary
 	uc.showSummary(ctx, deps, serviceNames, infraNames, startTime)
 
-	// Start file watcher for services with watch: true (blocks until Ctrl+C)
+	// Foreground mode: watch + logs (blocks until Ctrl+C)
 	if orchResult != nil {
-		startWatcher(ctx, deps, orchResult.dispatcher, orchResult.detections,
-			orchResult.networkName, projectDir)
+		if opts.Attach {
+			// --attach: stream logs without file watching
+			streamForeground(ctx, deps, orchResult.detections)
+		} else {
+			// watch: true services get file watching + logs
+			startWatcher(ctx, deps, orchResult.dispatcher, orchResult.detections,
+				orchResult.networkName, projectDir)
+		}
 	}
 
 	return nil
