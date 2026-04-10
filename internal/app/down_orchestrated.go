@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"raioz/internal/config"
 	"raioz/internal/logging"
@@ -43,9 +44,12 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 			if pid > 0 {
 				logging.InfoWithContext(ctx, "Stopping host process",
 					"service", name, "pid", pid)
-				killProcess(pid)
+				killProcessGroup(pid)
 			}
 		}
+		// Clear PIDs from state
+		localState.HostPIDs = make(map[string]int)
+		state.SaveLocalState(projectDir, localState)
 	}
 
 	// Stop raioz containers by name pattern
@@ -116,7 +120,13 @@ func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps) {
 	}
 }
 
-// killProcess sends SIGTERM then SIGKILL to a process.
-func killProcess(pid int) {
+// killProcessGroup sends SIGTERM to the process group, then SIGKILL.
+// Killing the group ensures child processes (e.g., go run's compiled binary) are also stopped.
+func killProcessGroup(pid int) {
+	pgid, err := syscall.Getpgid(pid)
+	if err == nil && pgid > 0 {
+		syscall.Kill(-pgid, syscall.SIGTERM)
+	}
+	// Fallback: kill PID directly
 	exec.Command("kill", fmt.Sprintf("%d", pid)).Run()
 }

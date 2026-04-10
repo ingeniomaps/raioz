@@ -27,6 +27,9 @@ func (uc *UseCase) processOrchestration(
 	ws *interfaces.Workspace,
 	projectDir string,
 ) (string, []string, []string, error) {
+	// Step 0: Kill stale host processes from previous run
+	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name)
+
 	// Step 1: Detect runtimes
 	output.PrintProgress(i18n.T("up.detecting_runtimes"))
 	detections := detectRuntimes(ctx, deps)
@@ -151,6 +154,9 @@ func (uc *UseCase) processOrchestration(
 			"duration_ms", time.Since(svcStart).Milliseconds())
 		output.PrintProgressDone(i18n.T("up.services_started", len(serviceNames)))
 	}
+
+	// Persist host PIDs so raioz down / next raioz up can find them
+	saveHostPIDs(projectDir, deps.Project.Name, dispatcher, serviceNames, detections)
 
 	// Step 4: Start proxy if enabled
 	if deps.Proxy && uc.deps.ProxyManager != nil {

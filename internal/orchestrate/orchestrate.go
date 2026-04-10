@@ -82,6 +82,11 @@ type runner interface {
 	Logs(ctx context.Context, svc interfaces.ServiceContext, follow bool, tail int) error
 }
 
+// GetHostPID returns the PID of a host service, or 0 if not tracked.
+func (d *Dispatcher) GetHostPID(serviceName string) int {
+	return d.host.GetPID(serviceName)
+}
+
 func (d *Dispatcher) selectRunner(runtime detect.Runtime) (runner, error) {
 	switch runtime {
 	case detect.RuntimeCompose:
