@@ -75,10 +75,16 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 		if _, exists := cfg.Deps[dep.Name]; exists {
 			continue
 		}
-		cfg.Deps[dep.Name] = config.YAMLDependency{
+		yamlDep := config.YAMLDependency{
 			Image: dep.Image,
 			Ports: config.YAMLStringSlice{dep.Port},
 		}
+		// Auto-detect .env.{name} file (e.g., .env.postgres)
+		envFile := ".env." + dep.Name
+		if _, err := os.Stat(filepath.Join(dir, envFile)); err == nil {
+			yamlDep.Env = config.YAMLStringSlice{envFile}
+		}
+		cfg.Deps[dep.Name] = yamlDep
 		output.PrintInfo(fmt.Sprintf("  %s → %s (from %s)", dep.Name, dep.Image, dep.Source))
 	}
 

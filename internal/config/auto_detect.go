@@ -75,13 +75,17 @@ func AutoDetect(dir string) (*Deps, error) {
 	// Infer dependencies from .env files
 	inferredDeps, inferredLinks := detect.InferDepsFromEnv(absDir)
 	for _, dep := range inferredDeps {
-		infra[dep.Name] = InfraEntry{
-			Inline: &Infra{
-				Image: extractAutoImage(dep.Image),
-				Tag:   extractAutoTag(dep.Image),
-				Ports: []string{dep.Port},
-			},
+		infraEntry := &Infra{
+			Image: extractAutoImage(dep.Image),
+			Tag:   extractAutoTag(dep.Image),
+			Ports: []string{dep.Port},
 		}
+		// Auto-detect .env.{name} file (e.g., .env.postgres)
+		envFile := ".env." + dep.Name
+		if _, err := os.Stat(filepath.Join(absDir, envFile)); err == nil {
+			infraEntry.Env = &EnvValue{Files: []string{envFile}}
+		}
+		infra[dep.Name] = InfraEntry{Inline: infraEntry}
 		output.PrintInfo(fmt.Sprintf("  %s → %s (from %s)", dep.Name, dep.Image, dep.Source))
 	}
 
