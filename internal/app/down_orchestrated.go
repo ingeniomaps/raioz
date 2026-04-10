@@ -33,6 +33,9 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		return nil // Not a YAML project — fall through to legacy down
 	}
 
+	// Set naming prefix from workspace
+	naming.SetPrefix(deps.Workspace)
+
 	projectDir, _ := filepath.Abs(filepath.Dir(configPath))
 	projectName := deps.Project.Name
 
@@ -54,7 +57,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	}
 
 	// Stop raioz containers by name pattern
-	containerPrefix := fmt.Sprintf("raioz-%s-", projectName)
+	containerPrefix := naming.ContainerPrefix(projectName)
 	stopContainersByPrefix(ctx, containerPrefix)
 
 	// Stop dependency compose projects
