@@ -49,12 +49,24 @@ func Detect(path string) DetectResult {
 		return result
 	}
 
-	// Check for package.json (Node.js)
+	// Check for package.json (Node.js — npm, yarn, pnpm, or bun)
 	packageJSON := filepath.Join(path, "package.json")
 	if fileExists(packageJSON) {
 		result.Runtime = RuntimeNPM
 		result.Files = append(result.Files, "package.json")
 		inferFromPackageJSON(&result, packageJSON)
+		// Detect package manager from lock file
+		switch {
+		case fileExists(filepath.Join(path, "bun.lockb")) || fileExists(filepath.Join(path, "bunfig.toml")):
+			result.StartCommand = replaceNPM(result.StartCommand, "bun")
+			result.DevCommand = replaceNPM(result.DevCommand, "bun")
+		case fileExists(filepath.Join(path, "pnpm-lock.yaml")):
+			result.StartCommand = replaceNPM(result.StartCommand, "pnpm")
+			result.DevCommand = replaceNPM(result.DevCommand, "pnpm")
+		case fileExists(filepath.Join(path, "yarn.lock")):
+			result.StartCommand = replaceNPM(result.StartCommand, "yarn")
+			result.DevCommand = replaceNPM(result.DevCommand, "yarn")
+		}
 		return result
 	}
 
@@ -322,6 +334,17 @@ func Detect(path string) DetectResult {
 	}
 
 	return result
+}
+
+// replaceNPM replaces "npm" with the detected package manager in a command.
+func replaceNPM(cmd, pm string) string {
+	if cmd == "" {
+		return ""
+	}
+	if len(cmd) >= 3 && cmd[:3] == "npm" {
+		return pm + cmd[3:]
+	}
+	return cmd
 }
 
 // hasGlob returns true if any file matches the glob pattern in the directory.

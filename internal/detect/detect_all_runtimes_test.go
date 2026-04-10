@@ -133,6 +133,24 @@ func TestDetect_AllRuntimes(t *testing.T) {
 			expected: RuntimeTask,
 			command:  "task dev",
 		},
+		{
+			name:     "Node.js/yarn",
+			files:    map[string]string{"package.json": `{"scripts":{"dev":"next dev"}}`, "yarn.lock": ""},
+			expected: RuntimeNPM,
+			command:  "yarn",
+		},
+		{
+			name:     "Node.js/pnpm",
+			files:    map[string]string{"package.json": `{"scripts":{"dev":"vite"}}`, "pnpm-lock.yaml": ""},
+			expected: RuntimeNPM,
+			command:  "pnpm",
+		},
+		{
+			name:     "Node.js/bun lockfile",
+			files:    map[string]string{"package.json": `{"scripts":{"dev":"next dev"}}`, "bun.lockb": ""},
+			expected: RuntimeNPM,
+			command:  "bun",
+		},
 		// Existing runtimes (regression tests)
 		{
 			name:     "Go",
