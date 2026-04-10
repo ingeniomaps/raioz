@@ -44,6 +44,8 @@ func inferServicePort(svc config.Service, detection detect.DetectResult) int {
 		return 5000
 	case detect.RuntimeRust:
 		return 8080
+	case detect.RuntimePHP:
+		return 8000
 	}
 
 	return 0

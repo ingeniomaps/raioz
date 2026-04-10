@@ -11,6 +11,7 @@ const (
 	RuntimeMake       Runtime = "make"
 	RuntimePython     Runtime = "python"
 	RuntimeRust       Runtime = "rust"
+	RuntimePHP        Runtime = "php"
 	RuntimeImage      Runtime = "image"
 	RuntimeUnknown    Runtime = "unknown"
 )
@@ -36,5 +37,5 @@ func (r *DetectResult) IsDocker() bool {
 func (r *DetectResult) IsHost() bool {
 	return r.Runtime == RuntimeNPM || r.Runtime == RuntimeGo ||
 		r.Runtime == RuntimeMake || r.Runtime == RuntimePython ||
-		r.Runtime == RuntimeRust
+		r.Runtime == RuntimeRust || r.Runtime == RuntimePHP
 }

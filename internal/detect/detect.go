@@ -104,6 +104,22 @@ func Detect(path string) DetectResult {
 		return result
 	}
 
+	// Check for PHP (composer.json)
+	composerJSON := filepath.Join(path, "composer.json")
+	if fileExists(composerJSON) {
+		result.Runtime = RuntimePHP
+		result.Files = append(result.Files, "composer.json")
+		result.StartCommand = "php -S 0.0.0.0:8000 -t public"
+		result.Port = 8000
+		result.HasHotReload = false
+		// Check for artisan (Laravel)
+		if fileExists(filepath.Join(path, "artisan")) {
+			result.StartCommand = "php artisan serve --host=0.0.0.0"
+			result.Port = 8000
+		}
+		return result
+	}
+
 	return result
 }
 
