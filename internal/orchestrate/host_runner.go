@@ -3,7 +3,6 @@ package orchestrate
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,7 +47,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 
-	// Log output to files
+	// Redirect output to log file (persists after raioz up exits)
 	logDir := filepath.Join(os.TempDir(), "raioz-orchestrate", "logs")
 	os.MkdirAll(logDir, 0755)
 
@@ -57,8 +56,11 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 		return fmt.Errorf("failed to create log file: %w", err)
 	}
 
-	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
-	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	// Use SysProcAttr to detach so the child inherits the file descriptor
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	// Start in background
 	if err := cmd.Start(); err != nil {
@@ -67,7 +69,8 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	}
 
 	r.processes[svc.Name] = cmd.Process.Pid
-	logFile.Close()
+	// Don't close logFile — the child process owns the fd now
+	// Go's finalizer will close it when the process is collected
 
 	logging.InfoWithContext(ctx, "Host service started",
 		"service", svc.Name, "pid", cmd.Process.Pid)
@@ -143,7 +146,7 @@ func (r *HostRunner) Status(_ context.Context, svc interfaces.ServiceContext) (s
 
 // Logs tails the log file for the host service.
 func (r *HostRunner) Logs(ctx context.Context, svc interfaces.ServiceContext, follow bool, tail int) error {
-	logPath := filepath.Join(os.TempDir(), "raioz", "logs", svc.Name+".log")
+	logPath := filepath.Join(os.TempDir(), "raioz-orchestrate", "logs", svc.Name+".log")
 
 	args := []string{}
 	if tail > 0 {
