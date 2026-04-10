@@ -103,9 +103,12 @@ func (uc *UseCase) processOrchestration(
 			"count", len(infraNames),
 			"duration_ms", time.Since(infraStart).Milliseconds())
 
-		// Wait for infra health
+		// Wait for infra health with diagnostics
 		output.PrintProgress(i18n.T("up.waiting_infra_healthy"))
-		// TODO: Implement health waiting for orchestrated mode
+		if err := checkInfraHealth(ctx, infraNames, deps.Project.Name); err != nil {
+			return nil, errors.New(errors.ErrCodeDockerNotRunning, err.Error()).
+				WithSuggestion("Fix the issue above and run 'raioz up' again")
+		}
 		output.PrintProgressDone(i18n.T("up.infra_healthy"))
 	}
 
