@@ -170,6 +170,16 @@ func (uc *UseCase) processOrchestration(
 				port = detection.Port
 			}
 
+			// If port not detected, try config ports or env
+			if port == 0 {
+				if svc, ok := deps.Services[name]; ok {
+					port = inferServicePort(svc, detection)
+				}
+				if entry, ok := deps.Infra[name]; ok && entry.Inline != nil && len(entry.Inline.Ports) > 0 {
+					port = parseFirstPort(entry.Inline.Ports[0])
+				}
+			}
+
 			// Check for custom hostname
 			if svc, ok := deps.Services[name]; ok && svc.Hostname != "" {
 				hostname = svc.Hostname
