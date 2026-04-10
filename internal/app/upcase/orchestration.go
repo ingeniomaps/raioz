@@ -166,7 +166,8 @@ func (uc *UseCase) processOrchestration(
 
 	// Step 4: Start proxy if enabled
 	if deps.Proxy && uc.deps.ProxyManager != nil {
-		// Apply proxy configuration from raioz.yaml
+		// Apply proxy configuration
+		uc.deps.ProxyManager.SetProjectName(deps.Project.Name)
 		if deps.ProxyConfig != nil {
 			uc.deps.ProxyManager.SetDomain(deps.ProxyConfig.Domain)
 			uc.deps.ProxyManager.SetTLSMode(deps.ProxyConfig.TLS)

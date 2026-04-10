@@ -17,6 +17,7 @@ import (
 type Manager struct {
 	routes      map[string]interfaces.ProxyRoute
 	networkName string
+	projectName string // used for container/volume naming
 	domain      string // default: "localhost"
 	certsDir    string // path to mkcert certificates
 	tlsMode     string // "mkcert" (default/local) | "letsencrypt" (server)
@@ -52,15 +53,20 @@ func (m *Manager) SetBindHost(host string) {
 	m.bindHost = host
 }
 
-// ContainerName returns the proxy container name for a workspace.
-func ContainerName(workspace string) string {
-	return naming.ProxyContainer(workspace)
+// SetProjectName sets the project name for container/volume naming.
+func (m *Manager) SetProjectName(name string) {
+	m.projectName = name
+}
+
+// ContainerName returns the proxy container name.
+func ContainerName(project string) string {
+	return naming.ProxyContainer(project)
 }
 
 // Start starts the Caddy proxy container on the given network.
 func (m *Manager) Start(ctx context.Context, networkName string) error {
 	m.networkName = networkName
-	containerName := ContainerName(networkName)
+	containerName := ContainerName(m.projectName)
 
 	// Ensure mkcert certificates exist before starting
 	if m.tlsMode == "mkcert" {
@@ -100,7 +106,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		"-p", httpBind,
 		"-p", httpsBind,
 		"-v", caddyfilePath + ":/etc/caddy/Caddyfile:ro",
-		"-v", naming.CaddyVolume(m.networkName)+":/data",
+		"-v", naming.CaddyVolume(m.projectName)+":/data",
 		"--add-host=host.docker.internal:host-gateway",
 	}
 
@@ -129,7 +135,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 
 // Stop stops and removes the proxy container.
 func (m *Manager) Stop(ctx context.Context) error {
-	containerName := ContainerName(m.networkName)
+	containerName := ContainerName(m.projectName)
 
 	stop := exec.CommandContext(ctx, "docker", "stop", containerName)
 	stop.Run()
@@ -168,7 +174,7 @@ func (m *Manager) Reload(ctx context.Context) error {
 		return err
 	}
 
-	containerName := ContainerName(m.networkName)
+	containerName := ContainerName(m.projectName)
 
 	// Copy new Caddyfile into the container
 	cp := exec.CommandContext(ctx, "docker", "cp", caddyfilePath, containerName+":/etc/caddy/Caddyfile")
@@ -188,7 +194,7 @@ func (m *Manager) Reload(ctx context.Context) error {
 
 // Status returns whether the proxy is running.
 func (m *Manager) Status(ctx context.Context) (bool, error) {
-	containerName := ContainerName(m.networkName)
+	containerName := ContainerName(m.projectName)
 	return m.isRunning(ctx, containerName)
 }
 

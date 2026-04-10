@@ -37,4 +37,6 @@ type ProxyManager interface {
 	SetTLSMode(mode string)
 	// SetBindHost sets the bind address (e.g., "0.0.0.0")
 	SetBindHost(host string)
+	// SetProjectName sets the project name for container/volume naming
+	SetProjectName(name string)
 }
