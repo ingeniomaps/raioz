@@ -48,3 +48,19 @@ func inferServicePort(svc config.Service, detection detect.DetectResult) int {
 
 	return 0
 }
+
+// parseFirstPort extracts the host port from a port mapping like "8080:3000" or "5432".
+func parseFirstPort(portSpec string) int {
+	parts := strings.SplitN(portSpec, ":", 2)
+	portStr := parts[0]
+
+	port := 0
+	for _, ch := range portStr {
+		if ch >= '0' && ch <= '9' {
+			port = port*10 + int(ch-'0')
+		} else {
+			break
+		}
+	}
+	return port
+}

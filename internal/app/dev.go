@@ -10,6 +10,7 @@ import (
 	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -140,7 +141,7 @@ func (uc *DevUseCase) promote(
 	// Stop the dependency container
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)
 	networkName := cfgDeps.Network.GetName()
-	containerName := fmt.Sprintf("raioz-%s-%s", cfgDeps.Project.Name, name)
+	containerName := naming.Container(cfgDeps.Project.Name, name)
 
 	stopCtx := interfaces.ServiceContext{
 		Name:          name,
@@ -193,7 +194,7 @@ func (uc *DevUseCase) resetOverride(
 
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)
 	networkName := cfgDeps.Network.GetName()
-	containerName := fmt.Sprintf("raioz-%s-%s", cfgDeps.Project.Name, name)
+	containerName := naming.Container(cfgDeps.Project.Name, name)
 
 	// Stop the local version
 	localDetection := detect.Detect(override.LocalPath)

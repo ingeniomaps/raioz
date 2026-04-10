@@ -12,6 +12,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
 )
@@ -78,7 +79,7 @@ func (uc *UseCase) processOrchestration(
 			}
 
 			// Build container name
-			containerName := fmt.Sprintf("raioz-%s-%s", deps.Project.Name, name)
+			containerName := naming.Container(deps.Project.Name, name)
 
 			svcCtx := buildServiceContext(
 				name, detection, networkName,
@@ -87,6 +88,7 @@ func (uc *UseCase) processOrchestration(
 				nil, // infra has no dependsOn
 				containerName,
 				"", // no path for images
+				deps.Project.Name,
 			)
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
@@ -126,7 +128,7 @@ func (uc *UseCase) processOrchestration(
 			svc := deps.Services[name]
 			detection := detections[name]
 
-			containerName := fmt.Sprintf("raioz-%s-%s", deps.Project.Name, name)
+			containerName := naming.Container(deps.Project.Name, name)
 
 			// Generate discovery env vars for this service
 			envVars := make(map[string]string)
@@ -143,6 +145,7 @@ func (uc *UseCase) processOrchestration(
 				svc.GetDependsOn(),
 				containerName,
 				svc.Source.Path,
+				deps.Project.Name,
 			)
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
@@ -178,7 +181,7 @@ func (uc *UseCase) processOrchestration(
 			var port int
 
 			if detection.IsDocker() {
-				target = fmt.Sprintf("raioz-%s-%s", deps.Project.Name, name)
+				target = naming.Container(deps.Project.Name, name)
 				port = detection.Port
 			} else {
 				target = "host.docker.internal"
@@ -254,7 +257,7 @@ func buildEndpoints(deps *config.Deps, detections DetectionMap) map[string]inter
 
 		if detection.IsDocker() {
 			// Docker services use their container name as host within the network
-			ep.Host = fmt.Sprintf("raioz-%s-%s", deps.Project.Name, name)
+			ep.Host = naming.Container(deps.Project.Name, name)
 		} else {
 			ep.Host = "localhost"
 		}
@@ -271,23 +274,6 @@ func buildEndpoints(deps *config.Deps, detections DetectionMap) map[string]inter
 	}
 
 	return endpoints
-}
-
-// parseFirstPort extracts the host port from a port mapping like "8080:3000" or "5432".
-func parseFirstPort(portSpec string) int {
-	// Format: "hostPort:containerPort" or just "port"
-	parts := strings.SplitN(portSpec, ":", 2)
-	portStr := parts[0]
-
-	port := 0
-	for _, ch := range portStr {
-		if ch >= '0' && ch <= '9' {
-			port = port*10 + int(ch-'0')
-		} else {
-			break
-		}
-	}
-	return port
 }
 
 // orderedServiceNames returns service names sorted by dependency order (topological sort).

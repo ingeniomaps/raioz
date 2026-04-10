@@ -7,14 +7,15 @@ import (
 
 // ServiceContext holds all information needed to start/stop a service.
 type ServiceContext struct {
-	Name         string
-	Path         string
-	Detection    detect.DetectResult
-	NetworkName  string
-	EnvVars      map[string]string
-	Ports        []string
-	DependsOn    []string
+	Name          string
+	Path          string
+	Detection     detect.DetectResult
+	NetworkName   string
+	EnvVars       map[string]string
+	Ports         []string
+	DependsOn     []string
 	ContainerName string
+	ProjectName   string // Used for project-isolated temp dirs and naming
 }
 
 // Orchestrator defines operations for starting and stopping services

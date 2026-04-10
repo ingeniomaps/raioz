@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 )
 
@@ -28,7 +29,7 @@ func checkInfraHealth(ctx context.Context, infraNames []string, projectName stri
 	for time.Now().Before(deadline) {
 		allHealthy := true
 		for _, name := range infraNames {
-			containerName := fmt.Sprintf("raioz-%s-%s", projectName, name)
+			containerName := naming.Container(projectName, name)
 			status := getContainerStatus(ctx, containerName)
 
 			switch {

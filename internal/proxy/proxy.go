@@ -10,6 +10,7 @@ import (
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 )
 
 // Manager implements interfaces.ProxyManager using Caddy as a Docker container.
@@ -53,7 +54,7 @@ func (m *Manager) SetBindHost(host string) {
 
 // ContainerName returns the proxy container name for a workspace.
 func ContainerName(workspace string) string {
-	return "raioz-proxy-" + workspace
+	return naming.ProxyContainer(workspace)
 }
 
 // Start starts the Caddy proxy container on the given network.
@@ -99,7 +100,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		"-p", httpBind,
 		"-p", httpsBind,
 		"-v", caddyfilePath + ":/etc/caddy/Caddyfile:ro",
-		"-v", "raioz-caddy-data:/data",
+		"-v", naming.CaddyVolume(m.networkName)+":/data",
 		"--add-host=host.docker.internal:host-gateway",
 	}
 

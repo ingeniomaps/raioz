@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 )
 
 // HostRunner handles services that run directly on the host (npm, go, make, python, rust).
@@ -48,10 +48,10 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	}
 
 	// Redirect output to log file (persists after raioz up exits)
-	logDir := filepath.Join(os.TempDir(), "raioz-orchestrate", "logs")
+	logDir := naming.LogDir(svc.ProjectName)
 	os.MkdirAll(logDir, 0755)
 
-	logFile, err := os.Create(filepath.Join(logDir, svc.Name+".log"))
+	logFile, err := os.Create(naming.LogFile(svc.ProjectName, svc.Name))
 	if err != nil {
 		return fmt.Errorf("failed to create log file: %w", err)
 	}
@@ -146,7 +146,7 @@ func (r *HostRunner) Status(_ context.Context, svc interfaces.ServiceContext) (s
 
 // Logs tails the log file for the host service.
 func (r *HostRunner) Logs(ctx context.Context, svc interfaces.ServiceContext, follow bool, tail int) error {
-	logPath := filepath.Join(os.TempDir(), "raioz-orchestrate", "logs", svc.Name+".log")
+	logPath := naming.LogFile(svc.ProjectName, svc.Name)
 
 	args := []string{}
 	if tail > 0 {

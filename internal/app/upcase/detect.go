@@ -66,6 +66,7 @@ func buildServiceContext(
 	dependsOn []string,
 	containerName string,
 	path string,
+	projectName string,
 ) interfaces.ServiceContext {
 	return interfaces.ServiceContext{
 		Name:          name,
@@ -76,6 +77,7 @@ func buildServiceContext(
 		Ports:         ports,
 		DependsOn:     dependsOn,
 		ContainerName: containerName,
+		ProjectName:   projectName,
 	}
 }
 

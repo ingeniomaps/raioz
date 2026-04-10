@@ -10,6 +10,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
 )
@@ -57,7 +58,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	stopContainersByPrefix(ctx, containerPrefix)
 
 	// Stop dependency compose projects
-	stopDependencyComposeProjects(ctx, deps)
+	stopDependencyComposeProjects(ctx, deps, projectName)
 
 	// Stop proxy
 	uc.stopProxy(ctx, opts)
@@ -110,11 +111,9 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 }
 
 // stopDependencyComposeProjects stops compose projects created by image_runner.
-func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps) {
+func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps, projectName string) {
 	for name := range deps.Infra {
-		composePath := filepath.Join(
-			"/tmp", "raioz-orchestrate", "deps", name, "docker-compose.yml",
-		)
+		composePath := naming.DepComposePath(projectName, name)
 		cmd := exec.CommandContext(ctx, "docker", "compose", "-f", composePath, "down")
 		cmd.Run() // Ignore errors — file might not exist
 	}

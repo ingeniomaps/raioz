@@ -11,6 +11,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -126,7 +127,7 @@ func buildRestartCallback(
 		}
 
 		svc := deps.Services[serviceName]
-		containerName := fmt.Sprintf("raioz-%s-%s", deps.Project.Name, serviceName)
+		containerName := naming.Container(deps.Project.Name, serviceName)
 
 		svcCtx := buildServiceContext(
 			serviceName, det, networkName,
@@ -135,6 +136,7 @@ func buildRestartCallback(
 			svc.GetDependsOn(),
 			containerName,
 			svc.Source.Path,
+			deps.Project.Name,
 		)
 
 		if err := dispatcher.Restart(ctx, svcCtx); err != nil {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"raioz/internal/detect"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
 )
@@ -97,11 +98,11 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 	for _, name := range services {
 		if _, isService := proj.Deps.Services[name]; isService {
 			// Host service — read from log file
-			logPath := hostServiceLogPath(name)
+			logPath := naming.LogFile(proj.ProjectName, name)
 			hostLogFiles = append(hostLogFiles, logPath)
 		} else {
 			// Docker container (dependency)
-			dockerContainers = append(dockerContainers, fmt.Sprintf("raioz-%s-%s", proj.ProjectName, name))
+			dockerContainers = append(dockerContainers, naming.Container(proj.ProjectName, name))
 		}
 	}
 
@@ -133,10 +134,6 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 	return nil
 }
 
-// hostServiceLogPath returns the log file path for a host service.
-func hostServiceLogPath(serviceName string) string {
-	return filepath.Join(os.TempDir(), "raioz-orchestrate", "logs", serviceName+".log")
-}
 
 // showHostLogs displays logs from a host service log file.
 func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) error {
@@ -170,7 +167,7 @@ func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) erro
 	}
 
 	for _, name := range services {
-		containerName := fmt.Sprintf("raioz-%s-%s", proj.ProjectName, name)
+		containerName := naming.Container(proj.ProjectName, name)
 		output.PrintProgress("Restarting " + name + "...")
 		cmd := exec.CommandContext(ctx, "docker", "restart", containerName)
 		if out, err := cmd.CombinedOutput(); err != nil {

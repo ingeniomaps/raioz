@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/naming"
 )
 
 func findConfigFile() string {
@@ -77,7 +78,7 @@ func (p *YAMLProject) ListRunningContainers(ctx context.Context) []string {
 
 // ContainerStatus returns status of a specific container.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
-	containerName := fmt.Sprintf("raioz-%s-%s", p.ProjectName, name)
+	containerName := naming.Container(p.ProjectName, name)
 	cmd := exec.CommandContext(ctx, "docker", "inspect",
 		"--format", "{{.State.Status}}", containerName)
 	out, err := cmd.Output()
@@ -89,7 +90,7 @@ func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
 
 // ContainerStats returns CPU and memory for a container.
 func (p *YAMLProject) ContainerStats(ctx context.Context, name string) (cpu, mem string) {
-	containerName := fmt.Sprintf("raioz-%s-%s", p.ProjectName, name)
+	containerName := naming.Container(p.ProjectName, name)
 	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream",
 		"--format", "{{.CPUPerc}}\t{{.MemUsage}}", containerName)
 	out, err := cmd.Output()

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/naming"
 )
 
 // tlsConfig holds TLS generation parameters.
@@ -37,7 +38,7 @@ func (m *Manager) generateCaddyfile() (string, error) {
 	}
 
 	// Write to temp file
-	dir := filepath.Join(os.TempDir(), "raioz", "proxy")
+	dir := naming.ProxyDir(m.networkName)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create proxy config dir: %w", err)
 	}

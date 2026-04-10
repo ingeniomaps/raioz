@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
 )
@@ -86,7 +87,7 @@ func (uc *StatusUseCase) showOrchestratedStatus(ctx context.Context, opts Status
 
 // queryServiceStatus checks if a service container is running.
 func (uc *StatusUseCase) queryServiceStatus(ctx context.Context, name string, deps *config.Deps) string {
-	containerName := fmt.Sprintf("raioz-%s-%s", deps.Project.Name, name)
+	containerName := naming.Container(deps.Project.Name, name)
 
 	// Try docker inspect
 	statuses, err := uc.deps.DockerRunner.GetServicesStatusWithContext(ctx, "")

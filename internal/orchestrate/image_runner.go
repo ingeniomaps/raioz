@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 
 	"gopkg.in/yaml.v3"
 )
@@ -166,6 +167,6 @@ func (r *ImageRunner) composePath(svc interfaces.ServiceContext) string {
 	// each one as a separate project (project name = directory name).
 	// Without this, all deps share the "deps" project and docker compose
 	// stops previous services when starting a new one.
-	dir := filepath.Join(os.TempDir(), "raioz-orchestrate", "deps", svc.Name)
+	dir := filepath.Dir(naming.DepComposePath(svc.ProjectName, svc.Name))
 	return filepath.Join(dir, "docker-compose.yml")
 }

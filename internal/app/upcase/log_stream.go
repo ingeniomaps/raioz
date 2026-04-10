@@ -8,12 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"sync"
 	"syscall"
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 )
 
@@ -87,7 +87,7 @@ func streamAllLogs(
 
 		color := serviceColors[colorIdx%len(serviceColors)]
 		colorIdx++
-		logPath := filepath.Join(os.TempDir(), "raioz-orchestrate", "logs", name+".log")
+		logPath := naming.LogFile(deps.Project.Name, name)
 
 		wg.Add(1)
 		go func(svcName, logFile, c string) {
@@ -98,7 +98,7 @@ func streamAllLogs(
 
 	// Stream docker container logs for dependencies
 	for name := range deps.Infra {
-		containerName := fmt.Sprintf("raioz-%s-%s", deps.Project.Name, name)
+		containerName := naming.Container(deps.Project.Name, name)
 		color := serviceColors[colorIdx%len(serviceColors)]
 		colorIdx++
 
