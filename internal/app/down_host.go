@@ -40,9 +40,16 @@ func (uc *DownUseCase) stopHostProcesses(
 	for name, processInfo := range hostProcesses {
 		stopCommand, servicePath := uc.resolveHostStopCommand(ctx, name, *processInfo, currentDeps, ws)
 
-		logging.InfoWithContext(ctx, "Stopping host service", "service", name, "pid", processInfo.PID, "stopCommand", stopCommand, "servicePath", servicePath)
-		if err := uc.deps.HostRunner.StopServiceWithCommandAndPath(ctx, processInfo.PID, stopCommand, servicePath); err != nil {
-			logging.WarnWithContext(ctx, "Failed to stop host service", "service", name, "pid", processInfo.PID, "error", err.Error())
+		logging.InfoWithContext(ctx, "Stopping host service",
+			"service", name, "pid", processInfo.PID,
+			"stopCommand", stopCommand, "servicePath", servicePath)
+		err := uc.deps.HostRunner.StopServiceWithCommandAndPath(
+			ctx, processInfo.PID, stopCommand, servicePath,
+		)
+		if err != nil {
+			logging.WarnWithContext(ctx, "Failed to stop host service",
+				"service", name, "pid", processInfo.PID,
+				"error", err.Error())
 			output.PrintWarning(i18n.T("output.failed_stop_host", name, processInfo.PID, err))
 		} else {
 			if stopCommand != "" {
@@ -110,7 +117,10 @@ func (uc *DownUseCase) resolveHostStopCommand(
 			if servicePath == "" {
 				servicePath = composeDir
 			}
-			logging.InfoWithContext(ctx, "Using docker-compose down for host service", "service", name, "composePath", composePathToUse, "composeDir", composeDir)
+			logging.InfoWithContext(ctx,
+				"Using docker-compose down for host service",
+				"service", name, "composePath", composePathToUse,
+				"composeDir", composeDir)
 		}
 	}
 
@@ -129,10 +139,13 @@ func (uc *DownUseCase) detectHostComposePath(
 	// First, try to use ComposePath from ProcessInfo
 	if processInfo.ComposePath != "" {
 		if _, err := os.Stat(processInfo.ComposePath); err == nil {
-			logging.InfoWithContext(ctx, "Using ComposePath from ProcessInfo", "service", name, "composePath", processInfo.ComposePath)
+			logging.InfoWithContext(ctx, "Using ComposePath from ProcessInfo",
+				"service", name, "composePath", processInfo.ComposePath)
 			return processInfo.ComposePath
 		}
-		logging.WarnWithContext(ctx, "ComposePath from ProcessInfo does not exist, trying to detect", "service", name, "composePath", processInfo.ComposePath)
+		logging.WarnWithContext(ctx,
+			"ComposePath from ProcessInfo does not exist, trying to detect",
+			"service", name, "composePath", processInfo.ComposePath)
 	}
 
 	if currentDeps == nil {
@@ -166,7 +179,10 @@ func (uc *DownUseCase) detectHostComposePath(
 
 	detected := uc.deps.HostRunner.DetectComposePath(servicePath, command, explicitComposePath)
 	if detected != "" {
-		logging.InfoWithContext(ctx, "Detected docker-compose.yml for host service", "service", name, "composePath", detected, "servicePath", servicePath)
+		logging.InfoWithContext(ctx,
+			"Detected docker-compose.yml for host service",
+			"service", name, "composePath", detected,
+			"servicePath", servicePath)
 	}
 	return detected
 }

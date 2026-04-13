@@ -9,11 +9,13 @@ import (
 	"strings"
 	"syscall"
 
+	"raioz/internal/app/upcase"
+	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/naming"
 	"raioz/internal/output"
-	"raioz/internal/state"
 	"raioz/internal/runtime"
+	"raioz/internal/state"
 )
 
 // StatusYAML shows status for a YAML orchestrated project.
@@ -46,10 +48,11 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 		localState, _ := state.LoadLocalState(projectDir)
 
 		for name, svc := range proj.Deps.Services {
-			runtime := "unknown"
-			if svc.Source.Path != "" {
-				result := detect.Detect(svc.Source.Path)
-				runtime = string(result.Runtime)
+			// Honor yaml overrides (command:, compose:) before scanning disk.
+			result := config.ResolveServiceDetection(svc, svc.Source.Path)
+			runtime := string(result.Runtime)
+			if runtime == "" {
+				runtime = "unknown"
 			}
 
 			// Check if process is alive via saved PID
@@ -146,7 +149,6 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 
 	return nil
 }
-
 
 // showHostLogs displays logs from a host service log file.
 func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) error {
@@ -255,16 +257,18 @@ func CheckYAML(proj *YAMLProject) error {
 
 	issues := 0
 
-	// Check service paths exist
+	// Check service paths exist (honoring yaml `command:`/`compose:` overrides).
 	for name, svc := range proj.Deps.Services {
-		if svc.Source.Path != "" {
-			result := detect.Detect(svc.Source.Path)
-			if result.Runtime == detect.RuntimeUnknown {
+		result := config.ResolveServiceDetection(svc, svc.Source.Path)
+		if result.Runtime == detect.RuntimeUnknown {
+			if svc.Source.Path != "" {
 				output.PrintWarning(fmt.Sprintf("%s: no runtime detected at %s", name, svc.Source.Path))
-				issues++
 			} else {
-				output.PrintSuccess(fmt.Sprintf("%s: %s", name, result.Runtime))
+				output.PrintWarning(fmt.Sprintf("%s: no runtime declared (command/compose/path)", name))
 			}
+			issues++
+		} else {
+			output.PrintSuccess(fmt.Sprintf("%s: %s", name, result.Runtime))
 		}
 	}
 
@@ -292,11 +296,38 @@ func CheckYAML(proj *YAMLProject) error {
 		}
 	}
 
+	// Proxy requirements (mkcert presence, certs on disk). Matches what
+	// `raioz up` enforces so the user never gets a green check followed by
+	// a red up on the same machine.
+	if err := upcase.CheckProxyRequirements(proj.Deps); err != nil {
+		output.PrintError(err.Error())
+		issues++
+	}
+
+	// Port allocation + host-bind probing. This runs the same allocator the
+	// up flow uses: explicit conflicts fail loud, implicit/auto conflicts
+	// bump deterministically, external binders (other projects, random
+	// containers, local processes) are surfaced as errors pointing at the
+	// offending service or dep.
+	//
+	// `raioz check` runs this read-only — nothing is actually bound, just
+	// a transient net.Listen() per candidate port to probe availability.
+	detections := upcase.BuildDetectionMap(proj.Deps)
+	if _, err := upcase.AllocateHostPorts(proj.Deps, detections); err != nil {
+		output.PrintError(err.Error())
+		issues++
+	}
+
 	fmt.Println()
 	if issues == 0 {
 		output.PrintSuccess("All checks passed")
-	} else {
-		output.PrintWarning(fmt.Sprintf("%d issue(s) found", issues))
+		return nil
 	}
-	return nil
+	// Issues found: return a sentinel error so the CLI wrapper (cli/check.go)
+	// can skip the misleading "Configuration is valid" banner, surface a
+	// non-zero exit code, and avoid the "no state found" hint that implies
+	// everything is fine. The actual issue list has already been printed
+	// above — the error here is just the signal.
+	output.PrintWarning(fmt.Sprintf("%d issue(s) found", issues))
+	return fmt.Errorf("%d check issue(s) found", issues)
 }

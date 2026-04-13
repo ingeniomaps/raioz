@@ -27,7 +27,7 @@ type Dependencies struct {
 	HostRunner       interfaces.HostRunner
 	EnvManager       interfaces.EnvManager
 	ProxyManager     interfaces.ProxyManager     // Optional: nil if proxy not needed
-	DiscoveryManager interfaces.DiscoveryManager  // Optional: nil if discovery not needed
+	DiscoveryManager interfaces.DiscoveryManager // Optional: nil if discovery not needed
 }
 
 // NewDependencies creates a new Dependencies instance with default implementations

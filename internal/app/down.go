@@ -45,7 +45,8 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	if configPath == "" {
 		configPath = resolveDownConfigPath()
 	}
-	if deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath); err == nil && deps != nil && deps.SchemaVersion == "2.0" {
+	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
+	if err == nil && deps != nil && deps.SchemaVersion == "2.0" {
 		return nil // Already handled by downOrchestrated
 	}
 
@@ -105,7 +106,9 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 			i18n.T("error.state_load_suggestion"),
 		).WithContext("workspace", wsRoot).WithError(err)
 	}
-	logging.InfoWithContext(ctx, "Project state loaded", "project", stateDeps.Project.Name, "services_count", len(stateDeps.Services))
+	logging.InfoWithContext(ctx, "Project state loaded",
+		"project", stateDeps.Project.Name,
+		"services_count", len(stateDeps.Services))
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 
@@ -204,7 +207,9 @@ func (uc *DownUseCase) resolveProject(ctx context.Context, opts DownOptions) (st
 }
 
 // resolveWorkspace resolves and validates the workspace.
-func (uc *DownUseCase) resolveWorkspace(ctx context.Context, workspaceName, projectName string) (*interfaces.Workspace, string, error) {
+func (uc *DownUseCase) resolveWorkspace(
+	ctx context.Context, workspaceName, projectName string,
+) (*interfaces.Workspace, string, error) {
 	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		logging.ErrorWithContext(ctx, "Failed to resolve workspace", "project", projectName, "error", err.Error())
@@ -221,7 +226,9 @@ func (uc *DownUseCase) resolveWorkspace(ctx context.Context, workspaceName, proj
 }
 
 // acquireLock acquires the workspace lock.
-func (uc *DownUseCase) acquireLock(ctx context.Context, ws *interfaces.Workspace, wsRoot string) (interfaces.Lock, error) {
+func (uc *DownUseCase) acquireLock(
+	ctx context.Context, ws *interfaces.Workspace, wsRoot string,
+) (interfaces.Lock, error) {
 	logging.DebugWithContext(ctx, "Acquiring lock", "workspace", wsRoot)
 	lockInstance, err := uc.deps.LockManager.Acquire(ws)
 	if err != nil {

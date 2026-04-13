@@ -47,6 +47,18 @@ var checkCmd = &cobra.Command{
 }
 
 func displayCheckResult(result *app.CheckResult) {
+	// YAML mode: CheckYAML already printed the section header, per-service
+	// runtime, proxy/port errors, and the final "All checks passed" or
+	// "N issue(s) found" summary. The only thing left for the CLI wrapper
+	// to do is propagate the exit code — no extra "valid" banner, no legacy
+	// state-alignment hints.
+	if result.YAMLMode {
+		if result.HasIssues {
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Show validation results
 	if !result.ConfigValid {
 		fmt.Println(i18n.T("check.config_invalid"))

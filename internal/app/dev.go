@@ -103,8 +103,8 @@ func (uc *DevUseCase) promote(
 		return errors.New(errors.ErrCodeNotADependency,
 			"'"+name+"' is not a dependency",
 		).WithSuggestion(
-			"Available dependencies: "+infraNames(cfgDeps)+"\n"+
-				"  Only items in 'dependencies:' can be promoted to local.\n"+
+			"Available dependencies: " + infraNames(cfgDeps) + "\n" +
+				"  Only items in 'dependencies:' can be promoted to local.\n" +
 				"  Items in 'services:' are already local.",
 		)
 	}

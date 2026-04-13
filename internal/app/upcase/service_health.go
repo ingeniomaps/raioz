@@ -39,7 +39,9 @@ func getServiceHealthCommand(svc config.Service, mode string) string {
 }
 
 // checkServiceHealthDefault checks service health using default method (process/port)
-func checkServiceHealthDefault(ctx context.Context, ws *interfaces.Workspace, serviceName string, svc config.Service) (bool, error) {
+func checkServiceHealthDefault(
+	ctx context.Context, ws *interfaces.Workspace, serviceName string, svc config.Service,
+) (bool, error) {
 	// Try to check if process is running by checking PID file or process list
 	// For now, we'll check if there's a port exposed and try to connect to it
 	if svc.Docker != nil && len(svc.Docker.Ports) > 0 {
@@ -67,7 +69,10 @@ func checkServiceHealthDefault(ctx context.Context, ws *interfaces.Workspace, se
 }
 
 // checkServiceHealth checks if a service is healthy
-func checkServiceHealth(ctx context.Context, ws *interfaces.Workspace, serviceName string, svc config.Service, mode string, wm interfaces.WorkspaceManager) (bool, error) {
+func checkServiceHealth(
+	ctx context.Context, ws *interfaces.Workspace, serviceName string,
+	svc config.Service, mode string, wm interfaces.WorkspaceManager,
+) (bool, error) {
 	// Get health command
 	healthCommand := getServiceHealthCommand(svc, mode)
 
@@ -133,12 +138,12 @@ func parseHealthCommandOutput(output string) bool {
 			statusLower := strings.ToLower(status)
 			// Active states: "active", "running", "healthy", "up", "on"
 			if statusLower == "active" || statusLower == "running" || statusLower == "healthy" ||
-			   statusLower == "up" || statusLower == "on" {
+				statusLower == "up" || statusLower == "on" {
 				return true
 			}
 			// Inactive states: "inactive", "stopped", "unhealthy", "down", "off"
 			if statusLower == "inactive" || statusLower == "stopped" || statusLower == "unhealthy" ||
-			   statusLower == "down" || statusLower == "off" {
+				statusLower == "down" || statusLower == "off" {
 				return false
 			}
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,6 +36,34 @@ func (uc *UseCase) processOrchestration(
 	output.PrintProgress(i18n.T("up.detecting_runtimes"))
 	detections := detectRuntimes(ctx, deps)
 	output.PrintProgressDone(i18n.T("up.runtimes_detected"))
+
+	// Step 1b: Allocate host ports deterministically. This validates explicit
+	// conflicts before we start anything, bumps implicit defaults when they
+	// would collide (two host frontends both wanting :3000), and resolves
+	// host-side bindings for dependencies the user asked to publish. The
+	// resolved port is written back into detections so downstream consumers
+	// (proxy routes, discovery env vars) see a single source of truth.
+	portAllocs, err := AllocateHostPorts(deps, detections)
+	if err != nil {
+		return nil, err
+	}
+	for name, alloc := range portAllocs.Services {
+		det := detections[name]
+		det.Port = alloc.Port
+		detections[name] = det
+	}
+	// For published deps, write the *first* host mapping into detection.Port
+	// so the proxy/discovery path can reach the dependency from the host.
+	// Container→container traffic still uses the DNS name + container port,
+	// handled by the discovery package.
+	for name, alloc := range portAllocs.Deps {
+		if len(alloc.Mappings) == 0 {
+			continue
+		}
+		det := detections[name]
+		det.Port = alloc.Mappings[0].HostPort
+		detections[name] = det
+	}
 
 	// Create dispatcher
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)
@@ -81,10 +110,15 @@ func (uc *UseCase) processOrchestration(
 			// Build container name
 			containerName := naming.Container(deps.Project.Name, name)
 
+			// Resolve what ports (if any) this dep should publish to the host.
+			// Priority: allocator result (publish: …) → legacy ports: list →
+			// nothing at all (internal-only, containers reach it by DNS).
+			composePorts := resolveDepPublishPorts(name, entry, portAllocs)
+
 			svcCtx := buildServiceContext(
 				name, detection, networkName,
 				envVars,
-				infraPorts(entry),
+				composePorts,
 				nil, // infra has no dependsOn
 				containerName,
 				"", // no path for images
@@ -115,7 +149,7 @@ func (uc *UseCase) processOrchestration(
 	}
 
 	// Build endpoints map for service discovery
-	endpoints := buildEndpoints(deps, detections)
+	endpoints := buildEndpoints(deps, detections, portAllocs)
 
 	// Step 3: Start services in dependency order
 	serviceNames := orderedServiceNames(deps)
@@ -138,6 +172,15 @@ func (uc *UseCase) processOrchestration(
 				)
 			}
 
+			// Inject PORT for host services. Most modern frameworks
+			// (Next.js, Vite, Express, Nuxt, Astro, Django via runserver, etc.)
+			// honor $PORT, which lets raioz move two conflicting frontends
+			// onto distinct ports without the dev touching any config. Docker
+			// services get their port via published/exposed config, not PORT.
+			if alloc, ok := portAllocs.Services[name]; ok && alloc.IsHost() && alloc.Port > 0 {
+				envVars["PORT"] = strconv.Itoa(alloc.Port)
+			}
+
 			svcCtx := buildServiceContext(
 				name, detection, networkName,
 				envVars,
@@ -147,6 +190,12 @@ func (uc *UseCase) processOrchestration(
 				svc.Source.Path,
 				deps.Project.Name,
 			)
+
+			// Propagate custom stop command (from `stop:` in raioz.yaml) so the
+			// runner can use it instead of SIGTERMing the PID.
+			if svc.Commands != nil && svc.Commands.Down != "" {
+				svcCtx.StopCommand = svc.Commands.Down
+			}
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
 				return nil, errors.ServiceStartFailed(name, string(detection.Runtime), err)
@@ -164,76 +213,11 @@ func (uc *UseCase) processOrchestration(
 	// Persist host PIDs so raioz down / next raioz up can find them
 	saveHostPIDs(projectDir, deps.Project.Name, dispatcher, serviceNames, detections)
 
-	// Step 4: Start proxy if enabled
+	// Step 4: Start proxy if enabled. The proxy block is extracted into its
+	// own file to keep this function under the 400-line cap; see
+	// orchestration_proxy.go.
 	if deps.Proxy && uc.deps.ProxyManager != nil {
-		// Apply proxy configuration
-		uc.deps.ProxyManager.SetProjectName(deps.Project.Name)
-		if deps.ProxyConfig != nil {
-			uc.deps.ProxyManager.SetDomain(deps.ProxyConfig.Domain)
-			uc.deps.ProxyManager.SetTLSMode(deps.ProxyConfig.TLS)
-		}
-
-		output.PrintProgress("Starting proxy...")
-
-		// Add routes for all services and dependencies
-		for name, detection := range detections {
-			hostname := name
-			var target string
-			var port int
-
-			if detection.IsDocker() {
-				target = naming.Container(deps.Project.Name, name)
-				port = detection.Port
-			} else {
-				target = "host.docker.internal"
-				port = detection.Port
-			}
-
-			// If port not detected, try config ports or env
-			if port == 0 {
-				if svc, ok := deps.Services[name]; ok {
-					port = inferServicePort(svc, detection)
-				}
-				if entry, ok := deps.Infra[name]; ok && entry.Inline != nil && len(entry.Inline.Ports) > 0 {
-					port = parseFirstPort(entry.Inline.Ports[0])
-				}
-			}
-
-			// Check for custom hostname
-			if svc, ok := deps.Services[name]; ok && svc.Hostname != "" {
-				hostname = svc.Hostname
-			}
-
-			route := interfaces.ProxyRoute{
-				ServiceName: name,
-				Hostname:    hostname,
-				Target:      target,
-				Port:        port,
-			}
-
-			// Apply routing config
-			if svc, ok := deps.Services[name]; ok && svc.Routing != nil {
-				route.WebSocket = svc.Routing.WS
-				route.Stream = svc.Routing.Stream
-				route.GRPC = svc.Routing.GRPC
-			}
-
-			uc.deps.ProxyManager.AddRoute(ctx, route)
-		}
-
-		if err := uc.deps.ProxyManager.Start(ctx, networkName); err != nil {
-			logging.WarnWithContext(ctx, "Failed to start proxy", "error", err.Error())
-			output.PrintWarning("Proxy failed to start: " + err.Error())
-		} else {
-			output.PrintProgressDone("Proxy started")
-			// Show URLs
-			for _, name := range serviceNames {
-				url := uc.deps.ProxyManager.GetURL(name)
-				if url != "" {
-					output.PrintInfo(name + " -> " + url)
-				}
-			}
-		}
+		uc.startProxy(ctx, deps, detections, serviceNames, networkName)
 	}
 
 	return &orchestrationResult{
@@ -245,8 +229,16 @@ func (uc *UseCase) processOrchestration(
 	}, nil
 }
 
-// buildEndpoints creates the endpoints map from config and detections for service discovery.
-func buildEndpoints(deps *config.Deps, detections DetectionMap) map[string]interfaces.ServiceEndpoint {
+// buildEndpoints creates the endpoints map from config and detections for
+// service discovery. For published dependencies we populate *both* Port
+// (container-side) and HostPort (host-side) so discovery can hand each caller
+// the right one: container→container goes via Port on the DNS name,
+// host→container goes via HostPort on localhost.
+func buildEndpoints(
+	deps *config.Deps,
+	detections DetectionMap,
+	portAllocs *PortAllocResult,
+) map[string]interfaces.ServiceEndpoint {
 	endpoints := make(map[string]interfaces.ServiceEndpoint)
 
 	for name, detection := range detections {
@@ -263,12 +255,29 @@ func buildEndpoints(deps *config.Deps, detections DetectionMap) map[string]inter
 			ep.Host = "localhost"
 		}
 
-		// Override port from config if specified
+		// For published dependencies, split container port (for in-network
+		// DNS access) from host port (for host-side tools). The allocator
+		// already decided both; we just copy them onto the endpoint.
+		if portAllocs != nil {
+			if alloc, ok := portAllocs.Deps[name]; ok && len(alloc.Mappings) > 0 {
+				first := alloc.Mappings[0]
+				ep.Port = first.ContainerPort
+				ep.HostPort = first.HostPort
+			}
+		}
+
+		// Legacy service docker ports (raioz.json-style config). For new
+		// raioz.yaml services, this path never fires — the allocator is
+		// authoritative for host services.
 		if svc, ok := deps.Services[name]; ok && svc.Docker != nil && len(svc.Docker.Ports) > 0 {
 			ep.Port = parseFirstPort(svc.Docker.Ports[0])
 		}
-		if entry, ok := deps.Infra[name]; ok && entry.Inline != nil && len(entry.Inline.Ports) > 0 {
+		// Legacy `ports:` on inline infra, when the user hasn't migrated to
+		// the new publish/expose fields. Keep honoring it verbatim.
+		if entry, ok := deps.Infra[name]; ok && entry.Inline != nil &&
+			len(entry.Inline.Ports) > 0 && entry.Inline.Publish == nil {
 			ep.Port = parseFirstPort(entry.Inline.Ports[0])
+			ep.HostPort = ep.Port
 		}
 
 		endpoints[name] = ep
@@ -277,51 +286,8 @@ func buildEndpoints(deps *config.Deps, detections DetectionMap) map[string]inter
 	return endpoints
 }
 
-// orderedServiceNames returns service names sorted by dependency order (topological sort).
-func orderedServiceNames(deps *config.Deps) []string {
-	// Build adjacency list
-	graph := make(map[string][]string)
-	inDegree := make(map[string]int)
-	allServices := make(map[string]bool)
-
-	for name, svc := range deps.Services {
-		allServices[name] = true
-		for _, dep := range svc.GetDependsOn() {
-			// Only count dependencies that are services (not infra)
-			if _, isService := deps.Services[dep]; isService {
-				graph[dep] = append(graph[dep], name)
-				inDegree[name]++
-			}
-		}
-		if _, exists := inDegree[name]; !exists {
-			inDegree[name] = 0
-		}
-	}
-
-	// Kahn's algorithm
-	var queue []string
-	for name := range allServices {
-		if inDegree[name] == 0 {
-			queue = append(queue, name)
-		}
-	}
-
-	var ordered []string
-	for len(queue) > 0 {
-		name := queue[0]
-		queue = queue[1:]
-		ordered = append(ordered, name)
-
-		for _, dependent := range graph[name] {
-			inDegree[dependent]--
-			if inDegree[dependent] == 0 {
-				queue = append(queue, dependent)
-			}
-		}
-	}
-
-	return ordered
-}
+// orderedServiceNames is defined in orchestration_order.go (topological sort
+// over service-to-service dependsOn edges).
 
 // infraPorts extracts port mappings from an InfraEntry.
 func infraPorts(entry config.InfraEntry) []string {
@@ -340,12 +306,14 @@ func servicePorts(svc config.Service) []string {
 }
 
 // preHookExec runs pre-hooks before starting services.
+// A pre-hook failure aborts `raioz up` — use it for critical setup (e.g.,
+// fetching secrets, rendering env files that dependencies consume).
 func (uc *UseCase) preHookExec(ctx context.Context, deps *config.Deps, projectDir string) error {
 	if deps.PreHook == "" {
 		return nil
 	}
 
-	output.PrintProgress("Running pre-hook...")
+	output.PrintProgress(i18n.T("up.running_pre_hook"))
 	logging.InfoWithContext(ctx, "Executing pre-hook", "command", deps.PreHook)
 
 	commands := strings.Split(deps.PreHook, " && ")
@@ -356,21 +324,24 @@ func (uc *UseCase) preHookExec(ctx context.Context, deps *config.Deps, projectDi
 		}
 		cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 		cmd.Dir = projectDir
-		if output, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("pre-hook failed: %s: %w\n%s", cmdStr, err, string(output))
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return errors.PreHookFailed(cmdStr, fmt.Errorf("%w\n%s", err, string(out)))
 		}
 	}
 
-	output.PrintProgressDone("Pre-hook completed")
+	output.PrintProgressDone(i18n.T("up.pre_hook_done"))
 	return nil
 }
 
 // postHookExec runs post-hooks after starting services.
+// Post-hook failures are logged as warnings and do NOT fail `raioz up` —
+// services are already running and the user can inspect the warning.
 func (uc *UseCase) postHookExec(ctx context.Context, deps *config.Deps, projectDir string) {
 	if deps.PostHook == "" {
 		return
 	}
 
+	output.PrintProgress(i18n.T("up.running_post_hook"))
 	logging.InfoWithContext(ctx, "Executing post-hook", "command", deps.PostHook)
 
 	commands := strings.Split(deps.PostHook, " && ")
@@ -382,7 +353,12 @@ func (uc *UseCase) postHookExec(ctx context.Context, deps *config.Deps, projectD
 		cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
 		cmd.Dir = projectDir
 		if out, err := cmd.CombinedOutput(); err != nil {
-			logging.WarnWithContext(ctx, "Post-hook failed", "command", cmdStr, "error", err.Error(), "output", string(out))
+			logging.WarnWithContext(ctx, "Post-hook failed",
+				"command", cmdStr, "error", err.Error(), "output", string(out))
+			output.PrintWarning(fmt.Sprintf(i18n.T("up.post_hook_failed"), cmdStr))
+			return
 		}
 	}
+
+	output.PrintProgressDone(i18n.T("up.post_hook_done"))
 }

@@ -85,9 +85,8 @@ func init() {
 	rootCmd.AddCommand(snapshotCmd)
 	rootCmd.AddCommand(tunnelCmd)
 	rootCmd.AddCommand(dashboardCmd)
-
-	// NOTE: i18n description overrides are applied in zzz_i18n_descriptions.go init()
-	// which runs AFTER all other init() functions (Go processes files alphabetically).
+	rootCmd.AddCommand(envCmd)
+	rootCmd.AddCommand(cloneCmd)
 }
 
 // detectLangFlag scans os.Args for --lang <value> or --lang=<value> before

@@ -34,7 +34,12 @@ func (uc *UseCase) acquireLock(ctx context.Context, ws *interfaces.Workspace) (*
 	lockInstance, err := uc.deps.LockManager.Acquire(ws)
 	if err != nil {
 		logging.ErrorWithContext(ctx, "Failed to acquire lock", "workspace", ws.Root, "error", err.Error())
-		return nil, errors.New(errors.ErrCodeLockError, i18n.T("error.lock_failed")).WithSuggestion(i18n.T("error.lock_suggestion")).WithContext("workspace", ws.Root).WithError(err)
+		return nil, errors.New(
+			errors.ErrCodeLockError,
+			i18n.T("error.lock_failed"),
+		).WithSuggestion(
+			i18n.T("error.lock_suggestion"),
+		).WithContext("workspace", ws.Root).WithError(err)
 	}
 	logging.DebugWithContext(ctx, "Lock acquired successfully")
 	return &LockInstance{lock: lockInstance, ctx: ctx, ws: ws}, nil

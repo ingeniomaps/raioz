@@ -14,7 +14,11 @@ import (
 )
 
 // outputJSON outputs status in JSON format
-func (uc *StatusUseCase) outputJSON(servicesInfo map[string]*interfaces.ServiceInfo, disabledServices []string, stateDeps *config.Deps, activeWorkspace string) error {
+func (uc *StatusUseCase) outputJSON(
+	servicesInfo map[string]*interfaces.ServiceInfo,
+	disabledServices []string, stateDeps *config.Deps,
+	activeWorkspace string,
+) error {
 	jsonData := map[string]any{
 		"project": map[string]string{
 			"name":    stateDeps.Project.Name,
@@ -37,7 +41,11 @@ func (uc *StatusUseCase) outputJSON(servicesInfo map[string]*interfaces.ServiceI
 }
 
 // outputHumanReadable outputs status in human-readable format
-func (uc *StatusUseCase) outputHumanReadable(servicesInfo map[string]*interfaces.ServiceInfo, disabledServices []string, stateDeps *config.Deps, activeWorkspace string) error {
+func (uc *StatusUseCase) outputHumanReadable(
+	servicesInfo map[string]*interfaces.ServiceInfo,
+	disabledServices []string, stateDeps *config.Deps,
+	activeWorkspace string,
+) error {
 	// Table output - these are user-facing output, not logs
 	output.PrintSectionHeader(i18n.T("output.project_status_header"))
 	output.PrintKeyValue("Project", stateDeps.Project.Name)

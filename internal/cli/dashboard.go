@@ -26,64 +26,130 @@ var dashboardCmd = &cobra.Command{
 		}
 
 		deps := app.NewDependencies()
-		configPath := ResolveConfigPath(dashboardConfigPath)
+		cfgPath := ResolveConfigPath(dashboardConfigPath)
 
-		cfgDeps, _, err := deps.ConfigLoader.LoadDeps(configPath)
-		if err != nil {
-			return fmt.Errorf("cannot load config: %w", err)
+		// Try YAML mode first
+		proj := app.ResolveYAMLProject(deps, cfgPath)
+		if proj != nil {
+			return runDashboardYAML(ctx, deps, proj)
 		}
 
-		// Build service rows
-		var services []tui.ServiceRow
-		for name, svc := range cfgDeps.Services {
-			runtime := "unknown"
-			if svc.Source.Path != "" {
-				result := detect.Detect(svc.Source.Path)
-				runtime = string(result.Runtime)
-			}
-
-			url := ""
-			if deps.ProxyManager != nil {
-				url = deps.ProxyManager.GetURL(name)
-			}
-
-			services = append(services, tui.ServiceRow{
-				Name:    name,
-				Runtime: runtime,
-				Status:  "unknown",
-				URL:     url,
-			})
-		}
-		for name, entry := range cfgDeps.Infra {
-			label := "image"
-			if entry.Inline != nil {
-				label = entry.Inline.Image
-				if entry.Inline.Tag != "" {
-					label = entry.Inline.Image + ":" + entry.Inline.Tag
-				}
-			}
-			services = append(services, tui.ServiceRow{
-				Name:    name,
-				Runtime: label,
-				Status:  "unknown",
-			})
-		}
-
-		cfg := tui.Config{
-			Project:   cfgDeps.Project.Name,
-			Workspace: cfgDeps.Workspace,
-			Services:  services,
-			Docker:    deps.DockerRunner,
-			Proxy:     deps.ProxyManager,
-			Ctx:       ctx,
-		}
-
-		model := tui.New(cfg)
-		p := tea.NewProgram(model, tea.WithAltScreen())
-
-		_, err = p.Run()
-		return err
+		// Legacy mode
+		return runDashboardLegacy(ctx, deps, cfgPath)
 	},
+}
+
+func runDashboardYAML(
+	ctx context.Context,
+	deps *app.Dependencies,
+	proj *app.YAMLProject,
+) error {
+	var services []tui.ServiceRow
+
+	for name, svc := range proj.Deps.Services {
+		rt := "unknown"
+		if svc.Source.Path != "" {
+			result := detect.Detect(svc.Source.Path)
+			rt = string(result.Runtime)
+		}
+		url := ""
+		if deps.ProxyManager != nil {
+			url = deps.ProxyManager.GetURL(name)
+		}
+		services = append(services, tui.ServiceRow{
+			Name:    name,
+			Runtime: rt,
+			Status:  "unknown",
+			URL:     url,
+		})
+	}
+	for name, entry := range proj.Deps.Infra {
+		label := "image"
+		if entry.Inline != nil {
+			label = entry.Inline.Image
+			if entry.Inline.Tag != "" {
+				label += ":" + entry.Inline.Tag
+			}
+		}
+		services = append(services, tui.ServiceRow{
+			Name:    name,
+			Runtime: label,
+			Status:  "unknown",
+		})
+	}
+
+	cfg := tui.Config{
+		Project:   proj.ProjectName,
+		Workspace: proj.Deps.Workspace,
+		Services:  services,
+		Docker:    deps.DockerRunner,
+		Proxy:     deps.ProxyManager,
+		Ctx:       ctx,
+		YAMLMode:  true,
+	}
+
+	model := tui.New(cfg)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	_, err := p.Run()
+	return err
+}
+
+func runDashboardLegacy(
+	ctx context.Context,
+	deps *app.Dependencies,
+	cfgPath string,
+) error {
+	cfgDeps, _, err := deps.ConfigLoader.LoadDeps(cfgPath)
+	if err != nil {
+		return fmt.Errorf("cannot load config: %w", err)
+	}
+
+	var services []tui.ServiceRow
+	for name, svc := range cfgDeps.Services {
+		rt := "unknown"
+		if svc.Source.Path != "" {
+			result := detect.Detect(svc.Source.Path)
+			rt = string(result.Runtime)
+		}
+		url := ""
+		if deps.ProxyManager != nil {
+			url = deps.ProxyManager.GetURL(name)
+		}
+		services = append(services, tui.ServiceRow{
+			Name:    name,
+			Runtime: rt,
+			Status:  "unknown",
+			URL:     url,
+		})
+	}
+	for name, entry := range cfgDeps.Infra {
+		label := "image"
+		if entry.Inline != nil {
+			label = entry.Inline.Image
+			if entry.Inline.Tag != "" {
+				label += ":" + entry.Inline.Tag
+			}
+		}
+		services = append(services, tui.ServiceRow{
+			Name:    name,
+			Runtime: label,
+			Status:  "unknown",
+		})
+	}
+
+	cfg := tui.Config{
+		Project:   cfgDeps.Project.Name,
+		Workspace: cfgDeps.Workspace,
+		Services:  services,
+		Docker:    deps.DockerRunner,
+		Proxy:     deps.ProxyManager,
+		Ctx:       ctx,
+	}
+
+	model := tui.New(cfg)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	_, err = p.Run()
+	return err
 }
 
 func init() {

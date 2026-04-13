@@ -217,11 +217,11 @@ func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
 		out.Inline = &config.Infra{
 			Image:       inf.Image,
 			Tag:         inf.Tag,
-			Ports:      append([]string(nil), inf.Ports...),
-			Volumes:    append([]string(nil), inf.Volumes...),
+			Ports:       append([]string(nil), inf.Ports...),
+			Volumes:     append([]string(nil), inf.Volumes...),
 			IP:          inf.IP,
 			Env:         inf.Env,
-			Profiles:   append([]string(nil), inf.Profiles...),
+			Profiles:    append([]string(nil), inf.Profiles...),
 			Healthcheck: inf.Healthcheck,
 		}
 	}
@@ -232,7 +232,8 @@ func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
 // from a different project. Returns (result, mergedDeps, error).
 // When result is Proceed and mergedDeps is non-nil, the caller must use mergedDeps (merged configs).
 // When result is Proceed and mergedDeps is nil, the caller uses current deps (replace).
-// currentProjectDir is the absolute path to the current project (where .raioz.json is); used to resolve relative volumes per project when merging.
+// currentProjectDir is the absolute path to the current project (where .raioz.json is);
+// used to resolve relative volumes per project when merging.
 func (uc *UseCase) checkWorkspaceProjectConflict(
 	ctx context.Context,
 	deps *config.Deps,

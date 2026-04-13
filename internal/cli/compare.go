@@ -14,8 +14,9 @@ var (
 var compareCmd = &cobra.Command{
 	Use:   "compare",
 	Short: "Compare local configuration with production",
-	Long:  "Compare your local .raioz.json with a production Docker Compose file.",
+	Long:  "Compare your local raioz.yaml with a production Docker Compose file.",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		configPath := ResolveConfigPath(configPath)
 		deps := app.NewDependencies()
 		useCase := app.NewCompareUseCase(deps)
 		return useCase.Execute(app.CompareOptions{
@@ -31,7 +32,7 @@ func init() {
 		&configPath,
 		"file",
 		"f",
-		".raioz.json",
+		"",
 		"Path to local config file",
 	)
 	compareCmd.Flags().StringVarP(

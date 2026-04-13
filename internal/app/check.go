@@ -37,8 +37,19 @@ func NewCheckUseCase(deps *Dependencies) *CheckUseCase {
 func (uc *CheckUseCase) Execute(ctx context.Context, opts CheckOptions) (*CheckResult, error) {
 	// Try YAML mode first
 	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
-		CheckYAML(proj)
-		return &CheckResult{ConfigValid: true, NoState: true}, nil
+		// CheckYAML prints its own section header, per-service runtime
+		// results, proxy/port validation errors, and the final "N issue(s)
+		// found" or "All checks passed" line. We only need the boolean
+		// signal back from it to decide how the CLI wrapper closes out.
+		err := CheckYAML(proj)
+		return &CheckResult{
+			ConfigValid: err == nil,
+			HasIssues:   err != nil,
+			// NoState stays false for yaml projects: the concept of legacy
+			// state-file alignment doesn't apply. The CLI display handler
+			// skips the "no state found" hint in this mode.
+			YAMLMode: true,
+		}, nil
 	}
 
 	options := checkcase.Options{

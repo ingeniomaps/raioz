@@ -5,6 +5,8 @@ import (
 
 	"raioz/internal/app"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
+	"raioz/internal/notify"
 
 	"github.com/spf13/cobra"
 )
@@ -17,6 +19,8 @@ var (
 	onlyServices []string
 	hostBind     string
 	attach       bool
+	exclusive    bool
+	notifyDone   bool
 )
 
 var upCmd = &cobra.Command{
@@ -46,7 +50,7 @@ var upCmd = &cobra.Command{
 		upUseCase := app.NewUpUseCase(deps)
 
 		// Execute use case
-		return upUseCase.Execute(ctx, app.UpOptions{
+		execErr := upUseCase.Execute(ctx, app.UpOptions{
 			ConfigPath:   configPath,
 			Profile:      profile,
 			ForceReclone: forceReclone,
@@ -54,7 +58,18 @@ var upCmd = &cobra.Command{
 			Only:         onlyServices,
 			Host:         hostBind,
 			Attach:       attach,
+			Exclusive:    exclusive,
 		})
+
+		if notifyDone {
+			if execErr == nil {
+				notify.Send("Raioz", i18n.T("up.notify_ready"))
+			} else {
+				notify.Send("Raioz", i18n.T("up.notify_failed"))
+			}
+		}
+
+		return execErr
 	},
 }
 
@@ -66,4 +81,6 @@ func init() {
 	upCmd.Flags().StringSliceVar(&onlyServices, "only", nil, "Start only these services (with their dependencies)")
 	upCmd.Flags().StringVar(&hostBind, "host", "", "Bind address for shared dev server (e.g., 0.0.0.0)")
 	upCmd.Flags().BoolVar(&attach, "attach", false, "Stay attached and stream logs (without file watching)")
+	upCmd.Flags().BoolVar(&exclusive, "exclusive", false, i18n.T("cmd.up.flag.exclusive"))
+	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 }

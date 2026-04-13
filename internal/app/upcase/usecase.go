@@ -39,7 +39,7 @@ type Dependencies struct {
 	HostRunner       interfaces.HostRunner
 	EnvManager       interfaces.EnvManager
 	ProxyManager     interfaces.ProxyManager     // Optional: nil if proxy not needed
-	DiscoveryManager interfaces.DiscoveryManager  // Optional: nil if discovery not needed
+	DiscoveryManager interfaces.DiscoveryManager // Optional: nil if discovery not needed
 }
 
 // UseCase handles the "up" use case - starting a project
@@ -133,6 +133,13 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		return nil
 	}
 
+	// Pre-hook: runs before anything else (env rendering, secrets fetch, etc.).
+	// Must run before generateEnvFilesFromTemplates and docker prep so that files
+	// the hook produces are visible to downstream steps. A failure aborts the run.
+	if err := uc.preHookExec(ctx, deps, projectDir); err != nil {
+		return err
+	}
+
 	// If only project commands, execute them directly and return
 	if onlyProjectCommands {
 		if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
@@ -159,6 +166,9 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		if err != nil {
 			return err
 		}
+
+		// Post-hook (project-only path): runs after project command succeeds.
+		uc.postHookExec(ctx, deps, projectDir)
 
 		// Final summary (no services/infra)
 		uc.showSummary(ctx, deps, []string{}, []string{}, startTime)
@@ -200,7 +210,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 	// WorkspaceConflictProceed: continue (with deps or merged deps)
 
-	// Write global.env as union of env.files + env.variables (after merge so merged config includes all projects' variables)
+	// Write global.env as union of env.files + env.variables
+	// (after merge so merged config includes all projects' variables)
 	if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
@@ -229,6 +240,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 				logging.WarnWithContext(ctx, "Failed to execute local project command", "error", err.Error())
 			}
 		}
+		// Post-hook still runs on skipped path — user scripts should be idempotent.
+		uc.postHookExec(ctx, deps, projectDir)
 		return nil
 	}
 
@@ -285,7 +298,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		}
 	}
 
-	// State: save state, root config, drift detection, audit (persist project root so merge can resolve volumes per project)
+	// State: save state, root config, drift detection, audit
+	// (persist project root so merge can resolve volumes per project)
 	deps.ProjectRoot = projectDir
 	err = uc.saveState(ctx, deps, ws, composePath, serviceNames, addedServices, assistedServicesMap, appliedOverrides)
 	if err != nil {
@@ -310,7 +324,10 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	// This ensures that project.commands.up runs only after dependencies are ready
 	if hasProjectCommands && (len(serviceNames) > 0 || len(infraNames) > 0) {
 		output.PrintProgress(i18n.T("up.waiting_healthy_before_cmd"))
-		if err := uc.deps.DockerRunner.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, deps.Project.Name); err != nil {
+		err := uc.deps.DockerRunner.WaitForServicesHealthy(
+			ctx, composePath, serviceNames, infraNames, deps.Project.Name,
+		)
+		if err != nil {
 			logging.WarnWithContext(ctx, "Failed to wait for services to be healthy", "error", err.Error())
 			output.PrintWarning(i18n.T("up.services_not_healthy_warning"))
 			// Continue anyway - user may want to proceed even if health checks fail
@@ -325,6 +342,9 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 			logging.WarnWithContext(ctx, "Failed to execute local project command", "error", err.Error())
 		}
 	}
+
+	// Post-hook: runs after everything is up. Failures are warnings, not errors.
+	uc.postHookExec(ctx, deps, projectDir)
 
 	// Final summary
 	uc.showSummary(ctx, deps, serviceNames, infraNames, startTime)

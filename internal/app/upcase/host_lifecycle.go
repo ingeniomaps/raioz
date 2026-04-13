@@ -111,4 +111,3 @@ func killProcessGraceful(pid int) {
 		proc.Kill()
 	}
 }
-

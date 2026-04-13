@@ -17,7 +17,10 @@ import (
 )
 
 // processLocalProject processes local project commands (if this is a local project or has project.commands)
-func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, deps *config.Deps, commandType string, ws interface{}) error {
+func (uc *UseCase) processLocalProject(
+	ctx context.Context, configPath string, deps *config.Deps,
+	commandType string, ws interface{},
+) error {
 	// Check if this is a local project
 	isLocal, projectDir, err := isLocalProject(configPath)
 	if err != nil {
@@ -80,7 +83,11 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 						return nil
 					}
 					// Apply resolution (stops only the conflicting service)
-					if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, deps.Project.Name, deps, wsTyped, projectDir, true); err != nil {
+					err = uc.applyServiceConflictResolution(
+						ctx, conflict, resolution, deps.Project.Name,
+						deps, wsTyped, projectDir, true,
+					)
+					if err != nil {
 						return err
 					}
 					serviceConflictResolved = true
@@ -88,7 +95,8 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 			}
 
 			// Only check for duplicate project if we did NOT just resolve a service conflict.
-			// When we resolved a conflict we only stopped that one service; duplicate check would do a full workspace down (infra + all services).
+			// When we resolved a conflict we only stopped that one service;
+			// duplicate check would do a full workspace down (infra + all services).
 			if !serviceConflictResolved {
 				if err := uc.checkAndHandleDuplicateProject(ctx, deps.Project.Name, configPath); err != nil {
 					// Check if it's a user cancellation
@@ -167,8 +175,14 @@ func (uc *UseCase) processLocalProject(ctx context.Context, configPath string, d
 		if wsTyped, ok := ws.(*interfaces.Workspace); ok {
 			// Resolve project.env for local project
 			projectEnvPath, _ := uc.deps.EnvManager.ResolveProjectEnv(wsTyped, deps, projectDir)
-			if err := uc.deps.EnvManager.GenerateEnvFromTemplate(wsTyped, deps, deps.Project.Name, projectDir, dummyService, projectEnvPath, projectDir); err != nil {
-				logging.WarnWithContext(ctx, "Failed to generate .env from template for local project", "error", err.Error())
+			err := uc.deps.EnvManager.GenerateEnvFromTemplate(
+				wsTyped, deps, deps.Project.Name, projectDir,
+				dummyService, projectEnvPath, projectDir,
+			)
+			if err != nil {
+				logging.WarnWithContext(ctx,
+					"Failed to generate .env from template for local project",
+					"error", err.Error())
 				// Continue anyway - template generation is optional
 			}
 		}

@@ -13,13 +13,17 @@ import (
 )
 
 // saveHostProcessesState saves the host processes state to disk
-func (uc *UseCase) saveHostProcessesState(ctx context.Context, ws *interfaces.Workspace, processes map[string]*host.ProcessInfo) error {
+func (uc *UseCase) saveHostProcessesState(
+	ctx context.Context, ws *interfaces.Workspace, processes map[string]*host.ProcessInfo,
+) error {
 	return uc.deps.HostRunner.SaveProcessesState(ws, processes)
 }
 
 // processHostServices starts services that run directly on the host (without Docker)
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
-func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectDir string) (map[string]*host.ProcessInfo, error) {
+func (uc *UseCase) processHostServices(
+	ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+) (map[string]*host.ProcessInfo, error) {
 	// Collect host services:
 	// 1. Services with source.command (host execution)
 	// 2. Services with custom commands (no docker, no source.command, but has commands)
@@ -82,20 +86,24 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 			// No health command, use default health check
 			isHealthy, err := checkServiceHealth(ctx, ws, name, svc, mode, uc.deps.Workspace)
 			if err == nil && isHealthy {
-				logging.InfoWithContext(ctx, "Service is already healthy (default check), skipping start", "service", name)
+				logging.InfoWithContext(ctx,
+					"Service is already healthy (default check), skipping start",
+					"service", name)
 				output.PrintInfo(i18n.T("up.host.already_healthy", name))
 				continue
 			}
 		}
 
 		// Determine command to use
-		// Priority order: docker > source.command > service.commands > service's .raioz.json project.commands > root project.commands
+		// Priority order: docker > source.command > service.commands >
+		// service's .raioz.json project.commands > root project.commands
 		// IMPORTANT: If source.command exists, it MUST be used (it's the explicit command for host execution)
 		var command string
 		if svc.Source.Command != "" {
 			// Priority 1: Use source.command if available (explicit host execution command)
 			command = svc.Source.Command
-			logging.DebugWithContext(ctx, "Using source.command for host execution", "service", name, "command", command)
+			logging.DebugWithContext(ctx, "Using source.command for host execution",
+				"service", name, "command", command)
 		} else if svc.Commands != nil {
 			// Priority 2: Use service's commands if available (no source.command)
 			// Get command based on mode
@@ -112,18 +120,24 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 		// Only check if source.command was NOT specified (to avoid overriding explicit commands)
 		if command == "" && svc.Source.Kind == "git" {
 			servicePath := uc.deps.Workspace.GetServicePath(ws, name, svc)
-			if serviceDeps, _, err := uc.deps.ConfigLoader.FindServiceConfig(servicePath); err == nil {
+			svcCfg, _, cfgErr := uc.deps.ConfigLoader.FindServiceConfig(servicePath)
+			if cfgErr == nil {
 				// Found .raioz.json in cloned repo, check for project.commands
-				if serviceDeps.Project.Commands != nil {
-					if mode == "prod" && serviceDeps.Project.Commands.Prod != nil && serviceDeps.Project.Commands.Prod.Up != "" {
-						command = serviceDeps.Project.Commands.Prod.Up
-						logging.DebugWithContext(ctx, "Using project.commands.up from service's .raioz.json", "service", name, "source", "service_config")
-					} else if mode == "dev" && serviceDeps.Project.Commands.Dev != nil && serviceDeps.Project.Commands.Dev.Up != "" {
-						command = serviceDeps.Project.Commands.Dev.Up
-						logging.DebugWithContext(ctx, "Using project.commands.up from service's .raioz.json", "service", name, "source", "service_config")
-					} else if serviceDeps.Project.Commands.Up != "" {
-						command = serviceDeps.Project.Commands.Up
-						logging.DebugWithContext(ctx, "Using project.commands.up from service's .raioz.json", "service", name, "source", "service_config")
+				cmds := svcCfg.Project.Commands
+				if cmds != nil {
+					logMsg := "Using project.commands.up from service's .raioz.json"
+					if mode == "prod" && cmds.Prod != nil && cmds.Prod.Up != "" {
+						command = cmds.Prod.Up
+						logging.DebugWithContext(ctx, logMsg,
+							"service", name, "source", "service_config")
+					} else if mode == "dev" && cmds.Dev != nil && cmds.Dev.Up != "" {
+						command = cmds.Dev.Up
+						logging.DebugWithContext(ctx, logMsg,
+							"service", name, "source", "service_config")
+					} else if cmds.Up != "" {
+						command = cmds.Up
+						logging.DebugWithContext(ctx, logMsg,
+							"service", name, "source", "service_config")
 					}
 				}
 			}
@@ -145,7 +159,11 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 
 		if command == "" {
 			logging.ErrorWithContext(ctx, "Host service missing command", "service", name)
-			return nil, fmt.Errorf("service %s requires a command (source.command, commands.up, service's .raioz.json project.commands.up, or root project.commands.up)", name)
+			return nil, fmt.Errorf(
+				"service %s requires a command (source.command, commands.up, "+
+					"service's .raioz.json project.commands.up, or root project.commands.up)",
+				name,
+			)
 		}
 
 		// Get stop command if available
@@ -198,7 +216,8 @@ func (uc *UseCase) processHostServices(ctx context.Context, deps *config.Deps, w
 
 		hostProcessInfo[name] = processInfo
 		output.PrintSuccess(i18n.T("up.host.started", name))
-		logging.DebugWithContext(ctx, "Host service started", "service", name, "pid", processInfo.PID, "command", processInfo.Command)
+		logging.DebugWithContext(ctx, "Host service started",
+			"service", name, "pid", processInfo.PID, "command", processInfo.Command)
 	}
 
 	output.PrintProgressDone(i18n.T("up.host.all_started", len(hostServices)))
@@ -212,9 +231,12 @@ func (uc *UseCase) stopHostServices(ctx context.Context, processInfoMap map[stri
 	}
 
 	for name, processInfo := range processInfoMap {
-		logging.InfoWithContext(ctx, "Stopping host service", "service", name, "pid", processInfo.PID, "stopCommand", processInfo.StopCommand)
-		if err := uc.deps.HostRunner.StopServiceWithCommand(ctx, processInfo.PID, processInfo.StopCommand); err != nil {
-			logging.WarnWithContext(ctx, "Failed to stop host service", "service", name, "pid", processInfo.PID, "error", err.Error())
+		logging.InfoWithContext(ctx, "Stopping host service",
+			"service", name, "pid", processInfo.PID, "stopCommand", processInfo.StopCommand)
+		err := uc.deps.HostRunner.StopServiceWithCommand(ctx, processInfo.PID, processInfo.StopCommand)
+		if err != nil {
+			logging.WarnWithContext(ctx, "Failed to stop host service",
+				"service", name, "pid", processInfo.PID, "error", err.Error())
 			// Continue stopping other services even if one fails
 			continue
 		}

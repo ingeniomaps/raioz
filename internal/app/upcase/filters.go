@@ -24,21 +24,36 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string
 
 	// Validate feature flags and mocks
 	if err := uc.deps.ConfigLoader.ValidateFeatureFlags(deps); err != nil {
-		return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.feature_flag_validation_failed")).WithSuggestion(i18n.T("error.feature_flag_validation_suggestion")).WithError(err)
+		return nil, errors.New(
+			errors.ErrCodeInvalidConfig,
+			i18n.T("error.feature_flag_validation_failed"),
+		).WithSuggestion(
+			i18n.T("error.feature_flag_validation_suggestion"),
+		).WithError(err)
 	}
 
 	// Filter by profile first
 	if profile != "" {
 		deps = uc.deps.ConfigLoader.FilterByProfile(deps, profile)
 		if len(deps.Services) == 0 && len(deps.Infra) == 0 {
-			return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.no_services_for_profile", profile)).WithSuggestion(i18n.T("error.no_services_for_profile_suggestion"))
+			return nil, errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("error.no_services_for_profile", profile),
+			).WithSuggestion(
+				i18n.T("error.no_services_for_profile_suggestion"),
+			)
 		}
 		output.PrintInfo(i18n.T("up.validate.using_profile", profile))
 	} else if len(deps.Profiles) > 0 {
 		// Default profiles from config: raioz up without --profile uses these
 		deps = uc.deps.ConfigLoader.FilterByProfiles(deps, deps.Profiles)
 		if len(deps.Services) == 0 && len(deps.Infra) == 0 {
-			return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.no_services_for_default_profiles", deps.Profiles)).WithSuggestion(i18n.T("error.no_services_for_default_profiles_suggestion"))
+			return nil, errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("error.no_services_for_default_profiles", deps.Profiles),
+			).WithSuggestion(
+				i18n.T("error.no_services_for_default_profiles_suggestion"),
+			)
 		}
 		output.PrintInfo(i18n.T("up.validate.using_default_profiles", strings.Join(deps.Profiles, ", ")))
 	}
@@ -60,7 +75,12 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string
 	// Filter ignored services (must check dependencies before filtering)
 	ignoredServiceNames, err := ignore.GetIgnoredServices()
 	if err != nil {
-		return nil, errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.ignored_services_load_failed")).WithSuggestion(i18n.T("error.ignored_services_load_suggestion")).WithError(err)
+		return nil, errors.New(
+			errors.ErrCodeWorkspaceError,
+			i18n.T("error.ignored_services_load_failed"),
+		).WithSuggestion(
+			i18n.T("error.ignored_services_load_suggestion"),
+		).WithError(err)
 	}
 	if len(ignoredServiceNames) > 0 {
 		// Check if any services depend on ignored services (before filtering)
@@ -74,7 +94,12 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string
 		// Filter ignored services
 		deps, ignoredServiceNames, err = uc.deps.ConfigLoader.FilterIgnoredServices(deps)
 		if err != nil {
-			return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.ignored_services_filter_failed")).WithSuggestion(i18n.T("error.ignored_services_filter_suggestion")).WithError(err)
+			return nil, errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("error.ignored_services_filter_failed"),
+			).WithSuggestion(
+				i18n.T("error.ignored_services_filter_suggestion"),
+			).WithError(err)
 		}
 		if len(ignoredServiceNames) > 0 {
 			output.PrintInfo(i18n.T("up.validate.ignoring_services", len(ignoredServiceNames), ignoredServiceNames))
@@ -88,7 +113,10 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string
 			_, isSvc := deps.Services[name]
 			_, isInfra := deps.Infra[name]
 			if !isSvc && !isInfra {
-				return nil, errors.New(errors.ErrCodeInvalidField, i18n.T("error.only_service_not_found", name)).WithContext("service", name)
+				return nil, errors.New(
+					errors.ErrCodeInvalidField,
+					i18n.T("error.only_service_not_found", name),
+				).WithContext("service", name)
 			}
 		}
 		// Resolve transitive dependencies
@@ -98,8 +126,7 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string
 	}
 
 	// Check if we have project commands as fallback
-	hasProjectCommands := deps.Project.Commands != nil && (
-		deps.Project.Commands.Up != "" ||
+	hasProjectCommands := deps.Project.Commands != nil && (deps.Project.Commands.Up != "" ||
 		(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
 		(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))
 
@@ -109,7 +136,12 @@ func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string
 
 	// Only fail if everything is empty (no services, no infra, no project commands)
 	if !hasServices && !hasInfra && !hasProjectCommands {
-		return nil, errors.New(errors.ErrCodeInvalidConfig, i18n.T("error.no_services_or_commands")).WithSuggestion(i18n.T("error.no_services_or_commands_suggestion"))
+		return nil, errors.New(
+			errors.ErrCodeInvalidConfig,
+			i18n.T("error.no_services_or_commands"),
+		).WithSuggestion(
+			i18n.T("error.no_services_or_commands_suggestion"),
+		)
 	}
 
 	return deps, nil

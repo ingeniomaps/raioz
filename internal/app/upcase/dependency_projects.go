@@ -77,7 +77,10 @@ func (uc *UseCase) checkDependencyProjects(ctx context.Context, deps *config.Dep
 }
 
 // askReplaceRunningProject asks the user if they want to replace a running project
-func askReplaceRunningProject(ctx context.Context, projectName string, projectState state.ProjectState, sm interfaces.StateManager) (bool, error) {
+func askReplaceRunningProject(
+	ctx context.Context, projectName string,
+	projectState state.ProjectState, sm interfaces.StateManager,
+) (bool, error) {
 	// Check if user has a saved decision
 	savedDecision, err := loadUserDecision(projectName, sm)
 	if err == nil && savedDecision != nil {
@@ -122,12 +125,16 @@ func askReplaceRunningProject(ctx context.Context, projectName string, projectSt
 }
 
 // stopRunningProject stops a running project by executing its down command
-func (uc *UseCase) stopRunningProject(ctx context.Context, projectName string, projectState state.ProjectState) error {
+func (uc *UseCase) stopRunningProject(
+	ctx context.Context, projectName string, projectState state.ProjectState,
+) error {
 	// Try to find the .raioz.json in the project workspace
 	configPath := filepath.Join(projectState.Workspace, ".raioz.json")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		// Config file doesn't exist, can't stop it properly
-		logging.WarnWithContext(ctx, "Cannot find .raioz.json for running project", "project", projectName, "workspace", projectState.Workspace)
+		logging.WarnWithContext(ctx,
+			"Cannot find .raioz.json for running project",
+			"project", projectName, "workspace", projectState.Workspace)
 		// Remove from global state anyway
 		_ = uc.deps.StateManager.RemoveProject(projectName)
 		return fmt.Errorf("config file not found for project %s", projectName)
@@ -136,7 +143,8 @@ func (uc *UseCase) stopRunningProject(ctx context.Context, projectName string, p
 	// Load the project's config
 	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
 	if err != nil {
-		logging.WarnWithContext(ctx, "Failed to load config for running project", "project", projectName, "error", err.Error())
+		logging.WarnWithContext(ctx, "Failed to load config for running project",
+			"project", projectName, "error", err.Error())
 		// Remove from global state anyway
 		_ = uc.deps.StateManager.RemoveProject(projectName)
 		return fmt.Errorf("failed to load config for project %s: %w", projectName, err)
@@ -151,7 +159,8 @@ func (uc *UseCase) stopRunningProject(ctx context.Context, projectName string, p
 
 	// Remove from global state
 	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
-		logging.WarnWithContext(ctx, "Failed to remove project from global state", "project", projectName, "error", err.Error())
+		logging.WarnWithContext(ctx, "Failed to remove project from global state",
+			"project", projectName, "error", err.Error())
 	}
 
 	output.PrintSuccess(i18n.T("up.dep.project_stopped", projectName))

@@ -135,7 +135,10 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 }
 
 // doRestart performs the actual restart operation
-func (uc *RestartUseCase) doRestart(ctx context.Context, w io.Writer, composePath string, services []string, forceRecreate bool) error {
+func (uc *RestartUseCase) doRestart(
+	ctx context.Context, w io.Writer, composePath string,
+	services []string, forceRecreate bool,
+) error {
 	fmt.Fprintf(w, "⏳ %s\n", i18n.T("output.restarting_services"))
 
 	var err error

@@ -14,8 +14,8 @@ import (
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/state"
 	"raioz/internal/runtime"
+	"raioz/internal/state"
 )
 
 // ServiceConflict represents a detected conflict for a service

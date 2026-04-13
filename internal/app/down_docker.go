@@ -112,7 +112,9 @@ func (uc *DownUseCase) handleProjectComposeDown(ctx context.Context, stateDeps *
 	}
 
 	output.PrintInfo(i18n.T("output.stopping_compose_project_dir"))
-	logging.InfoWithContext(ctx, "Found docker-compose.yml in project directory, stopping it", "composePath", projectComposePath)
+	logging.InfoWithContext(ctx,
+		"Found docker-compose.yml in project directory, stopping it",
+		"composePath", projectComposePath)
 	if err := uc.deps.DockerRunner.DownWithContext(ctx, projectComposePath); err != nil {
 		logging.WarnWithContext(ctx, "Failed to stop Docker Compose services from project directory", "error", err.Error())
 		output.PrintWarning(i18n.T("output.failed_stop_compose_project_dir"))
@@ -158,7 +160,10 @@ func (uc *DownUseCase) executeProjectDownCommand(
 }
 
 // runDownCommand executes a project down command string.
-func (uc *DownUseCase) runDownCommand(ctx context.Context, downCommand, mode string, ws *interfaces.Workspace, opts DownOptions) {
+func (uc *DownUseCase) runDownCommand(
+	ctx context.Context, downCommand, mode string,
+	ws *interfaces.Workspace, opts DownOptions,
+) {
 	var projectDir string
 	if opts.ConfigPath != "" {
 		absConfigPath, err := filepath.Abs(opts.ConfigPath)
@@ -199,7 +204,9 @@ func (uc *DownUseCase) runDownCommand(ctx context.Context, downCommand, mode str
 }
 
 // stopCommandOnlyProjectContainers attempts to stop containers for command-only projects.
-func (uc *DownUseCase) stopCommandOnlyProjectContainers(ctx context.Context, stateDeps *config.Deps, workspaceName string) {
+func (uc *DownUseCase) stopCommandOnlyProjectContainers(
+	ctx context.Context, stateDeps *config.Deps, workspaceName string,
+) {
 	projName := stateDeps.Project.Name
 	hasExplicit := stateDeps.HasExplicitWorkspace()
 	wsName := workspaceName
@@ -207,7 +214,10 @@ func (uc *DownUseCase) stopCommandOnlyProjectContainers(ctx context.Context, sta
 		wsName = projName
 	}
 	containerNames := []string{projName}
-	if normalized, err := uc.deps.DockerRunner.NormalizeContainerName(wsName, projName, projName, hasExplicit); err == nil && normalized != projName {
+	normalized, err := uc.deps.DockerRunner.NormalizeContainerName(
+		wsName, projName, projName, hasExplicit,
+	)
+	if err == nil && normalized != projName {
 		containerNames = append([]string{normalized}, containerNames...)
 	}
 	for _, name := range containerNames {

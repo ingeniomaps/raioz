@@ -17,11 +17,11 @@ type serviceResult struct {
 
 // infraPreset defines a common infrastructure template
 type infraPreset struct {
-	Name    string
-	Image   string
-	Tag     string
-	Port    string
-	Volume  string
+	Name   string
+	Image  string
+	Tag    string
+	Port   string
+	Volume string
 }
 
 var infraPresets = []infraPreset{

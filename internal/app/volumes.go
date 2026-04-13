@@ -32,9 +32,9 @@ type VolumesRemoveOptions struct {
 
 // VolumeInfo represents a project volume with usage information
 type VolumeInfo struct {
-	Name      string
-	InUseBy   []string // other projects using this volume
-	Source    string   // "service" or "infra"
+	Name    string
+	InUseBy []string // other projects using this volume
+	Source  string   // "service" or "infra"
 }
 
 // VolumesUseCase handles the "volumes" use case
@@ -164,7 +164,9 @@ func (uc *VolumesUseCase) Remove(ctx context.Context, opts VolumesRemoveOptions)
 }
 
 // resolveProject resolves project name and workspace
-func (uc *VolumesUseCase) resolveProject(ctx context.Context, configPath string, projectName string) (string, *interfaces.Workspace, error) {
+func (uc *VolumesUseCase) resolveProject(
+	ctx context.Context, configPath string, projectName string,
+) (string, *interfaces.Workspace, error) {
 	var workspaceName string
 	if projectName == "" {
 		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
@@ -198,7 +200,10 @@ func (uc *VolumesUseCase) resolveProject(ctx context.Context, configPath string,
 }
 
 // collectVolumes collects and normalizes all project volumes
-func (uc *VolumesUseCase) collectVolumes(ctx context.Context, projectName string, ws *interfaces.Workspace, configPath string) ([]VolumeInfo, error) {
+func (uc *VolumesUseCase) collectVolumes(
+	ctx context.Context, projectName string,
+	ws *interfaces.Workspace, configPath string,
+) ([]VolumeInfo, error) {
 	var serviceVolumes []string
 	var infraVolumes []string
 	workspaceName := projectName
@@ -282,7 +287,9 @@ func (uc *VolumesUseCase) collectVolumes(ctx context.Context, projectName string
 }
 
 // filterSpecificVolumes filters volumes by name
-func (uc *VolumesUseCase) filterSpecificVolumes(volumes []VolumeInfo, names []string) (toRemove []VolumeInfo, inUse []VolumeInfo, err error) {
+func (uc *VolumesUseCase) filterSpecificVolumes(
+	volumes []VolumeInfo, names []string,
+) (toRemove []VolumeInfo, inUse []VolumeInfo, err error) {
 	volMap := make(map[string]VolumeInfo)
 	for _, vol := range volumes {
 		volMap[vol.Name] = vol
