@@ -31,7 +31,7 @@ jobs:
 
     - name: Check file line count
       run: |
-        files=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" -exec sh -c 'lines=$(wc -l < "$1"); if [ "$lines" -gt 400 ]; then echo "$1: $lines lines"; fi' _ {} \;)
+        files=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.context/*" -exec sh -c 'lines=$(wc -l < "$1"); if [ "$lines" -gt 400 ]; then echo "$1: $lines lines"; fi' _ {} \;)
         if [ -n "$files" ]; then
           echo "❌ Files exceeding 400 lines found:"
           echo "$files"
@@ -41,7 +41,7 @@ jobs:
 
     - name: Check line length
       run: |
-        long_lines=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.ia/*" -exec awk 'length > 120 {print FILENAME":"NR": "length($0)" chars: "$0}' {} \;)
+        long_lines=$(find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" ! -path "*/.context/*" -exec awk 'length > 120 {print FILENAME":"NR": "length($0)" chars: "$0}' {} \;)
         if [ -n "$long_lines" ]; then
           echo "❌ Lines exceeding 120 characters found:"
           echo "$long_lines"

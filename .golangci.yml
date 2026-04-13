@@ -6,14 +6,6 @@ run:
   tests: true
   build-tags: ""
 
-issues:
-  exclude-dirs:
-    - vendor
-    - node_modules
-  exclude-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.generated\\.go$"
-
 linters-settings:
   # Maximum line length
   lll:
@@ -35,11 +27,6 @@ linters-settings:
       - style
     disabled-checks:
       - dupImport # allow duplicate imports if needed
-    enabled-checks:
-      - hugeParam
-      - rangeValCopy
-      - methodExprCall
-      - singleCaseSwitch
 
   # Cyclomatic complexity
   gocyclo:
@@ -53,7 +40,7 @@ linters-settings:
       - (io.Closer).Close
       - (*bytes.Buffer).Write
 
-  # Variable naming
+  # Code formatting
   gofmt:
     simplify: true
 
@@ -62,14 +49,6 @@ linters-settings:
     local-prefixes: raioz
 
   # Unused code
-  deadcode:
-    check-unexported: false
-
-  # Var naming
-  varcheck:
-    check-unexported: false
-
-  # Unused imports
   unused:
     check-exported: false
 
@@ -132,6 +111,13 @@ linters:
     - lll # Line length linter
 
 issues:
+  exclude-dirs:
+    - vendor
+    - node_modules
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.generated\\.go$"
+
   # Maximum issues count per one linter
   max-issues-per-linter: 0
   max-same-issues: 0
@@ -155,14 +141,6 @@ issues:
       linters:
         - gosec
 
-    # Allow magic numbers in tests
-    - path: _test\.go
-      text: "Error: magic number"
-      linters:
-        - gomnd
-
-  # Independent from severity settings, you can use the `-new` flag,
-  # to show only new issues created after git merge `--base`
   new: false
 
 output:
