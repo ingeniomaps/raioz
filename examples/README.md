@@ -19,6 +19,9 @@ Real-world use cases showing how Raioz orchestrates different project types.
 | [13](13-port-conflicts.yaml) | **Port conflicts** | Multiple services on same port, solved by proxy. |
 | [14](14-dev-swap.yaml) | **Dev swap** | Promote dependency from image to local with `raioz dev`. |
 | [15](15-zero-config.md) | **Zero-config** | `raioz up` without any config file. |
+| [16](16-git-services.yaml) | **Git services** | Clone remote repos automatically on first `raioz up`. |
+| [17](17-profiles.yaml) | **Profiles** | Start only backend, frontend, or data services. |
+| [18](18-low-resources.yaml) | **Low resources** | Run on limited machines with `--only`, profiles, and ignore. |
 
 ## Quick start
 

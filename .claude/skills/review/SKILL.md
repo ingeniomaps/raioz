@@ -26,7 +26,7 @@ find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" \
 
 If any file exceeds the limit, suggest a concrete split
 strategy (by responsibility, by type, or by domain) with
-proposed filenames. Reference `.context/REGLA_400_LINEAS.md`.
+proposed filenames.
 
 ### 2. Line length (max 120 characters)
 

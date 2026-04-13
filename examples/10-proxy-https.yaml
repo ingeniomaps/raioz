@@ -41,5 +41,5 @@ dependencies:
   postgres:
     image: postgres:16
     ports: ["5432"]
-    # Access: postgres.localhost:5432 (via proxy)
-    #     or: postgres.dev.acme.com:5432 (server)
+    # Access: localhost:5432 (direct port mapping, not proxied)
+    # Database connections use TCP, not HTTP — proxy doesn't apply

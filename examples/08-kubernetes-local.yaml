@@ -27,7 +27,7 @@ services:
     dependsOn: [api, auth]
     ports: ["8080"]
 
-  # This service has a Dockerfile → runs as Docker container
+  # Raioz auto-detects the runtime from project files in ./api
   api:
     path: ./api
     dependsOn: [postgres]

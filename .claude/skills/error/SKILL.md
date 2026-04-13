@@ -136,13 +136,13 @@ Common context keys:
 
 ```
 Message:    "Port %d is already in use by %s"
-Suggestion: "Change the port in .raioz.json or stop the conflicting service"
+Suggestion: "Change the port in raioz.yaml or stop the conflicting service"
 
 Message:    "Docker is not running"
 Suggestion: "Start Docker Desktop or run 'systemctl start docker'"
 
 Message:    "Config file not found: %s"
-Suggestion: "Run 'raioz init' to create a .raioz.json file"
+Suggestion: "Run 'raioz init' to create a raioz.yaml file"
 ```
 
 ## Error wrapping

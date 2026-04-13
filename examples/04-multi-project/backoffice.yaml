@@ -28,8 +28,8 @@ dependencies:
     image: postgres:16
     ports: ["5432"]
 
-  # Reference a service from another project by its image
-  # (the other team publishes their service as a Docker image)
+  # Use a published image when you need a service but don't
+  # have the source locally
   store-api:
     image: acme/store-api:latest
     ports: ["3000"]

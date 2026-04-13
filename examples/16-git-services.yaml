@@ -1,0 +1,55 @@
+# 16 — Git services: clone remote repos automatically
+#
+# When your team has services in separate repositories,
+# Raioz clones them for you on first `raioz up`.
+#
+# Usage:
+#   mkdir my-workspace && cd my-workspace
+#   cp raioz.yaml .      # this file
+#   raioz up              # clones repos, detects runtimes, starts everything
+#
+# On subsequent runs, Raioz uses the already-cloned repos.
+# If `branch` changes in config, Raioz checks out the new branch.
+
+project: team-platform
+proxy: true
+
+services:
+  # Clone from GitHub — Raioz detects Go runtime from go.mod
+  api:
+    git: git@github.com:acme/api-service.git
+    branch: develop
+    path: ./api
+    dependsOn: [postgres]
+    watch: true
+    health: /health
+
+  # Clone a specific branch for testing a feature
+  auth:
+    git: git@github.com:acme/auth-service.git
+    branch: feat/oauth2
+    path: ./auth
+    dependsOn: [redis]
+
+  # Local service — you're actively developing this one
+  frontend:
+    path: ./frontend
+    dependsOn: [api, auth]
+    watch: native
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]
+
+# Resulting directory structure after first `raioz up`:
+#
+#   my-workspace/
+#   ├── raioz.yaml
+#   ├── api/            ← cloned from acme/api-service (develop)
+#   ├── auth/           ← cloned from acme/auth-service (feat/oauth2)
+#   └── frontend/       ← your local code (already exists)

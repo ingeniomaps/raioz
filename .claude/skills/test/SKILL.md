@@ -68,8 +68,8 @@ Use `t.TempDir()` for file system tests — auto-cleaned:
 ```go
 func TestSomething(t *testing.T) {
     tmpDir := t.TempDir()
-    configPath := filepath.Join(tmpDir, ".raioz.json")
-    os.WriteFile(configPath, []byte(`{}`), 0644)
+    configPath := filepath.Join(tmpDir, "raioz.yaml")
+    os.WriteFile(configPath, []byte(`project: test`), 0644)
     // test logic
 }
 ```

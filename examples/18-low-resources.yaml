@@ -1,0 +1,95 @@
+# 18 — Low resources: run on limited machines
+#
+# Not every developer has 32GB RAM. This example shows
+# how to use Raioz features to minimize resource usage
+# when your machine can't handle the full workspace.
+#
+# === Strategy 1: Start only what you need ===
+#
+#   raioz up --only api
+#   # Starts: api + postgres + redis (transitive deps only)
+#   # Skips: frontend, worker, elasticsearch, kafka
+#
+#   raioz up --only frontend
+#   # Starts: frontend + api + postgres + redis
+#   # Skips: worker, elasticsearch, kafka
+#
+# === Strategy 2: Use profiles ===
+#
+#   raioz up --profile light
+#   # Starts: api, frontend + minimal infra
+#   # Skips: heavy services (worker, etl) and heavy infra (elasticsearch, kafka)
+#
+# === Strategy 3: Ignore heavy services permanently ===
+#
+#   raioz ignore add elasticsearch kafka
+#   raioz up
+#   # Starts everything EXCEPT elasticsearch and kafka
+#   # Persists across runs until: raioz ignore remove elasticsearch kafka
+#
+# === Strategy 4: Combine all three ===
+#
+#   raioz ignore add elasticsearch kafka
+#   raioz up --only api --profile light
+#   # Minimal footprint: just api + postgres + redis
+
+project: resource-aware
+proxy: true
+
+services:
+  api:
+    path: ./api
+    dependsOn: [postgres, redis]
+    health: /health
+    watch: true
+    profiles: [light]
+
+  frontend:
+    path: ./frontend
+    dependsOn: [api]
+    watch: native
+    profiles: [light]
+
+  # Heavy: processes background jobs
+  worker:
+    path: ./worker
+    dependsOn: [postgres, redis, kafka]
+    profiles: [full]
+
+  # Heavy: runs data pipelines
+  etl:
+    path: ./etl
+    dependsOn: [postgres, elasticsearch]
+    profiles: [full, data]
+
+dependencies:
+  # Light: ~60MB RAM
+  postgres:
+    image: postgres:16-alpine
+    ports: ["5432"]
+
+  # Light: ~15MB RAM
+  redis:
+    image: redis:7-alpine
+    ports: ["6379"]
+
+  # Heavy: ~500MB+ RAM — skip on limited machines
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    ports: ["9200"]
+
+  # Heavy: ~400MB+ RAM — skip on limited machines
+  kafka:
+    image: bitnami/kafka:3.7
+    ports: ["9092"]
+
+# Tips for low-resource machines:
+#
+# 1. Use alpine images where possible (postgres:16-alpine, redis:7-alpine)
+# 2. Start with --only <service> instead of starting everything
+# 3. Use profiles: [light] for essential services, [full] for optional
+# 4. Use `raioz ignore add` for services you never need locally
+# 5. Use `watch: native` instead of `watch: true` to avoid extra
+#    file watchers (let your framework handle hot-reload)
+# 6. Stop projects you're not working on: `raioz down --project other`
+# 7. Run `raioz list` to see all active projects consuming resources

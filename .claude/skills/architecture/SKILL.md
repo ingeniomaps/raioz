@@ -32,7 +32,7 @@ internal/app/               Use cases (business logic)
          |                   - Never imports infra/
          |
 internal/domain/            Contracts and models
-  interfaces/               - Port interfaces (9 total)
+  interfaces/               - Port interfaces (27 total)
   models/                   - Type aliases to decouple
          |
 internal/infra/             Adapters
