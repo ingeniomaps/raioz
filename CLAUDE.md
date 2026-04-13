@@ -8,9 +8,9 @@ Raioz is a **meta-orchestrator** CLI (Go) for local microservice development. It
 
 **Core principle**: the developer uses their preferred tools; Raioz just connects, starts, and stops everything.
 
-### Two config modes (backward compatible)
-- **New**: `raioz.yaml` — minimal YAML with services (local) + dependencies (images)
-- **Legacy**: `.raioz.json` — full JSON config with compose generation (still supported)
+### Config modes
+- **Primary**: `raioz.yaml` — minimal YAML with services (local) + dependencies (images)
+- **Legacy**: `.raioz.json` — deprecated with migration warning (`raioz migrate yaml`)
 
 ## Build & Development Commands
 
@@ -50,24 +50,26 @@ Clean Architecture: `cmd/` → `internal/cli/` → `internal/app/` → `internal
 - **internal/domain/interfaces/**: Port interfaces (DockerRunner, Orchestrator, ProxyManager, DiscoveryManager, etc.)
 - **internal/infra/**: Thin adapters implementing domain interfaces.
 
-### New meta-orchestrator packages
-- **internal/detect/**: Scans a path, detects runtime (compose, dockerfile, npm, go, make, python, rust).
-- **internal/orchestrate/**: Dispatcher + runners per runtime. ComposeRunner uses overlay (never modifies user's compose). DockerfileRunner builds+runs. HostRunner starts host processes. ImageRunner generates minimal compose per dependency.
-- **internal/proxy/**: Caddy management. Generates Caddyfile, manages container lifecycle, mkcert integration for local HTTPS. Routes support ws/sse/grpc.
-- **internal/discovery/**: Generates service discovery env vars based on cross-runtime network context (container→container, container→host, host→container, host→host).
+### Key packages
+- **internal/detect/**: Scans a path, detects runtime (24 runtimes: compose, dockerfile, npm, go, python, rust, etc.).
+- **internal/orchestrate/**: Dispatcher + runners per runtime. ComposeRunner uses overlay. DockerfileRunner builds+runs. HostRunner starts host processes. ImageRunner generates compose per dependency.
+- **internal/proxy/**: Caddy management. Generates Caddyfile, mkcert integration for local HTTPS. Routes support ws/sse/grpc.
+- **internal/discovery/**: Service discovery env vars based on cross-runtime network context.
 - **internal/watch/**: fsnotify-based file watcher with debounce. Restarts services on file changes.
-- **internal/graph/**: Dependency graph visualization (ASCII, DOT/Graphviz, JSON).
-- **internal/snapshot/**: Volume backup/restore via `docker run alpine tar`.
-- **internal/tunnel/**: Expose services via cloudflared or bore.
-
-### Existing packages (preserved)
 - **internal/config/**: Config loading (YAML + JSON), types, filtering, dependency resolution.
 - **internal/docker/**: Docker operations, network/volume/port management, compose reading.
-- **internal/state/**: State persistence. `LocalState` in `.raioz.state.json` (project dir). Docker is source of truth for running state.
+- **internal/state/**: State persistence. `LocalState` in `.raioz.state.json` (project dir).
 - **internal/env/**: Environment variable resolution and templating.
 - **internal/errors/**: Structured `RaiozError` with codes, context, suggestions.
 - **internal/i18n/**: Internationalization with embedded JSON catalogs.
-- **internal/git/**, **internal/host/**, **internal/lock/**, **internal/mocks/**: Unchanged.
+- **internal/naming/**: Centralized naming conventions for Docker resources.
+- **internal/runtime/**: Docker/Podman/nerdctl runtime abstraction.
+- **internal/tui/**: Interactive dashboard (bubbletea).
+- **internal/resilience/**: Retry logic and circuit breakers.
+- **internal/graph/**: Dependency graph visualization (ASCII, DOT/Graphviz, JSON).
+- **internal/snapshot/**: Volume backup/restore via `docker run alpine tar`.
+- **internal/tunnel/**: Expose services via cloudflared or bore.
+- **internal/git/**, **internal/host/**, **internal/lock/**, **internal/mocks/**: Git ops, host processes, file locking, test mocks.
 
 ## Config format (raioz.yaml)
 
@@ -105,24 +107,25 @@ dependencies:                # what I need running (Docker images)
 - **State** = `.raioz.state.json` in project dir (gitignored). Only stores what Docker can't tell us (dev overrides, host PIDs, ignored services).
 - **Networking** = one Docker network per workspace. `host.docker.internal` for container→host. Caddy eliminates port conflicts.
 
-## CLI Commands (27 total)
+## CLI Commands (29 total)
 
 ### Core
-`up`, `down`, `status`, `logs`, `restart`, `exec`, `check`, `clean`, `init`, `doctor`
+`up`, `down`, `status`, `logs`, `restart`, `exec`, `check`, `clean`, `init`, `doctor`, `clone`
 
 ### Development
-`dev` (hot-swap dep→local), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy)
+`dev` (hot-swap dep→local), `env` (show service env vars), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy), `dashboard` (interactive TUI)
 
 ### Management
-`workspace`, `list`, `version`, `lang`, `ignore`, `volumes`, `compare`, `ci`, `health`, `migrate`
+`list`, `version`, `lang`, `ignore`, `volumes`, `compare`, `ci`, `health`, `migrate`, `ports`, `yaml` (migrate config)
 
 ## Dependencies
 
 - **CLI**: spf13/cobra
+- **TUI**: charmbracelet/bubbletea, charmbracelet/lipgloss
 - **JSON Schema**: xeipuuv/gojsonschema
 - **YAML**: gopkg.in/yaml.v3
 - **File watching**: fsnotify/fsnotify
-- **Go version**: 1.22
+- **Go version**: 1.24
 
 ## Patterns
 
