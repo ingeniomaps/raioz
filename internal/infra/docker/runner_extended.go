@@ -10,38 +10,56 @@ import (
 )
 
 // GenerateCompose generates a docker-compose file from dependencies
-func (r *DockerRunnerImpl) GenerateCompose(deps *config.Deps, ws *interfaces.Workspace, projectDir string) (string, []string, error) {
+func (r *DockerRunnerImpl) GenerateCompose(
+	deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+) (string, []string, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return dockerpkg.GenerateCompose(deps, wsConcrete, projectDir)
 }
 
 // UpServicesWithContext starts specific Docker Compose services with context support
-func (r *DockerRunnerImpl) UpServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+func (r *DockerRunnerImpl) UpServicesWithContext(
+	ctx context.Context, composePath string, serviceNames []string,
+) error {
 	return dockerpkg.UpServicesWithContext(ctx, composePath, serviceNames)
 }
 
 // RestartServicesWithContext restarts specific Docker Compose services
-func (r *DockerRunnerImpl) RestartServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+func (r *DockerRunnerImpl) RestartServicesWithContext(
+	ctx context.Context, composePath string, serviceNames []string,
+) error {
 	return dockerpkg.RestartServicesWithContext(ctx, composePath, serviceNames)
 }
 
 // ForceRecreateServicesWithContext recreates and starts services
-func (r *DockerRunnerImpl) ForceRecreateServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+func (r *DockerRunnerImpl) ForceRecreateServicesWithContext(
+	ctx context.Context, composePath string, serviceNames []string,
+) error {
 	return dockerpkg.ForceRecreateServicesWithContext(ctx, composePath, serviceNames)
 }
 
 // ExecInService runs a command inside a running container
-func (r *DockerRunnerImpl) ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error {
+func (r *DockerRunnerImpl) ExecInService(
+	ctx context.Context, composePath string, serviceName string,
+	command []string, interactive bool,
+) error {
 	return dockerpkg.ExecInService(ctx, composePath, serviceName, command, interactive)
 }
 
 // WaitForServicesHealthy waits for services to become healthy
-func (r *DockerRunnerImpl) WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error {
-	return dockerpkg.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, projectName)
+func (r *DockerRunnerImpl) WaitForServicesHealthy(
+	ctx context.Context, composePath string, serviceNames []string,
+	infraNames []string, projectName string,
+) error {
+	return dockerpkg.WaitForServicesHealthy(
+		ctx, composePath, serviceNames, infraNames, projectName,
+	)
 }
 
 // ValidatePorts checks if all ports in a project are available
-func (r *DockerRunnerImpl) ValidatePorts(deps *config.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
+func (r *DockerRunnerImpl) ValidatePorts(
+	deps *config.Deps, baseDir string, projectName string,
+) ([]interfaces.PortConflict, error) {
 	conflicts, err := dockerpkg.ValidatePorts(deps, baseDir, projectName)
 	if err != nil {
 		return nil, err
@@ -78,7 +96,9 @@ func (r *DockerRunnerImpl) ValidateAllImages(deps *config.Deps) error {
 }
 
 // EnsureNetworkWithConfigAndContext ensures a Docker network exists with optional subnet
-func (r *DockerRunnerImpl) EnsureNetworkWithConfigAndContext(ctx context.Context, name string, subnet string, askConfirmation bool) error {
+func (r *DockerRunnerImpl) EnsureNetworkWithConfigAndContext(
+	ctx context.Context, name string, subnet string, askConfirmation bool,
+) error {
 	cfg := dockerpkg.NetworkConfig{
 		Name:   name,
 		Subnet: subnet,
@@ -97,17 +117,23 @@ func (r *DockerRunnerImpl) NormalizeVolumeName(prefix string, name string) (stri
 }
 
 // NormalizeContainerName normalizes a container name
-func (r *DockerRunnerImpl) NormalizeContainerName(workspace string, service string, project string, hasExplicitWorkspace bool) (string, error) {
+func (r *DockerRunnerImpl) NormalizeContainerName(
+	workspace string, service string, project string, hasExplicitWorkspace bool,
+) (string, error) {
 	return dockerpkg.NormalizeContainerName(workspace, service, project, hasExplicitWorkspace)
 }
 
 // NormalizeInfraName normalizes an infra container name
-func (r *DockerRunnerImpl) NormalizeInfraName(workspace string, infra string, project string, hasExplicitWorkspace bool) (string, error) {
+func (r *DockerRunnerImpl) NormalizeInfraName(
+	workspace string, infra string, project string, hasExplicitWorkspace bool,
+) (string, error) {
 	return dockerpkg.NormalizeInfraName(workspace, infra, project, hasExplicitWorkspace)
 }
 
-// GetContainerNameWithContext returns the container name for a service in a compose file
-func (r *DockerRunnerImpl) GetContainerNameWithContext(ctx context.Context, composePath string, serviceName string) (string, error) {
+// GetContainerNameWithContext returns the container name for a service
+func (r *DockerRunnerImpl) GetContainerNameWithContext(
+	ctx context.Context, composePath string, serviceName string,
+) (string, error) {
 	return dockerpkg.GetContainerNameWithContext(ctx, composePath, serviceName)
 }
 

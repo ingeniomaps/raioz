@@ -15,9 +15,10 @@ const workspacePreferencesFileName = "workspace-preferences.json"
 // WorkspaceProjectPreference stores which project to use when multiple .raioz.json
 // in the same workspace define overlapping services (e.g. same service name).
 type WorkspaceProjectPreference struct {
-	PreferredProject   string `json:"preferredProject"`   // project name to use when conflict
-	AlwaysAsk          bool   `json:"alwaysAsk"`          // if true, always prompt instead of applying preference
-	MergeWhenPreferred bool   `json:"mergeWhenPreferred"` // if true and preferred project matches, merge configs instead of replace
+	PreferredProject string `json:"preferredProject"` // project name to use when conflict
+	AlwaysAsk        bool   `json:"alwaysAsk"`        // if true, always prompt instead of applying preference
+	// if true and preferred project matches, merge configs
+	MergeWhenPreferred bool `json:"mergeWhenPreferred"`
 }
 
 // WorkspacePreferences is the file format: workspace name -> preference
@@ -28,9 +29,13 @@ type WorkspacePreferences struct {
 func getWorkspacePreferencesPath() (string, error) {
 	base, err := workspace.GetBaseDir()
 	if err != nil {
-		return "", raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to get base directory for workspace preferences").
-			WithError(err).
-			WithSuggestion("Ensure the raioz base directory is properly configured")
+		return "", raiozErrors.New(
+			raiozErrors.ErrCodeStateLoadError,
+			"failed to get base directory for workspace preferences",
+		).WithError(err).
+			WithSuggestion(
+				"Ensure the raioz base directory is properly configured",
+			)
 	}
 	return filepath.Join(base, workspacePreferencesFileName), nil
 }
@@ -54,10 +59,16 @@ func loadWorkspacePreferences() (*WorkspacePreferences, error) {
 	}
 	var prefs WorkspacePreferences
 	if err := json.Unmarshal(data, &prefs); err != nil {
-		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to parse workspace preferences file").
-			WithContext("path", path).
+		return nil, raiozErrors.New(
+			raiozErrors.ErrCodeStateLoadError,
+			"failed to parse workspace preferences file",
+		).WithContext("path", path).
 			WithError(err).
-			WithSuggestion("The workspace preferences file may be corrupted. Try deleting it — preferences will be re-created when needed")
+			WithSuggestion(
+				"The workspace preferences file may be corrupted. " +
+					"Try deleting it — preferences will be " +
+					"re-created when needed",
+			)
 	}
 	if prefs.ByWorkspace == nil {
 		prefs.ByWorkspace = make(map[string]WorkspaceProjectPreference)
@@ -79,10 +90,18 @@ func saveWorkspacePreferences(prefs *WorkspacePreferences) error {
 	}
 	data, err := json.MarshalIndent(prefs, "", "  ")
 	if err != nil {
-		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, fmt.Sprintf("failed to marshal workspace preferences: %v", err)).
-			WithContext("path", path).
+		return raiozErrors.New(
+			raiozErrors.ErrCodeStateSaveError,
+			fmt.Sprintf(
+				"failed to marshal workspace preferences: %v", err,
+			),
+		).WithContext("path", path).
 			WithError(err).
-			WithSuggestion("The preferences data may be corrupted. Try deleting the preferences file and setting preferences again")
+			WithSuggestion(
+				"The preferences data may be corrupted. " +
+					"Try deleting the preferences file and " +
+					"setting preferences again",
+			)
 	}
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to write workspace preferences file").

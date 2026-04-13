@@ -14,12 +14,12 @@ import (
 
 // CleanupOptions contains options for cleanup operations
 type CleanupOptions struct {
-	DryRun     bool
-	All        bool
-	Images     bool
-	Volumes    bool
-	Networks   bool
-	Force      bool
+	DryRun   bool
+	All      bool
+	Images   bool
+	Volumes  bool
+	Networks bool
+	Force    bool
 }
 
 // CleanProject cleans up stopped services and resources for a project

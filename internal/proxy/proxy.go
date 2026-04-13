@@ -107,7 +107,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		"-p", httpBind,
 		"-p", httpsBind,
 		"-v", caddyfilePath + ":/etc/caddy/Caddyfile:ro",
-		"-v", naming.CaddyVolume(m.projectName)+":/data",
+		"-v", naming.CaddyVolume(m.projectName) + ":/data",
 		"--add-host=host.docker.internal:host-gateway",
 	}
 
@@ -184,7 +184,10 @@ func (m *Manager) Reload(ctx context.Context) error {
 	}
 
 	// Reload Caddy
-	reload := exec.CommandContext(ctx, runtime.Binary(), "exec", containerName, "caddy", "reload", "--config", "/etc/caddy/Caddyfile")
+	reload := exec.CommandContext(
+		ctx, runtime.Binary(), "exec", containerName,
+		"caddy", "reload", "--config", "/etc/caddy/Caddyfile",
+	)
 	if output, err := reload.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to reload proxy: %w\n%s", err, string(output))
 	}

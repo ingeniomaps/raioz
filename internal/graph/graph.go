@@ -7,9 +7,9 @@ import (
 
 // Node represents a service or dependency in the graph.
 type Node struct {
-	Name    string   `json:"name"`
-	Kind    string   `json:"kind"` // "service" or "dependency"
-	Edges   []string `json:"dependsOn"`
+	Name  string   `json:"name"`
+	Kind  string   `json:"kind"` // "service" or "dependency"
+	Edges []string `json:"dependsOn"`
 }
 
 // Graph is an adjacency list of named nodes.

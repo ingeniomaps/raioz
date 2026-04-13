@@ -42,20 +42,23 @@ type Config struct {
 	Docker      interfaces.DockerRunner
 	Proxy       interfaces.ProxyManager
 	Ctx         context.Context
+	// YAMLMode indicates the project uses YAML orchestration (no compose file).
+	// When true, container operations use naming.Container() directly.
+	YAMLMode bool
 }
 
 // Model is the Bubble Tea model for the dashboard.
 type Model struct {
-	config      Config
-	services    []ServiceRow
-	selected    int
-	logs        map[string][]string
-	view        ViewMode
-	width       int
-	height      int
-	statusMsg   string // transient status message (e.g., "Restarting api...")
-	proxyUp     bool
-	quitting    bool
+	config    Config
+	services  []ServiceRow
+	selected  int
+	logs      map[string][]string
+	view      ViewMode
+	width     int
+	height    int
+	statusMsg string // transient status message (e.g., "Restarting api...")
+	proxyUp   bool
+	quitting  bool
 }
 
 // New creates a new dashboard Model from config.

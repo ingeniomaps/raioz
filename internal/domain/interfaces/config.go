@@ -23,10 +23,18 @@ type ConfigLoader interface {
 	FilterIgnoredServices(deps *models.Deps) (*models.Deps, []string, error)
 	// CheckIgnoredDependencies checks if ignored services are dependencies of active services
 	CheckIgnoredDependencies(deps *models.Deps, ignoredServices []string) map[string][]string
-	// DetectMissingDependencies detects dependencies that are required but not defined
-	DetectMissingDependencies(deps *models.Deps, pathResolver func(string, models.Service) string) ([]models.MissingDependency, error)
-	// DetectDependencyConflicts detects conflicts between root and service dependencies
-	DetectDependencyConflicts(deps *models.Deps, pathResolver func(string, models.Service) string) ([]models.DependencyConflict, error)
+	// DetectMissingDependencies detects dependencies that are
+	// required but not defined
+	DetectMissingDependencies(
+		deps *models.Deps,
+		pathResolver func(string, models.Service) string,
+	) ([]models.MissingDependency, error)
+	// DetectDependencyConflicts detects conflicts between root
+	// and service dependencies
+	DetectDependencyConflicts(
+		deps *models.Deps,
+		pathResolver func(string, models.Service) string,
+	) ([]models.DependencyConflict, error)
 	// FindServiceConfig finds and loads configuration from a service's .raioz.json
 	FindServiceConfig(servicePath string) (*models.Deps, string, error)
 }

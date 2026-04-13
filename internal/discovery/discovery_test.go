@@ -31,8 +31,8 @@ func TestGenerateEnvVars_ContainerToContainer(t *testing.T) {
 func TestGenerateEnvVars_HostToContainer(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"postgres":  {Name: "postgres", Runtime: detect.RuntimeImage, Host: "postgres", Port: 5432},
-		"cart-api":  {Name: "cart-api", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 3001},
+		"postgres": {Name: "postgres", Runtime: detect.RuntimeImage, Host: "postgres", Port: 5432},
+		"cart-api": {Name: "cart-api", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 3001},
 	}
 
 	vars := m.GenerateEnvVars("cart-api", detect.RuntimeNPM, endpoints, false)
@@ -58,6 +58,68 @@ func TestGenerateEnvVars_ContainerToHost(t *testing.T) {
 	}
 	if vars["CART_API_PORT"] != "3001" {
 		t.Errorf("expected CART_API_PORT=3001, got %s", vars["CART_API_PORT"])
+	}
+}
+
+func TestGenerateEnvVars_HostToContainerUsesHostPort(t *testing.T) {
+	// When a dependency is published to a host port different from the
+	// container port (e.g. publish: true bumped 5432→5433), host callers
+	// must see the HOST port, not the container one. This exercises the
+	// phase-2 HostPort/Port split on ServiceEndpoint.
+	m := NewManager()
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"postgres": {
+			Name:     "postgres",
+			Runtime:  detect.RuntimeImage,
+			Host:     "raioz-app-postgres",
+			Port:     5432, // container port
+			HostPort: 5433, // published host port (bumped because 5432 was taken)
+		},
+		"api": {Name: "api", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 3000},
+	}
+
+	vars := m.GenerateEnvVars("api", detect.RuntimeNPM, endpoints, false)
+
+	if vars["POSTGRES_HOST"] != "localhost" {
+		t.Errorf("POSTGRES_HOST = %q, want localhost", vars["POSTGRES_HOST"])
+	}
+	if vars["POSTGRES_PORT"] != "5433" {
+		t.Errorf("POSTGRES_PORT = %q, want 5433 (the host port)", vars["POSTGRES_PORT"])
+	}
+	if vars["POSTGRES_URL"] != "http://localhost:5433" {
+		t.Errorf("POSTGRES_URL = %q, want http://localhost:5433", vars["POSTGRES_URL"])
+	}
+}
+
+func TestGenerateEnvVars_ContainerToContainerIgnoresHostPort(t *testing.T) {
+	// Inside the Docker network, container→container traffic must use the
+	// *container* port on the DNS name, even when HostPort is set. Using
+	// HostPort here would break intra-network communication the moment the
+	// dev pinned a non-matching publish port.
+	m := NewManager()
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"postgres": {
+			Name:     "postgres",
+			Runtime:  detect.RuntimeImage,
+			Host:     "raioz-app-postgres",
+			Port:     5432,
+			HostPort: 5433,
+		},
+		"api": {
+			Name:    "api",
+			Runtime: detect.RuntimeDockerfile,
+			Host:    "raioz-app-api",
+			Port:    3000,
+		},
+	}
+
+	vars := m.GenerateEnvVars("api", detect.RuntimeDockerfile, endpoints, false)
+
+	if vars["POSTGRES_HOST"] != "raioz-app-postgres" {
+		t.Errorf("POSTGRES_HOST = %q, want container DNS", vars["POSTGRES_HOST"])
+	}
+	if vars["POSTGRES_PORT"] != "5432" {
+		t.Errorf("POSTGRES_PORT = %q, want 5432 (container port)", vars["POSTGRES_PORT"])
 	}
 }
 

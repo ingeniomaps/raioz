@@ -17,8 +17,12 @@ type GitRepository interface {
 	EnsureEditableRepo(src models.SourceConfig, baseDir string) error
 	// ForceReclone removes the repository directory and clones it fresh (with context)
 	ForceReclone(ctx context.Context, repoPath string, repo string, branch string) error
-	// UpdateReposIfBranchChanged updates repositories if their branches changed
-	UpdateReposIfBranchChanged(ctx context.Context, repoPathResolver func(string, models.Service) string, oldDeps, newDeps *models.Deps) error
+	// UpdateReposIfBranchChanged updates repos if branches changed
+	UpdateReposIfBranchChanged(
+		ctx context.Context,
+		repoPathResolver func(string, models.Service) string,
+		oldDeps, newDeps *models.Deps,
+	) error
 	// IsReadonly checks if a source configuration is readonly
 	IsReadonly(src models.SourceConfig) bool
 }

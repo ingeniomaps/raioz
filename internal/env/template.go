@@ -144,7 +144,10 @@ func GenerateEnvFromTemplate(
 					// Only use projectEnvPath if this is the project itself
 					serviceProjectEnvPath = projectEnvPath
 				}
-				resolvedPaths, err := ResolveEnvFiles(ws, deps, serviceName, serviceEnvFiles, serviceProjectEnvPath, false, projectDir)
+				resolvedPaths, err := ResolveEnvFiles(
+					ws, deps, serviceName, serviceEnvFiles,
+					serviceProjectEnvPath, false, projectDir,
+				)
 				if err == nil {
 					allResolvedPaths = append(allResolvedPaths, resolvedPaths...)
 				}

@@ -21,7 +21,14 @@ func NewHostRunner() interfaces.HostRunner {
 }
 
 // StartService starts a service directly on the host (without Docker)
-func (r *HostRunnerImpl) StartService(ctx context.Context, ws *interfaces.Workspace, deps *config.Deps, serviceName string, svc config.Service, projectDir string) (*hostpkg.ProcessInfo, error) {
+func (r *HostRunnerImpl) StartService(
+	ctx context.Context,
+	ws *interfaces.Workspace,
+	deps *config.Deps,
+	serviceName string,
+	svc config.Service,
+	projectDir string,
+) (*hostpkg.ProcessInfo, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return hostpkg.StartService(ctx, wsConcrete, deps, serviceName, svc, projectDir)
 }
@@ -55,7 +62,9 @@ func (r *HostRunnerImpl) DetectComposePath(servicePath string, command string, e
 }
 
 // StopServiceWithCommandAndPath stops a host service by PID with an optional stop command and service path
-func (r *HostRunnerImpl) StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand string, servicePath string) error {
+func (r *HostRunnerImpl) StopServiceWithCommandAndPath(
+	ctx context.Context, pid int, stopCommand string, servicePath string,
+) error {
 	return hostpkg.StopServiceWithCommandAndPath(ctx, pid, stopCommand, servicePath)
 }
 

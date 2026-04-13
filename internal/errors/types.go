@@ -7,10 +7,10 @@ type ErrorCode string
 
 const (
 	// Configuration errors
-	ErrCodeInvalidConfig      ErrorCode = "INVALID_CONFIG"
-	ErrCodeSchemaValidation   ErrorCode = "SCHEMA_VALIDATION"
-	ErrCodeMissingField       ErrorCode = "MISSING_FIELD"
-	ErrCodeInvalidField       ErrorCode = "INVALID_FIELD"
+	ErrCodeInvalidConfig    ErrorCode = "INVALID_CONFIG"
+	ErrCodeSchemaValidation ErrorCode = "SCHEMA_VALIDATION"
+	ErrCodeMissingField     ErrorCode = "MISSING_FIELD"
+	ErrCodeInvalidField     ErrorCode = "INVALID_FIELD"
 
 	// Docker errors
 	ErrCodeDockerNotInstalled ErrorCode = "DOCKER_NOT_INSTALLED"
@@ -28,14 +28,14 @@ const (
 	ErrCodeNetworkUnavailable ErrorCode = "NETWORK_UNAVAILABLE"
 
 	// Workspace errors
-	ErrCodeWorkspaceError     ErrorCode = "WORKSPACE_ERROR"
-	ErrCodePermissionDenied   ErrorCode = "PERMISSION_DENIED"
-	ErrCodeDiskSpaceLow       ErrorCode = "DISK_SPACE_LOW"
+	ErrCodeWorkspaceError   ErrorCode = "WORKSPACE_ERROR"
+	ErrCodePermissionDenied ErrorCode = "PERMISSION_DENIED"
+	ErrCodeDiskSpaceLow     ErrorCode = "DISK_SPACE_LOW"
 
 	// State errors
-	ErrCodeLockError          ErrorCode = "LOCK_ERROR"
-	ErrCodeStateLoadError     ErrorCode = "STATE_LOAD_ERROR"
-	ErrCodeStateSaveError     ErrorCode = "STATE_SAVE_ERROR"
+	ErrCodeLockError      ErrorCode = "LOCK_ERROR"
+	ErrCodeStateLoadError ErrorCode = "STATE_LOAD_ERROR"
+	ErrCodeStateSaveError ErrorCode = "STATE_SAVE_ERROR"
 
 	// Validation errors
 	ErrCodeDependencyCycle    ErrorCode = "DEPENDENCY_CYCLE"

@@ -6,20 +6,20 @@ import (
 
 // MockConfig defines configuration for a mock service
 type MockConfig struct {
-	Enabled bool   `json:"enabled,omitempty"` // Whether to use mock
-	Image   string `json:"image,omitempty"`   // Docker image for mock
-	Tag     string `json:"tag,omitempty"`     // Tag for mock image
-	Ports   []string `json:"ports,omitempty"` // Ports for mock (overrides service ports)
-	Env     []string `json:"env,omitempty"`   // Env vars for mock
+	Enabled bool     `json:"enabled,omitempty"` // Whether to use mock
+	Image   string   `json:"image,omitempty"`   // Docker image for mock
+	Tag     string   `json:"tag,omitempty"`     // Tag for mock image
+	Ports   []string `json:"ports,omitempty"`   // Ports for mock (overrides service ports)
+	Env     []string `json:"env,omitempty"`     // Env vars for mock
 }
 
 // FeatureFlagConfig defines feature flag configuration
 type FeatureFlagConfig struct {
-	Enabled   bool     `json:"enabled,omitempty"`   // Direct enable/disable
-	EnvVar    string   `json:"envVar,omitempty"`    // Environment variable to check
-	EnvValue  string   `json:"envValue,omitempty"`  // Required value for envVar
-	Profiles  []string `json:"profiles,omitempty"`  // Enabled for specific profiles
-	Disabled  bool     `json:"disabled,omitempty"`  // Direct disable (takes precedence)
+	Enabled  bool     `json:"enabled,omitempty"`  // Direct enable/disable
+	EnvVar   string   `json:"envVar,omitempty"`   // Environment variable to check
+	EnvValue string   `json:"envValue,omitempty"` // Required value for envVar
+	Profiles []string `json:"profiles,omitempty"` // Enabled for specific profiles
+	Disabled bool     `json:"disabled,omitempty"` // Direct disable (takes precedence)
 }
 
 // IsEnabled checks if a feature flag is enabled based on configuration and context

@@ -14,10 +14,10 @@ import (
 
 // PortInfo contains information about a port usage
 type PortInfo struct {
-	Port      string
-	Project   string
-	Service   string
-	HostPort  int
+	Port          string
+	Project       string
+	Service       string
+	HostPort      int
 	ContainerPort int
 }
 
@@ -131,10 +131,10 @@ func GetAllActivePorts(baseDir string) ([]PortInfo, error) {
 				}
 
 				ports = append(ports, PortInfo{
-					Port:         port,
-					Project:      projectName,
-					Service:      serviceName,
-					HostPort:     hostPort,
+					Port:          port,
+					Project:       projectName,
+					Service:       serviceName,
+					HostPort:      hostPort,
 					ContainerPort: containerPort,
 				})
 			}
@@ -157,10 +157,10 @@ func GetAllActivePorts(baseDir string) ([]PortInfo, error) {
 				}
 
 				ports = append(ports, PortInfo{
-					Port:         port,
-					Project:      projectName,
-					Service:      infraName,
-					HostPort:     hostPort,
+					Port:          port,
+					Project:       projectName,
+					Service:       infraName,
+					HostPort:      hostPort,
 					ContainerPort: containerPort,
 				})
 			}
@@ -284,7 +284,10 @@ func FormatPortConflicts(conflicts []PortConflict) string {
 
 	var lines []string
 	for _, conflict := range conflicts {
-		line := fmt.Sprintf("  Port %s is used by project '%s', service '%s'", conflict.Port, conflict.Project, conflict.Service)
+		line := fmt.Sprintf(
+			"  Port %s is used by project '%s', service '%s'",
+			conflict.Port, conflict.Project, conflict.Service,
+		)
 		if conflict.Alternative != "" {
 			line += fmt.Sprintf(" (suggested alternative: %s)", conflict.Alternative)
 		}

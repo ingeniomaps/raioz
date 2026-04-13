@@ -100,7 +100,7 @@ func PullBranch(ctx context.Context, repoPath string) error {
 		outputStr := string(output)
 		if strings.Contains(outputStr, "CONFLICT") || strings.Contains(outputStr, "conflict") {
 			return fmt.Errorf(
-				"merge conflict detected during pull. "+
+				"merge conflict detected during pull. " +
 					"Please resolve conflicts manually or use --force-reclone option",
 			)
 		}
@@ -111,7 +111,7 @@ func PullBranch(ctx context.Context, repoPath string) error {
 	hasConflicts, err := HasMergeConflicts(ctx, repoPath)
 	if err == nil && hasConflicts {
 		return fmt.Errorf(
-			"merge conflicts detected after pull. "+
+			"merge conflicts detected after pull. " +
 				"Please resolve conflicts manually or use --force-reclone option",
 		)
 	}

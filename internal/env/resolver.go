@@ -40,10 +40,10 @@ func ResolveProjectEnv(ws *workspace.Workspace, deps *config.Deps, projectDir st
 			loaded, err := loadSingleFile(envPath)
 			if err != nil {
 				return "", raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to load existing project.env").
-				WithContext("file", envPath).
-				WithContext("project", deps.Project.Name).
-				WithSuggestion("Check that the project.env file has valid KEY=VALUE format").
-				WithError(err)
+					WithContext("file", envPath).
+					WithContext("project", deps.Project.Name).
+					WithSuggestion("Check that the project.env file has valid KEY=VALUE format").
+					WithError(err)
 			}
 			existingVars = loaded
 		}
@@ -76,10 +76,10 @@ func ResolveProjectEnv(ws *workspace.Workspace, deps *config.Deps, projectDir st
 			}
 			if _, err := fmt.Fprintf(file, "%s=%s\n", key, escapedValue); err != nil {
 				return "", raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to write to project.env").
-				WithContext("file", envPath).
-				WithContext("key", key).
-				WithSuggestion("Check disk space and file permissions").
-				WithError(err)
+					WithContext("file", envPath).
+					WithContext("key", key).
+					WithSuggestion("Check disk space and file permissions").
+					WithError(err)
 			}
 		}
 
@@ -141,34 +141,34 @@ func ResolveEnvFiles(
 	// 3. Project-specific env files (from env.files) — only for project context
 	if includeProjectLevel {
 		for _, envFile := range deps.Env.Files {
-		var envPath string
-		var err error
+			var envPath string
+			var err error
 
-		if strings.HasPrefix(envFile, "projects/") {
-			envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, envFile+".env")
-			if err != nil {
-				return nil, raiozErr.New(raiozErr.ErrCodeInvalidField, "invalid env file path").
-					WithContext("envFile", envFile).
-					WithContext("baseDir", ws.EnvDir).
-					WithSuggestion("Check that the env file path does not escape the env directory").
-					WithError(err)
+			if strings.HasPrefix(envFile, "projects/") {
+				envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, envFile+".env")
+				if err != nil {
+					return nil, raiozErr.New(raiozErr.ErrCodeInvalidField, "invalid env file path").
+						WithContext("envFile", envFile).
+						WithContext("baseDir", ws.EnvDir).
+						WithSuggestion("Check that the env file path does not escape the env directory").
+						WithError(err)
+				}
+			} else if strings.HasPrefix(envFile, "services/") {
+				continue
+			} else {
+				envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", envFile+".env"))
+				if err != nil {
+					return nil, raiozErr.New(raiozErr.ErrCodeInvalidField, "invalid env file path").
+						WithContext("envFile", envFile).
+						WithContext("baseDir", ws.EnvDir).
+						WithSuggestion("Check that the env file path does not escape the env directory").
+						WithError(err)
+				}
 			}
-		} else if strings.HasPrefix(envFile, "services/") {
-			continue
-		} else {
-			envPath, err = pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", envFile+".env"))
-			if err != nil {
-				return nil, raiozErr.New(raiozErr.ErrCodeInvalidField, "invalid env file path").
-					WithContext("envFile", envFile).
-					WithContext("baseDir", ws.EnvDir).
-					WithSuggestion("Check that the env file path does not escape the env directory").
-					WithError(err)
-			}
-		}
 
-		if _, err := os.Stat(envPath); err == nil {
-			resolvedPaths = append(resolvedPaths, envPath)
-		}
+			if _, err := os.Stat(envPath); err == nil {
+				resolvedPaths = append(resolvedPaths, envPath)
+			}
 		}
 	}
 
@@ -193,7 +193,9 @@ func resolveServiceEnvFile(
 	serviceName, envFile, projectEnvPath, projectDir string,
 ) (string, error) {
 	// Check project-relative paths first
-	if projectDir != "" && envFile != "" && (strings.Contains(envFile, "/") || (strings.HasPrefix(envFile, ".") && len(envFile) > 1)) {
+	hasPath := strings.Contains(envFile, "/") ||
+		(strings.HasPrefix(envFile, ".") && len(envFile) > 1)
+	if projectDir != "" && envFile != "" && hasPath {
 		projectRelPath := filepath.Join(projectDir, envFile)
 		if _, statErr := os.Stat(projectRelPath); statErr == nil {
 			return projectRelPath, nil
@@ -233,7 +235,13 @@ func resolveServiceEnvFile(
 	}
 
 	// Try project-specific location: projects/{project}/services/{service}.env
-	projectSpecificPath, err := pathvalidate.EnsurePathInBase(ws.EnvDir, filepath.Join("projects", deps.Project.Name, "services", envServiceName+".env"))
+	projectSvcEnv := filepath.Join(
+		"projects", deps.Project.Name, "services",
+		envServiceName+".env",
+	)
+	projectSpecificPath, err := pathvalidate.EnsurePathInBase(
+		ws.EnvDir, projectSvcEnv,
+	)
 	if err != nil {
 		return "", raiozErr.New(raiozErr.ErrCodeInvalidField, "invalid env file path for service").
 			WithContext("envFile", envFile).
@@ -293,9 +301,9 @@ func ResolveEnvFileForService(
 		envFilePath, err := CreateOrUpdateEnvFile(ws, deps, serviceName, envValue.Variables, servicePath)
 		if err != nil {
 			return "", raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to create/update env file for service").
-			WithContext("service", serviceName).
-			WithSuggestion("Check file permissions and disk space").
-			WithError(err)
+				WithContext("service", serviceName).
+				WithSuggestion("Check file permissions and disk space").
+				WithError(err)
 		}
 		return envFilePath, nil
 	}

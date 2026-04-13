@@ -55,8 +55,8 @@ func TestIsServiceEnabled(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "no enabled field, no feature flag (default enabled)",
-			svc:  Service{},
+			name:     "no enabled field, no feature flag (default enabled)",
+			svc:      Service{},
 			expected: true,
 		},
 	}

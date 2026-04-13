@@ -58,9 +58,9 @@ func loadSingleFile(filePath string) (map[string]string, error) {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) != 2 {
 			return nil, raiozErr.New(raiozErr.ErrCodeInvalidField, "invalid format in env file: expected KEY=VALUE").
-			WithContext("file", filePath).
-			WithContext("line", lineNum).
-			WithSuggestion("Each line must follow the KEY=VALUE format, or be a comment starting with #")
+				WithContext("file", filePath).
+				WithContext("line", lineNum).
+				WithSuggestion("Each line must follow the KEY=VALUE format, or be a comment starting with #")
 		}
 
 		key := strings.TrimSpace(parts[0])

@@ -85,7 +85,7 @@ func checkDockerInstalledWithContext(ctx context.Context) error {
 			errors.ErrCodeDockerNotInstalled,
 			"Docker is not installed or not in PATH",
 		).WithSuggestion(
-			"Install Docker from https://docs.docker.com/get-docker/ " +
+			"Install Docker from https://docs.docker.com/get-docker/ "+
 				"or ensure Docker is in your PATH",
 		).WithContext("command", "docker --version")
 	}
@@ -122,9 +122,9 @@ func checkDockerRunningWithContext(ctx context.Context) error {
 			errors.ErrCodeDockerNotRunning,
 			"Docker daemon is not running",
 		).WithSuggestion(
-			"Start Docker daemon: " +
-				"• Linux: sudo systemctl start docker\n" +
-				"• macOS: Open Docker Desktop\n" +
+			"Start Docker daemon: "+
+				"• Linux: sudo systemctl start docker\n"+
+				"• macOS: Open Docker Desktop\n"+
 				"• Windows: Start Docker Desktop",
 		).WithContext("output", string(output)).WithError(err)
 	}
@@ -157,7 +157,7 @@ func checkGitInstalledWithContext(ctx context.Context) error {
 			errors.ErrCodeGitNotInstalled,
 			"Git is not installed or not in PATH",
 		).WithSuggestion(
-			"Install Git from https://git-scm.com/downloads " +
+			"Install Git from https://git-scm.com/downloads "+
 				"or ensure Git is in your PATH",
 		).WithContext("command", "git --version")
 	}
@@ -188,7 +188,7 @@ func checkDiskSpace() error {
 			errors.ErrCodeDiskSpaceLow,
 			fmt.Sprintf("Low disk space: %.2f GB available", availableGB),
 		).WithSuggestion(
-			"Free up disk space before continuing. " +
+			"Free up disk space before continuing. "+
 				"At least 1GB is recommended.",
 		).WithContext("available_gb", availableGB).WithContext("path", wd)
 	}
@@ -220,7 +220,7 @@ func checkNetworkConnectivityWithContext(ctx context.Context) error {
 				errors.ErrCodeNetworkUnavailable,
 				"Network connectivity check failed (may be needed for git clones)",
 			).WithSuggestion(
-				"Ensure you have internet connectivity if using git-based services. " +
+				"Ensure you have internet connectivity if using git-based services. "+
 					"This check can be skipped if using only image-based services.",
 			).WithContext("check", "connectivity test")
 		}

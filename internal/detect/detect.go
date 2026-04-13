@@ -33,6 +33,7 @@ func Detect(path string) DetectResult {
 		if fileExists(composePath) {
 			result.Runtime = RuntimeCompose
 			result.ComposeFile = composePath
+			result.ComposeFiles = []string{composePath}
 			result.Files = append(result.Files, name)
 			inferFromCompose(&result, path)
 			return result

@@ -28,9 +28,9 @@ func TestCreateMinimalTestDeps(t *testing.T) {
 
 func TestCreateTestDepsWithService(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		serviceName string
-		sourceKind string
+		sourceKind  string
 	}{
 		{"git service", "test-service", "git"},
 		{"image service", "test-service", "image"},

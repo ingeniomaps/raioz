@@ -22,7 +22,11 @@ const (
 
 // WaitForServicesHealthy waits for all services and infra to become healthy
 // Returns error if timeout is reached or context is cancelled
-func WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error {
+func WaitForServicesHealthy(
+	ctx context.Context, composePath string,
+	serviceNames []string, infraNames []string,
+	projectName string,
+) error {
 	allNames := append([]string{}, serviceNames...)
 	allNames = append(allNames, infraNames...)
 
@@ -81,7 +85,10 @@ func WaitForServicesHealthy(ctx context.Context, composePath string, serviceName
 }
 
 // isServiceHealthyWithContext checks if a service is healthy
-func isServiceHealthyWithContext(ctx context.Context, composePath string, serviceName string, projectName string) (bool, error) {
+func isServiceHealthyWithContext(
+	ctx context.Context, composePath string,
+	serviceName string, projectName string,
+) (bool, error) {
 	// Get container name
 	containerName, err := GetContainerNameWithContext(ctx, composePath, serviceName)
 	if err != nil || containerName == "" {
@@ -133,7 +140,10 @@ func isServiceHealthyWithContext(ctx context.Context, composePath string, servic
 
 // checkServiceReadinessWithoutHealthcheck checks if a service is ready even without healthcheck
 // This is used for services that don't have health checks configured but need to be ready
-func checkServiceReadinessWithoutHealthcheck(ctx context.Context, composePath string, serviceName string, projectName string) (bool, error) {
+func checkServiceReadinessWithoutHealthcheck(
+	ctx context.Context, composePath string,
+	serviceName string, projectName string,
+) (bool, error) {
 	// Get container name
 	containerName, err := GetContainerNameWithContext(ctx, composePath, serviceName)
 	if err != nil || containerName == "" {
@@ -181,7 +191,10 @@ func checkServiceReadinessWithoutHealthcheck(ctx context.Context, composePath st
 		}
 
 		// Try to execute pg_isready inside the container
-		pgCmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "exec", containerName, "pg_isready", "-U", pgUser, "-d", pgDb)
+		pgCmd := exec.CommandContext(
+			timeoutCtx, runtime.Binary(), "exec", containerName,
+			"pg_isready", "-U", pgUser, "-d", pgDb,
+		)
 		if err := pgCmd.Run(); err == nil {
 			return true, nil
 		}

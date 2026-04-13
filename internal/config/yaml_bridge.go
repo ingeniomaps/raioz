@@ -80,11 +80,37 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 		}
 	}
 
+	// Custom start command (host exec, overrides auto-detection)
+	if svc.Command != "" {
+		service.Source.Command = svc.Command
+	}
+
+	// Explicit compose file(s) — overrides auto-detection
+	if len(svc.Compose) > 0 {
+		service.Source.ComposeFiles = []string(svc.Compose)
+	}
+
+	// Custom stop command — stored in Service.Commands.Down so the orchestrator
+	// can route `raioz down` to it instead of SIGTERMing the host PID.
+	if svc.Stop != "" {
+		if service.Commands == nil {
+			service.Commands = &ServiceCommands{}
+		}
+		service.Commands.Down = svc.Stop
+	}
+
 	// Convert ports to docker config if specified
 	if len(svc.Ports) > 0 {
 		service.Docker = &DockerConfig{
 			Ports: []string(svc.Ports),
 		}
+	}
+
+	// Explicit host port declaration (raioz.yaml: `port: 3000`).
+	// Separate from `ports:` which is the Docker-style publish list; `port:`
+	// is what the allocator uses to guarantee host-side exclusivity.
+	if svc.Port > 0 {
+		service.Port = svc.Port
 	}
 
 	// Convert env files
@@ -118,7 +144,48 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 		}
 	}
 
+	// Copy expose (container-side declaration). A single int or a list both
+	// arrive here as a slice thanks to YAMLIntSlice's custom unmarshal.
+	if len(dep.Expose) > 0 {
+		infra.Expose = append([]int(nil), dep.Expose...)
+	}
+
+	// Translate the publish intent into the internal PublishSpec. Only
+	// populate it when the user actually wrote something — we keep nil as
+	// the "internal only" sentinel so ImageRunner / allocator can branch
+	// cheaply on `if infra.Publish == nil`.
+	if dep.Publish.Set && (dep.Publish.Auto || len(dep.Publish.Ports) > 0) {
+		infra.Publish = &PublishSpec{
+			Auto:  dep.Publish.Auto,
+			Ports: append([]int(nil), dep.Publish.Ports...),
+		}
+	}
+
 	return InfraEntry{Inline: infra}
+}
+
+// yamlDeprecationWarnings walks a parsed RaiozConfig looking for legacy
+// fields that still work but are superseded by newer, clearer alternatives.
+// Returns a flat list of human-readable warnings; callers (cli/up.go) print
+// them as yellow output.prints so the dev notices without it being fatal.
+func yamlDeprecationWarnings(cfg *RaiozConfig) []string {
+	if cfg == nil {
+		return nil
+	}
+	var warnings []string
+	for name, dep := range cfg.Deps {
+		if len(dep.Ports) > 0 {
+			warnings = append(warnings,
+				fmt.Sprintf(
+					"dependency '%s' uses legacy `ports:`; consider migrating to "+
+						"`publish:` (host-side opt-in) and `expose:` (container-side "+
+						"declaration) for clearer semantics",
+					name,
+				),
+			)
+		}
+	}
+	return warnings
 }
 
 // extractImage gets the image name from "image:tag" format.
@@ -136,17 +203,21 @@ func extractTag(imageRef string) string {
 	return "latest"
 }
 
-// LoadDepsFromYAML loads a raioz.yaml and returns a Deps struct for backward compatibility.
+// LoadDepsFromYAML loads a raioz.yaml and returns a Deps struct together with
+// any deprecation warnings that surfaced during the load (legacy fields that
+// still parse fine but should be migrated).
 func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 	cfg, err := LoadYAML(path)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	warnings := yamlDeprecationWarnings(cfg)
+
 	deps, err := YAMLToDeps(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, warnings, err
 	}
 
-	return deps, nil, nil
+	return deps, warnings, nil
 }

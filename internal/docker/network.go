@@ -17,11 +17,11 @@ import (
 
 // NetworkInfo contains information about a Docker network
 type NetworkInfo struct {
-	Name       string
-	Driver     string
-	Scope      string
-	External   bool
-	CreatedBy   string
+	Name      string
+	Driver    string
+	Scope     string
+	External  bool
+	CreatedBy string
 }
 
 // EnsureNetwork ensures that a Docker network exists, creating it if necessary
@@ -41,8 +41,9 @@ func EnsureNetworkWithContext(ctx context.Context, name string) error {
 	return EnsureNetworkWithConfigAndContext(ctx, NetworkConfig{Name: name}, false)
 }
 
-// EnsureNetworkWithConfigAndContext ensures that a Docker network exists, creating it if necessary, with context support
-// If askConfirmation is true, prompts the user before creating the network
+// EnsureNetworkWithConfigAndContext ensures that a Docker network exists,
+// creating it if necessary, with context support.
+// If askConfirmation is true, prompts the user before creating the network.
 func EnsureNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig, askConfirmation bool) error {
 	// Check if network exists
 	exists, info, err := NetworkExistsWithContext(ctx, config.Name)

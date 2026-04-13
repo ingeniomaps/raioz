@@ -16,6 +16,11 @@ type ServiceContext struct {
 	DependsOn     []string
 	ContainerName string
 	ProjectName   string // Used for project-isolated temp dirs and naming
+
+	// StopCommand is set when raioz.yaml declares `stop:` on the service.
+	// Runners that support it (HostRunner) use it instead of killing the PID
+	// so commands like `make start` can cleanly tear down their own children.
+	StopCommand string
 }
 
 // Orchestrator defines operations for starting and stopping services

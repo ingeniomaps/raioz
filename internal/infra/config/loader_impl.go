@@ -39,7 +39,9 @@ func (l *ConfigLoaderImpl) LoadDeps(configPath string) (*config.Deps, []string, 
 }
 
 // IsServiceEnabled checks if a service is enabled based on its configuration
-func (l *ConfigLoaderImpl) IsServiceEnabled(svc config.Service, profile string, envVars map[string]string) bool {
+func (l *ConfigLoaderImpl) IsServiceEnabled(
+	svc config.Service, profile string, envVars map[string]string,
+) bool {
 	return config.IsServiceEnabled(svc, profile, envVars)
 }
 
@@ -59,7 +61,9 @@ func (l *ConfigLoaderImpl) FilterByProfiles(deps *config.Deps, profiles []string
 }
 
 // FilterByFeatureFlags filters dependencies by feature flags
-func (l *ConfigLoaderImpl) FilterByFeatureFlags(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+func (l *ConfigLoaderImpl) FilterByFeatureFlags(
+	deps *config.Deps, profile string, envVars map[string]string,
+) (*config.Deps, []string) {
 	return config.FilterByFeatureFlags(deps, profile, envVars)
 }
 
@@ -74,12 +78,16 @@ func (l *ConfigLoaderImpl) CheckIgnoredDependencies(deps *config.Deps, ignoredSe
 }
 
 // DetectMissingDependencies detects dependencies that are required but not defined
-func (l *ConfigLoaderImpl) DetectMissingDependencies(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.MissingDependency, error) {
+func (l *ConfigLoaderImpl) DetectMissingDependencies(
+	deps *config.Deps, pathResolver func(string, config.Service) string,
+) ([]config.MissingDependency, error) {
 	return config.DetectMissingDependencies(deps, pathResolver)
 }
 
-// DetectDependencyConflicts detects conflicts between root and service dependencies
-func (l *ConfigLoaderImpl) DetectDependencyConflicts(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.DependencyConflict, error) {
+// DetectDependencyConflicts detects conflicts between root and service deps
+func (l *ConfigLoaderImpl) DetectDependencyConflicts(
+	deps *config.Deps, pathResolver func(string, config.Service) string,
+) ([]config.DependencyConflict, error) {
 	return config.DetectDependencyConflicts(deps, pathResolver)
 }
 

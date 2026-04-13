@@ -49,7 +49,8 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 	}
 
 	// Build docker compose logs command
-	args := []string{"compose", "-f", composePath, "logs"}
+	args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	args = append(args, "logs")
 
 	// Add follow flag if specified
 	if opts.Follow {
@@ -88,7 +89,7 @@ func GetAvailableServices(composePath string) ([]string, error) {
 
 // GetAvailableServicesWithContext returns list of available services from compose with context support
 func GetAvailableServicesWithContext(ctx context.Context, composePath string) ([]string, error) {
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+	if _, err := os.Stat(PrimaryComposeFile(composePath)); os.IsNotExist(err) {
 		return []string{}, nil
 	}
 
@@ -101,7 +102,9 @@ func GetAvailableServicesWithContext(ctx context.Context, composePath string) ([
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerStatusTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "config", "--services")
+	configArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	configArgs = append(configArgs, "config", "--services")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), configArgs...)
 	output, err := cmd.Output()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

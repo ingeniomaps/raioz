@@ -116,7 +116,7 @@ func TestResolver_NestedPaths(t *testing.T) {
 
 func TestIsRelevantEvent(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		event fsnotify.Event
 		want  bool
 	}{

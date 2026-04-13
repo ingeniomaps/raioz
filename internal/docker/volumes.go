@@ -16,17 +16,17 @@ import (
 type VolumeType string
 
 const (
-	VolumeTypeNamed   VolumeType = "named"   // Named volume: mongo-data:/data/db
-	VolumeTypeBind    VolumeType = "bind"    // Bind mount: ./path:/container/path
+	VolumeTypeNamed     VolumeType = "named"     // Named volume: mongo-data:/data/db
+	VolumeTypeBind      VolumeType = "bind"      // Bind mount: ./path:/container/path
 	VolumeTypeAnonymous VolumeType = "anonymous" // Anonymous: /container/path
 )
 
 // VolumeInfo contains information about a parsed volume
 type VolumeInfo struct {
-	Type         VolumeType
-	Source       string // For named: volume name, for bind: host path
-	Destination  string // Container path
-	Original     string // Original volume string
+	Type        VolumeType
+	Source      string // For named: volume name, for bind: host path
+	Destination string // Container path
+	Original    string // Original volume string
 }
 
 // ParseVolume parses a volume string and determines its type
@@ -190,9 +190,13 @@ func ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, erro
 	return resolved, nil
 }
 
-// NormalizeVolumeNamesInStrings normalizes volume names in volume strings with project prefix
-// Replaces original volume names with normalized names (project_volume_name)
-func NormalizeVolumeNamesInStrings(volumes []string, projectName string, volumeMap map[string]string) ([]string, error) {
+// NormalizeVolumeNamesInStrings normalizes volume names in volume
+// strings with project prefix. Replaces original volume names with
+// normalized names (project_volume_name).
+func NormalizeVolumeNamesInStrings(
+	volumes []string, projectName string,
+	volumeMap map[string]string,
+) ([]string, error) {
 	normalized := make([]string, 0, len(volumes))
 
 	for _, vol := range volumes {

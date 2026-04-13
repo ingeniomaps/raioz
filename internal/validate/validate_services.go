@@ -79,11 +79,18 @@ func validateServices(deps *config.Deps) error {
 		if svc.Source.Access != "" && svc.Source.Access != "readonly" && svc.Source.Access != "editable" {
 			return errors.New(
 				errors.ErrCodeInvalidField,
-				fmt.Sprintf("Service '%s': 'access' must be 'readonly' or 'editable', got '%s'", name, svc.Source.Access),
+				fmt.Sprintf(
+					"Service '%s': 'access' must be "+
+						"'readonly' or 'editable', got '%s'",
+					name, svc.Source.Access,
+				),
 			).WithSuggestion(
-				"Set 'access' to either 'readonly' (for read-only Git repositories) or 'editable' (for editable Git repositories). "+
-					"Remove the field to use the default (editable).",
-			).WithContext("service_name", name).WithContext("access_value", svc.Source.Access)
+				"Set 'access' to either 'readonly' (for read-only "+
+					"Git repositories) or 'editable' (for editable "+
+					"Git repositories). Remove the field to use "+
+					"the default (editable).",
+			).WithContext("service_name", name).
+				WithContext("access_value", svc.Source.Access)
 		}
 
 		// Validate enabled field: if enabled: false, feature flags should not be active
@@ -97,8 +104,11 @@ func validateServices(deps *config.Deps) error {
 						errors.ErrCodeInvalidConfig,
 						fmt.Sprintf("Service '%s': 'enabled: false' is incompatible with 'featureFlag.enabled: true'", name),
 					).WithSuggestion(
-						"Remove one of these conflicting settings: either remove 'enabled: false' or set 'featureFlag.enabled' to false. "+
-							"A service cannot be both explicitly disabled and enabled via feature flag.",
+						"Remove one of these conflicting settings: "+
+							"either remove 'enabled: false' or set "+
+							"'featureFlag.enabled' to false. "+
+							"A service cannot be both explicitly "+
+							"disabled and enabled via feature flag.",
 					).WithContext("service_name", name)
 				}
 			}
@@ -149,7 +159,13 @@ func validateServices(deps *config.Deps) error {
 			if svc.Docker == nil {
 				return errors.New(
 					errors.ErrCodeMissingField,
-					fmt.Sprintf("Service '%s': git source requires either 'source.command' or 'commands' for host execution, or 'docker' config for container execution", name),
+					fmt.Sprintf(
+						"Service '%s': git source requires either "+
+							"'source.command' or 'commands' for host "+
+							"execution, or 'docker' config for "+
+							"container execution",
+						name,
+					),
 				).WithSuggestion(
 					"For Git-based services, you must specify either: "+
 						"1) 'source.command' to run on the host, or "+
@@ -260,7 +276,10 @@ func validateServices(deps *config.Deps) error {
 				errors.ErrCodeInvalidField,
 				fmt.Sprintf("Service '%s': invalid source kind '%s'", name, svc.Source.Kind),
 			).WithSuggestion(
-				"Set 'source.kind' to either 'git' (for Git-based services), 'image' (for Docker image-based services), or 'local' (for local path-based services).",
+				"Set 'source.kind' to either 'git' (for Git-based "+
+					"services), 'image' (for Docker image-based "+
+					"services), or 'local' (for local "+
+					"path-based services).",
 			).WithContext("service_name", name).WithContext("source_kind", svc.Source.Kind)
 		}
 

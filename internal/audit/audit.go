@@ -180,7 +180,7 @@ func LogConflictResolved(serviceName string, resolution string, reason string) e
 // LogServiceAssisted logs when a service is added via dependency assist
 func LogServiceAssisted(serviceName string, addedBy string, reason string) error {
 	details := map[string]interface{}{
-		"service": serviceName,
+		"service":  serviceName,
 		"added_by": addedBy,
 		"reason":   reason,
 	}

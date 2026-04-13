@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"raioz/internal/config"
-	"raioz/internal/workspace"
 	pathvalidate "raioz/internal/path"
+	"raioz/internal/workspace"
 )
 
 // ValidateDockerfile checks if Dockerfile.dev exists for a git service
@@ -46,14 +46,24 @@ func GenerateDockerfileWrapper(
 	// For Node.js in dev mode, prepend npm install to ensure dependencies are available
 	// This is needed because dev volumes override the node_modules from the build
 	// Only prepend if the command doesn't already include npm install
-	if svc.Docker.Mode == "dev" && (svc.Docker.Runtime == "node" || svc.Docker.Runtime == "nodejs" || svc.Docker.Runtime == "javascript" || svc.Docker.Runtime == "js" || svc.Docker.Runtime == "") {
+	isNodeRuntime := svc.Docker.Runtime == "node" ||
+		svc.Docker.Runtime == "nodejs" ||
+		svc.Docker.Runtime == "javascript" ||
+		svc.Docker.Runtime == "js" ||
+		svc.Docker.Runtime == ""
+	if svc.Docker.Mode == "dev" && isNodeRuntime {
 		// Check if command already includes npm install
 		commandLower := strings.ToLower(svc.Docker.Command)
 		if !strings.Contains(commandLower, "npm install") && !strings.Contains(commandLower, "npm i ") {
 			// Prepend npm install to the command to ensure dependencies are installed
 			// Use sh -c to run multiple commands
-			installShellCmd := "if [ -f package.json ]; then npm install --legacy-peer-deps || npm install --force --legacy-peer-deps || npm install --force || true; fi"
-			runCommand = fmt.Sprintf("sh -c '%s && %s'", installShellCmd, svc.Docker.Command)
+			installShellCmd := "if [ -f package.json ]; then " +
+				"npm install --legacy-peer-deps || " +
+				"npm install --force --legacy-peer-deps || " +
+				"npm install --force || true; fi"
+			runCommand = fmt.Sprintf(
+				"sh -c '%s && %s'", installShellCmd, svc.Docker.Command,
+			)
 		}
 	}
 
@@ -106,7 +116,10 @@ func getInstallCommand(runtime string) string {
 		// Use --legacy-peer-deps to handle peer dependency conflicts gracefully
 		// Fallback to --force if workspace protocol is not supported
 		// Final fallback to regular npm install (may fail with dependency conflicts)
-		return `RUN if [ -f package.json ]; then npm install --legacy-peer-deps || npm install --force --legacy-peer-deps || npm install --force || true; fi`
+		return `RUN if [ -f package.json ]; then ` +
+			`npm install --legacy-peer-deps || ` +
+			`npm install --force --legacy-peer-deps || ` +
+			`npm install --force || true; fi`
 	case "go", "golang":
 		return `RUN if [ -f go.mod ]; then go mod download; fi`
 	case "python", "py":

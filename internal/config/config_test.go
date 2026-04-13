@@ -89,8 +89,8 @@ func TestFilterByProfile(t *testing.T) {
 			},
 		},
 		Infra: map[string]InfraEntry{
-			"redis":    {Inline: &Infra{Image: "redis", Tag: "7", Profiles: []string{"frontend"}}},
-			"database": {Inline: &Infra{Image: "postgres", Tag: "15", Profiles: []string{"backend"}}},
+			"redis":     {Inline: &Infra{Image: "redis", Tag: "7", Profiles: []string{"frontend"}}},
+			"database":  {Inline: &Infra{Image: "postgres", Tag: "15", Profiles: []string{"backend"}}},
 			"shared-db": {Inline: &Infra{Image: "postgres", Tag: "15", Profiles: []string{}}},
 		},
 	}

@@ -10,10 +10,10 @@ import (
 
 // InferredDep represents a dependency inferred from environment files or config.
 type InferredDep struct {
-	Name    string // e.g., "postgres", "redis", "rabbitmq"
-	Image   string // e.g., "postgres:16", "redis:7"
-	Port    string // e.g., "5432"
-	Source  string // where it was inferred from (e.g., "api/.env:DATABASE_URL")
+	Name   string // e.g., "postgres", "redis", "rabbitmq"
+	Image  string // e.g., "postgres:16", "redis:7"
+	Port   string // e.g., "5432"
+	Source string // where it was inferred from (e.g., "api/.env:DATABASE_URL")
 }
 
 // InferredLink represents a dependsOn relationship between services.
@@ -135,7 +135,7 @@ func InferDepsFromEnv(rootDir string) ([]InferredDep, []InferredLink) {
 				links = append(links, InferredLink{
 					From:   serviceName,
 					To:     dep.Name,
-					Source:  serviceName + "/" + filepath.Base(envFile),
+					Source: serviceName + "/" + filepath.Base(envFile),
 				})
 			}
 		}

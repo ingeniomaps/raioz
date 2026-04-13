@@ -3,7 +3,7 @@ package errors
 // Error codes for the meta-orchestrator flow.
 const (
 	// Detection errors
-	ErrCodeRuntimeNotDetected ErrorCode = "RUNTIME_NOT_DETECTED"
+	ErrCodeRuntimeNotDetected  ErrorCode = "RUNTIME_NOT_DETECTED"
 	ErrCodeRuntimeNotInstalled ErrorCode = "RUNTIME_NOT_INSTALLED"
 
 	// Orchestration errors
@@ -16,7 +16,7 @@ const (
 	ErrCodeCertsError       ErrorCode = "CERTS_ERROR"
 
 	// Dev swap errors
-	ErrCodeDevSwapFailed ErrorCode = "DEV_SWAP_FAILED"
+	ErrCodeDevSwapFailed  ErrorCode = "DEV_SWAP_FAILED"
 	ErrCodeNotADependency ErrorCode = "NOT_A_DEPENDENCY"
 
 	// Config errors for YAML
@@ -55,14 +55,19 @@ func RuntimeNotInstalled(runtime, command string) *RaiozError {
 // ServiceStartFailed creates an error when a service fails to start.
 func ServiceStartFailed(serviceName, runtime string, err error) *RaiozError {
 	suggestions := map[string]string{
-		"compose":    "Check the service's docker-compose.yml for errors. Try running 'docker compose up' directly in the service directory.",
-		"dockerfile": "Check the Dockerfile for build errors. Try running 'docker build .' in the service directory.",
-		"npm":        "Check package.json scripts. Try running 'npm run dev' directly in the service directory.",
-		"go":         "Check for compilation errors. Try running 'go run .' directly in the service directory.",
-		"make":       "Check the Makefile targets. Try running 'make dev' directly in the service directory.",
-		"python":     "Check for missing dependencies. Try running the start command directly in the service directory.",
-		"rust":       "Check for compilation errors. Try running 'cargo run' directly in the service directory.",
-		"image":      "Check that the Docker image exists and can be pulled. Try 'docker pull <image>' manually.",
+		"compose": "Check the service's docker-compose.yml for errors. " +
+			"Try running 'docker compose up' directly in the service directory.",
+		"dockerfile": "Check the Dockerfile for build errors. " +
+			"Try running 'docker build .' in the service directory.",
+		"npm": "Check package.json scripts. " +
+			"Try running 'npm run dev' directly in the service directory.",
+		"go": "Check for compilation errors. " +
+			"Try running 'go run .' directly in the service directory.",
+		"make": "Check the Makefile targets. " +
+			"Try running 'make dev' directly in the service directory.",
+		"python": "Check for missing dependencies. Try running the start command directly in the service directory.",
+		"rust":   "Check for compilation errors. Try running 'cargo run' directly in the service directory.",
+		"image":  "Check that the Docker image exists and can be pulled. Try 'docker pull <image>' manually.",
 	}
 
 	suggestion := suggestions[runtime]

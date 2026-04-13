@@ -66,11 +66,11 @@ func TestSanitizeEnvValue(t *testing.T) {
 
 func TestSanitizeEnvMap(t *testing.T) {
 	env := map[string]string{
-		"DATABASE_URL":     "postgres://localhost/db",
+		"DATABASE_URL":      "postgres://localhost/db",
 		"DATABASE_PASSWORD": "secret123",
-		"API_KEY":          "abc123",
-		"LOG_LEVEL":        "debug",
-		"TOKEN":            "xyz789",
+		"API_KEY":           "abc123",
+		"LOG_LEVEL":         "debug",
+		"TOKEN":             "xyz789",
 	}
 
 	sanitized := SanitizeEnvMap(env)

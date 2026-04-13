@@ -145,7 +145,7 @@ func (m *Manager) startCloudflared(ctx context.Context, serviceName string, port
 		return &Info{
 			ServiceName: serviceName,
 			LocalPort:   port,
-			PublicURL:    url,
+			PublicURL:   url,
 			Backend:     "cloudflared",
 			PID:         cmd.Process.Pid,
 			StartedAt:   time.Now(),
@@ -166,7 +166,7 @@ func (m *Manager) startBore(_ context.Context, serviceName string, port int) (*I
 	return &Info{
 		ServiceName: serviceName,
 		LocalPort:   port,
-		PublicURL:    fmt.Sprintf("bore.pub (port forwarded from %d)", port),
+		PublicURL:   fmt.Sprintf("bore.pub (port forwarded from %d)", port),
 		Backend:     "bore",
 		PID:         cmd.Process.Pid,
 		StartedAt:   time.Now(),

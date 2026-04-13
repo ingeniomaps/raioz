@@ -100,7 +100,13 @@ func AutoDetect(dir string) (*Deps, error) {
 	}
 
 	if len(services) == 0 && len(infra) == 0 {
-		return nil, fmt.Errorf("no services or dependencies detected in %s.\n\n  Raioz looks for: docker-compose.yml, Dockerfile, package.json, go.mod, Makefile\n  Create a raioz.yaml manually or add one of these files", absDir)
+		return nil, fmt.Errorf(
+			"no services or dependencies detected in %s.\n\n"+
+				"  Raioz looks for: docker-compose.yml, Dockerfile, "+
+				"package.json, go.mod, Makefile\n"+
+				"  Create a raioz.yaml manually or add one of these files",
+			absDir,
+		)
 	}
 
 	fmt.Println()

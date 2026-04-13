@@ -107,7 +107,9 @@ func (n *NetworkConfig) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	return fmt.Errorf("network must be either a string (network name) or an object with 'name' and optional 'subnet' fields")
+	return fmt.Errorf(
+		"network must be a string (name) or object with 'name' and optional 'subnet'",
+	)
 }
 
 // MarshalJSON implements custom JSON marshaling for NetworkConfig
@@ -139,7 +141,7 @@ func (n *NetworkConfig) HasSubnet() bool {
 // HealthcheckConfig matches Docker Compose healthcheck format.
 // See https://docs.docker.com/compose/compose-file/05-services/#healthcheck
 type HealthcheckConfig struct {
-	Test          interface{} `json:"test,omitempty"`           // CMD: string or []string, e.g. ["CMD", "curl", "-f", "http://localhost/health"] or "CMD curl -f ..."
+	Test          interface{} `json:"test,omitempty"`           // CMD: string or []string
 	Interval      string      `json:"interval,omitempty"`       // e.g. "30s"
 	Timeout       string      `json:"timeout,omitempty"`        // e.g. "10s"
 	Retries       int         `json:"retries,omitempty"`        // e.g. 3
@@ -150,22 +152,48 @@ type HealthcheckConfig struct {
 
 // Infra represents an inline infrastructure definition.
 type Infra struct {
-	Image       string             `json:"image"`
-	Tag         string             `json:"tag,omitempty"`
-	Ports       []string           `json:"ports,omitempty"`   // Optional: can be null or empty array
-	Volumes     []string           `json:"volumes,omitempty"` // Optional: can be null or empty array
-	Env         *EnvValue          `json:"env,omitempty"`      // Can be array of strings (file paths) or object (variables)
-	IP          string             `json:"ip,omitempty"`       // Static IP address in the network (e.g., "150.150.0.10")
+	Image string `json:"image"`
+	Tag   string `json:"tag,omitempty"`
+	// Ports is the legacy publish list. Kept for backwards compatibility;
+	// new configs should use Expose + Publish (see fields below).
+	Ports       []string           `json:"ports,omitempty"`
+	Volumes     []string           `json:"volumes,omitempty"`     // Optional: can be null or empty array
+	Env         *EnvValue          `json:"env,omitempty"`         // File paths or variables
+	IP          string             `json:"ip,omitempty"`          // Static IP (e.g. "150.150.0.10")
 	Healthcheck *HealthcheckConfig `json:"healthcheck,omitempty"` // Optional: same format as Docker Compose healthcheck
-	Profiles    []string           `json:"profiles,omitempty"`  // If set, this infra is only included when using --profile <name>
-	Seed        []string           `json:"seed,omitempty"`      // Optional: files/dirs to mount in /docker-entrypoint-initdb.d/ (postgres, mysql, mongo)
+	Profiles    []string           `json:"profiles,omitempty"`    // Profile filter for --profile
+	Seed        []string           `json:"seed,omitempty"`        // Files for /docker-entrypoint-initdb.d/
+
+	// Expose declares the container ports this dependency listens on. Used
+	// by discovery/proxy to build correct URLs and by the publish allocator
+	// to decide what container port to map when Publish.Auto is set. Zero
+	// length means "raioz doesn't know; best effort".
+	Expose []int `json:"expose,omitempty"`
+
+	// Publish is the opt-in host-side binding. nil means internal-only (the
+	// dep lives on the Docker network; containers reach it by DNS, host
+	// tools do not). See PublishSpec for the semantic fields.
+	Publish *PublishSpec `json:"publish,omitempty"`
 }
 
-// InfraEntry is a single infra entry: either a path to a YAML file (Path) or an inline spec (Inline).
-// In JSON, the value can be a string (path) or an object (inline infra).
+// PublishSpec captures the user's host-side binding intent for a dependency.
+// Populated by the YAML bridge from YAMLPublish and consumed by the port
+// allocator and ImageRunner.
+type PublishSpec struct {
+	// Auto asks raioz to pick a free host port automatically. Mutually
+	// exclusive with Ports.
+	Auto bool `json:"auto,omitempty"`
+	// Ports are the explicit host ports the user requested. Each entry is
+	// mapped to the matching container port from Infra.Expose at the same
+	// index, or to the same port number when Expose is empty/shorter.
+	Ports []int `json:"ports,omitempty"`
+}
+
+// InfraEntry is a single infra entry: either a YAML file path or an inline spec.
+// In JSON, the value can be a string (path) or an object (inline).
 type InfraEntry struct {
-	Path   string  `json:"-"` // When JSON value is a string, path to Docker Compose YAML fragment
-	Inline *Infra  `json:"-"` // When JSON value is an object, inline infra spec (only one of Path or Inline is set)
+	Path   string `json:"-"` // Path to Docker Compose YAML fragment
+	Inline *Infra `json:"-"` // Inline infra spec (mutually exclusive with Path)
 }
 
 // Profiles returns the profiles for this entry (only for inline; path-based entries have no profile filter).

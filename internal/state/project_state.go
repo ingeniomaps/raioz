@@ -25,8 +25,8 @@ type LocalState struct {
 
 // DevOverride records that a dependency has been promoted to local development.
 type DevOverride struct {
-	OriginalImage string `json:"originalImage"`
-	LocalPath     string `json:"localPath"`
+	OriginalImage string    `json:"originalImage"`
+	LocalPath     string    `json:"localPath"`
 	PromotedAt    time.Time `json:"promotedAt"`
 }
 

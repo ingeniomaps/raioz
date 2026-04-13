@@ -7,10 +7,10 @@ import (
 
 func TestValidateTransitiveDependencies(t *testing.T) {
 	tests := []struct {
-		name        string
-		deps        *config.Deps
-		wantIssues  bool
-		wantError   bool
+		name       string
+		deps       *config.Deps
+		wantIssues bool
+		wantError  bool
 	}{
 		{
 			name: "valid transitive dependencies",

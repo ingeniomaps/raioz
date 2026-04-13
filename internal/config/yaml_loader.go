@@ -18,7 +18,12 @@ func LoadYAML(path string) (*RaiozConfig, error) {
 
 	var cfg RaiozConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("invalid YAML in %s: %w\n\n  Tip: check indentation (use spaces, not tabs) and ensure all colons have values", path, err)
+		return nil, fmt.Errorf(
+			"invalid YAML in %s: %w\n\n"+
+				"  Tip: check indentation (use spaces, not tabs) "+
+				"and ensure all colons have values",
+			path, err,
+		)
 	}
 
 	if err := validateYAMLConfig(&cfg, path); err != nil {

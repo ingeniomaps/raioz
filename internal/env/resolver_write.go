@@ -58,10 +58,10 @@ func CreateOrUpdateEnvFile(
 		loaded, err := loadSingleFile(envPath)
 		if err != nil {
 			return "", raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to load existing env file").
-			WithContext("file", envPath).
-			WithContext("service", serviceName).
-			WithSuggestion("Check that the existing env file has valid KEY=VALUE format").
-			WithError(err)
+				WithContext("file", envPath).
+				WithContext("service", serviceName).
+				WithSuggestion("Check that the existing env file has valid KEY=VALUE format").
+				WithError(err)
 		}
 		existingVars = loaded
 	}
@@ -123,9 +123,9 @@ func WriteGlobalEnvVariables(ws *workspace.Workspace, deps *config.Deps, project
 		loaded, err := loadSingleFile(globalPath)
 		if err != nil {
 			return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to load existing global.env").
-			WithContext("file", globalPath).
-			WithSuggestion("Check that global.env has valid KEY=VALUE format").
-			WithError(err)
+				WithContext("file", globalPath).
+				WithSuggestion("Check that global.env has valid KEY=VALUE format").
+				WithError(err)
 		}
 		for k, v := range loaded {
 			merged[k] = v
@@ -201,12 +201,11 @@ func WriteGlobalEnvVariables(ws *workspace.Workspace, deps *config.Deps, project
 		}
 		if _, err := fmt.Fprintf(file, "%s=%s\n", key, escapedValue); err != nil {
 			return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to write to global.env").
-			WithContext("file", globalPath).
-			WithSuggestion("Check disk space and file permissions").
-			WithError(err)
+				WithContext("file", globalPath).
+				WithSuggestion("Check disk space and file permissions").
+				WithError(err)
 		}
 	}
 
 	return nil
 }
-

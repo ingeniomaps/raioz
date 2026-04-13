@@ -43,12 +43,23 @@ func (m *Manager) GenerateEnvVars(
 		}
 
 		envPrefix := toEnvPrefix(name)
-		host := resolveHost(isServiceDocker, isDockerRuntime(ep.Runtime), ep)
+		targetIsDocker := isDockerRuntime(ep.Runtime)
+		host := resolveHost(isServiceDocker, targetIsDocker, ep)
+
+		// Pick the port the caller can actually reach:
+		//   docker → docker : container port via DNS name
+		//   host   → docker : host port (required to be published)
+		//   host   → host   : same port (only one port)
+		//   docker → host   : host port (via host.docker.internal)
+		port := ep.Port
+		if !isServiceDocker && targetIsDocker && ep.HostPort > 0 {
+			port = ep.HostPort
+		}
 
 		vars[envPrefix+"_HOST"] = host
-		if ep.Port > 0 {
-			vars[envPrefix+"_PORT"] = fmt.Sprintf("%d", ep.Port)
-			vars[envPrefix+"_URL"] = fmt.Sprintf("http://%s:%d", host, ep.Port)
+		if port > 0 {
+			vars[envPrefix+"_PORT"] = fmt.Sprintf("%d", port)
+			vars[envPrefix+"_URL"] = fmt.Sprintf("http://%s:%d", host, port)
 		}
 
 		// With proxy, also provide HTTPS URL

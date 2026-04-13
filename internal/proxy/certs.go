@@ -76,6 +76,19 @@ func HasMkcert() bool {
 	return commandExists("mkcert")
 }
 
+// HasExistingCerts returns true when both the certificate and the key already
+// exist in the default raioz certs directory. Used to decide whether `raioz up`
+// can proceed under `tls: mkcert` without the mkcert binary being present
+// (pre-generated certs are a valid setup for CI, Docker images, shared devs).
+func HasExistingCerts() bool {
+	dir := CertsDir()
+	if dir == "" {
+		return false
+	}
+	return fileExists(filepath.Join(dir, certFileName)) &&
+		fileExists(filepath.Join(dir, keyFileName))
+}
+
 func commandExists(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil

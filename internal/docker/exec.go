@@ -7,12 +7,15 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"raioz/internal/runtime"
+	"strings"
 )
 
 // ExecInService runs a command inside a running container
-func ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error {
+func ExecInService(
+	ctx context.Context, composePath string, serviceName string,
+	command []string, interactive bool,
+) error {
 	if err := ValidateComposePath(composePath); err != nil {
 		return fmt.Errorf("invalid compose path: %w", err)
 	}

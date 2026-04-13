@@ -62,7 +62,11 @@ func LoadServicePreferences(ws *workspace.Workspace) (*ServicePreferences, error
 		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to parse service preferences file").
 			WithContext("path", path).
 			WithError(err).
-			WithSuggestion("The service preferences file may be corrupted. Try deleting it — preferences will be re-created when needed")
+			WithSuggestion(
+				"The service preferences file may be corrupted. " +
+					"Try deleting it — preferences will be " +
+					"re-created when needed",
+			)
 	}
 
 	if prefs.Preferences == nil {
@@ -90,10 +94,16 @@ func SaveServicePreferences(ws *workspace.Workspace, prefs *ServicePreferences) 
 
 	data, err := json.MarshalIndent(prefs, "", "  ")
 	if err != nil {
-		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, fmt.Sprintf("failed to marshal service preferences: %v", err)).
-			WithContext("path", path).
+		return raiozErrors.New(
+			raiozErrors.ErrCodeStateSaveError,
+			fmt.Sprintf("failed to marshal service preferences: %v", err),
+		).WithContext("path", path).
 			WithError(err).
-			WithSuggestion("The preferences data may be corrupted. Try deleting the preferences file and setting preferences again")
+			WithSuggestion(
+				"The preferences data may be corrupted. " +
+					"Try deleting the preferences file and " +
+					"setting preferences again",
+			)
 	}
 
 	if err := os.WriteFile(path, data, 0600); err != nil {

@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"raioz/internal/config"
+	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 	"raioz/internal/workspace"
-	exectimeout "raioz/internal/exec"
 )
 
 // ProcessInfo contains information about a running host process
@@ -28,7 +28,11 @@ type ProcessInfo struct {
 
 // StartService starts a service directly on the host (without Docker)
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
-func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service, projectDir string) (*ProcessInfo, error) {
+func StartService(
+	ctx context.Context, ws *workspace.Workspace,
+	deps *config.Deps, serviceName string,
+	svc config.Service, projectDir string,
+) (*ProcessInfo, error) {
 	// Validate that source.command is specified
 	if svc.Source.Command == "" {
 		return nil, fmt.Errorf("service %s requires 'source.command' field for host execution", serviceName)
@@ -154,7 +158,10 @@ func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Dep
 	if shouldWait {
 		// For synchronous commands, write to both console and log files
 		// Output is already being written to both via MultiWriter set above
-		logging.DebugWithContext(ctx, "Executing command synchronously (waiting for completion)", "service", serviceName, "command", svc.Source.Command)
+		logging.DebugWithContext(
+			ctx, "Executing command synchronously (waiting for completion)",
+			"service", serviceName, "command", svc.Source.Command,
+		)
 
 		if err := cmd.Run(); err != nil {
 			// Close files to ensure output is flushed
@@ -172,11 +179,11 @@ func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Dep
 
 		// For synchronous commands, return a dummy ProcessInfo (no PID to track)
 		processInfo := &ProcessInfo{
-			PID:        0, // No PID to track for synchronous commands
-			Service:    serviceName,
-			Command:    svc.Source.Command,
+			PID:         0, // No PID to track for synchronous commands
+			Service:     serviceName,
+			Command:     svc.Source.Command,
 			ComposePath: composePath,
-			StartTime:  time.Now(),
+			StartTime:   time.Now(),
 		}
 		return processInfo, nil
 	}
@@ -195,11 +202,11 @@ func StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Dep
 
 	// Store process info
 	processInfo := &ProcessInfo{
-		PID:        cmd.Process.Pid,
-		Service:    serviceName,
-		Command:    svc.Source.Command,
+		PID:         cmd.Process.Pid,
+		Service:     serviceName,
+		Command:     svc.Source.Command,
 		ComposePath: composePath,
-		StartTime:  time.Now(),
+		StartTime:   time.Now(),
 	}
 
 	// Close file handles (process will keep them open)
@@ -244,9 +251,16 @@ func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand str
 			// Set working directory if service path is provided
 			if servicePath != "" {
 				cmd.Dir = servicePath
-				logging.DebugWithContext(ctx, "Executing stop command in service directory", "stopCommand", stopCommand, "servicePath", servicePath, "pid", pid)
+				logging.DebugWithContext(
+					ctx, "Executing stop command in service directory",
+					"stopCommand", stopCommand,
+					"servicePath", servicePath, "pid", pid,
+				)
 			} else {
-				logging.DebugWithContext(ctx, "Executing stop command", "stopCommand", stopCommand, "pid", pid)
+				logging.DebugWithContext(
+					ctx, "Executing stop command",
+					"stopCommand", stopCommand, "pid", pid,
+				)
 			}
 
 			// Show output in console for stop commands (they are always synchronous)
@@ -257,10 +271,16 @@ func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand str
 			// Stop commands like "make stop" should complete before continuing
 			if err := cmd.Run(); err != nil {
 				// Log but don't fail - fall back to PID kill
-				logging.WarnWithContext(ctx, "Stop command failed, falling back to PID kill", "error", err.Error(), "stopCommand", stopCommand)
+				logging.WarnWithContext(
+					ctx, "Stop command failed, falling back to PID kill",
+					"error", err.Error(), "stopCommand", stopCommand,
+				)
 			} else {
 				// Stop command completed successfully
-				logging.InfoWithContext(ctx, "Stop command completed successfully", "stopCommand", stopCommand)
+				logging.InfoWithContext(
+					ctx, "Stop command completed successfully",
+					"stopCommand", stopCommand,
+				)
 				// Check if process is still running (only if we have a valid PID)
 				if pid > 0 {
 					if running, _ := IsServiceRunning(pid); !running {

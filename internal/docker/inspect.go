@@ -9,32 +9,32 @@ import (
 	"time"
 
 	"raioz/internal/config"
-	"raioz/internal/git"
 	exectimeout "raioz/internal/exec"
-	"raioz/internal/workspace"
+	"raioz/internal/git"
 	"raioz/internal/runtime"
+	"raioz/internal/workspace"
 )
 
 // ServiceInfo contains detailed information about a service
 type ServiceInfo struct {
-	Name            string
-	Status          string // running, stopped
-	Health          string // healthy, unhealthy, starting, none
-	Uptime          string // time since start
-	Memory          string // memory usage
-	CPU             string // CPU usage
-	Image           string // image name and tag
-	Version         string // commit SHA or image digest
-	LastUpdated     string // last update time
-	Linked          bool   // true if service is linked to external path
-	LinkTarget      string // external path if linked (empty if not linked)
+	Name        string
+	Status      string // running, stopped
+	Health      string // healthy, unhealthy, starting, none
+	Uptime      string // time since start
+	Memory      string // memory usage
+	CPU         string // CPU usage
+	Image       string // image name and tag
+	Version     string // commit SHA or image digest
+	LastUpdated string // last update time
+	Linked      bool   // true if service is linked to external path
+	LinkTarget  string // external path if linked (empty if not linked)
 }
 
 // ContainerInspect contains docker inspect output structure
 type ContainerInspect struct {
 	State struct {
-		Status    string `json:"Status"`
-		Health    *struct {
+		Status string `json:"Status"`
+		Health *struct {
 			Status string `json:"Status"`
 		} `json:"Health"`
 		StartedAt string `json:"StartedAt"`
@@ -194,22 +194,22 @@ func GetServiceInfoWithContext(
 		info.Memory = memory
 	}
 
-		// Get version from git if it's a git-based service
-		if svc != nil && svc.Source.Kind == "git" && ws != nil {
-			repoPath := workspace.GetServicePath(ws, serviceName, *svc)
+	// Get version from git if it's a git-based service
+	if svc != nil && svc.Source.Kind == "git" && ws != nil {
+		repoPath := workspace.GetServicePath(ws, serviceName, *svc)
 
-			// Create context with timeout for git operations
-			ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
-			defer cancel()
+		// Create context with timeout for git operations
+		ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
+		defer cancel()
 
-			if commitSHA, err := git.GetCommitSHA(ctx, repoPath); err == nil {
-				info.Version = commitSHA
-				// Get commit date for last updated
-				if commitDate, err := git.GetCommitDate(ctx, repoPath); err == nil {
-					info.LastUpdated = commitDate
-				}
+		if commitSHA, err := git.GetCommitSHA(ctx, repoPath); err == nil {
+			info.Version = commitSHA
+			// Get commit date for last updated
+			if commitDate, err := git.GetCommitDate(ctx, repoPath); err == nil {
+				info.LastUpdated = commitDate
 			}
 		}
+	}
 
 	// Get last updated time from container start if not set from git
 	if info.LastUpdated == "" && inspect.State.StartedAt != "" {

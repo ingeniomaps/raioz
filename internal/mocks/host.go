@@ -14,17 +14,23 @@ var _ interfaces.HostRunner = (*MockHostRunner)(nil)
 
 // MockHostRunner is a mock implementation of interfaces.HostRunner
 type MockHostRunner struct {
-	StartServiceFunc                func(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service, projectDir string) (*host.ProcessInfo, error)
-	StopServiceWithCommandFunc      func(ctx context.Context, pid int, stopCommand string) error
-	LoadProcessesStateFunc          func(ws *workspace.Workspace) (map[string]*host.ProcessInfo, error)
-	SaveProcessesStateFunc          func(ws *workspace.Workspace, processes map[string]*host.ProcessInfo) error
-	RemoveProcessesStateFunc        func(ws *workspace.Workspace) error
-	DetectComposePathFunc           func(servicePath string, command string, explicitComposePath string) string
+	StartServiceFunc func(
+		ctx context.Context, ws *workspace.Workspace, deps *config.Deps,
+		serviceName string, svc config.Service, projectDir string,
+	) (*host.ProcessInfo, error)
+	StopServiceWithCommandFunc        func(ctx context.Context, pid int, stopCommand string) error
+	LoadProcessesStateFunc            func(ws *workspace.Workspace) (map[string]*host.ProcessInfo, error)
+	SaveProcessesStateFunc            func(ws *workspace.Workspace, processes map[string]*host.ProcessInfo) error
+	RemoveProcessesStateFunc          func(ws *workspace.Workspace) error
+	DetectComposePathFunc             func(servicePath string, command string, explicitComposePath string) string
 	StopServiceWithCommandAndPathFunc func(ctx context.Context, pid int, stopCommand string, servicePath string) error
-	IsServiceRunningFunc            func(pid int) (bool, error)
+	IsServiceRunningFunc              func(pid int) (bool, error)
 }
 
-func (m *MockHostRunner) StartService(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service, projectDir string) (*host.ProcessInfo, error) {
+func (m *MockHostRunner) StartService(
+	ctx context.Context, ws *workspace.Workspace, deps *config.Deps,
+	serviceName string, svc config.Service, projectDir string,
+) (*host.ProcessInfo, error) {
 	if m.StartServiceFunc != nil {
 		return m.StartServiceFunc(ctx, ws, deps, serviceName, svc, projectDir)
 	}
@@ -66,7 +72,9 @@ func (m *MockHostRunner) DetectComposePath(servicePath string, command string, e
 	return ""
 }
 
-func (m *MockHostRunner) StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand string, servicePath string) error {
+func (m *MockHostRunner) StopServiceWithCommandAndPath(
+	ctx context.Context, pid int, stopCommand string, servicePath string,
+) error {
 	if m.StopServiceWithCommandAndPathFunc != nil {
 		return m.StopServiceWithCommandAndPathFunc(ctx, pid, stopCommand, servicePath)
 	}

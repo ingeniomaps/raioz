@@ -47,20 +47,20 @@ func GetHealthcheckConfig(mode string) map[string]any {
 	if mode == "prod" {
 		// Strict healthcheck for prod
 		return map[string]any{
-			"test":     []string{"CMD-SHELL", "exit 0 || exit 1"},
-			"interval": "30s",
-			"timeout":  "10s",
-			"retries":  3,
+			"test":         []string{"CMD-SHELL", "exit 0 || exit 1"},
+			"interval":     "30s",
+			"timeout":      "10s",
+			"retries":      3,
 			"start_period": "40s",
 		}
 	}
 
 	// More lenient healthcheck for dev (optional, can be disabled)
 	return map[string]any{
-		"test":     []string{"CMD-SHELL", "exit 0 || exit 1"},
-		"interval": "60s",
-		"timeout":  "20s",
-		"retries":  2,
+		"test":         []string{"CMD-SHELL", "exit 0 || exit 1"},
+		"interval":     "60s",
+		"timeout":      "20s",
+		"retries":      2,
 		"start_period": "60s",
 	}
 }

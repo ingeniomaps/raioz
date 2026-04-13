@@ -25,8 +25,10 @@ type MockStateManager struct {
 	SetServicePreferenceFunc          func(ws *workspace.Workspace, pref state.ServicePreference) error
 	GetWorkspaceProjectPreferenceFunc func(workspaceName string) (*state.WorkspaceProjectPreference, error)
 	SetWorkspaceProjectPreferenceFunc func(workspaceName string, pref state.WorkspaceProjectPreference) error
-	BuildServiceStatesFunc            func(deps *config.Deps, serviceInfos map[string]*state.ServiceInfo) []state.ServiceState
-	FormatIssuesFunc                  func(issues []state.AlignmentIssue) string
+	BuildServiceStatesFunc            func(
+		deps *config.Deps, serviceInfos map[string]*state.ServiceInfo,
+	) []state.ServiceState
+	FormatIssuesFunc func(issues []state.AlignmentIssue) string
 }
 
 func (m *MockStateManager) Load(ws *workspace.Workspace) (*config.Deps, error) {
@@ -92,7 +94,9 @@ func (m *MockStateManager) GetGlobalStatePath() (string, error) {
 	return "", nil
 }
 
-func (m *MockStateManager) GetServicePreference(ws *workspace.Workspace, serviceName string) (*state.ServicePreference, error) {
+func (m *MockStateManager) GetServicePreference(
+	ws *workspace.Workspace, serviceName string,
+) (*state.ServicePreference, error) {
 	if m.GetServicePreferenceFunc != nil {
 		return m.GetServicePreferenceFunc(ws, serviceName)
 	}
@@ -106,21 +110,27 @@ func (m *MockStateManager) SetServicePreference(ws *workspace.Workspace, pref st
 	return nil
 }
 
-func (m *MockStateManager) GetWorkspaceProjectPreference(workspaceName string) (*state.WorkspaceProjectPreference, error) {
+func (m *MockStateManager) GetWorkspaceProjectPreference(
+	workspaceName string,
+) (*state.WorkspaceProjectPreference, error) {
 	if m.GetWorkspaceProjectPreferenceFunc != nil {
 		return m.GetWorkspaceProjectPreferenceFunc(workspaceName)
 	}
 	return nil, nil
 }
 
-func (m *MockStateManager) SetWorkspaceProjectPreference(workspaceName string, pref state.WorkspaceProjectPreference) error {
+func (m *MockStateManager) SetWorkspaceProjectPreference(
+	workspaceName string, pref state.WorkspaceProjectPreference,
+) error {
 	if m.SetWorkspaceProjectPreferenceFunc != nil {
 		return m.SetWorkspaceProjectPreferenceFunc(workspaceName, pref)
 	}
 	return nil
 }
 
-func (m *MockStateManager) BuildServiceStates(deps *config.Deps, serviceInfos map[string]*state.ServiceInfo) []state.ServiceState {
+func (m *MockStateManager) BuildServiceStates(
+	deps *config.Deps, serviceInfos map[string]*state.ServiceInfo,
+) []state.ServiceState {
 	if m.BuildServiceStatesFunc != nil {
 		return m.BuildServiceStatesFunc(deps, serviceInfos)
 	}

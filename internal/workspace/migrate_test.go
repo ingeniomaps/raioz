@@ -50,8 +50,8 @@ func TestMigrateLegacyServices(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "test-project",
-			},
+			Name: "test-project",
+		},
 		Services: map[string]config.Service{
 			"legacy-service": {
 				Source: config.SourceConfig{
@@ -126,8 +126,8 @@ func TestMigrateLegacyServicesReadonly(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "test-project",
-			},
+			Name: "test-project",
+		},
 		Services: map[string]config.Service{
 			"readonly-service": {
 				Source: config.SourceConfig{
@@ -198,8 +198,8 @@ func TestMigrateLegacyServicesSkipIfExists(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "test-project",
-			},
+			Name: "test-project",
+		},
 		Services: map[string]config.Service{
 			"existing-service": {
 				Source: config.SourceConfig{

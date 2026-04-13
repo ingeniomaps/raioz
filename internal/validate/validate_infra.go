@@ -111,9 +111,16 @@ func validateDependencies(deps *config.Deps) error {
 					errors.ErrCodeInvalidField,
 					fmt.Sprintf("Service '%s': depends on '%s' which does not exist", name, dep),
 				).WithSuggestion(
-					fmt.Sprintf("Either add a service or infrastructure named '%s', or remove it from the 'dependsOn' list of service '%s'. "+
-						"Dependencies must reference existing services or infrastructure components.", dep, name),
-				).WithContext("service_name", name).WithContext("missing_dependency", dep)
+					fmt.Sprintf(
+						"Either add a service or infrastructure "+
+							"named '%s', or remove it from the "+
+							"'dependsOn' list of service '%s'. "+
+							"Dependencies must reference existing "+
+							"services or infrastructure components.",
+						dep, name,
+					),
+				).WithContext("service_name", name).
+					WithContext("missing_dependency", dep)
 			}
 		}
 	}

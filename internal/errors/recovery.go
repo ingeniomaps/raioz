@@ -33,7 +33,7 @@ func RecoverPanic(operation string) *RaiozError {
 			ErrCodeInternalError,
 			fmt.Sprintf("Internal error in %s: %s", operation, panicMsg),
 		).WithSuggestion(
-			"This is an unexpected error. Please report this issue with the stack trace. " +
+			"This is an unexpected error. Please report this issue with the stack trace. "+
 				"Check logs for more details.",
 		).WithContext("operation", operation).
 			WithContext("panic_value", panicMsg).
@@ -88,7 +88,7 @@ func SafeExecute(operation string, fn func() error) (err error) {
 				ErrCodeInternalError,
 				fmt.Sprintf("Internal error in %s: %s", operation, panicMsg),
 			).WithSuggestion(
-				"This is an unexpected error. Please report this issue with the stack trace. " +
+				"This is an unexpected error. Please report this issue with the stack trace. "+
 					"Check logs for more details.",
 			).WithContext("operation", operation).
 				WithContext("panic_value", panicMsg).

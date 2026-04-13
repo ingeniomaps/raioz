@@ -36,7 +36,9 @@ func addDefaultInfraHealthcheck(name, image string) map[string]any {
 		return map[string]any{
 			"test": []string{
 				"CMD-SHELL",
-				"curl -f http://localhost/misc/ping 2>/dev/null || wget --no-verbose --tries=1 --spider http://localhost/misc/ping 2>/dev/null || exit 1",
+				"curl -f http://localhost/misc/ping 2>/dev/null || " +
+					"wget --no-verbose --tries=1 --spider " +
+					"http://localhost/misc/ping 2>/dev/null || exit 1",
 			},
 			"interval":     "30s",
 			"timeout":      "10s",

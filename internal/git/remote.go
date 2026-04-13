@@ -112,9 +112,16 @@ func ForceReclone(ctx context.Context, repoPath string, repo string, branch stri
 	}
 
 	// Clone fresh with timeout (shallow clone to save space)
-	cmd := exec.CommandContext(ctx, "git", "-c", "credential.helper=", "clone", "--depth", "1", "-b", branch, repo, repoPath)
-	// Disable interactive prompts and credential helpers for public repos
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=", "GIT_SSH_COMMAND=")
+	cmd := exec.CommandContext(
+		ctx, "git", "-c", "credential.helper=",
+		"clone", "--depth", "1", "-b", branch, repo, repoPath,
+	)
+	// Disable interactive prompts for public repos
+	cmd.Env = append(
+		os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_ASKPASS=", "GIT_SSH_COMMAND=",
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

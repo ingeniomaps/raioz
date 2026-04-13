@@ -6,13 +6,13 @@ import (
 
 // ProxyRoute defines how traffic reaches a service through the proxy.
 type ProxyRoute struct {
-	ServiceName   string
-	Hostname      string // e.g., "api" → "api.localhost"
-	Target        string // e.g., "api:3000" (container) or "host.docker.internal:3001" (host)
-	Port          int
-	WebSocket     bool
-	Stream        bool
-	GRPC          bool
+	ServiceName string
+	Hostname    string // e.g., "api" → "api.localhost"
+	Target      string // e.g., "api:3000" (container) or "host.docker.internal:3001" (host)
+	Port        int
+	WebSocket   bool
+	Stream      bool
+	GRPC        bool
 }
 
 // ProxyManager defines operations for managing the reverse proxy (Caddy).

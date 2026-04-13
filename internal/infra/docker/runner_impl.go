@@ -51,15 +51,23 @@ func (r *DockerRunnerImpl) GetServicesStatus(composePath string) (map[string]str
 }
 
 // GetServicesStatusWithContext returns the status of services with context support
-func (r *DockerRunnerImpl) GetServicesStatusWithContext(ctx context.Context, composePath string) (map[string]string, error) {
+func (r *DockerRunnerImpl) GetServicesStatusWithContext(
+	ctx context.Context, composePath string,
+) (map[string]string, error) {
 	return dockerpkg.GetServicesStatusWithContext(ctx, composePath)
 }
 
 // GetServicesInfoWithContext returns detailed information about services
-func (r *DockerRunnerImpl) GetServicesInfoWithContext(ctx context.Context, composePath string, serviceNames []string, projectName string, services map[string]config.Service, ws *interfaces.Workspace) (map[string]*interfaces.ServiceInfo, error) {
+func (r *DockerRunnerImpl) GetServicesInfoWithContext(
+	ctx context.Context, composePath string, serviceNames []string,
+	projectName string, services map[string]config.Service,
+	ws *interfaces.Workspace,
+) (map[string]*interfaces.ServiceInfo, error) {
 	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
 	wsConcrete := (*workspacepkg.Workspace)(ws)
-	servicesInfo, err := dockerpkg.GetServicesInfoWithContext(ctx, composePath, serviceNames, projectName, services, wsConcrete)
+	servicesInfo, err := dockerpkg.GetServicesInfoWithContext(
+		ctx, composePath, serviceNames, projectName, services, wsConcrete,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -100,13 +108,17 @@ func (r *DockerRunnerImpl) ExtractNamedVolumes(volumes []string) ([]string, erro
 	return dockerpkg.ExtractNamedVolumes(volumes)
 }
 
-// GetAvailableServicesWithContext returns the list of services defined in a compose file
-func (r *DockerRunnerImpl) GetAvailableServicesWithContext(ctx context.Context, composePath string) ([]string, error) {
+// GetAvailableServicesWithContext returns the list of services in a compose file
+func (r *DockerRunnerImpl) GetAvailableServicesWithContext(
+	ctx context.Context, composePath string,
+) ([]string, error) {
 	return dockerpkg.GetAvailableServicesWithContext(ctx, composePath)
 }
 
 // ViewLogsWithContext displays logs for services
-func (r *DockerRunnerImpl) ViewLogsWithContext(ctx context.Context, composePath string, opts interfaces.LogsOptions) error {
+func (r *DockerRunnerImpl) ViewLogsWithContext(
+	ctx context.Context, composePath string, opts interfaces.LogsOptions,
+) error {
 	return dockerpkg.ViewLogsWithContext(ctx, composePath, dockerpkg.LogsOptions{
 		Follow:   opts.Follow,
 		Tail:     opts.Tail,
@@ -115,12 +127,16 @@ func (r *DockerRunnerImpl) ViewLogsWithContext(ctx context.Context, composePath 
 }
 
 // CleanProjectWithContext cleans a specific project's stopped containers
-func (r *DockerRunnerImpl) CleanProjectWithContext(ctx context.Context, composePath string, dryRun bool) ([]string, error) {
+func (r *DockerRunnerImpl) CleanProjectWithContext(
+	ctx context.Context, composePath string, dryRun bool,
+) ([]string, error) {
 	return dockerpkg.CleanProjectWithContext(ctx, composePath, dryRun)
 }
 
 // CleanAllProjectsWithContext cleans all projects' stopped containers
-func (r *DockerRunnerImpl) CleanAllProjectsWithContext(ctx context.Context, baseDir string, dryRun bool) ([]string, error) {
+func (r *DockerRunnerImpl) CleanAllProjectsWithContext(
+	ctx context.Context, baseDir string, dryRun bool,
+) ([]string, error) {
 	return dockerpkg.CleanAllProjectsWithContext(ctx, baseDir, dryRun)
 }
 
@@ -130,7 +146,9 @@ func (r *DockerRunnerImpl) CleanUnusedImagesWithContext(ctx context.Context, dry
 }
 
 // CleanUnusedVolumesWithContext removes unused Docker volumes
-func (r *DockerRunnerImpl) CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool) ([]string, error) {
+func (r *DockerRunnerImpl) CleanUnusedVolumesWithContext(
+	ctx context.Context, dryRun bool, force bool,
+) ([]string, error) {
 	return dockerpkg.CleanUnusedVolumesWithContext(ctx, dryRun, force)
 }
 

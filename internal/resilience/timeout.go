@@ -44,7 +44,9 @@ func (tc TimeoutConfig) GetTimeout(operation string) time.Duration {
 }
 
 // WithTimeout creates a context with timeout and proper error handling
-func WithTimeout(ctx context.Context, timeout time.Duration, operation string) (context.Context, context.CancelFunc, error) {
+func WithTimeout(
+	ctx context.Context, timeout time.Duration, operation string,
+) (context.Context, context.CancelFunc, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -61,7 +63,10 @@ func WithTimeout(ctx context.Context, timeout time.Duration, operation string) (
 }
 
 // ExecuteWithTimeout executes a function with timeout and proper error handling
-func ExecuteWithTimeout(ctx context.Context, timeout time.Duration, operation string, fn func(context.Context) error) error {
+func ExecuteWithTimeout(
+	ctx context.Context, timeout time.Duration,
+	operation string, fn func(context.Context) error,
+) error {
 	timeoutCtx, cancel, err := WithTimeout(ctx, timeout, operation)
 	if err != nil {
 		return err

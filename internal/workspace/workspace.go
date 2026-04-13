@@ -165,8 +165,8 @@ func tryLoadDepsForMigration(project string) (*config.Deps, []string, error) {
 		".raioz.json",
 		"./.raioz.json",
 		filepath.Join(".", ".raioz.json"),
-		"deps.json",        // Legacy support
-		"./deps.json",      // Legacy support
+		"deps.json",                     // Legacy support
+		"./deps.json",                   // Legacy support
 		filepath.Join(".", "deps.json"), // Legacy support
 	}
 

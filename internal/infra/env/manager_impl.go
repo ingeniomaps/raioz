@@ -19,15 +19,24 @@ func NewEnvManager() interfaces.EnvManager {
 }
 
 // ResolveProjectEnv resolves project.env configuration
-func (m *EnvManagerImpl) ResolveProjectEnv(ws *interfaces.Workspace, deps *config.Deps, projectDir string) (string, error) {
+func (m *EnvManagerImpl) ResolveProjectEnv(
+	ws *interfaces.Workspace, deps *config.Deps, projectDir string,
+) (string, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return envpkg.ResolveProjectEnv(wsConcrete, deps, projectDir)
 }
 
 // GenerateEnvFromTemplate generates a .env file from a template if found
-func (m *EnvManagerImpl) GenerateEnvFromTemplate(ws *interfaces.Workspace, deps *config.Deps, serviceName string, servicePath string, svc config.Service, projectEnvPath string, projectDir string) error {
+func (m *EnvManagerImpl) GenerateEnvFromTemplate(
+	ws *interfaces.Workspace, deps *config.Deps,
+	serviceName string, servicePath string, svc config.Service,
+	projectEnvPath string, projectDir string,
+) error {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return envpkg.GenerateEnvFromTemplate(wsConcrete, deps, serviceName, servicePath, svc, projectEnvPath, projectDir)
+	return envpkg.GenerateEnvFromTemplate(
+		wsConcrete, deps, serviceName, servicePath,
+		svc, projectEnvPath, projectDir,
+	)
 }
 
 // WriteGlobalEnvVariables writes global environment variables to the workspace
@@ -37,7 +46,14 @@ func (m *EnvManagerImpl) WriteGlobalEnvVariables(ws *interfaces.Workspace, deps 
 }
 
 // ResolveEnvFiles resolves and returns paths to env files for a service or infra
-func (m *EnvManagerImpl) ResolveEnvFiles(ws *interfaces.Workspace, deps *config.Deps, serviceName string, envFiles []string, projectEnvPath string, includeProjectLevel bool, projectDir string) ([]string, error) {
+func (m *EnvManagerImpl) ResolveEnvFiles(
+	ws *interfaces.Workspace, deps *config.Deps,
+	serviceName string, envFiles []string,
+	projectEnvPath string, includeProjectLevel bool, projectDir string,
+) ([]string, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return envpkg.ResolveEnvFiles(wsConcrete, deps, serviceName, envFiles, projectEnvPath, includeProjectLevel, projectDir)
+	return envpkg.ResolveEnvFiles(
+		wsConcrete, deps, serviceName, envFiles,
+		projectEnvPath, includeProjectLevel, projectDir,
+	)
 }
