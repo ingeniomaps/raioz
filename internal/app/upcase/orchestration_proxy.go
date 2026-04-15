@@ -10,6 +10,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
@@ -51,6 +52,8 @@ func (uc *UseCase) startProxy(
 	}
 
 	output.PrintProgress("Starting proxy...")
+
+	enrichDetectionsWithExposedPorts(ctx, deps, detections)
 
 	for name := range detections {
 		if !shouldProxy(deps, name) {
@@ -241,6 +244,45 @@ func shouldProxy(deps *config.Deps, name string) bool {
 // Local alias kept for readability of nearby call sites.
 func isNonHTTPImage(image string) bool {
 	return proxy.IsNonHTTPImage(image)
+}
+
+// enrichDetectionsWithExposedPorts backfills detection.Port for image-based
+// dependencies whose port is still unknown by this stage. Most official
+// images declare EXPOSE in their Dockerfile (postgres:5432, pgadmin4:80,
+// redisinsight:5540 …) — reading that manifest lets raioz route the proxy
+// without forcing the user to copy the port into `ports:` or `expose:`.
+//
+// Dependencies are already pulled at this point (deps start before proxy
+// routing), so a pure inspect is enough — no pull here. Lookup failures
+// are silent: if Docker is offline, the image is unusual, or no TCP port
+// is declared, Port stays 0 and the existing fallback chain in
+// buildProxyRoute handles it.
+func enrichDetectionsWithExposedPorts(
+	ctx context.Context,
+	deps *config.Deps,
+	detections DetectionMap,
+) {
+	for name, entry := range deps.Infra {
+		if entry.Inline == nil {
+			continue
+		}
+		det, ok := detections[name]
+		if !ok || det.Port != 0 {
+			continue
+		}
+		image := docker.BuildImageName(entry.Inline.Image, entry.Inline.Tag)
+		if image == "" {
+			continue
+		}
+		port, err := docker.GetImageExposedPort(ctx, image)
+		if err != nil {
+			logging.DebugWithContext(ctx, "ExposedPorts lookup skipped",
+				"dep", name, "image", image, "error", err.Error())
+			continue
+		}
+		det.Port = port
+		detections[name] = det
+	}
 }
 
 // proxyTargetOverride returns the user's explicit (target, port) for a
