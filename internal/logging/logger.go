@@ -20,9 +20,9 @@ var (
 	// Logger is the global logger instance
 	Logger *slog.Logger
 	// logLevel stores the current log level
-	logLevel LogLevel = LogLevelInfo
+	logLevel = LogLevelInfo
 	// jsonFormat stores whether JSON format is enabled
-	jsonFormat bool = false
+	jsonFormat = false
 )
 
 // Init initializes the logger with the given level and format

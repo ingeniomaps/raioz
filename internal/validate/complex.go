@@ -34,11 +34,7 @@ func ValidateComplexConfiguration(deps *config.Deps) error {
 	}
 
 	// Validate volume mount paths
-	if err := ValidateVolumeMounts(deps); err != nil {
-		return err
-	}
-
-	return nil
+	return ValidateVolumeMounts(deps)
 }
 
 // ValidateProfileConsistency validates that profiles are used consistently (root, services and infra)

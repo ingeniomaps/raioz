@@ -93,13 +93,13 @@ func (m Model) SelectedService() string {
 
 func (m *Model) addLogLine(service, line string) {
 	lines := m.logs[service]
-	max := maxLogLinesInactive
+	limit := maxLogLinesInactive
 	if service == m.SelectedService() {
-		max = maxLogLines
+		limit = maxLogLines
 	}
 	lines = append(lines, line)
-	if len(lines) > max {
-		lines = lines[len(lines)-max:]
+	if len(lines) > limit {
+		lines = lines[len(lines)-limit:]
 	}
 	m.logs[service] = lines
 }

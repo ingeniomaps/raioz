@@ -65,11 +65,7 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 		}
 	}
 
-	if err := validateDependsOnRefs(cfg); err != nil {
-		return err
-	}
-
-	return nil
+	return validateDependsOnRefs(cfg)
 }
 
 // validateDependsOnRefs checks that all dependsOn references point to defined services or dependencies.

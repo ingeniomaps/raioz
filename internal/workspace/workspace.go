@@ -95,11 +95,9 @@ func Resolve(project string) (*Workspace, error) {
 		return nil, fmt.Errorf("failed to get base directory: %w", err)
 	}
 
-	// Log which base directory is being used (for debugging only)
-	if base == "/opt/raioz-proyecto" {
-		// Using preferred location - no need to log
-	} else {
-		// Using fallback - only log at debug level (not useful for end users)
+	// Using fallback path: debug-log so the dev can trace which root the
+	// resolver picked without noising the happy path.
+	if base != "/opt/raioz-proyecto" {
 		logging.Debug("Using workspace directory (fallback from /opt)", "directory", base)
 	}
 

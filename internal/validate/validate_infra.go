@@ -132,9 +132,5 @@ func validateDependencies(deps *config.Deps) error {
 	}
 
 	// Validate dependency cycles (using docker package function)
-	if err := docker.ValidateDependencyCycle(deps); err != nil {
-		return err
-	}
-
-	return nil
+	return docker.ValidateDependencyCycle(deps)
 }

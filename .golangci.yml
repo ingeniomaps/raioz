@@ -28,6 +28,29 @@ linters-settings:
     excludes:
       - G204
       - G306
+  revive:
+    # Start from the empty default set and opt in to the rules that
+    # actually catch bugs. The default rule set fires ~980 issues on this
+    # codebase — most from `unused-parameter` and `exported`, which are
+    # style preferences that don't match the project's conventions.
+    rules:
+      - name: redefines-builtin-id
+      - name: empty-block
+      - name: var-declaration
+      - name: var-naming
+      - name: unreachable-code
+      - name: if-return
+      - name: indent-error-flow
+      - name: superfluous-else
+      - name: errorf
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: time-naming
+      - name: range
+      - name: blank-imports
 
 linters:
   disable-all: true
@@ -44,6 +67,7 @@ linters:
     - bodyclose
     - errcheck
     - gosec
+    - revive
 
 issues:
   exclude-dirs:
@@ -90,6 +114,13 @@ issues:
     - path: _test\.go
       linters:
         - gosec
+
+    # Tests routinely shadow builtins in table-driven fixtures (new,
+    # old, copy) and have intentionally empty assertion blocks. Revive's
+    # style rules are overhead for test readability.
+    - path: _test\.go
+      linters:
+        - revive
 
     # G204 (subprocess launched with variable) — raioz is an orchestrator.
     # Every call to exec.Command* uses the configured runtime binary
