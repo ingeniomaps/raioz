@@ -32,7 +32,7 @@ internal/app/               Use cases (business logic)
          |                   - Never imports infra/
          |
 internal/domain/            Contracts and models
-  interfaces/               - Port interfaces (27 total)
+  interfaces/               - Port interfaces (19 total)
   models/                   - Type aliases to decouple
          |
 internal/infra/             Adapters
@@ -149,7 +149,7 @@ When reviewing architecture compliance, check:
 4. **Model decoupling** — domain types via models/, not direct config/ imports
 5. **i18n in user-facing code** — all strings through i18n.T()
 6. **Error structure** — structured errors with codes in app/cli layers
-7. **File size** — max 400 lines (500 for tests)
+7. **File size** — max 400 lines for production code. Tests are exempt. `internal/config/schema.go` is also exempt (JSON blob as a Go constant).
 8. **Single responsibility** — one purpose per file
 
 ## Quick validation command
@@ -160,6 +160,24 @@ grep -rn '"raioz/internal/\(config\|docker\|git\|state\|workspace\|env\)' \
   internal/app/ --include='*.go' | grep -v '_test.go' | grep -v 'domain/models'
 ```
 
+## Architectural invariants
+
+In addition to layer direction, several invariants must be
+preserved across any change. They are documented in detail in
+[docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md#architectural-invariants):
+
+1. Container identity is labels, not names — every new runner stamps the raioz label set.
+2. Shared deps omit `com.raioz.project` (signals "outlives any single project").
+3. Certs are per-domain with SAN validation.
+4. Caddyfile uses `auto_https off` in mkcert mode.
+5. Workspace-shared proxy routes are per-project (persist under `/tmp/<ws>/proxy/routes/`).
+6. `cloneService` / `cloneInfraEntry` must mirror every orchestration-relevant field of `config.Service` / `config.Infra`.
+7. `proxy.IsNonHTTPImage` is the single source of truth, bare-name matched.
+8. Port probe dials before binding (privileged ports as non-root).
+
+Review these invariants before touching proxy, naming, orchestrate,
+or workspace-merge code.
+
 ## Rules
 
 - Never bypass layers — cli/ must not call concrete packages directly
@@ -167,3 +185,4 @@ grep -rn '"raioz/internal/\(config\|docker\|git\|state\|workspace\|env\)' \
 - Never add infrastructure concerns to app/ — use interfaces
 - domain/ is the innermost layer — it depends on nothing external
 - When in doubt, follow the existing pattern in the codebase
+- Check invariants before modifying proxy / naming / orchestrate

@@ -16,7 +16,7 @@ Run `/i18n` when:
 ## Catalogs
 
 Location: `internal/i18n/locales/`
-- `en.json` — English (primary, 670+ keys)
+- `en.json` — English (primary, 700+ keys)
 - `es.json` — Spanish (must mirror en.json exactly)
 
 ## Key naming conventions

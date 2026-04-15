@@ -17,10 +17,15 @@ Run checks in this exact order. Stop at the first
 category with failures and report them — do not dump
 everything at once.
 
-### 1. File size (max 400 lines, tests max 500)
+### 1. File size (max 400 lines; tests + schema.go exempt)
+
+Production Go files cap at 400 lines. Tests (`*_test.go`) are
+exempt. `internal/config/schema.go` is also exempt — it holds a
+JSON Schema as a Go string constant, not Go logic.
 
 ```bash
-find . -name "*.go" ! -name "*_test.go" ! -path "*/vendor/*" \
+find . -name "*.go" ! -name "*_test.go" ! -name "schema.go" \
+  ! -path "*/vendor/*" ! -path "*/.context/*" \
   -exec sh -c 'lines=$(wc -l < "$1"); [ "$lines" -gt 400 ] && echo "$1: $lines lines"' _ {} \;
 ```
 
@@ -94,6 +99,18 @@ New use cases in `internal/app/` must:
 - Unexported: camelCase
 - Acronyms: all caps (HTTP, API, ID)
 - Interfaces: `-er` suffix when possible
+
+### 9. Coverage threshold
+
+Current threshold is 70% (temporarily relaxed for v0.1.0;
+target is 80% — see [ROADMAP.md](../../../ROADMAP.md)).
+
+```bash
+make check-coverage    # fails if total coverage < COVERAGE_THRESHOLD (default 70)
+```
+
+If coverage drops meaningfully on packages you touched,
+flag it. Don't block on <1% drift.
 
 ## Output format
 
