@@ -4,10 +4,53 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+      - name: Check file line count (400 max, excluding schema.go JSON blob)
+        run: |
+          bad=$(find . -name "*.go" ! -name "*_test.go" ! -name "schema.go" \
+            ! -path "*/vendor/*" ! -path "*/.context/*" \
+            -exec sh -c 'n=$(wc -l < "$1"); [ "$n" -gt 400 ] && echo "$1: $n lines"' _ {} \;)
+          if [ -n "$bad" ]; then
+            echo "❌ Files exceeding 400 lines found:"
+            echo "$bad"
+            exit 1
+          fi
+          echo "✅ All files are under 400 lines"
+
+      - name: Check line length (120 chars max)
+        run: |
+          long=$(find . -name "*.go" ! -name "*_test.go" \
+            ! -path "*/vendor/*" ! -path "*/.context/*" \
+            -exec awk 'length > 120 {print FILENAME":"NR": "length($0)" chars"}' {} \;)
+          if [ -n "$long" ]; then
+            echo "❌ Lines exceeding 120 characters found:"
+            echo "$long"
+            exit 1
+          fi
+          echo "✅ All lines are under 120 characters"
+
+      - name: Check i18n catalogs in sync
+        run: make check-i18n
+
   test:
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,16 +59,13 @@ jobs:
           go-version: '1.24'
       - name: Build
         run: make build
-      - name: Unit tests
+      - name: Test with race and coverage
         run: go test -race -coverprofile=coverage.out ./...
       - name: Coverage report
         run: go tool cover -func=coverage.out | grep total
-      - name: Check file line limits
-        run: |
-          bad=$(find internal/ -name "*.go" ! -name "*_test.go" -exec wc -l {} \; | awk '$1 > 400')
-          if [ -n "$bad" ]; then echo "$bad"; exit 1; fi
 
   integration:
+    name: Integration E2E
     runs-on: ubuntu-latest
     needs: test
     steps:
