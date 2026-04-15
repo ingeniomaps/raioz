@@ -9,5 +9,6 @@ func availableDiskSpaceBytes(path string) (uint64, error) {
 	if err := syscall.Statfs(path, &stat); err != nil {
 		return 0, err
 	}
-	return stat.Bavail * uint64(stat.Bsize), nil
+	// Bsize is the filesystem block size, always positive.
+	return stat.Bavail * uint64(stat.Bsize), nil // #nosec G115
 }

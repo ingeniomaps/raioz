@@ -21,6 +21,13 @@ linters-settings:
     simplify: true
   goimports:
     local-prefixes: raioz
+  gosec:
+    # G204 (subprocess launched with tainted input) and G306 (WriteFile
+    # permissions) are disabled globally — see issues.exclude-rules below
+    # for the rationale.
+    excludes:
+      - G204
+      - G306
 
 linters:
   disable-all: true
@@ -36,6 +43,7 @@ linters:
     - copyloopvar
     - bodyclose
     - errcheck
+    - gosec
 
 issues:
   exclude-dirs:
@@ -75,6 +83,28 @@ issues:
     - path: _test\.go
       linters:
         - errcheck
+
+    # Tests legitimately bind to ephemeral ports, write fixture files with
+    # 0644, and shell out to docker with dynamic args. Gosec's security
+    # model doesn't fit test code — the signal is in production.
+    - path: _test\.go
+      linters:
+        - gosec
+
+    # G204 (subprocess launched with variable) — raioz is an orchestrator.
+    # Every call to exec.Command* uses the configured runtime binary
+    # (docker/podman/nerdctl) with args built from the user's raioz.yaml
+    # (image names, container names, ports). The user operates the tool;
+    # the inputs are not attacker-controlled. Excluded in linters-settings.
+    #
+    # G306 (WriteFile permissions) — raioz writes generated config files
+    # (Caddyfile, compose overlays, raioz.yaml from `init`, route
+    # manifests, state files) where 0644 is the expected UNIX-friendly
+    # mode. None of them contain secrets — credentials live in the user's
+    # own `.env.*` files which raioz only reads. Forcing 0600 would break
+    # the common case where a team commits raioz.yaml to git and other
+    # user accounts need to read the compose overlay. Excluded in
+    # linters-settings.
 
 output:
   formats:
