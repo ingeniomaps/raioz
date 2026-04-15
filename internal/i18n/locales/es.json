@@ -716,5 +716,20 @@
   "clone.no_config": "No se encontro raioz.yaml. Ejecuta raioz init para generar uno.",
   "clone.starting": "Iniciando proyecto...",
   "cmd.dashboard.short": "Dashboard interactivo para monitorear servicios",
-  "cmd.dashboard.long": "Abre un dashboard interactivo en terminal mostrando todos los servicios,\nsu estado, logs y uso de recursos en tiempo real.\nAlias: raioz tui"
+  "cmd.dashboard.long": "Abre un dashboard interactivo en terminal mostrando todos los servicios,\nsu estado, logs y uso de recursos en tiempo real.\nAlias: raioz tui",
+  "port.conflict.occupied_by_container": "El puerto %d esta en uso por el contenedor '%s'",
+  "port.conflict.occupied_by_external": "El puerto %d esta en uso por un proceso externo (no Docker)",
+  "port.conflict.occupied_by_raioz": "El puerto %d esta en uso por el proyecto raioz '%s'",
+  "port.conflict.choose_resolution": "Como deseas resolver esto?",
+  "port.conflict.opt_auto": "Asignar automaticamente el siguiente puerto libre",
+  "port.conflict.opt_specify": "Especificar un puerto",
+  "port.conflict.opt_skip": "Lo resolvere yo mismo (detener raioz up)",
+  "port.conflict.option": "  %d) %s",
+  "port.conflict.your_choice": "Elige [1-%d]: ",
+  "port.conflict.enter_port": "Ingresa el numero de puerto: ",
+  "port.conflict.reassigned": "%s '%s' puerto cambiado: %d → %d",
+  "port.conflict.config_updated": "Se actualizo %s con el nuevo puerto",
+  "port.conflict.retry_after_resolve": "Resuelve el conflicto y ejecuta 'raioz up' de nuevo",
+  "port.conflict.invalid_port": "Numero de puerto invalido",
+  "port.conflict.port_also_in_use": "El puerto %d tambien esta en uso, intenta otro"
 }

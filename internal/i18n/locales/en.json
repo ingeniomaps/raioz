@@ -716,5 +716,20 @@
   "clone.no_config": "No raioz.yaml found. Run raioz init to generate one.",
   "clone.starting": "Starting project...",
   "cmd.dashboard.short": "Interactive dashboard for monitoring services",
-  "cmd.dashboard.long": "Opens an interactive terminal dashboard showing all services,\ntheir status, logs, and resource usage in real-time.\nAlias: raioz tui"
+  "cmd.dashboard.long": "Opens an interactive terminal dashboard showing all services,\ntheir status, logs, and resource usage in real-time.\nAlias: raioz tui",
+  "port.conflict.occupied_by_container": "Port %d is in use by container '%s'",
+  "port.conflict.occupied_by_external": "Port %d is in use by an external process (not Docker)",
+  "port.conflict.occupied_by_raioz": "Port %d is in use by raioz project '%s'",
+  "port.conflict.choose_resolution": "How would you like to resolve this?",
+  "port.conflict.opt_auto": "Auto-assign next free port",
+  "port.conflict.opt_specify": "Specify a port",
+  "port.conflict.opt_skip": "I'll resolve it myself (stop raioz up)",
+  "port.conflict.option": "  %d) %s",
+  "port.conflict.your_choice": "Choose [1-%d]: ",
+  "port.conflict.enter_port": "Enter port number: ",
+  "port.conflict.reassigned": "%s '%s' port changed: %d → %d",
+  "port.conflict.config_updated": "Updated %s with new port",
+  "port.conflict.retry_after_resolve": "Resolve the conflict and run 'raioz up' again",
+  "port.conflict.invalid_port": "Invalid port number",
+  "port.conflict.port_also_in_use": "Port %d is also in use, try another"
 }
