@@ -1,8 +1,9 @@
 package docker
 
 import (
-	"raioz/internal/config"
 	"testing"
+
+	"raioz/internal/config"
 )
 
 func TestBuildImageName(t *testing.T) {

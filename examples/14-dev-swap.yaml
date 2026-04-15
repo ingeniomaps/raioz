@@ -1,0 +1,58 @@
+# 14 — Dev swap: promote a dependency to local development
+#
+# Scenario: auth-service is a dependency (Docker image from another team).
+# You need to debug a bug in auth-service locally.
+#
+# Step 1: Normal operation (auth runs as image)
+#   raioz up
+#   ✓ auth-service (image: acme/auth:latest)  :3001
+#   ✓ api          (local: ./api)             :3000
+#
+# Step 2: Clone auth and promote to local
+#   git clone git@github.com:acme/auth-service.git ./auth-local
+#   raioz dev auth-service ./auth-local
+#   ✓ auth-service: image → local (./auth-local)
+#   All services now use YOUR local auth-service code.
+#
+# Step 3: Debug, fix, test locally...
+#
+# Step 4: Done. Revert to image.
+#   raioz dev --reset auth-service
+#   ✓ auth-service: local → image (acme/auth:latest)
+#
+# The swap is transparent: other services don't need any config change.
+# The container name and network aliases stay the same.
+#
+# View active swaps:
+#   raioz dev --list
+
+project: dev-swap-demo
+
+services:
+  api:
+    path: ./api
+    dependsOn: [postgres, auth-service]
+    health: /health
+    ports: ["3000"]
+
+  frontend:
+    path: ./frontend
+    dependsOn: [api]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]
+
+  # This is the dependency you might promote to local
+  auth-service:
+    image: acme/auth-service:latest
+    ports: ["3001:3000"]
+    env: .env.auth
+    # Optional: pre-configure the local path for quick swap
+    dev:
+      path: ./auth-local

@@ -82,14 +82,12 @@ func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
 func (cb *CircuitBreaker) Execute(ctx context.Context, operation string, fn func() error) error {
 	// Check circuit state
 	cb.mu.Lock()
-	state := cb.state
 
 	// Transition from open to half-open if timeout has passed
-	if state == CircuitOpen {
+	if cb.state == CircuitOpen {
 		if time.Since(cb.lastFailure) >= cb.config.Timeout {
 			cb.state = CircuitHalfOpen
 			cb.successes = 0
-			state = CircuitHalfOpen
 			logging.Info("Circuit breaker transitioning to half-open",
 				"circuit", cb.config.Name,
 				"operation", operation,
@@ -161,17 +159,18 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, operation string, fn func
 }
 
 // ExecuteWithContext executes a function through the circuit breaker with context support
-func (cb *CircuitBreaker) ExecuteWithContext(ctx context.Context, operation string, fn func(context.Context) error) error {
+func (cb *CircuitBreaker) ExecuteWithContext(
+	ctx context.Context, operation string,
+	fn func(context.Context) error,
+) error {
 	// Check circuit state
 	cb.mu.Lock()
-	state := cb.state
 
 	// Transition from open to half-open if timeout has passed
-	if state == CircuitOpen {
+	if cb.state == CircuitOpen {
 		if time.Since(cb.lastFailure) >= cb.config.Timeout {
 			cb.state = CircuitHalfOpen
 			cb.successes = 0
-			state = CircuitHalfOpen
 			logging.Info("Circuit breaker transitioning to half-open",
 				"circuit", cb.config.Name,
 				"operation", operation,
@@ -271,10 +270,10 @@ func (cb *CircuitBreaker) IsOpen() bool {
 
 // Global circuit breakers for common operations
 var (
-	dockerCircuitBreaker *CircuitBreaker
-	gitCircuitBreaker    *CircuitBreaker
+	dockerCircuitBreaker  *CircuitBreaker
+	gitCircuitBreaker     *CircuitBreaker
 	networkCircuitBreaker *CircuitBreaker
-	circuitBreakerOnce   sync.Once
+	circuitBreakerOnce    sync.Once
 )
 
 // GetDockerCircuitBreaker returns the global Docker circuit breaker

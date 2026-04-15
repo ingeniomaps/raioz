@@ -32,55 +32,55 @@ type ComparisonResult struct {
 
 // ServiceDifference represents differences found for a specific service
 type ServiceDifference struct {
-	ServiceName     string                 `json:"serviceName"`
-	InLocalOnly     bool                   `json:"inLocalOnly"`
-	InProductionOnly bool                  `json:"inProductionOnly"`
-	ImageMismatch   *ImageMismatch         `json:"imageMismatch,omitempty"`
-	PortMismatch    *PortMismatch          `json:"portMismatch,omitempty"`
-	VolumeMismatch  *VolumeMismatch        `json:"volumeMismatch,omitempty"`
-	DependsMismatch *DependsMismatch       `json:"dependsMismatch,omitempty"`
-	EnvMismatch     *EnvMismatch           `json:"envMismatch,omitempty"`
-	Severity        string                 `json:"severity"` // info, warning, error
+	ServiceName      string           `json:"serviceName"`
+	InLocalOnly      bool             `json:"inLocalOnly"`
+	InProductionOnly bool             `json:"inProductionOnly"`
+	ImageMismatch    *ImageMismatch   `json:"imageMismatch,omitempty"`
+	PortMismatch     *PortMismatch    `json:"portMismatch,omitempty"`
+	VolumeMismatch   *VolumeMismatch  `json:"volumeMismatch,omitempty"`
+	DependsMismatch  *DependsMismatch `json:"dependsMismatch,omitempty"`
+	EnvMismatch      *EnvMismatch     `json:"envMismatch,omitempty"`
+	Severity         string           `json:"severity"` // info, warning, error
 }
 
 // ImageMismatch represents image/tag differences
 type ImageMismatch struct {
-	Local       string `json:"local"`
-	Production  string `json:"production"`
-	LocalTag    string `json:"localTag,omitempty"`
-	ProdTag     string `json:"prodTag,omitempty"`
+	Local      string `json:"local"`
+	Production string `json:"production"`
+	LocalTag   string `json:"localTag,omitempty"`
+	ProdTag    string `json:"prodTag,omitempty"`
 }
 
 // PortMismatch represents port differences
 type PortMismatch struct {
-	Local       []string `json:"local"`
-	Production  []string `json:"production"`
+	Local      []string `json:"local"`
+	Production []string `json:"production"`
 }
 
 // VolumeMismatch represents volume differences
 type VolumeMismatch struct {
-	Local       []string `json:"local"`
-	Production  []string `json:"production"`
+	Local      []string `json:"local"`
+	Production []string `json:"production"`
 }
 
 // DependsMismatch represents dependency differences
 type DependsMismatch struct {
-	Local       []string `json:"local"`
-	Production  []string `json:"production"`
+	Local      []string `json:"local"`
+	Production []string `json:"production"`
 }
 
 // EnvMismatch represents environment variable differences
 type EnvMismatch struct {
-	LocalOnly       []string `json:"localOnly,omitempty"`
-	ProductionOnly  []string `json:"productionOnly,omitempty"`
+	LocalOnly      []string `json:"localOnly,omitempty"`
+	ProductionOnly []string `json:"productionOnly,omitempty"`
 }
 
 // InfraDifference represents differences in infrastructure services
 type InfraDifference struct {
-	InfraName       string        `json:"infraName"`
-	InLocalOnly     bool          `json:"inLocalOnly"`
-	InProductionOnly bool         `json:"inProductionOnly"`
-	ImageMismatch   *ImageMismatch `json:"imageMismatch,omitempty"`
-	PortMismatch    *PortMismatch  `json:"portMismatch,omitempty"`
-	Severity        string         `json:"severity"`
+	InfraName        string         `json:"infraName"`
+	InLocalOnly      bool           `json:"inLocalOnly"`
+	InProductionOnly bool           `json:"inProductionOnly"`
+	ImageMismatch    *ImageMismatch `json:"imageMismatch,omitempty"`
+	PortMismatch     *PortMismatch  `json:"portMismatch,omitempty"`
+	Severity         string         `json:"severity"`
 }

@@ -8,10 +8,15 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"raioz/internal/runtime"
 )
 
 // ExecInService runs a command inside a running container
-func ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error {
+func ExecInService(
+	ctx context.Context, composePath string, serviceName string,
+	command []string, interactive bool,
+) error {
 	if err := ValidateComposePath(composePath); err != nil {
 		return fmt.Errorf("invalid compose path: %w", err)
 	}
@@ -23,7 +28,7 @@ func ExecInService(ctx context.Context, composePath string, serviceName string, 
 	args = append(args, serviceName)
 	args = append(args, command...)
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 

@@ -11,6 +11,7 @@ import (
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 	"raioz/internal/resilience"
+	"raioz/internal/runtime"
 )
 
 // ImageExists checks if a Docker image exists locally
@@ -24,7 +25,7 @@ func ImageExistsWithContext(ctx context.Context, image string) (bool, error) {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "image", "inspect", image)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "image", "inspect", image)
 	err := cmd.Run()
 
 	if err != nil {
@@ -56,13 +57,14 @@ func PullImageWithContext(ctx context.Context, image string) error {
 	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 
-	return resilience.RetryWithContext(ctx, retryConfig, fmt.Sprintf("docker pull %s", image), func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, fmt.Sprintf("docker pull %s", image), func(ctx context.Context) error {
+	pullOp := fmt.Sprintf("docker pull %s", image)
+	return resilience.RetryWithContext(ctx, retryConfig, pullOp, func(ctx context.Context) error {
+		return dockerCB.ExecuteWithContext(ctx, pullOp, func(ctx context.Context) error {
 			// Create context with timeout
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerPullTimeout)
 			defer cancel()
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", "pull", image)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "pull", image)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -133,6 +135,13 @@ func ValidateInfraImagesWithContext(ctx context.Context, deps *config.Deps) erro
 		if entry.Inline == nil {
 			continue
 		}
+		// Compose-mode deps delegate image management to the user's
+		// compose file — `docker compose up` pulls whatever the fragment
+		// declares. Skip raioz's own pre-flight pull so we don't try to
+		// pull an empty `:latest` reference.
+		if len(entry.Inline.Compose) > 0 {
+			continue
+		}
 		image := BuildImageName(entry.Inline.Image, entry.Inline.Tag)
 		if err := EnsureImageWithContext(ctx, image); err != nil {
 			return fmt.Errorf("infra %s: %w", name, err)
@@ -172,7 +181,7 @@ func GetImageInfoWithContext(ctx context.Context, image string) (map[string]stri
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "image", "inspect", image, "--format",
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "image", "inspect", image, "--format",
 		"{{.Id}}|{{.RepoTags}}|{{.Created}}")
 	output, err := cmd.Output()
 	if err != nil {

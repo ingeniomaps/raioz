@@ -76,10 +76,10 @@ func TestParseVolume(t *testing.T) {
 
 func TestExtractNamedVolumes(t *testing.T) {
 	tests := []struct {
-		name     string
-		volumes  []string
-		want     []string
-		wantErr  bool
+		name    string
+		volumes []string
+		want    []string
+		wantErr bool
 	}{
 		{
 			name:    "mixed volumes",

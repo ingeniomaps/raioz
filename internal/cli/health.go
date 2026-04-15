@@ -28,6 +28,8 @@ var healthCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
+		configPath = ResolveConfigPath(configPath)
+
 		deps := app.NewDependencies()
 		useCase := app.NewHealthUseCase(deps)
 		return useCase.Execute(ctx, app.HealthOptions{
@@ -37,6 +39,6 @@ var healthCmd = &cobra.Command{
 }
 
 func init() {
-	healthCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	healthCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	rootCmd.AddCommand(healthCmd)
 }

@@ -1,0 +1,22 @@
+# 01 — Minimal: one service, one dependency
+#
+# The simplest possible raioz.yaml. A single API service
+# that depends on PostgreSQL. Raioz detects the runtime
+# from the directory contents (go.mod, package.json, etc.).
+#
+# Usage:
+#   cd my-project/
+#   raioz up
+
+project: my-api
+
+services:
+  api:
+    path: .
+    dependsOn: [postgres]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    env: .env.postgres

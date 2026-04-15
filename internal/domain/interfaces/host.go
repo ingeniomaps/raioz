@@ -8,8 +8,12 @@ import (
 
 // HostRunner defines operations for running services directly on the host
 type HostRunner interface {
-	// StartService starts a service directly on the host (without Docker)
-	StartService(ctx context.Context, ws *Workspace, deps *models.Deps, serviceName string, svc models.Service, projectDir string) (*models.ProcessInfo, error)
+	// StartService starts a service directly on the host
+	StartService(
+		ctx context.Context, ws *Workspace,
+		deps *models.Deps, serviceName string,
+		svc models.Service, projectDir string,
+	) (*models.ProcessInfo, error)
 	// StopServiceWithCommand stops a host service by PID with an optional stop command
 	StopServiceWithCommand(ctx context.Context, pid int, stopCommand string) error
 	// LoadProcessesState loads the host processes state for a workspace

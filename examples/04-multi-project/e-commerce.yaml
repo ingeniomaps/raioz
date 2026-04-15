@@ -1,0 +1,31 @@
+# 04a — Multi-project: E-commerce (project A)
+#
+# Two projects share the same workspace → same Docker network.
+# When both are running, they share postgres and redis.
+#
+# Start this first:
+#   cd e-commerce/
+#   raioz up
+#
+# Then start backoffice (04b) — it reuses running postgres.
+
+workspace: acme-corp          # same workspace = same network
+project: e-commerce
+
+services:
+  store-frontend:
+    path: ./store
+    dependsOn: [store-api]
+
+  store-api:
+    path: ./api
+    dependsOn: [postgres, redis]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]

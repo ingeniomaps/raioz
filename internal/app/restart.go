@@ -9,6 +9,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
+	"raioz/internal/output"
 )
 
 // RestartOptions contains options for the Restart use case
@@ -38,13 +39,21 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 		ctx = context.Background()
 	}
 
+	// Try YAML mode first
+	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		return RestartYAML(ctx, proj, opts.Services)
+	}
+
 	w := uc.Out
 
-	// Resolve project
+	// Legacy: resolve project
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil {
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
@@ -55,7 +64,10 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 			).WithSuggestion(i18n.T("error.no_project_suggestion"))
 		}
 	} else {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil && deps.Project.Name == projectName {
 			workspaceName = deps.GetWorkspaceName()
 		} else {
@@ -130,7 +142,10 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 }
 
 // doRestart performs the actual restart operation
-func (uc *RestartUseCase) doRestart(ctx context.Context, w io.Writer, composePath string, services []string, forceRecreate bool) error {
+func (uc *RestartUseCase) doRestart(
+	ctx context.Context, w io.Writer, composePath string,
+	services []string, forceRecreate bool,
+) error {
 	fmt.Fprintf(w, "⏳ %s\n", i18n.T("output.restarting_services"))
 
 	var err error

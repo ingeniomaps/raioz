@@ -1,35 +1,38 @@
 #!/bin/bash
-# Script to check code coverage against a threshold
+# Check code coverage against a threshold.
 # Usage: ./scripts/check-coverage.sh [threshold]
 # Default threshold: 80.0
+
+set -euo pipefail
 
 THRESHOLD=${1:-80.0}
 COVERAGE_FILE=${COVERAGE_FILE:-coverage.out}
 
 if [ ! -f "$COVERAGE_FILE" ]; then
-    echo "❌ Coverage file '$COVERAGE_FILE' not found. Run tests with coverage first."
+    echo "Coverage file '$COVERAGE_FILE' not found."
+    echo "Run: make test-coverage"
     exit 1
 fi
 
-# Calculate total coverage
-TOTAL_COVERAGE=$(go tool cover -func="$COVERAGE_FILE" | grep -E "^total:" | awk '{print $3}' | sed 's/%//')
+TOTAL_COVERAGE=$(go tool cover -func="$COVERAGE_FILE" \
+    | grep -E "^total:" | awk '{print $3}' | sed 's/%//')
 
 if [ -z "$TOTAL_COVERAGE" ]; then
-    echo "❌ Failed to calculate coverage"
+    echo "Failed to calculate coverage"
     exit 1
 fi
 
-echo "📊 Total coverage: ${TOTAL_COVERAGE}%"
-echo "🎯 Coverage threshold: ${THRESHOLD}%"
+echo "Total coverage: ${TOTAL_COVERAGE}%"
+echo "Threshold: ${THRESHOLD}%"
 
-# Compare coverage with threshold using awk for floating point comparison
 if awk "BEGIN {exit !($TOTAL_COVERAGE >= $THRESHOLD)}"; then
-    echo "✅ Coverage meets threshold (${TOTAL_COVERAGE}% >= ${THRESHOLD}%)"
+    echo "Coverage meets threshold (${TOTAL_COVERAGE}% >= ${THRESHOLD}%)"
     exit 0
 else
-    echo "❌ Coverage below threshold (${TOTAL_COVERAGE}% < ${THRESHOLD}%)"
+    echo "Coverage below threshold (${TOTAL_COVERAGE}% < ${THRESHOLD}%)"
     echo ""
     echo "Coverage by package:"
-    go tool cover -func="$COVERAGE_FILE" | grep -E "^raioz" | sort -k3 -n
+    go tool cover -func="$COVERAGE_FILE" \
+        | grep -E "^raioz" | sort -k3 -n
     exit 1
 fi

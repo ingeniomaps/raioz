@@ -48,7 +48,7 @@ var execCmd = &cobra.Command{
 }
 
 func init() {
-	execCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	execCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	execCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	execCmd.Flags().BoolVarP(&execInteractive, "interactive", "i", true, "Keep stdin open and allocate TTY")
 	execCmd.Flags().SetInterspersed(false)

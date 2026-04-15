@@ -16,7 +16,7 @@ func TestValidateProject(t *testing.T) {
 			name: "valid project",
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
-				Network: config.NetworkConfig{Name: "test-network"},
+				Network:       config.NetworkConfig{Name: "test-network"},
 				Project: config.Project{
 					Name: "test-project",
 				},
@@ -50,11 +50,11 @@ func TestValidateProject(t *testing.T) {
 			name: "missing project name",
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
-				Network: config.NetworkConfig{Name: "test-network"},
-				Project: config.Project{},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
-				Env:      config.EnvConfig{},
+				Network:       config.NetworkConfig{Name: "test-network"},
+				Project:       config.Project{},
+				Services:      map[string]config.Service{},
+				Infra:         map[string]config.InfraEntry{},
+				Env:           config.EnvConfig{},
 			},
 			wantErr: true,
 		},
@@ -62,7 +62,7 @@ func TestValidateProject(t *testing.T) {
 			name: "missing service source fields for git",
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
-				Network: config.NetworkConfig{Name: "test"},
+				Network:       config.NetworkConfig{Name: "test"},
 				Project: config.Project{
 					Name: "test",
 				},

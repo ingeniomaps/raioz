@@ -24,7 +24,7 @@ func TestRestartCmdFlags(t *testing.T) {
 		name     string
 		defValue string
 	}{
-		{"file", ".raioz.json"},
+		{"file", ""},
 		{"project", ""},
 		{"all", "false"},
 		{"include-infra", "false"},

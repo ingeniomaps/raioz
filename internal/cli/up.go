@@ -5,6 +5,8 @@ import (
 
 	"raioz/internal/app"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
+	"raioz/internal/notify"
 
 	"github.com/spf13/cobra"
 )
@@ -15,6 +17,10 @@ var (
 	forceReclone bool
 	dryRun       bool
 	onlyServices []string
+	hostBind     string
+	attach       bool
+	exclusive    bool
+	notifyDone   bool
 )
 
 var upCmd = &cobra.Command{
@@ -44,20 +50,37 @@ var upCmd = &cobra.Command{
 		upUseCase := app.NewUpUseCase(deps)
 
 		// Execute use case
-		return upUseCase.Execute(ctx, app.UpOptions{
+		execErr := upUseCase.Execute(ctx, app.UpOptions{
 			ConfigPath:   configPath,
 			Profile:      profile,
 			ForceReclone: forceReclone,
 			DryRun:       dryRun,
 			Only:         onlyServices,
+			Host:         hostBind,
+			Attach:       attach,
+			Exclusive:    exclusive,
 		})
+
+		if notifyDone {
+			if execErr == nil {
+				notify.Send("Raioz", i18n.T("up.notify_ready"))
+			} else {
+				notify.Send("Raioz", i18n.T("up.notify_failed"))
+			}
+		}
+
+		return execErr
 	},
 }
 
 func init() {
-	upCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	upCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file (auto-detects if omitted)")
 	upCmd.Flags().StringVarP(&profile, "profile", "p", "", "Profile to use (frontend/backend)")
 	upCmd.Flags().BoolVar(&forceReclone, "force-reclone", false, "Force re-clone of all git repositories")
 	upCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
 	upCmd.Flags().StringSliceVar(&onlyServices, "only", nil, "Start only these services (with their dependencies)")
+	upCmd.Flags().StringVar(&hostBind, "host", "", "Bind address for shared dev server (e.g., 0.0.0.0)")
+	upCmd.Flags().BoolVar(&attach, "attach", false, "Stay attached and stream logs (without file watching)")
+	upCmd.Flags().BoolVar(&exclusive, "exclusive", false, i18n.T("cmd.up.flag.exclusive"))
+	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 }

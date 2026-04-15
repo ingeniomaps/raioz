@@ -11,20 +11,20 @@ var _ interfaces.WorkspaceManager = (*MockWorkspaceManager)(nil)
 
 // MockWorkspaceManager is a mock implementation of interfaces.WorkspaceManager
 type MockWorkspaceManager struct {
-	ResolveFunc               func(projectName string) (*workspace.Workspace, error)
-	GetBaseDirFunc            func() (string, error)
+	ResolveFunc                 func(projectName string) (*workspace.Workspace, error)
+	GetBaseDirFunc              func() (string, error)
 	GetBaseDirFromWorkspaceFunc func(ws *workspace.Workspace) string
-	GetComposePathFunc        func(ws *workspace.Workspace) string
-	GetStatePathFunc          func(ws *workspace.Workspace) string
-	GetActiveWorkspaceFunc    func() (string, error)
-	GetRootFunc               func(ws *workspace.Workspace) string
-	GetServicePathFunc        func(ws *workspace.Workspace, serviceName string, svc config.Service) string
-	GetServiceDirFunc         func(ws *workspace.Workspace, svc config.Service) string
-	MigrateLegacyServicesFunc func(ws *workspace.Workspace, deps *config.Deps) error
-	ListWorkspacesFunc        func() ([]string, error)
-	WorkspaceExistsFunc       func(workspaceName string) (bool, error)
-	SetActiveWorkspaceFunc    func(workspaceName string) error
-	DeleteWorkspaceFunc       func(workspaceName string) error
+	GetComposePathFunc          func(ws *workspace.Workspace) string
+	GetStatePathFunc            func(ws *workspace.Workspace) string
+	GetActiveWorkspaceFunc      func() (string, error)
+	GetRootFunc                 func(ws *workspace.Workspace) string
+	GetServicePathFunc          func(ws *workspace.Workspace, serviceName string, svc config.Service) string
+	GetServiceDirFunc           func(ws *workspace.Workspace, svc config.Service) string
+	MigrateLegacyServicesFunc   func(ws *workspace.Workspace, deps *config.Deps) error
+	ListWorkspacesFunc          func() ([]string, error)
+	WorkspaceExistsFunc         func(workspaceName string) (bool, error)
+	SetActiveWorkspaceFunc      func(workspaceName string) error
+	DeleteWorkspaceFunc         func(workspaceName string) error
 }
 
 func (m *MockWorkspaceManager) Resolve(projectName string) (*workspace.Workspace, error) {

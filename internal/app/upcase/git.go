@@ -15,7 +15,10 @@ import (
 )
 
 // processGitRepos handles cloning/updating repos and branch changes
-func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, oldDeps *config.Deps, forceReclone bool, projectDir string) error {
+func (uc *UseCase) processGitRepos(
+	ctx context.Context, deps *config.Deps, ws *interfaces.Workspace,
+	oldDeps *config.Deps, forceReclone bool, projectDir string,
+) error {
 	// Update repos if branches changed (this happens during processState, but we handle the actual git updates here)
 	if oldDeps != nil {
 		// Check for branch changes
@@ -38,8 +41,16 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			}
 			ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
 			defer cancel()
-			if err := uc.deps.GitRepository.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, deps); err != nil {
-				return errors.New(errors.ErrCodeGitCloneFailed, i18n.T("error.git_update_branch_failed")).WithSuggestion(i18n.T("error.git_update_branch_suggestion")).WithError(err)
+			err := uc.deps.GitRepository.UpdateReposIfBranchChanged(
+				ctx, repoPathResolver, oldDeps, deps,
+			)
+			if err != nil {
+				return errors.New(
+					errors.ErrCodeGitCloneFailed,
+					i18n.T("error.git_update_branch_failed"),
+				).WithSuggestion(
+					i18n.T("error.git_update_branch_suggestion"),
+				).WithError(err)
 			}
 		}
 	}
@@ -50,7 +61,7 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 			continue
 		}
 		if svc.Source.Kind == "git" {
-		// Check if this service conflicts with a local project or another running service
+			// Check if this service conflicts with a local project or another running service
 			conflict, err := uc.detectServiceConflict(ctx, name, deps, ws, projectDir, false)
 			if err != nil {
 				logging.WarnWithContext(ctx, "Failed to detect service conflict", "service", name, "error", err.Error())
@@ -70,7 +81,10 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 					continue
 				}
 				// Apply resolution
-				if err := uc.applyServiceConflictResolution(ctx, conflict, resolution, name, deps, ws, projectDir, false); err != nil {
+				err = uc.applyServiceConflictResolution(
+					ctx, conflict, resolution, name, deps, ws, projectDir, false,
+				)
+				if err != nil {
 					return err
 				}
 			}
@@ -119,14 +133,25 @@ func (uc *UseCase) processGitRepos(ctx context.Context, deps *config.Deps, ws *i
 
 			output.PrintProgress(actionMessage)
 			serviceCtx := logging.WithService(ctx, name)
-			logging.DebugWithContext(serviceCtx, "Ensuring repository", "repo", svc.Source.Repo, "branch", svc.Source.Branch, "path", svc.Source.Path, "service_dir", serviceDir, "force", forceReclone, "existed_before", repoExistedBefore)
+			logging.DebugWithContext(serviceCtx, "Ensuring repository",
+				"repo", svc.Source.Repo, "branch", svc.Source.Branch,
+				"path", svc.Source.Path, "service_dir", serviceDir,
+				"force", forceReclone, "existed_before", repoExistedBefore)
 			cloneStartTime := time.Now()
-			if err := uc.deps.GitRepository.EnsureRepoWithForce(svc.Source, serviceDir, forceReclone); err != nil {
-				logging.ErrorWithContext(serviceCtx, "Failed to ensure repository", "repo", svc.Source.Repo, "branch", svc.Source.Branch, "duration_ms", time.Since(cloneStartTime).Milliseconds(), "error", err.Error())
+			err := uc.deps.GitRepository.EnsureRepoWithForce(
+				svc.Source, serviceDir, forceReclone,
+			)
+			if err != nil {
+				logging.ErrorWithContext(serviceCtx, "Failed to ensure repository",
+					"repo", svc.Source.Repo, "branch", svc.Source.Branch,
+					"duration_ms", time.Since(cloneStartTime).Milliseconds(),
+					"error", err.Error())
 				output.PrintProgressError(i18n.T("up.git.ensure_error", name))
 				return err
 			}
-			logging.DebugWithContext(serviceCtx, "Repository ensured successfully", "repo", svc.Source.Repo, "branch", svc.Source.Branch, "duration_ms", time.Since(cloneStartTime).Milliseconds())
+			logging.DebugWithContext(serviceCtx, "Repository ensured successfully",
+				"repo", svc.Source.Repo, "branch", svc.Source.Branch,
+				"duration_ms", time.Since(cloneStartTime).Milliseconds())
 
 			// Show appropriate success message based on what actually happened
 			if forceReclone {

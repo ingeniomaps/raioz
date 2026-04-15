@@ -8,6 +8,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 )
 
@@ -43,6 +44,9 @@ func (uc *UseCase) bootstrap(ctx context.Context, configPath string) (*bootstrap
 	for _, warning := range warnings {
 		output.PrintWarning(warning)
 	}
+
+	// Set naming prefix from workspace (if configured)
+	naming.SetPrefix(deps.Workspace)
 
 	// Apply overrides (registered via 'raioz override') before any processing
 	deps, appliedOverrides, err := config.ApplyOverrides(deps)

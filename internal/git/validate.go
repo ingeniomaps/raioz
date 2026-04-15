@@ -54,7 +54,7 @@ func validateBranch(branch string) error {
 
 	if !matched {
 		return fmt.Errorf(
-			"branch name contains invalid characters. "+
+			"branch name contains invalid characters. " +
 				"Only alphanumeric characters, hyphens, slashes, underscores, and dots are allowed",
 		)
 	}
@@ -107,7 +107,7 @@ func validateRepo(repo string) error {
 	if !hasValidPrefix {
 		// Reject invalid protocols
 		return fmt.Errorf(
-			"repository URL format is invalid. "+
+			"repository URL format is invalid. " +
 				"Must start with ssh://, https://, http://, git@, or file://",
 		)
 	}

@@ -7,10 +7,10 @@ type ErrorCode string
 
 const (
 	// Configuration errors
-	ErrCodeInvalidConfig      ErrorCode = "INVALID_CONFIG"
-	ErrCodeSchemaValidation   ErrorCode = "SCHEMA_VALIDATION"
-	ErrCodeMissingField       ErrorCode = "MISSING_FIELD"
-	ErrCodeInvalidField       ErrorCode = "INVALID_FIELD"
+	ErrCodeInvalidConfig    ErrorCode = "INVALID_CONFIG"
+	ErrCodeSchemaValidation ErrorCode = "SCHEMA_VALIDATION"
+	ErrCodeMissingField     ErrorCode = "MISSING_FIELD"
+	ErrCodeInvalidField     ErrorCode = "INVALID_FIELD"
 
 	// Docker errors
 	ErrCodeDockerNotInstalled ErrorCode = "DOCKER_NOT_INSTALLED"
@@ -28,14 +28,14 @@ const (
 	ErrCodeNetworkUnavailable ErrorCode = "NETWORK_UNAVAILABLE"
 
 	// Workspace errors
-	ErrCodeWorkspaceError     ErrorCode = "WORKSPACE_ERROR"
-	ErrCodePermissionDenied   ErrorCode = "PERMISSION_DENIED"
-	ErrCodeDiskSpaceLow       ErrorCode = "DISK_SPACE_LOW"
+	ErrCodeWorkspaceError   ErrorCode = "WORKSPACE_ERROR"
+	ErrCodePermissionDenied ErrorCode = "PERMISSION_DENIED"
+	ErrCodeDiskSpaceLow     ErrorCode = "DISK_SPACE_LOW"
 
 	// State errors
-	ErrCodeLockError          ErrorCode = "LOCK_ERROR"
-	ErrCodeStateLoadError     ErrorCode = "STATE_LOAD_ERROR"
-	ErrCodeStateSaveError     ErrorCode = "STATE_SAVE_ERROR"
+	ErrCodeLockError      ErrorCode = "LOCK_ERROR"
+	ErrCodeStateLoadError ErrorCode = "STATE_LOAD_ERROR"
+	ErrCodeStateSaveError ErrorCode = "STATE_SAVE_ERROR"
 
 	// Validation errors
 	ErrCodeDependencyCycle    ErrorCode = "DEPENDENCY_CYCLE"
@@ -97,17 +97,17 @@ func (e *RaiozError) WithError(err error) *RaiozError {
 // Format formats the error for display
 func (e *RaiozError) Format() string {
 	var result string
-	result += fmt.Sprintf("🔴 Error [%s]: %s\n", e.Code, e.Message)
+	result += fmt.Sprintf("\033[31m[error]\033[0m [%s] %s\n", e.Code, e.Message)
 
 	if len(e.Context) > 0 {
-		result += "\nContext:\n"
+		result += "\n  Context:\n"
 		for key, value := range e.Context {
-			result += fmt.Sprintf("  • %s: %v\n", key, value)
+			result += fmt.Sprintf("    %s: %v\n", key, value)
 		}
 	}
 
 	if e.Suggestion != "" {
-		result += fmt.Sprintf("\n💡 Suggestion: %s\n", e.Suggestion)
+		result += fmt.Sprintf("\n  \033[33mSuggestion:\033[0m %s\n", e.Suggestion)
 	}
 
 	if e.OriginalErr != nil {

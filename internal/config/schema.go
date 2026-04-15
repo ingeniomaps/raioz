@@ -13,7 +13,7 @@ const SchemaJSON = `{
       "type": "string",
       "minLength": 1,
       "pattern": "^[a-z0-9-]+$",
-      "description": "Workspace name (optional). If not specified, uses project.name as workspace. Multiple projects with the same workspace share the same workspace directory."
+      "description": "Workspace name (optional). If not specified, uses project.name as workspace."
     },
     "profiles": {
       "type": "array",
@@ -22,7 +22,7 @@ const SchemaJSON = `{
         "minLength": 1,
         "pattern": "^[a-z0-9-]+$"
       },
-      "description": "Default profiles when running raioz up without --profile. If missing or empty, all services and infra are started. Example: frontend, backend, load-balancer, nginx."
+      "description": "Default profiles when running raioz up without --profile."
     },
     "network": {
       "oneOf": [
@@ -52,7 +52,7 @@ const SchemaJSON = `{
           "description": "Network configuration with optional subnet"
         }
       ],
-      "description": "Network configuration (shared by workspace). Optional at root level - if not specified, will use project.network for backward compatibility. Can be a string (name only) or an object with name and optional subnet"
+      "description": "Network config (shared by workspace). String or object."
     },
     "project": {
       "type": "object",
@@ -62,22 +62,22 @@ const SchemaJSON = `{
           "type": "string",
           "minLength": 1,
           "pattern": "^[a-z0-9-]+$",
-          "description": "Project name (used for identification and as workspace name if workspace is not specified)"
+          "description": "Project name (used for identification)"
         },
         "commands": {
           "type": "object",
           "properties": {
             "up": {
               "type": "string",
-              "description": "Global command to start services when no docker or source.command is specified"
+              "description": "Global command to start services"
             },
             "down": {
               "type": "string",
-              "description": "Global command to stop services when no docker or source.command is specified"
+              "description": "Global command to stop services"
             },
             "health": {
               "type": "string",
-              "description": "Command to check if the project is running. Should return exit code 0 if healthy, non-zero if not."
+              "description": "Health check command. Exit 0 if healthy."
             },
             "dev": {
               "type": "object",
@@ -125,17 +125,17 @@ const SchemaJSON = `{
               "items": {
                 "type": "string"
               },
-              "description": "Array of file paths. Special case: [\".\"] means use .env in project directory as primary (read-only if exists)"
+              "description": "Array of file paths. ['.'] uses .env in project dir."
             },
             {
               "type": "object",
               "additionalProperties": {
                 "type": "string"
               },
-              "description": "Object with direct variables (e.g., {\"DATABASE_URL\": \"postgres://...\"})"
+              "description": "Object with direct variables"
             }
           ],
-          "description": "Project-level environment variables. If array with [\".\"], uses .env in project directory as primary (read-only if exists). If object, variables will be written to project.env"
+          "description": "Project-level environment variables."
         }
       },
       "additionalProperties": false
@@ -173,11 +173,11 @@ const SchemaJSON = `{
               "access": {
                 "type": "string",
                 "enum": ["readonly", "editable"],
-                "description": "Access mode for git repositories. 'readonly' prevents automatic checkout/pull. Only applies when kind == 'git'."
+                "description": "Access mode for git repos. Only for kind == 'git'."
               },
               "command": {
                 "type": "string",
-                "description": "Command to run directly on the host (without Docker). If specified, the service will run on the host instead of in a container."
+                "description": "Command to run on the host (without Docker)."
               },
               "runtime": {
                 "type": "string",
@@ -218,7 +218,7 @@ const SchemaJSON = `{
             "items": {
               "type": "string"
             },
-            "description": "Service/infra dependencies at service level (for local/host services or to combine with docker.dependsOn). Can be used together with docker.dependsOn."
+            "description": "Service/infra dependencies at service level."
           },
           "docker": {
             "type": ["object", "null"],
@@ -226,7 +226,7 @@ const SchemaJSON = `{
               "mode": {
                 "type": "string",
                 "enum": ["dev", "prod"],
-                "description": "Docker mode (required if docker section is present and source.command is not set)"
+                "description": "Docker mode (required if docker section is present)"
               },
               "ports": {
                 "type": ["array", "null"],
@@ -252,7 +252,7 @@ const SchemaJSON = `{
               },
               "command": {
                 "type": "string",
-                "description": "Command to run inside the Docker container (for wrapper mode). This is different from source.command which runs on the host."
+                "description": "Command to run inside the Docker container."
               },
               "runtime": {
                 "type": "string",
@@ -264,15 +264,15 @@ const SchemaJSON = `{
                   { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" },
                   { "type": "string", "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$" }
                 ],
-                "description": "Static IP address in the network (e.g., '150.150.0.10') or env var (e.g., '${NGINX_IP}'). Only works if network has a subnet configured."
+                "description": "Static IP or env var. Requires subnet."
               },
               "envVolume": {
                 "type": "string",
-                "description": "Optional: mount the generated .env file as a volume at this path inside the container (e.g., '/app/.env'). The .env file will be available both via env_file (for environment variables) and as a mounted file at this path."
+                "description": "Mount .env file at this container path."
               },
               "healthcheck": {
                 "type": "object",
-                "description": "Docker healthcheck (same format as docker-compose). test: string or array (e.g. [\"CMD\", \"curl\", \"-f\", \"http://localhost/health\"]), interval, timeout, retries, start_period, start_interval (duration strings), disable (bool).",
+                "description": "Docker healthcheck (same as docker-compose).",
                 "properties": {
                   "test": {
                     "oneOf": [
@@ -298,17 +298,17 @@ const SchemaJSON = `{
                 "items": {
                   "type": "string"
                 },
-                "description": "Array of file paths (e.g., [\"local-deps\", \"services/shared\"])"
+                "description": "Array of file paths"
               },
               {
                 "type": "object",
                 "additionalProperties": {
                   "type": "string"
                 },
-                "description": "Object with direct variables (e.g., {\"DATABASE_URL\": \"postgres://...\", \"API_KEY\": \"...\"})"
+                "description": "Object with direct variables"
               }
             ],
-            "description": "Can be either an array of file paths or an object with variables. If object, variables will be written to projects/{project}/services/{service}.env"
+            "description": "Array of file paths or object with variables."
           },
           "profiles": {
             "type": "array",
@@ -317,11 +317,11 @@ const SchemaJSON = `{
               "minLength": 1,
               "pattern": "^[a-z0-9-]+$"
             },
-            "description": "Include this service only when using raioz up --profile <name> or when profile is in root profiles. Example: frontend, backend, load-balancer."
+            "description": "Include only when using --profile <name>."
           },
           "enabled": {
             "type": ["boolean", "null"],
-            "description": "Explicitly enable or disable the service. Defaults to true if not specified. Disabled services are not cloned, built, or started."
+            "description": "Enable or disable the service. Default: true."
           },
           "mock": {
             "type": "object",
@@ -382,15 +382,15 @@ const SchemaJSON = `{
             "properties": {
               "up": {
                 "type": "string",
-                "description": "Command to start this service when no docker or source.command is specified"
+                "description": "Command to start this service"
               },
               "down": {
                 "type": "string",
-                "description": "Command to stop this service when no docker or source.command is specified"
+                "description": "Command to stop this service"
               },
               "health": {
                 "type": "string",
-                "description": "Command to check if this service is running. Should return exit code 0 if healthy, non-zero if not."
+                "description": "Health check command. Exit 0 if healthy."
               },
               "dev": {
                 "type": "object",
@@ -436,9 +436,9 @@ const SchemaJSON = `{
             "items": {
               "type": "string",
               "pattern": "^.+:.+$",
-              "description": "Symlink mapping in format 'SRC:DEST' where SRC is relative to project directory (or absolute) and DEST is relative to service directory"
+              "description": "Symlink mapping 'SRC:DEST'"
             },
-            "description": "For host services: create symlinks from project paths to service directory. Format: 'SRC:DEST' (e.g., './certs:certs' creates symlink from project/certs to service/certs)"
+            "description": "Host services: create symlinks. Format: 'SRC:DEST'."
           }
         },
         "additionalProperties": false
@@ -451,7 +451,7 @@ const SchemaJSON = `{
           {
             "type": "string",
             "minLength": 1,
-            "description": "Path to a Docker Compose YAML fragment (relative to config file or absolute). Merged into the generated compose."
+            "description": "Path to a Docker Compose YAML fragment."
           },
           {
             "type": "object",
@@ -484,11 +484,11 @@ const SchemaJSON = `{
               { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" },
               { "type": "string", "pattern": "^\\$\\{[A-Za-z_][A-Za-z0-9_]*\\}$" }
             ],
-            "description": "Static IP address in the network (e.g., '150.150.0.10') or env var (e.g., '${POSTGRES_IP}'). Only works if project.network has a subnet configured."
+            "description": "Static IP or env var. Requires subnet."
           },
           "healthcheck": {
             "type": "object",
-            "description": "Docker healthcheck (same format as docker-compose). test: string or array, interval, timeout, retries, start_period, start_interval (duration strings), disable (bool).",
+            "description": "Docker healthcheck (same as docker-compose).",
             "properties": {
               "test": {
                 "oneOf": [
@@ -518,10 +518,10 @@ const SchemaJSON = `{
                 "additionalProperties": {
                   "type": "string"
                 },
-                "description": "Object with direct variables (e.g., {\"DATABASE_URL\": \"postgres://...\", \"API_KEY\": \"...\"})"
+                "description": "Object with direct variables"
               }
             ],
-            "description": "Can be either an array of file paths or an object with variables. If object, variables will be written to projects/{project}/services/{service}.env"
+            "description": "Array of file paths or object with variables."
           },
           "profiles": {
             "type": "array",
@@ -530,14 +530,14 @@ const SchemaJSON = `{
               "minLength": 1,
               "pattern": "^[a-z0-9-]+$"
             },
-            "description": "If set, this infra is only included when using raioz up --profile <name> or when profile is in root profiles."
+            "description": "Include only when using --profile <name>."
           },
           "seed": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Files or directories to mount in /docker-entrypoint-initdb.d/ for automatic database initialization (supports postgres, mysql, mongo)"
+            "description": "Files/dirs for /docker-entrypoint-initdb.d/"
           }
         },
             "additionalProperties": false
@@ -563,7 +563,7 @@ const SchemaJSON = `{
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Direct variables to write/update in global.env. These variables will be available to all services."
+          "description": "Direct variables for global.env."
         }
       },
       "additionalProperties": false

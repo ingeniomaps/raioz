@@ -53,12 +53,12 @@ func TestFormatConfigChanges(t *testing.T) {
 		{
 			name:    "single change",
 			changes: []string{"branch changed"},
-			want:    "  branch changed\n",
+			want:    "    branch changed\n",
 		},
 		{
 			name:    "multiple changes",
 			changes: []string{"branch changed", "port changed"},
-			want:    "  branch changed\n  port changed\n",
+			want:    "    branch changed\n    port changed\n",
 		},
 	}
 

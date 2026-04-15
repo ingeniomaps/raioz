@@ -1,0 +1,64 @@
+# 11 — Advanced routing: WebSocket, SSE, gRPC, Tunnel
+#
+# The proxy handles different protocols automatically.
+# Just declare what each service uses in the `routing` field.
+#
+# Caddy generates the correct config:
+#   - WebSocket: header_up X-Forwarded-Proto (auto upgrade)
+#   - SSE/Stream: flush_interval -1 (disable buffering)
+#   - gRPC: reverse_proxy h2c:// (HTTP/2 cleartext)
+#   - Tunnel: auto-expose via cloudflared
+
+project: realtime-app
+proxy: true
+
+services:
+  # Standard HTTP API
+  api:
+    path: ./api
+    dependsOn: [postgres]
+    ports: ["3000"]
+
+  # WebSocket service (chat, live updates)
+  chat:
+    path: ./chat-service
+    dependsOn: [redis]
+    ports: ["3001"]
+    routing:
+      ws: true              # Caddy handles WS upgrade automatically
+
+  # Server-Sent Events (notifications, live feed)
+  notifications:
+    path: ./notifications
+    dependsOn: [redis]
+    ports: ["3002"]
+    routing:
+      stream: true           # Disables response buffering
+
+  # gRPC service (internal high-performance RPC)
+  ml-engine:
+    path: ./ml-engine
+    dependsOn: [postgres]
+    ports: ["50051"]
+    routing:
+      grpc: true             # Uses h2c (HTTP/2 cleartext) to backend
+
+  # Service that receives webhooks from external providers
+  payment-webhook:
+    path: ./payments
+    dependsOn: [postgres]
+    ports: ["3003"]
+    routing:
+      tunnel: true           # Auto-expose via cloudflared
+    # After raioz up:
+    #   https://abc123.trycloudflare.com → localhost:3003
+    #   Configure this URL in Stripe/GitHub webhook settings
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]

@@ -49,7 +49,7 @@ func TestGetBaseImageForRuntime(t *testing.T) {
 		{"python", "python:3.11-alpine"},
 		{"java", "openjdk:17-alpine"},
 		{"rust", "rust:1.75-alpine"},
-		{"", "node:22-alpine"}, // default
+		{"", "node:22-alpine"},        // default
 		{"unknown", "node:22-alpine"}, // default
 	}
 
@@ -66,11 +66,11 @@ func TestGetBaseImageForRuntime(t *testing.T) {
 func TestGenerateDockerfileWrapper(t *testing.T) {
 	tmpDir := t.TempDir()
 	ws := &workspace.Workspace{
-		Root:               tmpDir,
-		ServicesDir:        tmpDir,
-		LocalServicesDir:   tmpDir,
+		Root:                tmpDir,
+		ServicesDir:         tmpDir,
+		LocalServicesDir:    tmpDir,
 		ReadonlyServicesDir: tmpDir,
-		EnvDir:             tmpDir,
+		EnvDir:              tmpDir,
 	}
 
 	svc := config.Service{
@@ -121,11 +121,11 @@ func TestEnsureDockerfile(t *testing.T) {
 	}
 
 	ws := &workspace.Workspace{
-		Root:               tmpDir,
-		ServicesDir:        tmpDir,
-		LocalServicesDir:   tmpDir,
+		Root:                tmpDir,
+		ServicesDir:         tmpDir,
+		LocalServicesDir:    tmpDir,
 		ReadonlyServicesDir: tmpDir,
-		EnvDir:             tmpDir,
+		EnvDir:              tmpDir,
 	}
 
 	// Test 1: Dockerfile exists

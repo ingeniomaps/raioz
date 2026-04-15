@@ -21,7 +21,7 @@ func ValidateBeforeUp(ctx context.Context, deps *config.Deps, ws *workspace.Work
 			errors.ErrCodeDockerNotInstalled,
 			"Preflight checks failed",
 		).WithSuggestion(
-			"Ensure Docker is installed and running, Git is installed, and you have sufficient disk space. "+
+			"Ensure Docker is installed and running, Git is installed, and you have sufficient disk space. " +
 				"Check the error details above for specific issues.",
 		).WithError(err)
 	}
@@ -47,7 +47,7 @@ func ValidateBeforeUp(ctx context.Context, deps *config.Deps, ws *workspace.Work
 			errors.ErrCodeInvalidConfig,
 			"Feature flag validation failed",
 		).WithSuggestion(
-			"Check your feature flag configurations. "+
+			"Check your feature flag configurations. " +
 				"Ensure environment variables are set correctly and feature flags reference valid services.",
 		).WithError(err)
 	}
@@ -60,27 +60,30 @@ func ValidateBeforeUp(ctx context.Context, deps *config.Deps, ws *workspace.Work
 			errors.ErrCodePortConflict,
 			"Port validation failed",
 		).WithSuggestion(
-			"Check that ports are not already in use by other services. "+
+			"Check that ports are not already in use by other services. " +
 				"Use 'raioz ports' to see active ports.",
 		).WithError(err)
 	}
-		if len(conflicts) > 0 {
-			conflictMsg := "Port conflicts detected:\n"
-			for _, conflict := range conflicts {
-				conflictMsg += fmt.Sprintf("  Port %s is used by project '%s', service '%s'", conflict.Port, conflict.Project, conflict.Service)
-				if conflict.Alternative != "" {
-					conflictMsg += fmt.Sprintf(" (suggested alternative: %s)", conflict.Alternative)
-				}
-				conflictMsg += "\n"
-			}
-			return errors.New(
-				errors.ErrCodePortConflict,
-				conflictMsg,
-			).WithSuggestion(
-				"Resolve port conflicts by changing port mappings in your configuration. "+
-					"Each service must use unique host ports.",
+	if len(conflicts) > 0 {
+		conflictMsg := "Port conflicts detected:\n"
+		for _, conflict := range conflicts {
+			conflictMsg += fmt.Sprintf(
+				"  Port %s is used by project '%s', service '%s'",
+				conflict.Port, conflict.Project, conflict.Service,
 			)
+			if conflict.Alternative != "" {
+				conflictMsg += fmt.Sprintf(" (suggested alternative: %s)", conflict.Alternative)
+			}
+			conflictMsg += "\n"
 		}
+		return errors.New(
+			errors.ErrCodePortConflict,
+			conflictMsg,
+		).WithSuggestion(
+			"Resolve port conflicts by changing port mappings in your configuration. " +
+				"Each service must use unique host ports.",
+		)
+	}
 
 	// Step 6: Validate Git repositories (preventive check before cloning)
 	if err := ValidateGitRepositories(ctx, deps); err != nil {
@@ -113,7 +116,7 @@ func ValidateBeforeDown(ctx context.Context, ws *workspace.Workspace) error {
 			errors.ErrCodeDockerNotRunning,
 			"Preflight checks failed",
 		).WithSuggestion(
-			"Docker must be running to stop services. "+
+			"Docker must be running to stop services. " +
 				"Start Docker daemon and try again.",
 		).WithError(err)
 	}
@@ -278,6 +281,12 @@ func ValidateDockerImages(ctx context.Context, deps *config.Deps) error {
 			continue
 		}
 		infra := *entry.Inline
+		// Compose-mode deps supply their own image inside the user's
+		// compose fragment; no image validation here. Skip the image
+		// checks entirely in that mode.
+		if len(infra.Compose) > 0 {
+			continue
+		}
 		if infra.Image == "" {
 			return errors.New(
 				errors.ErrCodeMissingField,

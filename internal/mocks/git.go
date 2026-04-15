@@ -12,13 +12,17 @@ var _ interfaces.GitRepository = (*MockGitRepository)(nil)
 
 // MockGitRepository is a mock implementation of interfaces.GitRepository
 type MockGitRepository struct {
-	EnsureRepoFunc              func(src config.SourceConfig, baseDir string) error
-	EnsureRepoWithForceFunc     func(src config.SourceConfig, baseDir string, force bool) error
-	EnsureReadonlyRepoFunc      func(src config.SourceConfig, baseDir string) error
-	EnsureEditableRepoFunc      func(src config.SourceConfig, baseDir string) error
-	ForceRecloneFunc            func(ctx context.Context, repoPath string, repo string, branch string) error
-	UpdateReposIfBranchChangedFunc func(ctx context.Context, repoPathResolver func(string, config.Service) string, oldDeps, newDeps *config.Deps) error
-	IsReadonlyFunc              func(src config.SourceConfig) bool
+	EnsureRepoFunc                 func(src config.SourceConfig, baseDir string) error
+	EnsureRepoWithForceFunc        func(src config.SourceConfig, baseDir string, force bool) error
+	EnsureReadonlyRepoFunc         func(src config.SourceConfig, baseDir string) error
+	EnsureEditableRepoFunc         func(src config.SourceConfig, baseDir string) error
+	ForceRecloneFunc               func(ctx context.Context, repoPath string, repo string, branch string) error
+	UpdateReposIfBranchChangedFunc func(
+		ctx context.Context,
+		repoPathResolver func(string, config.Service) string,
+		oldDeps, newDeps *config.Deps,
+	) error
+	IsReadonlyFunc func(src config.SourceConfig) bool
 }
 
 func (m *MockGitRepository) EnsureRepo(src config.SourceConfig, baseDir string) error {
@@ -56,7 +60,11 @@ func (m *MockGitRepository) ForceReclone(ctx context.Context, repoPath string, r
 	return nil
 }
 
-func (m *MockGitRepository) UpdateReposIfBranchChanged(ctx context.Context, repoPathResolver func(string, config.Service) string, oldDeps, newDeps *config.Deps) error {
+func (m *MockGitRepository) UpdateReposIfBranchChanged(
+	ctx context.Context,
+	repoPathResolver func(string, config.Service) string,
+	oldDeps, newDeps *config.Deps,
+) error {
 	if m.UpdateReposIfBranchChangedFunc != nil {
 		return m.UpdateReposIfBranchChangedFunc(ctx, repoPathResolver, oldDeps, newDeps)
 	}

@@ -36,6 +36,23 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	ctx = logging.WithRequestID(ctx)
 	ctx = logging.WithOperation(ctx, "raioz down")
 
+	// Try orchestrated down for YAML projects first
+	if err := uc.downOrchestrated(ctx, opts); err != nil {
+		return err
+	}
+	// Check if it was handled (YAML project)
+	configPath := opts.ConfigPath
+	if configPath == "" {
+		configPath = resolveDownConfigPath()
+	}
+	deps, warnings, err := uc.deps.ConfigLoader.LoadDeps(configPath)
+	for _, w := range warnings {
+		output.PrintWarning(w)
+	}
+	if err == nil && deps != nil && deps.SchemaVersion == "2.0" {
+		return nil // Already handled by downOrchestrated
+	}
+
 	projectName, workspaceName, err := uc.resolveProject(ctx, opts)
 	if err != nil {
 		return err
@@ -92,13 +109,15 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 			i18n.T("error.state_load_suggestion"),
 		).WithContext("workspace", wsRoot).WithError(err)
 	}
-	logging.InfoWithContext(ctx, "Project state loaded", "project", stateDeps.Project.Name, "services_count", len(stateDeps.Services))
+	logging.InfoWithContext(ctx, "Project state loaded",
+		"project", stateDeps.Project.Name,
+		"services_count", len(stateDeps.Services))
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 
 	// Project-level down (default) vs full workspace down (--all)
 	if !opts.All {
-		done, err := uc.stopProjectServices(ctx, opts, composePath, projectName, workspaceName)
+		done, err := uc.stopProjectServices(ctx, opts, composePath, projectName)
 		if done {
 			return err
 		}
@@ -134,6 +153,8 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 
 	uc.handleProjectComposeDown(ctx, stateDeps, opts)
 	uc.executeProjectDownCommand(ctx, stateDeps, ws, opts, workspaceName)
+	uc.stopProxy(ctx, opts)
+	uc.cleanLocalState(ctx, opts)
 
 	output.PrintSuccess(i18n.T("output.project_stopped", stateDeps.Project.Name))
 
@@ -148,6 +169,17 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 
 	logging.InfoWithContext(ctx, "Project stopped successfully", "project", projectName)
 	return nil
+}
+
+// resolveDownConfigPath finds the config file in the current directory.
+func resolveDownConfigPath() string {
+	candidates := []string{"raioz.yaml", "raioz.yml", ".raioz.json"}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
 }
 
 // resolveProject determines project name and workspace name from options.
@@ -178,7 +210,9 @@ func (uc *DownUseCase) resolveProject(ctx context.Context, opts DownOptions) (st
 }
 
 // resolveWorkspace resolves and validates the workspace.
-func (uc *DownUseCase) resolveWorkspace(ctx context.Context, workspaceName, projectName string) (*interfaces.Workspace, string, error) {
+func (uc *DownUseCase) resolveWorkspace(
+	ctx context.Context, workspaceName, projectName string,
+) (*interfaces.Workspace, string, error) {
 	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
 		logging.ErrorWithContext(ctx, "Failed to resolve workspace", "project", projectName, "error", err.Error())
@@ -195,7 +229,9 @@ func (uc *DownUseCase) resolveWorkspace(ctx context.Context, workspaceName, proj
 }
 
 // acquireLock acquires the workspace lock.
-func (uc *DownUseCase) acquireLock(ctx context.Context, ws *interfaces.Workspace, wsRoot string) (interfaces.Lock, error) {
+func (uc *DownUseCase) acquireLock(
+	ctx context.Context, ws *interfaces.Workspace, wsRoot string,
+) (interfaces.Lock, error) {
 	logging.DebugWithContext(ctx, "Acquiring lock", "workspace", wsRoot)
 	lockInstance, err := uc.deps.LockManager.Acquire(ws)
 	if err != nil {
@@ -217,7 +253,7 @@ func (uc *DownUseCase) acquireLock(ctx context.Context, ws *interfaces.Workspace
 func (uc *DownUseCase) stopProjectServices(
 	ctx context.Context,
 	opts DownOptions,
-	composePath, projectName, workspaceName string,
+	composePath, projectName string,
 ) (bool, error) {
 	currentDeps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	if currentDeps == nil {
@@ -230,29 +266,7 @@ func (uc *DownUseCase) stopProjectServices(
 		servicesToStop[name] = true
 	}
 
-	canPruneInfra := false
-	if opts.PruneShared {
-		globalState, err := uc.deps.StateManager.LoadGlobalState()
-		if err == nil {
-			activeInWorkspace := 0
-			for name, p := range globalState.Projects {
-				if name == projectName {
-					continue
-				}
-				if p.Workspace == workspaceName {
-					activeInWorkspace++
-				}
-			}
-			canPruneInfra = activeInWorkspace == 0
-		}
-	}
-	if canPruneInfra {
-		for name := range currentDeps.Infra {
-			servicesToStop[name] = true
-		}
-	}
-
-	if len(servicesToStop) == 0 {
+	if len(servicesToStop) == 0 && len(currentDeps.Infra) == 0 {
 		output.PrintInfo(i18n.T("output.no_services_to_stop"))
 	} else {
 		output.PrintInfo(i18n.T("output.stopping_project_services"))
@@ -261,17 +275,20 @@ func (uc *DownUseCase) stopProjectServices(
 				logging.WarnWithContext(ctx, "Failed to stop service during project down", "service", name, "error", err.Error())
 			}
 		}
+
+		// Dependencies live in separate per-dep compose files created by
+		// ImageRunner, NOT in the main compose file. Use the same teardown
+		// function that the orchestrated path uses.
+		stopDependencyComposeProjects(ctx, currentDeps, projectName)
 	}
 
 	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 		logging.Warn("failed to update global state", "error", err)
 	}
 
-	if canPruneInfra {
-		output.PrintInfo(i18n.T("output.infra_pruned"))
-	} else if opts.PruneShared {
-		output.PrintInfo(i18n.T("output.infra_kept"))
-	}
+	// Always stop the proxy — it was started by `up` and must be cleaned up.
+	uc.stopProxy(ctx, opts)
+
 	output.PrintSuccess(i18n.T("output.project_stopped", projectName))
 	return true, nil
 }

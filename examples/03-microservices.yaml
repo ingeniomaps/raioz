@@ -1,0 +1,51 @@
+# 03 — Microservices: 4+ services with cross-dependencies
+#
+# Payment platform with multiple services, each with its own
+# runtime. Services depend on each other and on shared infra.
+#
+# Raioz starts in order:
+#   1. postgres, redis, rabbitmq (dependencies)
+#   2. auth-api (no service deps)
+#   3. payment-api (depends on auth-api)
+#   4. notification-worker (depends on rabbitmq)
+#   5. gateway (depends on payment-api, auth-api)
+
+project: payments-platform
+workspace: platform
+proxy: true
+
+services:
+  gateway:
+    path: ./gateway
+    dependsOn: [payment-api, auth-api]
+    ports: ["8080"]
+
+  payment-api:
+    path: ./payment-api
+    dependsOn: [postgres, redis, auth-api]
+    health: /health
+
+  auth-api:
+    path: ./auth-api
+    dependsOn: [postgres, redis]
+    health: /health
+
+  notification-worker:
+    path: ./notification-worker
+    dependsOn: [rabbitmq, postgres]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    env: .env.postgres
+
+  redis:
+    image: redis:7
+    ports: ["6379"]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672"
+      - "15672:15672"

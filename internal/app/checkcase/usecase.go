@@ -23,12 +23,18 @@ type Dependencies struct {
 
 // CheckResult holds the outcome of a check operation
 type CheckResult struct {
-	ConfigValid     bool
+	ConfigValid      bool
 	ValidationErrors []string
-	AlignmentIssues []state.AlignmentIssue
-	NoState         bool
-	Output          string
-	HasIssues       bool
+	AlignmentIssues  []state.AlignmentIssue
+	NoState          bool
+	Output           string
+	HasIssues        bool
+
+	// YAMLMode is true when the check ran against a raioz.yaml project.
+	// The CLI display handler uses this to skip legacy flows (state
+	// alignment, "no state found" hint) that don't apply to yaml mode —
+	// CheckYAML already printed its own per-service/dep results.
+	YAMLMode bool
 }
 
 // UseCase handles the "check" use case
@@ -44,12 +50,8 @@ func NewUseCase(deps *Dependencies) *UseCase {
 	}
 }
 
-// Execute runs config validation and alignment check, returns result
-func (uc *UseCase) Execute(ctx context.Context, opts Options) (*CheckResult, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
+// Execute runs config validation and alignment check, returns result.
+func (uc *UseCase) Execute(_ context.Context, opts Options) (*CheckResult, error) {
 	// Resolve workspace
 	_, ws, err := uc.resolveWorkspace(opts)
 	if err != nil {

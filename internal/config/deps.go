@@ -6,16 +6,22 @@ import (
 )
 
 type Deps struct {
-	SchemaVersion      string             `json:"schemaVersion"`
-	Workspace          string             `json:"workspace,omitempty"`          // Optional workspace name. If not specified, uses Project.Name as workspace
-	Network            NetworkConfig      `json:"network,omitempty"`            // Network configuration (shared by workspace). Optional - falls back to project.network for backward compatibility
-	Project            Project            `json:"project"`
-	Profiles           []string           `json:"profiles,omitempty"`           // Default profiles when running raioz up without --profile. If empty or missing, all services/infra are started
-	Services           map[string]Service  `json:"services"`
-	Infra              map[string]InfraEntry `json:"infra,omitempty"` // Each entry: string = path to YAML, or object = inline spec
-	Env                EnvConfig           `json:"env"`
-	ProjectComposePath string             `json:"projectComposePath,omitempty"` // Path to project's docker-compose.yml (if exists)
-	ProjectRoot        string             `json:"projectRoot,omitempty"`        // Absolute path to project dir (where .raioz.json lives). Set at runtime when saving state; used when merging configs to resolve relative volumes per project
+	SchemaVersion      string                `json:"schemaVersion"`
+	Workspace          string                `json:"workspace,omitempty"` // Optional workspace name
+	Network            NetworkConfig         `json:"network,omitempty"`   // Network config (shared by workspace)
+	Project            Project               `json:"project"`
+	Profiles           []string              `json:"profiles,omitempty"` // Default profiles for raioz up
+	Services           map[string]Service    `json:"services"`
+	Infra              map[string]InfraEntry `json:"infra,omitempty"` // string=YAML path or object=inline
+	Env                EnvConfig             `json:"env"`
+	ProjectComposePath string                `json:"projectComposePath,omitempty"` // docker-compose.yml path
+	ProjectRoot        string                `json:"projectRoot,omitempty"`        // Absolute path to project dir
+
+	// New fields for raioz.yaml (meta-orchestrator mode)
+	Proxy       bool         `json:"proxy,omitempty"`    // Enable Caddy reverse proxy
+	ProxyConfig *ProxyConfig `json:"-"`                  // Detailed proxy config (not serialized)
+	PreHook     string       `json:"preHook,omitempty"`  // Run before raioz up
+	PostHook    string       `json:"postHook,omitempty"` // Run after raioz up
 }
 
 // LegacyProject represents the old structure where network was inside project
@@ -69,15 +75,32 @@ type EnvConfig struct {
 
 type Service struct {
 	Source      SourceConfig       `json:"source"`
-	Docker      *DockerConfig      `json:"docker,omitempty"`    // Optional: nil if source.command is set (host execution)
-	DependsOn   []string           `json:"dependsOn,omitempty"` // At service level: for local/host services or to combine with docker.dependsOn
-	Env         *EnvValue          `json:"env,omitempty"`       // Can be array of strings (file paths) or object (variables)
-	Volumes     []string           `json:"volumes,omitempty"`   // For host services: symlinks in format "SRC:DEST" (SRC relative to projectDir, DEST relative to servicePath)
+	Docker      *DockerConfig      `json:"docker,omitempty"`    // nil if host execution
+	DependsOn   []string           `json:"dependsOn,omitempty"` // Service-level deps
+	Env         *EnvValue          `json:"env,omitempty"`       // File paths or variables
+	Volumes     []string           `json:"volumes,omitempty"`   // Symlinks "SRC:DEST"
 	Profiles    []string           `json:"profiles,omitempty"`
-	Enabled     *bool              `json:"enabled,omitempty"`     // Explicit enable/disable (default: true)
-	Mock        *MockConfig        `json:"mock,omitempty"`        // Mock configuration
-	FeatureFlag *FeatureFlagConfig `json:"featureFlag,omitempty"` // Feature flag configuration
-	Commands    *ServiceCommands   `json:"commands,omitempty"`    // Custom commands for launch/stop
+	Enabled     *bool              `json:"enabled,omitempty"`     // Default: true
+	Mock        *MockConfig        `json:"mock,omitempty"`        // Mock config
+	FeatureFlag *FeatureFlagConfig `json:"featureFlag,omitempty"` // Feature flag config
+	Commands    *ServiceCommands   `json:"commands,omitempty"`    // Custom commands
+
+	// New fields for raioz.yaml (meta-orchestrator mode)
+	Watch          YAMLWatch      `json:"-"`                        // Watch config
+	HealthEndpoint string         `json:"healthEndpoint,omitempty"` // e.g. "/api/health"
+	Hostname       string         `json:"hostname,omitempty"`       // Custom proxy hostname
+	Routing        *RoutingConfig `json:"routing,omitempty"`        // Proxy routing config
+
+	// ProxyOverride forces a specific (target, port) pair for the proxy
+	// reverse_proxy directive, bypassing runtime detection. Needed when a
+	// service's `command:` launches its own docker compose that raioz
+	// can't introspect — see BUG-13.
+	ProxyOverride *ServiceProxyOverride `json:"proxyOverride,omitempty"`
+
+	// Port is the explicit host port the user declared in raioz.yaml (`port:`).
+	// 0 means "unset — let raioz infer and allocate". See the allocator in
+	// internal/app/upcase/port_alloc.go for precedence rules.
+	Port int `json:"port,omitempty"`
 }
 
 // GetDependsOn returns the effective dependsOn: service-level and docker-level merged (deduplicated).
@@ -108,31 +131,32 @@ type ServiceCommands struct {
 	Health      string               `json:"health,omitempty"`
 	Dev         *EnvironmentCommands `json:"dev,omitempty"`
 	Prod        *EnvironmentCommands `json:"prod,omitempty"`
-	ComposePath string               `json:"composePath,omitempty"` // Path to docker-compose.yml for services that use docker-compose commands
+	ComposePath string               `json:"composePath,omitempty"` // docker-compose.yml path
 }
 
 type SourceConfig struct {
-	Kind    string `json:"kind"`                        // git | image | local
-	Repo    string `json:"repo,omitempty"`              // Required if kind == "git"
-	Branch  string `json:"branch,omitempty"`            // Required if kind == "git"
-	Image   string `json:"image,omitempty"`             // Required if kind == "image"
-	Tag     string `json:"tag,omitempty"`               // Required if kind == "image"
-	Path    string `json:"path,omitempty"`              // Required if kind == "git" or "local"
-	Access  string `json:"access,omitempty"`            // "readonly" | "editable" (default: "editable", only for git)
-	Command string `json:"command,omitempty"`           // Command to run directly on host (without Docker)
-	Runtime string `json:"runtime,omitempty"`           // Runtime type for host execution (optional)
+	Kind         string   `json:"kind"`                   // git | image | local
+	Repo         string   `json:"repo,omitempty"`         // Required if kind == "git"
+	Branch       string   `json:"branch,omitempty"`       // Required if kind == "git"
+	Image        string   `json:"image,omitempty"`        // Required if kind == "image"
+	Tag          string   `json:"tag,omitempty"`          // Required if kind == "image"
+	Path         string   `json:"path,omitempty"`         // Required if kind == "git" or "local"
+	Access       string   `json:"access,omitempty"`       // "readonly" | "editable" (default: "editable", only for git)
+	Command      string   `json:"command,omitempty"`      // Command to run directly on host (without Docker)
+	Runtime      string   `json:"runtime,omitempty"`      // Runtime type for host execution (optional)
+	ComposeFiles []string `json:"composeFiles,omitempty"` // Explicit compose files (overrides auto-detect)
 }
 
 type DockerConfig struct {
-	Mode       string             `json:"mode,omitempty"` // "dev" | "prod" (optional if source.command is set)
-	Ports      []string           `json:"ports,omitempty"`
-	Volumes    []string           `json:"volumes,omitempty"`
-	DependsOn  []string           `json:"dependsOn,omitempty"`
-	Dockerfile string             `json:"dockerfile,omitempty"`
-	Command    string             `json:"command,omitempty"`   // Command to run inside Docker container (for wrapper mode)
-	Runtime    string             `json:"runtime,omitempty"`   // Runtime type for Docker wrapper mode (node, go, python, etc.)
-	IP         string             `json:"ip,omitempty"`        // Static IP address in the network (e.g., "150.150.0.10")
-	EnvVolume  string             `json:"envVolume,omitempty"` // Optional: mount .env file as volume at this path (e.g., "/app/.env")
+	Mode        string             `json:"mode,omitempty"` // "dev" | "prod" (optional if source.command is set)
+	Ports       []string           `json:"ports,omitempty"`
+	Volumes     []string           `json:"volumes,omitempty"`
+	DependsOn   []string           `json:"dependsOn,omitempty"`
+	Dockerfile  string             `json:"dockerfile,omitempty"`
+	Command     string             `json:"command,omitempty"`     // Command inside container
+	Runtime     string             `json:"runtime,omitempty"`     // node, go, python, etc.
+	IP          string             `json:"ip,omitempty"`          // Static IP (e.g. "150.150.0.10")
+	EnvVolume   string             `json:"envVolume,omitempty"`   // Mount .env at this path
 	Healthcheck *HealthcheckConfig `json:"healthcheck,omitempty"` // Optional: same format as Docker Compose healthcheck
 }
 
@@ -151,15 +175,15 @@ func LoadDeps(path string) (*Deps, []string, error) {
 
 	// Unmarshal with legacy structure; each infra entry can be string (path to YAML) or object (inline)
 	var legacyStruct struct {
-		Project            LegacyProject        `json:"project"`
-		Network            NetworkConfig        `json:"network,omitempty"`
-		SchemaVersion      string               `json:"schemaVersion"`
-		Workspace          string               `json:"workspace,omitempty"`
-		Profiles           []string             `json:"profiles,omitempty"`
-		Services           map[string]Service   `json:"services"`
+		Project            LegacyProject         `json:"project"`
+		Network            NetworkConfig         `json:"network,omitempty"`
+		SchemaVersion      string                `json:"schemaVersion"`
+		Workspace          string                `json:"workspace,omitempty"`
+		Profiles           []string              `json:"profiles,omitempty"`
+		Services           map[string]Service    `json:"services"`
 		Infra              map[string]InfraEntry `json:"infra"`
-		Env                EnvConfig            `json:"env"`
-		ProjectComposePath string               `json:"projectComposePath,omitempty"`
+		Env                EnvConfig             `json:"env"`
+		ProjectComposePath string                `json:"projectComposePath,omitempty"`
 	}
 	if err := json.Unmarshal(data, &legacyStruct); err != nil {
 		return nil, nil, err
@@ -210,10 +234,15 @@ func FilterByProfile(deps *Deps, profile string) *Deps {
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,
+		Profiles:           deps.Profiles,
 		Services:           make(map[string]Service),
 		Infra:              make(map[string]InfraEntry),
 		Env:                deps.Env,
 		ProjectComposePath: deps.ProjectComposePath,
+		Proxy:              deps.Proxy,
+		ProxyConfig:        deps.ProxyConfig,
+		PreHook:            deps.PreHook,
+		PostHook:           deps.PostHook,
 	}
 
 	for name, svc := range deps.Services {
@@ -249,8 +278,8 @@ func FilterByProfile(deps *Deps, profile string) *Deps {
 	return filtered
 }
 
-// FilterByProfiles filters services and infra by a list of profiles (e.g. default profiles).
-// Services/infra with no profiles are always included; otherwise included if at least one of their profiles is in the list.
+// FilterByProfiles filters services and infra by a list of profiles.
+// Items with no profiles are always included; otherwise included if any profile matches.
 func FilterByProfiles(deps *Deps, profiles []string) *Deps {
 	if len(profiles) == 0 {
 		return deps
@@ -269,6 +298,10 @@ func FilterByProfiles(deps *Deps, profiles []string) *Deps {
 		Infra:              make(map[string]InfraEntry),
 		Env:                deps.Env,
 		ProjectComposePath: deps.ProjectComposePath,
+		Proxy:              deps.Proxy,
+		ProxyConfig:        deps.ProxyConfig,
+		PreHook:            deps.PreHook,
+		PostHook:           deps.PostHook,
 	}
 	for name, svc := range deps.Services {
 		if svc.Enabled != nil && !*svc.Enabled {

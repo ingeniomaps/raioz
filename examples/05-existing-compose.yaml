@@ -1,0 +1,39 @@
+# 05 — Existing docker-compose: migrate without rewriting
+#
+# You already have a docker-compose.yml that works.
+# Raioz detects it and orchestrates it alongside other services.
+# Your compose file is NEVER modified — Raioz uses an overlay.
+#
+# Directory structure:
+#   my-project/
+#   ├── raioz.yaml          ← this file
+#   ├── legacy-api/
+#   │   └── docker-compose.yml   ← existing, untouched
+#   ├── new-frontend/
+#   │   └── package.json         ← new service, runs on host
+#   └── infra/
+#       └── docker-compose.yml   ← shared infra compose
+#
+# What Raioz does:
+#   legacy-api/  → detects compose → docker compose up (with network overlay)
+#   new-frontend/ → detects npm    → npm run dev
+#   Both share the same Docker network.
+
+project: migration-example
+
+services:
+  # This service has its own docker-compose.yml
+  # Raioz runs: docker compose -f legacy-api/docker-compose.yml -f .raioz-overlay.yml up
+  legacy-api:
+    path: ./legacy-api
+    dependsOn: [postgres]
+
+  # This is a new service running on host
+  new-frontend:
+    path: ./new-frontend
+    dependsOn: [legacy-api]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]

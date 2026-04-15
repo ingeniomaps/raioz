@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // LogsOptions contains options for viewing logs
@@ -37,18 +38,18 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 
 	// Create context with timeout (only if not following, as follow mode runs indefinitely)
 	var timeoutCtx context.Context
-	var cancel context.CancelFunc
 	if opts.Follow {
 		// For follow mode, use the context as-is (no timeout, user can cancel with Ctrl+C)
 		timeoutCtx = ctx
-		cancel = func() {} // No-op cancel
 	} else {
+		var cancel context.CancelFunc
 		timeoutCtx, cancel = exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerLogsTimeout)
 		defer cancel()
 	}
 
 	// Build docker compose logs command
-	args := []string{"compose", "-f", composePath, "logs"}
+	args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	args = append(args, "logs")
 
 	// Add follow flag if specified
 	if opts.Follow {
@@ -69,7 +70,7 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 	}
 
 	// Execute command
-	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -87,7 +88,7 @@ func GetAvailableServices(composePath string) ([]string, error) {
 
 // GetAvailableServicesWithContext returns list of available services from compose with context support
 func GetAvailableServicesWithContext(ctx context.Context, composePath string) ([]string, error) {
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+	if _, err := os.Stat(PrimaryComposeFile(composePath)); os.IsNotExist(err) {
 		return []string{}, nil
 	}
 
@@ -100,7 +101,9 @@ func GetAvailableServicesWithContext(ctx context.Context, composePath string) ([
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerStatusTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "config", "--services")
+	configArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	configArgs = append(configArgs, "config", "--services")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), configArgs...)
 	output, err := cmd.Output()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

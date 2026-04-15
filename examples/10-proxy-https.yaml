@@ -1,0 +1,45 @@
+# 10 — Proxy and HTTPS: local development + shared dev server
+#
+# === LOCAL DEVELOPMENT (default) ===
+# proxy: true → Caddy + mkcert → https://<service>.localhost
+# Works from browser AND inside Docker containers.
+# No port conflicts (each service has a unique subdomain).
+#
+# === SHARED DEV SERVER ===
+# proxy: { domain: dev.acme.com, tls: letsencrypt }
+# raioz up --host 0.0.0.0
+# Now anyone on the network accesses https://api.dev.acme.com
+# Caddy auto-manages real TLS certificates via Let's Encrypt.
+
+project: proxy-demo
+
+# --- Option A: Local development (default) ---
+proxy: true
+
+# --- Option B: Shared dev server ---
+# proxy:
+#   domain: dev.acme.com      # real domain pointing to this server
+#   tls: letsencrypt           # Caddy gets real certs automatically
+#
+# Start with: raioz up --host 0.0.0.0
+
+services:
+  frontend:
+    path: ./frontend
+    dependsOn: [api]
+    # Access: https://frontend.localhost (local)
+    #     or: https://frontend.dev.acme.com (server)
+
+  api:
+    path: ./api
+    dependsOn: [postgres]
+    health: /health
+    # Access: https://api.localhost (local)
+    #     or: https://api.dev.acme.com (server)
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    # Access: localhost:5432 (direct port mapping, not proxied)
+    # Database connections use TCP, not HTTP — proxy doesn't apply

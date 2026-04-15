@@ -1,5 +1,6 @@
 # Binary
 raioz
+raioz-*
 
 # Coverage
 coverage.out
@@ -10,6 +11,13 @@ coverage.html
 .vscode/
 *.swp
 *.swo
+
+# AI/Context
+.context/
+.claude/settings.local.json
+
+# State
+.raioz.state.json
 
 # OS
 .DS_Store

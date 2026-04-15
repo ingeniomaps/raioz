@@ -50,33 +50,18 @@ func (uc *UseCase) checkServicesRunning(
 func (uc *UseCase) showDryRunSummary(deps *config.Deps, appliedOverrides []string) {
 	w := uc.out()
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("up.dry_run.header"))
-	fmt.Fprintf(w, "  %s: %s\n", i18n.T("up.dry_run.project"), deps.Project.Name)
-	fmt.Fprintf(w, "  %s: %s\n", i18n.T("up.dry_run.network"), deps.Network.GetName())
+	fmt.Fprintf(w, "  %s\n", i18n.T("up.dry_run.header"))
+	fmt.Fprintf(w, "    %s: %s\n", i18n.T("up.dry_run.project"), deps.Project.Name)
+	fmt.Fprintf(w, "    %s: %s\n", i18n.T("up.dry_run.network"), deps.Network.GetName())
 	fmt.Fprintln(w)
 
-	var gitServices, imageServices, hostServices []string
-	for name, svc := range deps.Services {
-		switch {
-		case svc.Source.Command != "":
-			hostServices = append(hostServices, name)
-		case svc.Source.Kind == "git":
-			gitServices = append(gitServices, name)
-		case svc.Source.Kind == "image":
-			imageServices = append(imageServices, name)
-		default:
-			imageServices = append(imageServices, name)
-		}
+	var serviceNames []string
+	for name := range deps.Services {
+		serviceNames = append(serviceNames, name)
 	}
 
-	if len(gitServices) > 0 {
-		fmt.Fprintf(w, "  %s: %v\n", i18n.T("up.dry_run.git_clone"), gitServices)
-	}
-	if len(imageServices) > 0 {
-		fmt.Fprintf(w, "  %s: %v\n", i18n.T("up.dry_run.docker_services"), imageServices)
-	}
-	if len(hostServices) > 0 {
-		fmt.Fprintf(w, "  %s: %v\n", i18n.T("up.dry_run.host_services"), hostServices)
+	if len(serviceNames) > 0 {
+		fmt.Fprintf(w, "    %s: %v\n", i18n.T("up.dry_run.docker_services"), serviceNames)
 	}
 
 	if len(deps.Infra) > 0 {
@@ -84,15 +69,15 @@ func (uc *UseCase) showDryRunSummary(deps *config.Deps, appliedOverrides []strin
 		for name := range deps.Infra {
 			infraNames = append(infraNames, name)
 		}
-		fmt.Fprintf(w, "  %s: %v\n", i18n.T("up.dry_run.infra"), infraNames)
+		fmt.Fprintf(w, "    %s: %v\n", i18n.T("up.dry_run.infra"), infraNames)
 	}
 
 	if len(appliedOverrides) > 0 {
-		fmt.Fprintf(w, "  %s: %v\n", i18n.T("up.dry_run.overrides"), appliedOverrides)
+		fmt.Fprintf(w, "    %s: %v\n", i18n.T("up.dry_run.overrides"), appliedOverrides)
 	}
 
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("up.dry_run.footer"))
+	fmt.Fprintf(w, "  %s\n", i18n.T("up.dry_run.footer"))
 }
 
 // showSummary displays the final summary

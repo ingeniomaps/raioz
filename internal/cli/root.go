@@ -73,18 +73,21 @@ func init() {
 	rootCmd.AddCommand(migrateCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(listCmd)
-	rootCmd.AddCommand(overrideCmd)
-	rootCmd.AddCommand(workspaceCmd)
 	rootCmd.AddCommand(ignoreCmd)
-	rootCmd.AddCommand(linkCmd)
 	rootCmd.AddCommand(langCmd)
 	rootCmd.AddCommand(restartCmd)
 	rootCmd.AddCommand(execCmd)
 	rootCmd.AddCommand(volumesCmd)
 	rootCmd.AddCommand(doctorCmd)
-
-	// NOTE: i18n description overrides are applied in zzz_i18n_descriptions.go init()
-	// which runs AFTER all other init() functions (Go processes files alphabetically).
+	rootCmd.AddCommand(proxyCmd)
+	rootCmd.AddCommand(devCmd)
+	rootCmd.AddCommand(graphCmd)
+	rootCmd.AddCommand(snapshotCmd)
+	rootCmd.AddCommand(tunnelCmd)
+	rootCmd.AddCommand(dashboardCmd)
+	rootCmd.AddCommand(envCmd)
+	rootCmd.AddCommand(cloneCmd)
+	rootCmd.AddCommand(hostsCmd)
 }
 
 // detectLangFlag scans os.Args for --lang <value> or --lang=<value> before

@@ -16,14 +16,13 @@ const auditLogFileName = "audit.log"
 type EventType string
 
 const (
-	EventTypeDependencyAdded    EventType = "dependency_added"
-	EventTypeOverrideApplied    EventType = "override_applied"
-	EventTypeOverrideReverted   EventType = "override_reverted"
-	EventTypeConfigChanged      EventType = "config_changed"
-	EventTypeConflictResolved   EventType = "conflict_resolved"
-	EventTypeWorkspaceChanged   EventType = "workspace_changed"
-	EventTypeServiceAssisted    EventType = "service_assisted"
-	EventTypeDriftDetected      EventType = "drift_detected"
+	EventTypeDependencyAdded  EventType = "dependency_added"
+	EventTypeConfigChanged    EventType = "config_changed"
+	EventTypeConflictResolved EventType = "conflict_resolved"
+	EventTypeServiceAssisted  EventType = "service_assisted"
+	EventTypeDriftDetected    EventType = "drift_detected"
+	EventTypeDevPromoted      EventType = "dev_promoted"
+	EventTypeDevReverted      EventType = "dev_reverted"
 )
 
 // Event represents an audit log entry
@@ -136,24 +135,25 @@ func LogDependencyAdded(serviceName string, source string, reason string) error 
 	return Log(EventTypeDependencyAdded, details, message)
 }
 
-// LogOverrideApplied logs when an override is applied
-func LogOverrideApplied(serviceName string, overridePath string) error {
+// LogDevPromoted logs when a dependency is promoted to local development.
+func LogDevPromoted(depName string, localPath string, originalImage string) error {
 	details := map[string]interface{}{
-		"service":      serviceName,
-		"override_path": overridePath,
+		"dependency":     depName,
+		"local_path":     localPath,
+		"original_image": originalImage,
 	}
-	message := fmt.Sprintf("Override applied: %s -> %s", serviceName, overridePath)
-	return Log(EventTypeOverrideApplied, details, message)
+	message := fmt.Sprintf("Dev promoted: %s -> %s (was: %s)", depName, localPath, originalImage)
+	return Log(EventTypeDevPromoted, details, message)
 }
 
-// LogOverrideReverted logs when an override is reverted
-func LogOverrideReverted(serviceName string, reason string) error {
+// LogDevReverted logs when a dependency is reverted from local to image.
+func LogDevReverted(depName string, originalImage string) error {
 	details := map[string]interface{}{
-		"service": serviceName,
-		"reason":  reason,
+		"dependency":     depName,
+		"original_image": originalImage,
 	}
-	message := fmt.Sprintf("Override reverted: %s (reason: %s)", serviceName, reason)
-	return Log(EventTypeOverrideReverted, details, message)
+	message := fmt.Sprintf("Dev reverted: %s -> %s", depName, originalImage)
+	return Log(EventTypeDevReverted, details, message)
 }
 
 // LogConfigChanged logs when configuration root is changed
@@ -177,20 +177,10 @@ func LogConflictResolved(serviceName string, resolution string, reason string) e
 	return Log(EventTypeConflictResolved, details, message)
 }
 
-// LogWorkspaceChanged logs when workspace is changed
-func LogWorkspaceChanged(oldWorkspace string, newWorkspace string) error {
-	details := map[string]interface{}{
-		"old_workspace": oldWorkspace,
-		"new_workspace": newWorkspace,
-	}
-	message := fmt.Sprintf("Workspace changed: %s -> %s", oldWorkspace, newWorkspace)
-	return Log(EventTypeWorkspaceChanged, details, message)
-}
-
 // LogServiceAssisted logs when a service is added via dependency assist
 func LogServiceAssisted(serviceName string, addedBy string, reason string) error {
 	details := map[string]interface{}{
-		"service": serviceName,
+		"service":  serviceName,
 		"added_by": addedBy,
 		"reason":   reason,
 	}

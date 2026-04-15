@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"raioz/internal/config"
 	"raioz/internal/state"
@@ -141,8 +142,11 @@ func FormatDrifts(drifts []ServiceDrift) string {
 
 	var result string
 	result += fmt.Sprintf("\n⚠️  Configuration Drift Detected\n")
-	result += fmt.Sprintf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	result += fmt.Sprintf("Detected changes in %d service(s) added via dependency assist:\n\n", len(drifts))
+	result += strings.Repeat("━", 50) + "\n"
+	result += fmt.Sprintf(
+		"Detected changes in %d service(s) added via "+
+			"dependency assist:\n\n", len(drifts),
+	)
 
 	for i, drift := range drifts {
 		result += fmt.Sprintf("┌─ Service: %s\n", drift.ServiceName)

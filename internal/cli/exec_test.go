@@ -46,7 +46,7 @@ func TestExecCmdFlags(t *testing.T) {
 		name     string
 		defValue string
 	}{
-		{"file", ".raioz.json"},
+		{"file", ""},
 		{"project", ""},
 		{"interactive", "true"},
 	}

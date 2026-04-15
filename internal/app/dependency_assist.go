@@ -17,7 +17,10 @@ import (
 // HandleDependencyAssist handles dependency resolution assist mode
 // Returns true if user wants to continue, false if should abort
 // Also returns list of services added via dependency assist for metadata tracking
-func HandleDependencyAssist(appDeps *Dependencies, deps *config.Deps, ws *interfaces.Workspace, dryRun bool) (bool, []string, error) {
+func HandleDependencyAssist(
+	appDeps *Dependencies, deps *config.Deps,
+	ws *interfaces.Workspace, dryRun bool,
+) (bool, []string, error) {
 	// Create service path resolver function
 	servicePathResolver := func(name string, svc config.Service) string {
 		return appDeps.Workspace.GetServicePath(ws, name, svc)
@@ -169,7 +172,10 @@ func HandleDependencyAssist(appDeps *Dependencies, deps *config.Deps, ws *interf
 // HandleDependencyConflicts handles dependency conflicts
 // Returns true if user wants to continue, false if should abort
 // Also returns list of conflict resolutions for audit logging
-func HandleDependencyConflicts(appDeps *Dependencies, deps *config.Deps, ws *interfaces.Workspace, dryRun bool) (bool, []string, error) {
+func HandleDependencyConflicts(
+	appDeps *Dependencies, deps *config.Deps,
+	ws *interfaces.Workspace, dryRun bool,
+) (bool, []string, error) {
 	// Create service path resolver function
 	servicePathResolver := func(name string, svc config.Service) string {
 		return appDeps.Workspace.GetServicePath(ws, name, svc)

@@ -1,127 +1,111 @@
 # Changelog
 
-Todos los cambios notables de este proyecto se documentan aquí.
+All notable changes to this project are documented here.
 
-El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] — v0.9.0-beta
+## [Unreleased]
 
 ### Added
-- **`raioz exec`** — Ejecutar comandos dentro de contenedores de servicio en ejecución
-  - Soporte para flags del subcomando (`psql -U postgres`, `mongosh --eval "..."`)
-  - Detección de servicios host con error claro y sugerencia
-  - Búsqueda en compose generado y ProjectComposePath
-  - Flag `--interactive` / `-i` para control de TTY
-- **`raioz restart`** — Reiniciar servicios selectivamente
-  - `--all` para reiniciar todos, `--include-infra` para incluir infraestructura
-  - `--force-recreate` para recrear contenedores desde cero
-  - Detección de servicios host y búsqueda en ProjectComposePath
-- **`raioz volumes`** — Gestión granular de volúmenes del proyecto
-  - `volumes list` — Listar volúmenes con origen (servicio/infra) y uso compartido
-  - `volumes remove [nombre]` — Eliminar volúmenes específicos
-  - `volumes remove --all` — Eliminar todos los volúmenes del proyecto
-  - Protección de volúmenes compartidos con otros proyectos
-- **`raioz doctor`** — Diagnóstico del entorno de desarrollo
-  - Verificación de Docker, Docker Compose, Git
-  - Control de espacio en disco
-  - Verificación de directorio de configuración
-  - Información del sistema operativo
-- **`raioz up --only`** — Levantamiento parcial con resolución de dependencias
-  - Resolución transitiva del grafo de dependencias
-  - Si `api` depende de `postgres`, `--only api` levanta ambos
-  - Compatible con `--profile`
-- **Seed de datos en infra** — Campo `seed` en configuración de infraestructura
-  - Monta archivos en `/docker-entrypoint-initdb.d/` automáticamente
-  - Soporta PostgreSQL, MySQL, MariaDB, MongoDB
-  - Paths relativos al directorio del `.raioz.json`
-- **Suite de integración E2E** — 24 tests contra Docker real
-  - Script `scripts/integration-test.sh` ejecutable localmente
-  - Job `integration-docker` en GitHub Actions CI
-  - Cubre: up, down, exec, volumes, doctor, host services, ProjectComposePath
-- **Ejemplo `13-project-compose`** — Proyecto con su propio docker-compose.yml
-- **Documentación**
-  - `docs/GETTING_STARTED.md` — Guía paso a paso para nuevos usuarios
-  - `docs/SCHEMA_REFERENCE.md` — Referencia completa de `.raioz.json`
-  - `docs/ROADMAP.md` — Plan de desarrollo con features futuras
-  - `docs/FEATURE_WATCH.md` — Spec de hot-reload
-  - `docs/FEATURE_SNAPSHOT.md` — Spec de snapshot/restore
-  - `docs/FEATURE_GRAPH.md` — Spec de visualización de dependencias
-  - `docs/FEATURE_TUI.md` — Spec de dashboard interactivo
-  - `docs/FEATURE_TUNNEL.md` — Spec de tunneling
+- `network.name` and `network.subnet` optional fields in `raioz.yaml` — pin the Docker network name and subnet explicitly. String shorthand (`network: my-net`) also accepted.
+- `dependencies.<n>.name` — literal container name override for a dep.
+- `dependencies.<n>.routing` — opt-in HTTPS proxy route for a dep whose image matches the DB/broker heuristic.
+- `services.<n>.proxy.{target, port}` — override detection when `command:` launches a compose stack raioz can't see.
+- Interactive recovery menu when the proxy fails to start on an interactive tty (Retry / Skip / Cancel). Non-interactive stdin still hard-fails.
+- Container labels `com.raioz.managed`, `com.raioz.workspace`, `com.raioz.project`, `com.raioz.service`, `com.raioz.kind` stamped on every raioz-created container. Shared deps omit `com.raioz.project` to signal workspace ownership.
+- `proxy.ip` optional field — pin the Caddy container's IP inside the Docker network. Default: `<subnet-base>.1.1` when `network.subnet` is declared.
+- `proxy.publish` optional field (default `true`) — when set to `false`, the proxy does NOT bind host ports 80/443. Reachable only via its container IP, so multiple workspaces can run in parallel without port contention. Requires `network.subnet` or explicit `proxy.ip`. Linux-only.
+- `raioz hosts` command — prints an `/etc/hosts` entry for the current project's proxy (container IP + every proxied hostname). Ready for `sudo tee -a /etc/hosts`. Trailing `# raioz:<workspace>` comment makes entries grep-findable.
+- Workspace-shared proxy mode — when `workspace:` is declared, a single `{workspace}-proxy` Caddy fronts every project in the workspace. Routes persisted per project at `/tmp/<workspace>/proxy/routes/<project>.json`; Caddyfile is the union of every project's contribution. `raioz down` removes only the current project's routes and reloads; only the last project leaving tumba the proxy.
 
 ### Changed
-- **Errores estructurados** — Migración de `fmt.Errorf` a `errors.New` con códigos, contexto e i18n en:
-  - `logs.go`, `clean.go`, `override.go`, `ignore.go`, `link.go`
-  - `workspace_cmd.go`, `ports.go`, `list.go`, `status.go`
-  - `exec.go`, `restart.go`, `volumes.go`
-- **`docs/COMMANDS.md`** — Actualizado con documentación de `restart`, `exec` y `volumes`
-- **`README.md`** — Agregada sección de documentación con links
+- Deprecate `.raioz.json` config with migration warning
+- Rewrite install script for goreleaser compatibility
+- Dependencies in a workspace are now container-shared (`{workspace}-{dep}`), not per-project. First `up` creates; subsequent `up`s reuse. `down` keeps shared deps alive while any sibling project still runs in the workspace; last project out tumba them.
+- Certificates are namespaced per domain (`~/.raioz/certs/<domain>/`) and their SAN is verified before reuse. Prevents silent cross-domain cert reuse.
+- Caddyfile global block uses `auto_https off` in mkcert mode (was `disable_redirects`). Stops Caddy from falling back to ACME on custom domains without public DNS.
+- `raioz.yaml` now fails fast when a name appears in both `services:` and `dependencies:`.
+- Proxy startup now pre-flights host ports `80`/`443` and distinguishes `EADDRINUSE` (real conflict) from `EACCES` (privileged port as non-root — not our concern).
+- Proxy skips HTTPS route creation for deps whose image matches a well-known non-HTTP list (postgres, redis, mysql, mariadb, mongo, rabbitmq, kafka, etc.). Use `routing: {}` to opt in.
+- `.raioz.state.json` is now always written on `up` (even for projects without host services) with project, workspace, `networkName`, and `lastUp` populated. Removed on `down` if project is empty.
 
 ### Fixed
-- **55 errores de compilación en tests** — Corregidos en 6 paquetes:
-  - `internal/testing` — `Infra` → `InfraEntry`
-  - `internal/config` — `DockerConfig` → `*DockerConfig`, `Network` removido de `Project`
-  - `internal/docker` — Tipos actualizados, lógica de `mode_test` corregida
-  - `internal/git` — `context.Context` agregado a funciones
-  - `internal/validate` — Tipos y campos actualizados
-  - `internal/root` — Tipos actualizados
-- **`filter_test.go`** — Test de perfil inválido usaba nombre válido (`"invalid"` → `"INVALID_PROFILE!"`)
-- **`network_test.go`** — Estado JSON usaba estructura vieja de network
-- **`mode_test.go`** — Test de prod esperaba eliminación de bind mounts (comportamiento cambió)
+- Resolve project name for proxy status and stop.
+- `raioz status` now reports the correct state for shared/dependency containers (previously always showed `stopped`).
+- `raioz down` no longer sweeps containers belonging to other projects that happen to share a name prefix on the same Docker daemon.
+- Service containers with a user-supplied `command:` (e.g. `make start`) are now caught by the down flow via exact-name fallback (`<prefix>-<project>`).
+- Caddy proxy no longer gets stuck in `Created` state after a port conflict — stale containers are removed before retry, and the failure is surfaced as an actual error instead of a passable warning.
+- `DepComposeProjectName` now uses the active naming prefix instead of hardcoded `raioz-`, so `docker compose ls` matches the real container names.
+- Errors from `docker stop` / `rm` during teardown are logged with stderr instead of silently swallowed.
+- Proxy port preflight no longer emits false-positive `port in use` for privileged ports when running as non-root.
+- Proxy port preflight now uses a TCP dial probe before attempting a bind — unprivileged raioz processes could previously miss privileged ports (e.g. :80) actually held by another process because `net.Listen` returned `EACCES`, which was mistaken for "probe inconclusive".
+- `cloneService` / `cloneInfraEntry` in the workspace-conflict merge path now copy ALL orchestration-relevant fields (`ProxyOverride`, `Port`, `HealthEndpoint`, `Name`, `Routing`, `Expose`, `Publish`). Missing fields silently vanished on re-up after a workspace state mismatch, reverting BUG-13's proxy override and several other fixes.
+- `proxy.IsNonHTTPImage` classifier moved to shared `internal/proxy/filter.go` and rewritten to match on the bare image name (last path segment before tag/digest) instead of substrings. `redis/redisinsight`, `dpage/pgadmin4`, `mongo-express`, and similar HTTP UIs that share a substring with their binary-protocol namesake are now correctly proxied.
+- Workspace-shared proxy: `Reload` no longer runs `docker cp` (the bind-mount target is read-only and `cp` failed with "device or resource busy"). It writes the Caddyfile on the host and calls `caddy reload` — the bind mount propagates the file into the container automatically.
 
-## [0.8.0] — Refactoring arquitectónico
+## [0.1.0] — Meta-orchestrator
+
+Complete rewrite from Docker Compose generator to meta-orchestrator.
+Raioz no longer generates compose files — it detects runtimes and
+runs services natively.
 
 ### Added
-- Internacionalización (i18n) con soporte para inglés y español (503 keys)
-- Detección automática de idioma del sistema
-- `raioz lang set/list` para gestión de idioma
-- `make check-i18n` para validar catálogos en sync
-- Tests unitarios para capa de use cases
-- Errores estructurados con `RaiozError` (códigos, contexto, sugerencias)
-- Domain interfaces para todas las dependencias
+
+#### Core
+- `raioz.yaml` as primary config format (services + dependencies)
+- Auto-detection of 24 runtimes (Go, Node, Python, Rust, PHP, Java, .NET, Ruby, Elixir, Dart, Swift, Scala, Clojure, Zig, Gleam, Haskell, Deno, Bun, Make, Just, Task, Compose, Dockerfile)
+- Zero-config mode: `raioz up` without any config file
+- `raioz init` auto-scans project and generates `raioz.yaml`
+- Host process lifecycle management (PID tracking, cleanup)
+- Container runtime abstraction (Docker, Podman, nerdctl)
+
+#### Proxy & networking
+- Caddy reverse proxy with automatic HTTPS via mkcert
+- `https://<service>.<domain>` for every service
+- Custom domain support (`proxy.domain`)
+- WebSocket, SSE, and gRPC routing
+- Automatic service discovery with injected env vars
+
+#### Developer experience
+- Multiplexed logs from all services with colored prefixes
+- File watching with debounced auto-restart (`watch: true`)
+- `--attach` flag for foreground mode
+- Interactive TUI dashboard (`raioz dashboard`)
+- Dependency graph visualization (`raioz graph` — ASCII, DOT, JSON)
+- Volume snapshots (`raioz snapshot create/restore/list/delete`)
+- Tunnel support (`raioz tunnel` — cloudflared, bore)
+- `raioz dev` to hot-swap a dependency from image to local code
+- Package manager auto-detection from lock files (yarn, pnpm, bun)
+- Air integration for Go projects with `.air.toml`
+- Workspace naming for Docker resource prefixes
+
+#### Operations
+- Infra health checks with diagnostics
+- `raioz doctor` for system diagnostics
+- `raioz ports` to list port mappings
+- Pre/post hooks (`pre:`, `post:` in config)
+- Dependency inference from `.env` files (DATABASE_URL → postgres)
+
+#### Build & CI
+- GitHub Actions pipeline with lint, test, and build
+- goreleaser config for cross-platform releases
+- Integration test script
 
 ### Changed
-- Migración a Clean Architecture: `cmd/` → `internal/app/` → `internal/domain/` → `internal/infra/`
-- Business logic extraída de cobra commands a use cases
-- Dependency injection via `Dependencies` struct
-- Todos los mensajes de usuario a través de `i18n.T()`
-- Output estandarizado via `internal/output/`
+- `raioz init` replaced wizard with auto-scan
+- `raioz status` shows runtime type and PID for host services
+- `raioz list` shows live status for host services
+- Resource naming centralized in `naming` package
 
-## [0.7.0] — Features de operación
+### Removed
+- `raioz workspace` command (replaced by workspace config field)
+- `raioz link` command
+- Override system
+- `docker-compose.generated.yml` generation
 
-### Added
-- `raioz check` — Detección de drift entre config y estado
-- `raioz compare` — Comparación con producción
-- `raioz ci` — Modo CI/CD optimizado con output JSON
-- `raioz migrate` — Conversión de docker-compose.yml a .raioz.json
-- `raioz override` — Sobreescritura de servicios con ruta local
-- `raioz ignore` — Ignorar servicios durante up
-- `raioz link` — Symlinks para edición externa
-- `raioz workspace` — Gestión de workspaces múltiples
-- `raioz health` — Verificación de salud del proyecto local
-- `raioz clean` — Limpieza de recursos Docker no utilizados
+---
 
-## [0.6.0] — Core
+## Pre-pivot releases
 
-### Added
-- `raioz up` — Levantamiento completo de servicios e infraestructura
-- `raioz down` — Detención de servicios
-- `raioz status` — Estado detallado de servicios
-- `raioz logs` — Visualización de logs
-- `raioz ports` — Listado de puertos activos
-- `raioz list` — Listado de proyectos activos
-- `raioz init` — Wizard interactivo para crear `.raioz.json`
-- `raioz version` — Información de versión
-- Soporte para 4 tipos de servicio: git, image, local, command
-- Docker Compose generation automática
-- State management con `.state.json`
-- Detección de conflictos de puertos
-- Healthcheck automático para infra común
-- Modos dev/prod con configuraciones diferenciadas
-
-## [0.1.0] — 2024
-
-### Added
-- Commit inicial
-- Estructura básica del proyecto
-- Build con goreleaser
+Earlier versions used `.raioz.json` to generate Docker Compose files.
+That model is deprecated. Use `raioz migrate yaml` to convert.

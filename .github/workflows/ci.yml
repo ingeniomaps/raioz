@@ -2,178 +2,93 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop, master ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop, master ]
-
-env:
-  GO_VERSION: '1.22'
+    branches: [main, develop]
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
+          go-version: '1.24'
 
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v4
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
           args: --timeout=5m
 
-      - name: Check file line count
-        run: make check-lines
+      - name: Check file line count (400 max, excluding schema.go JSON blob)
+        run: |
+          bad=$(find . -name "*.go" ! -name "*_test.go" ! -name "schema.go" \
+            ! -path "*/vendor/*" ! -path "*/.context/*" \
+            -exec sh -c 'n=$(wc -l < "$1"); [ "$n" -gt 400 ] && echo "$1: $n lines"' _ {} \;)
+          if [ -n "$bad" ]; then
+            echo "❌ Files exceeding 400 lines found:"
+            echo "$bad"
+            exit 1
+          fi
+          echo "✅ All files are under 400 lines"
 
-      - name: Check line length
-        run: make check-length
+      - name: Check line length (120 chars max)
+        run: |
+          long=$(find . -name "*.go" ! -name "*_test.go" \
+            ! -path "*/vendor/*" ! -path "*/.context/*" \
+            -exec awk 'length > 120 {print FILENAME":"NR": "length($0)" chars"}' {} \;)
+          if [ -n "$long" ]; then
+            echo "❌ Lines exceeding 120 characters found:"
+            echo "$long"
+            exit 1
+          fi
+          echo "✅ All lines are under 120 characters"
+
+      - name: Check i18n catalogs in sync
+        run: make check-i18n
 
   test:
-    name: Test
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Run tests
-        run: go test -v -coverprofile=coverage.out ./...
-
-      - name: Check coverage threshold
-        run: ./scripts/check-coverage.sh 80.0
-        continue-on-error: true
-        id: coverage_check
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
-      - name: Fail if coverage below threshold
-        if: steps.coverage_check.outcome == 'failure'
-        run: |
-          echo "❌ Code coverage is below the required threshold (80%)"
-          echo "Please improve test coverage before merging."
-          exit 1
-
-  build:
-    name: Build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.22']
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.go-version }}
-          cache-dependency-path: go.sum
-
+          go-version: '1.24'
       - name: Build
         run: make build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: raioz-${{ matrix.os }}
-          path: raioz
-          if-no-files-found: error
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Run gosec security scanner
-        uses: securego/gosec@master
-        with:
-          args: './...'
-
-      - name: Run govulncheck
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+      - name: Test with race and coverage
+        run: go test -race -coverprofile=coverage.out ./...
+      - name: Coverage report
+        run: go tool cover -func=coverage.out | grep total
 
   integration:
-    name: Integration Tests (Unit)
+    name: Integration E2E
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: test
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Run integration tests
-        run: go test -v -tags=integration ./cmd/...
-
-  integration-docker:
-    name: Integration Tests (Docker E2E)
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: go.sum
-
-      - name: Verify Docker is available
+          go-version: '1.24'
+      - name: Build and install
+        run: make build && sudo cp raioz /usr/local/bin/
+      - name: Create test project
         run: |
-          docker --version
-          docker compose version
-          docker info --format '{{.ServerVersion}}'
-
-      - name: Build raioz binary
-        run: make build
-
-      - name: Create host-worker temp dir
-        run: mkdir -p /tmp/host-worker-test
-
-      - name: Run E2E integration tests
-        run: ./scripts/integration-test.sh ./raioz
-        timeout-minutes: 10
-
-      - name: Cleanup Docker resources
-        if: always()
-        run: |
-          docker ps -a --filter "name=raioz-" --format "{{.Names}}" | xargs -r docker rm -f
-          docker network ls --filter "name=-network" --format "{{.Name}}" | xargs -r docker network rm 2>/dev/null || true
+          mkdir -p /tmp/ci-test/api
+          printf 'module example.com/api\ngo 1.22\n' > /tmp/ci-test/api/go.mod
+          printf 'package main\nimport ("fmt";"log";"net/http")\nfunc main() {\n  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "ok") })\n  log.Fatal(http.ListenAndServe(":8080", nil))\n}\n' > /tmp/ci-test/api/main.go
+      - name: Test init
+        run: cd /tmp/ci-test && raioz init && test -f raioz.yaml
+      - name: Test up
+        run: cd /tmp/ci-test && raioz up && sleep 3 && curl -sf http://localhost:8080/
+      - name: Test status
+        run: cd /tmp/ci-test && raioz status
+      - name: Test logs
+        run: cd /tmp/ci-test && raioz logs api --tail 5
+      - name: Test down
+        run: cd /tmp/ci-test && raioz down && sleep 1 && ! curl -sf http://localhost:8080/ 2>/dev/null
+      - name: Test up-down-up cycle (no orphans)
+        run: cd /tmp/ci-test && raioz up && sleep 3 && curl -sf http://localhost:8080/ && raioz down

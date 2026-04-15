@@ -9,6 +9,7 @@ import (
 
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/resilience"
+	"raioz/internal/runtime"
 )
 
 func Up(composePath string) error {
@@ -43,17 +44,29 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
 			defer cancel()
 
-			// Build command: docker compose -f <path> up -d --remove-orphans [service1 service2 ...]
+			// Build command: docker compose -f <path> [ -f <path2> ... ] up -d --remove-orphans [services...]
 			// --remove-orphans cleans up containers from services no longer in the compose file
-			// (e.g., after a Replace operation in a shared workspace)
-			args := []string{"compose", "-f", composePath, "up", "-d", "--remove-orphans"}
+			// (e.g., after a Replace operation in a shared workspace). When the caller
+			// sets an explicit project name via WithComposeProjectName, it is exported
+			// as COMPOSE_PROJECT_NAME so --remove-orphans only affects containers in
+			// that project, not anything sharing the directory basename.
+			// `--env-file` flags must appear BEFORE the subcommand (docker
+			// compose parses them as top-level flags), which is why we
+			// prepend them instead of appending. The context-plumbed list
+			// is typically populated for dependencies declared with
+			// `compose:` whose user-supplied fragment uses ${VAR}
+			// interpolation from an external .env file.
+			args := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
+			args = append(args, ComposeFileArgs(composePath)...)
+			args = append(args, "up", "-d", "--remove-orphans")
 			if len(serviceNames) > 0 {
 				args = append(args, serviceNames...)
 			}
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			cmd.Env = composeCommandEnv(timeoutCtx)
 
 			err := cmd.Run()
 			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
@@ -76,10 +89,11 @@ func RestartServicesWithContext(ctx context.Context, composePath string, service
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
 			defer cancel()
 
-			args := []string{"compose", "-f", composePath, "restart"}
+			args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+			args = append(args, "restart")
 			args = append(args, serviceNames...)
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -104,10 +118,11 @@ func ForceRecreateServicesWithContext(ctx context.Context, composePath string, s
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
 			defer cancel()
 
-			args := []string{"compose", "-f", composePath, "up", "-d", "--force-recreate", "--no-deps"}
+			args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+			args = append(args, "up", "-d", "--force-recreate", "--no-deps")
 			args = append(args, serviceNames...)
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -127,7 +142,7 @@ func StopServiceWithContext(ctx context.Context, composePath string, serviceName
 	if serviceName == "" {
 		return nil
 	}
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+	if _, err := os.Stat(PrimaryComposeFile(composePath)); os.IsNotExist(err) {
 		return nil
 	}
 	if err := ValidateComposePath(composePath); err != nil {
@@ -136,7 +151,9 @@ func StopServiceWithContext(ctx context.Context, composePath string, serviceName
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 	defer cancel()
 	// Stop the service (leave other services running)
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "stop", serviceName)
+	stopArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	stopArgs = append(stopArgs, "stop", serviceName)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), stopArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -145,7 +162,9 @@ func StopServiceWithContext(ctx context.Context, composePath string, serviceName
 	// Remove the container so the local project can recreate it
 	rmCtx, rmCancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 	defer rmCancel()
-	rmCmd := exec.CommandContext(rmCtx, "docker", "compose", "-f", composePath, "rm", "-f", serviceName)
+	rmArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	rmArgs = append(rmArgs, "rm", "-f", serviceName)
+	rmCmd := exec.CommandContext(rmCtx, runtime.Binary(), rmArgs...)
 	rmCmd.Stdout = os.Stdout
 	rmCmd.Stderr = os.Stderr
 	if err := rmCmd.Run(); err != nil {
@@ -157,8 +176,8 @@ func StopServiceWithContext(ctx context.Context, composePath string, serviceName
 
 // DownWithContext stops Docker Compose services with context support
 func DownWithContext(ctx context.Context, composePath string) error {
-	// Check if compose file exists
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+	// Check if compose file exists (use first file as probe)
+	if _, err := os.Stat(PrimaryComposeFile(composePath)); os.IsNotExist(err) {
 		return nil // Already down
 	}
 
@@ -177,9 +196,13 @@ func DownWithContext(ctx context.Context, composePath string) error {
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 			defer cancel()
 
-			cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "down")
+			downArgs := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
+			downArgs = append(downArgs, ComposeFileArgs(composePath)...)
+			downArgs = append(downArgs, "down")
+			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), downArgs...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
+			cmd.Env = composeCommandEnv(timeoutCtx)
 
 			err := cmd.Run()
 			return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose down", exectimeout.DockerComposeDownTimeout)
@@ -195,7 +218,7 @@ func GetServicesStatus(composePath string) (map[string]string, error) {
 func GetServicesStatusWithContext(ctx context.Context, composePath string) (map[string]string, error) {
 	status := make(map[string]string)
 
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+	if _, err := os.Stat(PrimaryComposeFile(composePath)); os.IsNotExist(err) {
 		return status, nil
 	}
 
@@ -209,7 +232,12 @@ func GetServicesStatusWithContext(ctx context.Context, composePath string) (map[
 	defer cancel()
 
 	// Get running services
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "ps", "--services", "--status", "running")
+	psRunArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	psRunArgs = append(psRunArgs, "ps", "--services", "--status", "running")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), psRunArgs...)
+	if proj := composeProjectEnvFromContext(timeoutCtx); proj != "" {
+		cmd.Env = append(os.Environ(), proj)
+	}
 	output, err := cmd.Output()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -228,7 +256,12 @@ func GetServicesStatusWithContext(ctx context.Context, composePath string) (map[
 	}
 
 	// Get all services (running and stopped)
-	cmd2 := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "ps", "--services")
+	psAllArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+	psAllArgs = append(psAllArgs, "ps", "--services")
+	cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), psAllArgs...)
+	if proj := composeProjectEnvFromContext(timeoutCtx); proj != "" {
+		cmd2.Env = append(os.Environ(), proj)
+	}
 	output2, err := cmd2.Output()
 	if err == nil {
 		allLines := strings.Split(string(output2), "\n")
@@ -253,7 +286,7 @@ func StopContainerWithContext(ctx context.Context, containerName string) error {
 	if containerName == "" {
 		return nil
 	}
-	cmd := exec.CommandContext(ctx, "docker", "stop", containerName)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "stop", containerName)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(out), "No such container") || strings.Contains(string(out), "is not running") {
@@ -265,4 +298,34 @@ func StopContainerWithContext(ctx context.Context, containerName string) error {
 		os.Stdout.Write(out)
 	}
 	return nil
+}
+
+// ListContainersByLabels returns the names of all containers (running or
+// stopped) that match ALL provided label=value filters. Returns an empty
+// slice on any docker error; callers should treat a miss as "nothing to do"
+// rather than a fatal failure.
+func ListContainersByLabels(ctx context.Context, labels map[string]string) []string {
+	if len(labels) == 0 {
+		return nil
+	}
+	args := []string{"ps", "-a", "--format", "{{.Names}}"}
+	for k, v := range labels {
+		args = append(args, "--filter", fmt.Sprintf("label=%s=%s", k, v))
+	}
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	raw := strings.TrimSpace(string(out))
+	if raw == "" {
+		return nil
+	}
+	var names []string
+	for _, line := range strings.Split(raw, "\n") {
+		if n := strings.TrimSpace(line); n != "" {
+			names = append(names, n)
+		}
+	}
+	return names
 }

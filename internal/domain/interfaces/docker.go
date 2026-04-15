@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+
 	models "raioz/internal/domain/models"
 )
 
@@ -42,8 +43,12 @@ type DockerRunner interface {
 	GetServicesStatus(composePath string) (map[string]string, error)
 	// GetServicesStatusWithContext returns the status of services with context support
 	GetServicesStatusWithContext(ctx context.Context, composePath string) (map[string]string, error)
-	// GetServicesInfoWithContext returns detailed information about services
-	GetServicesInfoWithContext(ctx context.Context, composePath string, serviceNames []string, projectName string, services map[string]models.Service, ws *Workspace) (map[string]*ServiceInfo, error)
+	// GetServicesInfoWithContext returns detailed info about services
+	GetServicesInfoWithContext(
+		ctx context.Context, composePath string,
+		serviceNames []string, projectName string,
+		services map[string]models.Service, ws *Workspace,
+	) (map[string]*ServiceInfo, error)
 	// GetNetworkProjects returns list of projects using a network
 	GetNetworkProjects(networkName string, baseDir string) ([]string, error)
 	// GetVolumeProjects returns list of projects using a volume
@@ -79,7 +84,11 @@ type DockerRunner interface {
 	// ExecInService runs a command inside a running container
 	ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error
 	// WaitForServicesHealthy waits for services to become healthy
-	WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error
+	WaitForServicesHealthy(
+		ctx context.Context, composePath string,
+		serviceNames []string, infraNames []string,
+		projectName string,
+	) error
 	// ValidatePorts checks if all ports in a project are available
 	ValidatePorts(deps *models.Deps, baseDir string, projectName string) ([]PortConflict, error)
 	// FormatPortConflicts formats port conflicts for display
@@ -98,6 +107,10 @@ type DockerRunner interface {
 	NormalizeInfraName(workspace string, infra string, project string, hasExplicitWorkspace bool) (string, error)
 	// GetContainerNameWithContext returns the container name for a service in a compose file
 	GetContainerNameWithContext(ctx context.Context, composePath string, serviceName string) (string, error)
+	// GetContainerStatusByName returns the Docker state of a container (running,
+	// exited, created, ...) looked up by name via docker inspect. Empty string
+	// (no error) means the container does not exist.
+	GetContainerStatusByName(ctx context.Context, containerName string) (string, error)
 	// ResolveRelativeVolumes converts relative paths in bind mount volumes to absolute paths
 	ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error)
 	// AreServicesRunning checks if services are running in a compose project

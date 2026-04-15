@@ -53,11 +53,12 @@ func NormalizeName(parts ...string) (string, error) {
 	return name, nil
 }
 
-// NormalizeContainerName normalizes a container name
-// Format: {workspace}-{service} if workspace is explicitly set (different from project), otherwise raioz-{project}-{service}
-// Maximum length: 63 characters (Docker limit)
-// workspace: workspace name from GetWorkspaceName() (could be explicit workspace or project name)
-// project: project name (used to determine if workspace was explicitly set)
+// NormalizeContainerName normalizes a container name.
+// Format: {workspace}-{service} if workspace is explicitly set
+// (different from project), otherwise raioz-{project}-{service}.
+// Maximum length: 63 characters (Docker limit).
+// workspace: workspace name from GetWorkspaceName().
+// project: project name (used to determine if workspace was set).
 // hasExplicitWorkspace: true if workspace field was explicitly set in config, false otherwise
 func NormalizeContainerName(workspace, service string, project string, hasExplicitWorkspace bool) (string, error) {
 	var name string

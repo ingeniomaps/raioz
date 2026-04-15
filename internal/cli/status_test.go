@@ -28,7 +28,7 @@ func TestStatusCmdFlags(t *testing.T) {
 		shorthand string
 		defValue  string
 	}{
-		{"file", "f", ".raioz.json"},
+		{"file", "f", ""},
 		{"project", "p", ""},
 		{"json", "", "false"},
 	}

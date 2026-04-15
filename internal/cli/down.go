@@ -65,7 +65,7 @@ var downCmd = &cobra.Command{
 }
 
 func init() {
-	downCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	downCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	downCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	downCmd.Flags().BoolVar(&downAll, "all", false, "Stop all workspace services and infra (full shutdown)")
 	downCmd.Flags().BoolVar(&pruneShared, "prune-shared", false, "Also stop infra if no other active projects use it")

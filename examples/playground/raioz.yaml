@@ -1,0 +1,33 @@
+# Playground — test project for validating all raioz commands
+project: playground
+proxy: true
+
+pre: echo "pre-hook executed" > /tmp/raioz-playground-pre
+
+services:
+  api:
+    path: ./api
+    dependsOn: [postgres, redis]
+    health: /health
+    watch: true
+    ports: ["8080"]
+
+  frontend:
+    path: ./frontend
+    dependsOn: [api]
+    watch: native
+    ports: ["3000"]
+
+  worker:
+    path: ./worker
+    dependsOn: [redis]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    env: .env.postgres
+
+  redis:
+    image: redis:7
+    ports: ["6379"]

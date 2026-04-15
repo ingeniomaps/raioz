@@ -10,6 +10,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -22,19 +23,23 @@ type Options struct {
 	ForceReclone bool
 	DryRun       bool
 	Only         []string
+	Host         string // Bind address for shared dev server (e.g., "0.0.0.0")
+	Attach       bool   // Stay attached and stream logs without file watching
 }
 
 // Dependencies contains the dependencies needed by the up use case
 type Dependencies struct {
-	ConfigLoader  interfaces.ConfigLoader
-	Validator     interfaces.Validator
-	DockerRunner  interfaces.DockerRunner
-	GitRepository interfaces.GitRepository
-	Workspace     interfaces.WorkspaceManager
-	StateManager  interfaces.StateManager
-	LockManager   interfaces.LockManager
-	HostRunner    interfaces.HostRunner
-	EnvManager    interfaces.EnvManager
+	ConfigLoader     interfaces.ConfigLoader
+	Validator        interfaces.Validator
+	DockerRunner     interfaces.DockerRunner
+	GitRepository    interfaces.GitRepository
+	Workspace        interfaces.WorkspaceManager
+	StateManager     interfaces.StateManager
+	LockManager      interfaces.LockManager
+	HostRunner       interfaces.HostRunner
+	EnvManager       interfaces.EnvManager
+	ProxyManager     interfaces.ProxyManager     // Optional: nil if proxy not needed
+	DiscoveryManager interfaces.DiscoveryManager // Optional: nil if discovery not needed
 }
 
 // UseCase handles the "up" use case - starting a project
@@ -128,6 +133,13 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		return nil
 	}
 
+	// Pre-hook: runs before anything else (env rendering, secrets fetch, etc.).
+	// Must run before generateEnvFilesFromTemplates and docker prep so that files
+	// the hook produces are visible to downstream steps. A failure aborts the run.
+	if err := uc.preHookExec(ctx, deps, projectDir); err != nil {
+		return err
+	}
+
 	// If only project commands, execute them directly and return
 	if onlyProjectCommands {
 		if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
@@ -143,17 +155,16 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := lockInstance.Release(); err != nil {
-				// Log error but don't fail - lock release is best-effort
-			}
-		}()
+		defer func() { _ = lockInstance.Release() }()
 
 		// Execute project command directly
 		err = uc.processLocalProject(ctx, opts.ConfigPath, deps, "up", ws)
 		if err != nil {
 			return err
 		}
+
+		// Post-hook (project-only path): runs after project command succeeds.
+		uc.postHookExec(ctx, deps, projectDir)
 
 		// Final summary (no services/infra)
 		uc.showSummary(ctx, deps, []string{}, []string{}, startTime)
@@ -171,11 +182,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := lockInstance.Release(); err != nil {
-			// Log error but don't fail - lock release is best-effort
-		}
-	}()
+	defer func() { _ = lockInstance.Release() }()
 
 	// Check if workspace is already running from a different project (same workspace, overlapping services)
 	conflictResult, mergedDeps, err := uc.checkWorkspaceProjectConflict(ctx, deps, ws, projectDir)
@@ -195,7 +202,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 	// WorkspaceConflictProceed: continue (with deps or merged deps)
 
-	// Write global.env as union of env.files + env.variables (after merge so merged config includes all projects' variables)
+	// Write global.env as union of env.files + env.variables
+	// (after merge so merged config includes all projects' variables)
 	if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
 		return errors.New(
 			errors.ErrCodeWorkspaceError,
@@ -224,6 +232,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 				logging.WarnWithContext(ctx, "Failed to execute local project command", "error", err.Error())
 			}
 		}
+		// Post-hook still runs on skipped path — user scripts should be idempotent.
+		uc.postHookExec(ctx, deps, projectDir)
 		return nil
 	}
 
@@ -251,24 +261,37 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	// Host services: start services that run directly on the host (without Docker)
-	// These may depend on the network being available (e.g., installer scripts that use docker-compose)
-	hostProcessInfo, err := uc.processHostServices(ctx, deps, ws, projectDir)
-	if err != nil {
-		return err
-	}
+	var composePath string
+	var serviceNames, infraNames []string
+	var hostProcessInfo map[string]*host.ProcessInfo
+	var orchResult *orchestrationResult
 
-	// Compose: generate compose, docker.Up
-	composePath, serviceNames, infraNames, err := uc.processCompose(ctx, deps, ws, projectDir)
-	if err != nil {
-		// If compose fails, stop host services that were started
-		if len(hostProcessInfo) > 0 {
-			_ = uc.stopHostServices(ctx, hostProcessInfo)
+	if isYAMLMode(deps) {
+		// New orchestrator flow: detect runtimes, start with native tools
+		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath)
+		if err != nil {
+			return err
 		}
-		return err
+		serviceNames = orchResult.serviceNames
+		infraNames = orchResult.infraNames
+	} else {
+		// Legacy flow: host services + generate compose
+		hostProcessInfo, err = uc.processHostServices(ctx, deps, ws, projectDir)
+		if err != nil {
+			return err
+		}
+
+		composePath, serviceNames, infraNames, err = uc.processCompose(ctx, deps, ws, projectDir)
+		if err != nil {
+			if len(hostProcessInfo) > 0 {
+				_ = uc.stopHostServices(ctx, hostProcessInfo)
+			}
+			return err
+		}
 	}
 
-	// State: save state, root config, drift detection, audit (persist project root so merge can resolve volumes per project)
+	// State: save state, root config, drift detection, audit
+	// (persist project root so merge can resolve volumes per project)
 	deps.ProjectRoot = projectDir
 	err = uc.saveState(ctx, deps, ws, composePath, serviceNames, addedServices, assistedServicesMap, appliedOverrides)
 	if err != nil {
@@ -283,17 +306,17 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		}
 	}
 
-	// Update global state
-	err = uc.updateGlobalState(ctx, deps, ws, composePath, serviceNames)
-	if err != nil {
-		// Log but don't fail - global state is optional
-	}
+	// Update global state — best-effort; global state is optional.
+	_ = uc.updateGlobalState(ctx, deps, ws, composePath, serviceNames)
 
 	// Wait for services and infra to be healthy before executing project commands
 	// This ensures that project.commands.up runs only after dependencies are ready
 	if hasProjectCommands && (len(serviceNames) > 0 || len(infraNames) > 0) {
 		output.PrintProgress(i18n.T("up.waiting_healthy_before_cmd"))
-		if err := uc.deps.DockerRunner.WaitForServicesHealthy(ctx, composePath, serviceNames, infraNames, deps.Project.Name); err != nil {
+		err := uc.deps.DockerRunner.WaitForServicesHealthy(
+			ctx, composePath, serviceNames, infraNames, deps.Project.Name,
+		)
+		if err != nil {
 			logging.WarnWithContext(ctx, "Failed to wait for services to be healthy", "error", err.Error())
 			output.PrintWarning(i18n.T("up.services_not_healthy_warning"))
 			// Continue anyway - user may want to proceed even if health checks fail
@@ -309,8 +332,23 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		}
 	}
 
+	// Post-hook: runs after everything is up. Failures are warnings, not errors.
+	uc.postHookExec(ctx, deps, projectDir)
+
 	// Final summary
 	uc.showSummary(ctx, deps, serviceNames, infraNames, startTime)
+
+	// Foreground mode: watch + logs (blocks until Ctrl+C)
+	if orchResult != nil {
+		if opts.Attach {
+			// --attach: stream logs without file watching
+			streamForeground(ctx, deps, orchResult.detections)
+		} else {
+			// watch: true services get file watching + logs
+			startWatcher(ctx, deps, orchResult.dispatcher, orchResult.detections,
+				orchResult.networkName, projectDir)
+		}
+	}
 
 	return nil
 }

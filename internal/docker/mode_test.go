@@ -1,17 +1,18 @@
 package docker
 
 import (
+	"testing"
+
 	"raioz/internal/config"
 	"raioz/internal/workspace"
-	"testing"
 )
 
 func TestFilterDevVolumes(t *testing.T) {
 	tests := []struct {
-		name     string
-		volumes  []string
-		mode     string
-		wantLen  int
+		name    string
+		volumes []string
+		mode    string
+		wantLen int
 	}{
 		{
 			name:    "dev mode keeps all volumes",

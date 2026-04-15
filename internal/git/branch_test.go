@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -11,33 +10,16 @@ import (
 )
 
 func TestGetCurrentBranch(t *testing.T) {
-	// Create a temporary git repo for testing
 	tmpDir := t.TempDir()
 
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	if err := cmd.Run(); err != nil {
-		t.Skip("git not available or failed to init repo")
-		return
+	runGit(t, tmpDir, "init")
+	if err := os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("test"), 0644); err != nil {
+		t.Fatal(err)
 	}
+	runGit(t, tmpDir, "add", ".")
+	runGit(t, tmpDir, "commit", "-m", "test")
+	runGit(t, tmpDir, "checkout", "-b", "test-branch")
 
-	// Create a file and commit
-	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("test"), 0644)
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	cmd.Run()
-
-	cmd = exec.Command("git", "commit", "-m", "test")
-	cmd.Dir = tmpDir
-	cmd.Run()
-
-	// Checkout a branch
-	cmd = exec.Command("git", "checkout", "-b", "test-branch")
-	cmd.Dir = tmpDir
-	cmd.Run()
-
-	// Test GetCurrentBranch
 	branch, err := GetCurrentBranch(context.Background(), tmpDir)
 	if err != nil {
 		t.Fatalf("GetCurrentBranch() error = %v", err)
@@ -49,37 +31,17 @@ func TestGetCurrentBranch(t *testing.T) {
 }
 
 func TestDetectBranchDrift(t *testing.T) {
-	// Create a temporary git repo for testing
 	tmpDir := t.TempDir()
 
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	if err := cmd.Run(); err != nil {
-		t.Skip("git not available or failed to init repo")
-		return
+	runGit(t, tmpDir, "init")
+	if err := os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("test"), 0644); err != nil {
+		t.Fatal(err)
 	}
+	runGit(t, tmpDir, "add", ".")
+	runGit(t, tmpDir, "commit", "-m", "test")
+	runGit(t, tmpDir, "checkout", "-b", "main")
+	runGit(t, tmpDir, "checkout", "-b", "develop")
 
-	// Create a file and commit
-	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("test"), 0644)
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	cmd.Run()
-
-	cmd = exec.Command("git", "commit", "-m", "test")
-	cmd.Dir = tmpDir
-	cmd.Run()
-
-	// Create branches
-	cmd = exec.Command("git", "checkout", "-b", "main")
-	cmd.Dir = tmpDir
-	cmd.Run()
-
-	cmd = exec.Command("git", "checkout", "-b", "develop")
-	cmd.Dir = tmpDir
-	cmd.Run()
-
-	// Test with drift
 	drift, current, err := DetectBranchDrift(context.Background(), tmpDir, "main")
 	if err != nil {
 		t.Fatalf("DetectBranchDrift() error = %v", err)

@@ -17,11 +17,10 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 			name: "missing project name",
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
-				Project: config.Project{
-						},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
-				Env:      config.EnvConfig{},
+				Project:       config.Project{},
+				Services:      map[string]config.Service{},
+				Infra:         map[string]config.InfraEntry{},
+				Env:           config.EnvConfig{},
 			},
 			want: true,
 		},
@@ -42,8 +41,8 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 			name: "missing schema version",
 			deps: &config.Deps{
 				Project: config.Project{
-					Name:    "test-project",
-						},
+					Name: "test-project",
+				},
 				Services: map[string]config.Service{},
 				Infra:    map[string]config.InfraEntry{},
 				Env:      config.EnvConfig{},
@@ -55,8 +54,8 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 			deps: &config.Deps{
 				SchemaVersion: "2.0", // Invalid, must be 1.0
 				Project: config.Project{
-					Name:    "test-project",
-						},
+					Name: "test-project",
+				},
 				Services: map[string]config.Service{},
 				Infra:    map[string]config.InfraEntry{},
 				Env:      config.EnvConfig{},
@@ -89,8 +88,8 @@ func TestInvalidServiceConfig(t *testing.T) {
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
 				Project: config.Project{
-					Name:    "test",
-						},
+					Name: "test",
+				},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -114,8 +113,8 @@ func TestInvalidServiceConfig(t *testing.T) {
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
 				Project: config.Project{
-					Name:    "test",
-						},
+					Name: "test",
+				},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -139,8 +138,8 @@ func TestInvalidServiceConfig(t *testing.T) {
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
 				Project: config.Project{
-					Name:    "test",
-						},
+					Name: "test",
+				},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -163,8 +162,8 @@ func TestInvalidServiceConfig(t *testing.T) {
 			deps: &config.Deps{
 				SchemaVersion: "1.0",
 				Project: config.Project{
-					Name:    "test",
-						},
+					Name: "test",
+				},
 				Services: map[string]config.Service{
 					"test": {
 						Source: config.SourceConfig{
@@ -288,7 +287,7 @@ func TestEdgeCaseInvalidProjectName(t *testing.T) {
 func TestEdgeCaseInvalidNetworkName(t *testing.T) {
 	deps := &config.Deps{
 		SchemaVersion: "1.0",
-		Network: config.NetworkConfig{Name: "Invalid Network!"}, // Invalid: contains spaces
+		Network:       config.NetworkConfig{Name: "Invalid Network!"}, // Invalid: contains spaces
 		Project: config.Project{
 			Name: "test-project",
 		},

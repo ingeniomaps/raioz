@@ -261,7 +261,7 @@ func TestGetLocalServicesDir(t *testing.T) {
 func TestGetReadonlyServicesDir(t *testing.T) {
 	ws := &Workspace{
 		Root:                "/tmp/test",
-		ServicesDir:        "/tmp/services",
+		ServicesDir:         "/tmp/services",
 		ReadonlyServicesDir: "/tmp/test/readonly",
 	}
 

@@ -1,0 +1,60 @@
+# 08 — Kubernetes + Docker + Host: mixed orchestrators
+#
+# Real-world scenario: some services run in Kind (local K8s),
+# some in Docker, some on host. Raioz connects them all.
+#
+# How it works:
+#   - Kind services: Raioz does kubectl port-forward to expose them
+#   - Docker services: run on shared network
+#   - Host services: run with native tools
+#   - Proxy unifies access: https://<name>.localhost for all
+#
+# Prerequisites:
+#   - kind cluster running: kind create cluster --name dev
+#   - kubectl configured for the cluster
+#
+# Note: For K8s services, use a Makefile that wraps kubectl/helm.
+# Raioz detects the Makefile and runs `make dev`.
+
+project: hybrid-platform
+proxy: true
+
+services:
+  # This service runs in Kind via a Makefile wrapper
+  # Makefile has: dev: kubectl apply -f k8s/ && kubectl port-forward svc/gateway 8080:80
+  gateway:
+    path: ./gateway
+    dependsOn: [api, auth]
+    ports: ["8080"]
+
+  # Raioz auto-detects the runtime from project files in ./api
+  api:
+    path: ./api
+    dependsOn: [postgres]
+    ports: ["3000"]
+
+  # This service runs on host (Go binary)
+  auth:
+    path: ./auth
+    dependsOn: [postgres, redis]
+    ports: ["3001"]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]
+
+# How services reach each other:
+#
+#   gateway (Kind, port-forwarded) → api (Docker):
+#     API_HOST=localhost  (port-forwarded to host, then to Docker)
+#
+#   api (Docker) → auth (host):
+#     AUTH_HOST=host.docker.internal
+#
+#   auth (host) → postgres (Docker):
+#     POSTGRES_HOST=localhost

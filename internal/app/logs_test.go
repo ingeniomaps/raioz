@@ -37,15 +37,15 @@ func newTestDepsForLogs(t *testing.T) (*Dependencies, *mocks.MockConfigLoader, *
 	dockerRunner := &mocks.MockDockerRunner{}
 
 	deps := &Dependencies{
-		ConfigLoader: configLoader,
-		Workspace:    wsMgr,
-		StateManager: stateMgr,
-		DockerRunner: dockerRunner,
-		Validator:    &mocks.MockValidator{},
+		ConfigLoader:  configLoader,
+		Workspace:     wsMgr,
+		StateManager:  stateMgr,
+		DockerRunner:  dockerRunner,
+		Validator:     &mocks.MockValidator{},
 		GitRepository: &mocks.MockGitRepository{},
-		LockManager:  &mocks.MockLockManager{},
-		HostRunner:   &mocks.MockHostRunner{},
-		EnvManager:   &mocks.MockEnvManager{},
+		LockManager:   &mocks.MockLockManager{},
+		HostRunner:    &mocks.MockHostRunner{},
+		EnvManager:    &mocks.MockEnvManager{},
 	}
 
 	return deps, configLoader, wsMgr, stateMgr, dockerRunner

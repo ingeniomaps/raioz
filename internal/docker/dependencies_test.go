@@ -1,8 +1,9 @@
 package docker
 
 import (
-	"raioz/internal/config"
 	"testing"
+
+	"raioz/internal/config"
 )
 
 func TestValidateDependencyCycle(t *testing.T) {
@@ -164,9 +165,9 @@ func TestValidateDependencyCycle(t *testing.T) {
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) &&
 		(s == substr || len(substr) == 0 ||
-		(s[:len(substr)] == substr ||
-		s[len(s)-len(substr):] == substr ||
-		indexOf(s, substr) >= 0))
+			(s[:len(substr)] == substr ||
+				s[len(s)-len(substr):] == substr ||
+				indexOf(s, substr) >= 0))
 }
 
 func indexOf(s, substr string) int {

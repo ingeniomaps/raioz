@@ -45,16 +45,24 @@ func EnsureReadonlyRepo(src config.SourceConfig, baseDir string) error {
 	gitCB := resilience.GetGitCircuitBreaker()
 	retryConfig := resilience.GitRetryConfig()
 
-		err := resilience.RetryWithContext(ctx, retryConfig, "git clone readonly", func(ctx context.Context) error {
+	err := resilience.RetryWithContext(ctx, retryConfig, "git clone readonly", func(ctx context.Context) error {
 		return gitCB.ExecuteWithContext(ctx, "git clone readonly", func(ctx context.Context) error {
 			// Ensure parent directory exists
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			cmd := exec.CommandContext(ctx, "git", "-c", "credential.helper=", "clone", "--depth", "1", "-b", src.Branch, src.Repo, target)
-			// Disable interactive prompts and credential helpers for public repos
-			cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=", "GIT_SSH_COMMAND=")
+			cmd := exec.CommandContext(
+				ctx, "git", "-c", "credential.helper=",
+				"clone", "--depth", "1", "-b",
+				src.Branch, src.Repo, target,
+			)
+			// Disable interactive prompts for public repos
+			cmd.Env = append(
+				os.Environ(),
+				"GIT_TERMINAL_PROMPT=0",
+				"GIT_ASKPASS=", "GIT_SSH_COMMAND=",
+			)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
@@ -150,9 +158,17 @@ func EnsureEditableRepo(src config.SourceConfig, baseDir string) error {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			cmd := exec.CommandContext(ctx, "git", "-c", "credential.helper=", "clone", "--depth", "1", "-b", src.Branch, src.Repo, target)
-			// Disable interactive prompts and credential helpers for public repos
-			cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=", "GIT_SSH_COMMAND=")
+			cmd := exec.CommandContext(
+				ctx, "git", "-c", "credential.helper=",
+				"clone", "--depth", "1", "-b",
+				src.Branch, src.Repo, target,
+			)
+			// Disable interactive prompts for public repos
+			cmd.Env = append(
+				os.Environ(),
+				"GIT_TERMINAL_PROMPT=0",
+				"GIT_ASKPASS=", "GIT_SSH_COMMAND=",
+			)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 

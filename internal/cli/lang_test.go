@@ -180,9 +180,9 @@ func TestPrintLangListCurrentMarker(t *testing.T) {
 	initI18nForTest(t)
 
 	tests := []struct {
-		name       string
+		name        string
 		currentLang string
-		wantMarked string
+		wantMarked  string
 	}{
 		{
 			name:        "english marked as current",

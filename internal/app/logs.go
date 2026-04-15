@@ -30,6 +30,11 @@ func NewLogsUseCase(deps *Dependencies) *LogsUseCase {
 
 // Execute executes the logs use case
 func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
+	// Try YAML mode first
+	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		return LogsYAML(ctx, proj, opts.Services, opts.Follow, opts.Tail)
+	}
+
 	projectName, workspaceName, err := uc.resolveProject(opts)
 	if err != nil {
 		return err

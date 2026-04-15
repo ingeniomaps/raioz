@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	gitpkg "raioz/internal/git"
@@ -44,7 +45,11 @@ func (r *GitRepositoryImpl) ForceReclone(ctx context.Context, repoPath string, r
 }
 
 // UpdateReposIfBranchChanged updates repositories if their branches changed
-func (r *GitRepositoryImpl) UpdateReposIfBranchChanged(ctx context.Context, repoPathResolver func(string, config.Service) string, oldDeps, newDeps *config.Deps) error {
+func (r *GitRepositoryImpl) UpdateReposIfBranchChanged(
+	ctx context.Context,
+	repoPathResolver func(string, config.Service) string,
+	oldDeps, newDeps *config.Deps,
+) error {
 	return gitpkg.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, newDeps)
 }
 

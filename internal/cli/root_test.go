@@ -27,8 +27,8 @@ func TestRootRegisteredCommands(t *testing.T) {
 	expected := []string{
 		"up", "down", "status", "ports", "logs",
 		"clean", "check", "version", "ci", "compare",
-		"migrate", "init", "list", "override", "workspace",
-		"ignore", "link", "lang",
+		"migrate", "init", "list",
+		"ignore", "lang",
 	}
 
 	registered := make(map[string]bool)

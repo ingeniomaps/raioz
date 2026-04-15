@@ -16,13 +16,32 @@ func NewConfigLoader() interfaces.ConfigLoader {
 	return &ConfigLoaderImpl{}
 }
 
-// LoadDeps loads dependencies configuration from a file
+// LoadDeps loads dependencies configuration from a file.
+// Supports raioz.yaml (new), .raioz.json (legacy), and auto-detect mode (no file).
 func (l *ConfigLoaderImpl) LoadDeps(configPath string) (*config.Deps, []string, error) {
-	return config.LoadDeps(configPath)
+	// Auto-detect mode: no config file found
+	if configPath == ":auto:" {
+		deps, err := config.AutoDetect(".")
+		if err != nil {
+			return nil, nil, err
+		}
+		return deps, nil, nil
+	}
+	if config.IsYAMLConfig(configPath) {
+		return config.LoadDepsFromYAML(configPath)
+	}
+	// Legacy JSON config — deprecated
+	deps, warnings, err := config.LoadDeps(configPath)
+	if err == nil {
+		warnings = append(warnings, ".raioz.json is deprecated. Run 'raioz migrate yaml' to convert to raioz.yaml")
+	}
+	return deps, warnings, err
 }
 
 // IsServiceEnabled checks if a service is enabled based on its configuration
-func (l *ConfigLoaderImpl) IsServiceEnabled(svc config.Service, profile string, envVars map[string]string) bool {
+func (l *ConfigLoaderImpl) IsServiceEnabled(
+	svc config.Service, profile string, envVars map[string]string,
+) bool {
 	return config.IsServiceEnabled(svc, profile, envVars)
 }
 
@@ -42,7 +61,9 @@ func (l *ConfigLoaderImpl) FilterByProfiles(deps *config.Deps, profiles []string
 }
 
 // FilterByFeatureFlags filters dependencies by feature flags
-func (l *ConfigLoaderImpl) FilterByFeatureFlags(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+func (l *ConfigLoaderImpl) FilterByFeatureFlags(
+	deps *config.Deps, profile string, envVars map[string]string,
+) (*config.Deps, []string) {
 	return config.FilterByFeatureFlags(deps, profile, envVars)
 }
 
@@ -57,12 +78,16 @@ func (l *ConfigLoaderImpl) CheckIgnoredDependencies(deps *config.Deps, ignoredSe
 }
 
 // DetectMissingDependencies detects dependencies that are required but not defined
-func (l *ConfigLoaderImpl) DetectMissingDependencies(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.MissingDependency, error) {
+func (l *ConfigLoaderImpl) DetectMissingDependencies(
+	deps *config.Deps, pathResolver func(string, config.Service) string,
+) ([]config.MissingDependency, error) {
 	return config.DetectMissingDependencies(deps, pathResolver)
 }
 
-// DetectDependencyConflicts detects conflicts between root and service dependencies
-func (l *ConfigLoaderImpl) DetectDependencyConflicts(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.DependencyConflict, error) {
+// DetectDependencyConflicts detects conflicts between root and service deps
+func (l *ConfigLoaderImpl) DetectDependencyConflicts(
+	deps *config.Deps, pathResolver func(string, config.Service) string,
+) ([]config.DependencyConflict, error) {
 	return config.DetectDependencyConflicts(deps, pathResolver)
 }
 

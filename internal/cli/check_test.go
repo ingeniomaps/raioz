@@ -2,6 +2,8 @@ package cli
 
 import (
 	"testing"
+
+	"raioz/internal/app"
 )
 
 func TestCheckCmd(t *testing.T) {
@@ -32,7 +34,7 @@ func TestCheckCmdFlags(t *testing.T) {
 		shorthand string
 		defValue  string
 	}{
-		{"file", "f", ".raioz.json"},
+		{"file", "f", ""},
 		{"project", "p", ""},
 	}
 
@@ -63,4 +65,38 @@ func TestCheckCmdRegisteredOnRoot(t *testing.T) {
 	if !found {
 		t.Error("checkCmd not registered on rootCmd")
 	}
+}
+
+func TestDisplayCheckResultValidNoState(t *testing.T) {
+	// Valid config, no state yet, no issues — should return normally.
+	result := &app.CheckResult{
+		ConfigValid: true,
+		NoState:     true,
+		HasIssues:   false,
+	}
+	displayCheckResult(result)
+}
+
+func TestDisplayCheckResultInvalidNoState(t *testing.T) {
+	// Invalid config but no state and no issues — exercises the
+	// ConfigValid=false + NoState=true path without triggering os.Exit.
+	result := &app.CheckResult{
+		ConfigValid:      false,
+		ValidationErrors: []string{"bad field", "missing project"},
+		NoState:          true,
+		HasIssues:        false,
+	}
+	displayCheckResult(result)
+}
+
+func TestDisplayCheckResultValidAlignmentOK(t *testing.T) {
+	// Valid config with state and no alignment issues — should print
+	// alignment results and return normally.
+	result := &app.CheckResult{
+		ConfigValid:     true,
+		NoState:         false,
+		AlignmentIssues: nil,
+		HasIssues:       false,
+	}
+	displayCheckResult(result)
 }

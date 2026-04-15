@@ -16,14 +16,18 @@ func validateInfra(deps *config.Deps) error {
 			continue
 		}
 		infra := *entry.Inline
-		// Check if image is empty (schema validation should catch this, but provide clearer message)
-		if infra.Image == "" {
+		// Either `image:` or `compose:` is required. `compose:` points at
+		// user-supplied docker-compose fragment(s); in that mode raioz does
+		// NOT need an image field because the user's compose declares the
+		// image itself. Image-only mode keeps the legacy error message so
+		// users migrating from early raioz.yaml see the familiar hint.
+		if infra.Image == "" && len(infra.Compose) == 0 {
 			return errors.New(
 				errors.ErrCodeMissingField,
-				fmt.Sprintf("Infra '%s': 'image' field is required and cannot be empty", name),
+				fmt.Sprintf("Infra '%s': must declare either 'image:' or 'compose:'", name),
 			).WithSuggestion(
-				fmt.Sprintf("Add a valid 'image' field to infra '%s'. "+
-					"Example: {\"infra\": {\"%s\": {\"image\": \"postgres\", \"tag\": \"15\"}}}", name, name),
+				fmt.Sprintf("Add an 'image:' (e.g. postgres:15) or 'compose:' "+
+					"pointing to a docker-compose fragment for infra '%s'.", name),
 			).WithContext("infra_name", name)
 		}
 		// Validate profiles (lowercase letters, digits, hyphens only)
@@ -80,13 +84,15 @@ func validateInfra(deps *config.Deps) error {
 			).WithContext("infra_name", name).WithContext("container_name", containerName).WithError(err)
 		}
 
-		if entry.Inline.Image == "" {
+		// Compose-mode deps don't need `image:` — the user's compose file
+		// declares it. Only require image when neither is present.
+		if entry.Inline.Image == "" && len(entry.Inline.Compose) == 0 {
 			return errors.New(
 				errors.ErrCodeMissingField,
-				fmt.Sprintf("Infrastructure '%s': 'image' field is required", name),
+				fmt.Sprintf("Infrastructure '%s': must declare either 'image:' or 'compose:'", name),
 			).WithSuggestion(
-				"Add an 'image' field to the infrastructure configuration with the Docker image name. "+
-					"Example: {\"infra\": {\"my-db\": {\"image\": \"postgres:15\", ...}}}",
+				"Use 'image:' for a simple image (e.g. postgres:15) or 'compose:' "+
+					"with the path to an existing docker-compose fragment.",
 			).WithContext("infra_name", name)
 		}
 	}
@@ -111,9 +117,16 @@ func validateDependencies(deps *config.Deps) error {
 					errors.ErrCodeInvalidField,
 					fmt.Sprintf("Service '%s': depends on '%s' which does not exist", name, dep),
 				).WithSuggestion(
-					fmt.Sprintf("Either add a service or infrastructure named '%s', or remove it from the 'dependsOn' list of service '%s'. "+
-						"Dependencies must reference existing services or infrastructure components.", dep, name),
-				).WithContext("service_name", name).WithContext("missing_dependency", dep)
+					fmt.Sprintf(
+						"Either add a service or infrastructure "+
+							"named '%s', or remove it from the "+
+							"'dependsOn' list of service '%s'. "+
+							"Dependencies must reference existing "+
+							"services or infrastructure components.",
+						dep, name,
+					),
+				).WithContext("service_name", name).
+					WithContext("missing_dependency", dep)
 			}
 		}
 	}

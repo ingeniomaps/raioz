@@ -75,29 +75,39 @@ func (m *StateManagerImpl) GetGlobalStatePath() (string, error) {
 }
 
 // GetServicePreference returns the preference for a service
-func (m *StateManagerImpl) GetServicePreference(ws *interfaces.Workspace, serviceName string) (*statepkg.ServicePreference, error) {
+func (m *StateManagerImpl) GetServicePreference(
+	ws *interfaces.Workspace, serviceName string,
+) (*statepkg.ServicePreference, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return statepkg.GetServicePreference(wsConcrete, serviceName)
 }
 
 // SetServicePreference saves a service preference
-func (m *StateManagerImpl) SetServicePreference(ws *interfaces.Workspace, pref statepkg.ServicePreference) error {
+func (m *StateManagerImpl) SetServicePreference(
+	ws *interfaces.Workspace, pref statepkg.ServicePreference,
+) error {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return statepkg.SetServicePreference(wsConcrete, pref)
 }
 
 // GetWorkspaceProjectPreference returns the workspace project preference
-func (m *StateManagerImpl) GetWorkspaceProjectPreference(workspaceName string) (*statepkg.WorkspaceProjectPreference, error) {
+func (m *StateManagerImpl) GetWorkspaceProjectPreference(
+	workspaceName string,
+) (*statepkg.WorkspaceProjectPreference, error) {
 	return statepkg.GetWorkspaceProjectPreference(workspaceName)
 }
 
 // SetWorkspaceProjectPreference saves a workspace project preference
-func (m *StateManagerImpl) SetWorkspaceProjectPreference(workspaceName string, pref statepkg.WorkspaceProjectPreference) error {
+func (m *StateManagerImpl) SetWorkspaceProjectPreference(
+	workspaceName string, pref statepkg.WorkspaceProjectPreference,
+) error {
 	return statepkg.SetWorkspaceProjectPreference(workspaceName, pref)
 }
 
 // BuildServiceStates builds ServiceState list from deps and service info
-func (m *StateManagerImpl) BuildServiceStates(deps *config.Deps, serviceInfos map[string]*statepkg.ServiceInfo) []statepkg.ServiceState {
+func (m *StateManagerImpl) BuildServiceStates(
+	deps *config.Deps, serviceInfos map[string]*statepkg.ServiceInfo,
+) []statepkg.ServiceState {
 	return statepkg.BuildServiceStates(deps, serviceInfos)
 }
 

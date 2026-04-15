@@ -1,23 +1,27 @@
 package docker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/naming"
+	"raioz/internal/runtime"
 )
 
 // PortInfo contains information about a port usage
 type PortInfo struct {
-	Port      string
-	Project   string
-	Service   string
-	HostPort  int
+	Port          string
+	Project       string
+	Service       string
+	HostPort      int
 	ContainerPort int
 }
 
@@ -131,10 +135,10 @@ func GetAllActivePorts(baseDir string) ([]PortInfo, error) {
 				}
 
 				ports = append(ports, PortInfo{
-					Port:         port,
-					Project:      projectName,
-					Service:      serviceName,
-					HostPort:     hostPort,
+					Port:          port,
+					Project:       projectName,
+					Service:       serviceName,
+					HostPort:      hostPort,
 					ContainerPort: containerPort,
 				})
 			}
@@ -157,10 +161,10 @@ func GetAllActivePorts(baseDir string) ([]PortInfo, error) {
 				}
 
 				ports = append(ports, PortInfo{
-					Port:         port,
-					Project:      projectName,
-					Service:      infraName,
-					HostPort:     hostPort,
+					Port:          port,
+					Project:       projectName,
+					Service:       infraName,
+					HostPort:      hostPort,
 					ContainerPort: containerPort,
 				})
 			}
@@ -276,6 +280,56 @@ type PortConflict struct {
 	Alternative string
 }
 
+// PortOccupant describes what is currently using a host port.
+type PortOccupant struct {
+	Port          int
+	IsDocker      bool   // true when a Docker container holds the port
+	ContainerName string // non-empty when IsDocker
+	ContainerID   string // short ID when IsDocker
+	IsRaioz       bool   // container name starts with the raioz prefix
+	ProjectName   string // extracted from the container name if IsRaioz
+}
+
+// IdentifyPortOccupant checks what process or container is bound to a host
+// port. When a Docker container publishes the port, the returned occupant
+// carries its name/ID and whether it belongs to raioz.
+func IdentifyPortOccupant(ctx context.Context, port int) PortOccupant {
+	occ := PortOccupant{Port: port}
+
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "ps",
+		"--filter", fmt.Sprintf("publish=%d", port),
+		"--format", "{{.Names}}\t{{.ID}}")
+	out, err := cmd.Output()
+	if err != nil || strings.TrimSpace(string(out)) == "" {
+		return occ // not a Docker container (or docker not reachable)
+	}
+
+	line := strings.TrimSpace(strings.Split(string(out), "\n")[0])
+	parts := strings.SplitN(line, "\t", 2)
+	if len(parts) < 1 || parts[0] == "" {
+		return occ
+	}
+
+	occ.IsDocker = true
+	occ.ContainerName = parts[0]
+	if len(parts) == 2 {
+		occ.ContainerID = parts[1]
+	}
+
+	pfx := naming.GetPrefix() + "-"
+	if strings.HasPrefix(occ.ContainerName, pfx) {
+		occ.IsRaioz = true
+		// Container name format: {prefix}-{project}-{service}
+		// Extract project name (second segment).
+		rest := strings.TrimPrefix(occ.ContainerName, pfx)
+		if idx := strings.Index(rest, "-"); idx > 0 {
+			occ.ProjectName = rest[:idx]
+		}
+	}
+
+	return occ
+}
+
 // FormatPortConflicts formats port conflicts for display
 func FormatPortConflicts(conflicts []PortConflict) string {
 	if len(conflicts) == 0 {
@@ -284,7 +338,10 @@ func FormatPortConflicts(conflicts []PortConflict) string {
 
 	var lines []string
 	for _, conflict := range conflicts {
-		line := fmt.Sprintf("  Port %s is used by project '%s', service '%s'", conflict.Port, conflict.Project, conflict.Service)
+		line := fmt.Sprintf(
+			"  Port %s is used by project '%s', service '%s'",
+			conflict.Port, conflict.Project, conflict.Service,
+		)
 		if conflict.Alternative != "" {
 			line += fmt.Sprintf(" (suggested alternative: %s)", conflict.Alternative)
 		}

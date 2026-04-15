@@ -28,7 +28,7 @@ func TestUpCmdFlags(t *testing.T) {
 		shorthand string
 		defValue  string
 	}{
-		{"file", "f", ".raioz.json"},
+		{"file", "f", ""},
 		{"profile", "p", ""},
 		{"force-reclone", "", "false"},
 		{"dry-run", "", "false"},

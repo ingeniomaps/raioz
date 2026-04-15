@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"raioz/internal/config"
 )
 
 func TestDetectSharedVolumes(t *testing.T) {
@@ -195,8 +197,64 @@ func TestFormatSharedVolumesWarning(t *testing.T) {
 }
 
 func TestBuildServiceVolumesMap(t *testing.T) {
-	// This test requires config.Deps, so we'll do a basic integration test
-	// For now, we'll just verify the function exists and can be called
-	// Full integration tests would require creating a full config.Deps structure
-	t.Skip("Integration test - requires full config.Deps setup")
+	deps := &config.Deps{
+		Project: config.Project{Name: "proj"},
+		Services: map[string]config.Service{
+			"api": {
+				Source: config.SourceConfig{Kind: "image", Image: "nginx"},
+				Docker: &config.DockerConfig{
+					Volumes: []string{"api-data:/data", "./src:/app"},
+				},
+			},
+			"host-svc": {
+				Source: config.SourceConfig{Kind: "git", Command: "npm start"},
+				// Docker nil -> skipped
+			},
+			"no-vols": {
+				Source: config.SourceConfig{Kind: "image", Image: "busybox"},
+				Docker: &config.DockerConfig{},
+			},
+		},
+		Infra: map[string]config.InfraEntry{
+			"db": {Inline: &config.Infra{
+				Image:   "postgres",
+				Volumes: []string{"pgdata:/var/lib/postgresql/data"},
+			}},
+			"ext": {Path: "external.yml"},
+		},
+	}
+
+	got, err := BuildServiceVolumesMap(deps)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+
+	// api has one named volume
+	apiVols, ok := got["api"]
+	if !ok {
+		t.Fatal("api missing")
+	}
+	if len(apiVols.NamedVolumes) != 1 || apiVols.NamedVolumes[0] != "api-data" {
+		t.Errorf("api named = %v", apiVols.NamedVolumes)
+	}
+
+	// db has one named volume
+	dbVols, ok := got["db"]
+	if !ok {
+		t.Fatal("db missing")
+	}
+	if len(dbVols.NamedVolumes) != 1 || dbVols.NamedVolumes[0] != "pgdata" {
+		t.Errorf("db named = %v", dbVols.NamedVolumes)
+	}
+
+	// host-svc (nil docker) and no-vols (no named) and ext (Path) should be absent
+	if _, ok := got["host-svc"]; ok {
+		t.Error("host-svc should be absent")
+	}
+	if _, ok := got["no-vols"]; ok {
+		t.Error("no-vols should be absent")
+	}
+	if _, ok := got["ext"]; ok {
+		t.Error("ext should be absent")
+	}
 }

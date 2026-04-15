@@ -7,14 +7,18 @@ import (
 	"raioz/internal/domain/interfaces"
 )
 
-func (m *MockDockerRunner) CleanProjectWithContext(ctx context.Context, composePath string, dryRun bool) ([]string, error) {
+func (m *MockDockerRunner) CleanProjectWithContext(
+	ctx context.Context, composePath string, dryRun bool,
+) ([]string, error) {
 	if m.CleanProjectWithContextFunc != nil {
 		return m.CleanProjectWithContextFunc(ctx, composePath, dryRun)
 	}
 	return nil, nil
 }
 
-func (m *MockDockerRunner) CleanAllProjectsWithContext(ctx context.Context, baseDir string, dryRun bool) ([]string, error) {
+func (m *MockDockerRunner) CleanAllProjectsWithContext(
+	ctx context.Context, baseDir string, dryRun bool,
+) ([]string, error) {
 	if m.CleanAllProjectsWithContextFunc != nil {
 		return m.CleanAllProjectsWithContextFunc(ctx, baseDir, dryRun)
 	}
@@ -28,7 +32,9 @@ func (m *MockDockerRunner) CleanUnusedImagesWithContext(ctx context.Context, dry
 	return nil, nil
 }
 
-func (m *MockDockerRunner) CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool) ([]string, error) {
+func (m *MockDockerRunner) CleanUnusedVolumesWithContext(
+	ctx context.Context, dryRun bool, force bool,
+) ([]string, error) {
 	if m.CleanUnusedVolumesWithContextFunc != nil {
 		return m.CleanUnusedVolumesWithContextFunc(ctx, dryRun, force)
 	}
@@ -49,7 +55,9 @@ func (m *MockDockerRunner) GetAllActivePorts(baseDir string) ([]interfaces.PortI
 	return nil, nil
 }
 
-func (m *MockDockerRunner) GenerateCompose(deps *config.Deps, ws *interfaces.Workspace, projectDir string) (string, []string, error) {
+func (m *MockDockerRunner) GenerateCompose(
+	deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+) (string, []string, error) {
 	if m.GenerateComposeFunc != nil {
 		return m.GenerateComposeFunc(deps, ws, projectDir)
 	}
@@ -63,35 +71,47 @@ func (m *MockDockerRunner) UpServicesWithContext(ctx context.Context, composePat
 	return nil
 }
 
-func (m *MockDockerRunner) RestartServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+func (m *MockDockerRunner) RestartServicesWithContext(
+	ctx context.Context, composePath string, serviceNames []string,
+) error {
 	if m.RestartServicesWithContextFunc != nil {
 		return m.RestartServicesWithContextFunc(ctx, composePath, serviceNames)
 	}
 	return nil
 }
 
-func (m *MockDockerRunner) ForceRecreateServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
+func (m *MockDockerRunner) ForceRecreateServicesWithContext(
+	ctx context.Context, composePath string, serviceNames []string,
+) error {
 	if m.ForceRecreateServicesWithContextFunc != nil {
 		return m.ForceRecreateServicesWithContextFunc(ctx, composePath, serviceNames)
 	}
 	return nil
 }
 
-func (m *MockDockerRunner) ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error {
+func (m *MockDockerRunner) ExecInService(
+	ctx context.Context, composePath string, serviceName string,
+	command []string, interactive bool,
+) error {
 	if m.ExecInServiceFunc != nil {
 		return m.ExecInServiceFunc(ctx, composePath, serviceName, command, interactive)
 	}
 	return nil
 }
 
-func (m *MockDockerRunner) WaitForServicesHealthy(ctx context.Context, composePath string, serviceNames []string, infraNames []string, projectName string) error {
+func (m *MockDockerRunner) WaitForServicesHealthy(
+	ctx context.Context, composePath string, serviceNames []string,
+	infraNames []string, projectName string,
+) error {
 	if m.WaitForServicesHealthyFunc != nil {
 		return m.WaitForServicesHealthyFunc(ctx, composePath, serviceNames, infraNames, projectName)
 	}
 	return nil
 }
 
-func (m *MockDockerRunner) ValidatePorts(deps *config.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
+func (m *MockDockerRunner) ValidatePorts(
+	deps *config.Deps, baseDir string, projectName string,
+) ([]interfaces.PortConflict, error) {
 	if m.ValidatePortsFunc != nil {
 		return m.ValidatePortsFunc(deps, baseDir, projectName)
 	}
@@ -112,7 +132,9 @@ func (m *MockDockerRunner) ValidateAllImages(deps *config.Deps) error {
 	return nil
 }
 
-func (m *MockDockerRunner) EnsureNetworkWithConfigAndContext(ctx context.Context, name string, subnet string, askConfirmation bool) error {
+func (m *MockDockerRunner) EnsureNetworkWithConfigAndContext(
+	ctx context.Context, name string, subnet string, askConfirmation bool,
+) error {
 	if m.EnsureNetworkWithConfigAndContextFunc != nil {
 		return m.EnsureNetworkWithConfigAndContextFunc(ctx, name, subnet, askConfirmation)
 	}
@@ -133,23 +155,38 @@ func (m *MockDockerRunner) NormalizeVolumeName(prefix string, name string) (stri
 	return "", nil
 }
 
-func (m *MockDockerRunner) NormalizeContainerName(workspace string, service string, project string, hasExplicitWorkspace bool) (string, error) {
+func (m *MockDockerRunner) NormalizeContainerName(
+	workspace string, service string, project string, hasExplicitWorkspace bool,
+) (string, error) {
 	if m.NormalizeContainerNameFunc != nil {
 		return m.NormalizeContainerNameFunc(workspace, service, project, hasExplicitWorkspace)
 	}
 	return "", nil
 }
 
-func (m *MockDockerRunner) NormalizeInfraName(workspace string, infra string, project string, hasExplicitWorkspace bool) (string, error) {
+func (m *MockDockerRunner) NormalizeInfraName(
+	workspace string, infra string, project string, hasExplicitWorkspace bool,
+) (string, error) {
 	if m.NormalizeInfraNameFunc != nil {
 		return m.NormalizeInfraNameFunc(workspace, infra, project, hasExplicitWorkspace)
 	}
 	return "", nil
 }
 
-func (m *MockDockerRunner) GetContainerNameWithContext(ctx context.Context, composePath string, serviceName string) (string, error) {
+func (m *MockDockerRunner) GetContainerNameWithContext(
+	ctx context.Context, composePath string, serviceName string,
+) (string, error) {
 	if m.GetContainerNameWithContextFunc != nil {
 		return m.GetContainerNameWithContextFunc(ctx, composePath, serviceName)
+	}
+	return "", nil
+}
+
+func (m *MockDockerRunner) GetContainerStatusByName(
+	ctx context.Context, containerName string,
+) (string, error) {
+	if m.GetContainerStatusByNameFunc != nil {
+		return m.GetContainerStatusByNameFunc(ctx, containerName)
 	}
 	return "", nil
 }

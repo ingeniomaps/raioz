@@ -38,6 +38,7 @@ func (uc *UseCase) mergeDeps(oldDeps, deps *config.Deps, currentProjectDir strin
 		Workspace:     deps.Workspace,
 		Network:       deps.Network,
 		Project:       deps.Project,
+		Profiles:      deps.Profiles,
 		ProjectRoot:   currentProjectDir,
 		Services:      make(map[string]config.Service),
 		Infra:         make(map[string]config.InfraEntry),
@@ -46,6 +47,10 @@ func (uc *UseCase) mergeDeps(oldDeps, deps *config.Deps, currentProjectDir strin
 			Files:     mergeSliceUnique(oldDeps.Env.Files, deps.Env.Files),
 			Variables: mergeVariables(oldDeps.Env.Variables, deps.Env.Variables),
 		},
+		Proxy:       deps.Proxy,
+		ProxyConfig: deps.ProxyConfig,
+		PreHook:     deps.PreHook,
+		PostHook:    deps.PostHook,
 	}
 
 	// Services: union; resolve each project's volumes with its own project dir, then merge
@@ -144,15 +149,21 @@ func mergeVariables(oldV, newV map[string]string) map[string]string {
 
 func cloneService(s config.Service) config.Service {
 	out := config.Service{
-		Source:      s.Source,
-		DependsOn:   append([]string(nil), s.DependsOn...),
-		Env:         s.Env,
-		Volumes:     append([]string(nil), s.Volumes...),
-		Profiles:    append([]string(nil), s.Profiles...),
-		Enabled:     s.Enabled,
-		Mock:        s.Mock,
-		FeatureFlag: s.FeatureFlag,
-		Commands:    s.Commands,
+		Source:         s.Source,
+		DependsOn:      append([]string(nil), s.DependsOn...),
+		Env:            s.Env,
+		Volumes:        append([]string(nil), s.Volumes...),
+		Profiles:       append([]string(nil), s.Profiles...),
+		Enabled:        s.Enabled,
+		Mock:           s.Mock,
+		FeatureFlag:    s.FeatureFlag,
+		Commands:       s.Commands,
+		Watch:          s.Watch,
+		Hostname:       s.Hostname,
+		Routing:        s.Routing,
+		ProxyOverride:  s.ProxyOverride, // BUG: previously missing — proxy override silently dropped on workspace merge
+		Port:           s.Port,
+		HealthEndpoint: s.HealthEndpoint,
 	}
 	if s.Docker != nil {
 		out.Docker = &config.DockerConfig{
@@ -207,14 +218,19 @@ func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
 	if entry.Inline != nil {
 		inf := *entry.Inline
 		out.Inline = &config.Infra{
+			Name:        inf.Name,
 			Image:       inf.Image,
 			Tag:         inf.Tag,
-			Ports:      append([]string(nil), inf.Ports...),
-			Volumes:    append([]string(nil), inf.Volumes...),
+			Compose:     append([]string(nil), inf.Compose...),
+			Ports:       append([]string(nil), inf.Ports...),
+			Volumes:     append([]string(nil), inf.Volumes...),
 			IP:          inf.IP,
 			Env:         inf.Env,
-			Profiles:   append([]string(nil), inf.Profiles...),
+			Profiles:    append([]string(nil), inf.Profiles...),
 			Healthcheck: inf.Healthcheck,
+			Expose:      append([]int(nil), inf.Expose...),
+			Publish:     inf.Publish,
+			Routing:     inf.Routing,
 		}
 	}
 	return out
@@ -224,7 +240,8 @@ func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
 // from a different project. Returns (result, mergedDeps, error).
 // When result is Proceed and mergedDeps is non-nil, the caller must use mergedDeps (merged configs).
 // When result is Proceed and mergedDeps is nil, the caller uses current deps (replace).
-// currentProjectDir is the absolute path to the current project (where .raioz.json is); used to resolve relative volumes per project when merging.
+// currentProjectDir is the absolute path to the current project (where .raioz.json is);
+// used to resolve relative volumes per project when merging.
 func (uc *UseCase) checkWorkspaceProjectConflict(
 	ctx context.Context,
 	deps *config.Deps,

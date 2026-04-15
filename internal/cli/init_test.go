@@ -17,9 +17,7 @@ func TestInitCmd(t *testing.T) {
 		t.Error("initCmd.Short should not be empty")
 	}
 
-	if initCmd.Long == "" {
-		t.Error("initCmd.Long should not be empty")
-	}
+	// Long is set via i18n in zzz_i18n_descriptions.go
 
 	if !initCmd.SilenceUsage {
 		t.Error("initCmd.SilenceUsage should be true")
@@ -35,8 +33,8 @@ func TestInitCmdFlags(t *testing.T) {
 		if f.Shorthand != "o" {
 			t.Errorf("output shorthand = %s, want o", f.Shorthand)
 		}
-		if f.DefValue != ".raioz.json" {
-			t.Errorf("output default = %s, want .raioz.json", f.DefValue)
+		if f.DefValue != "raioz.yaml" {
+			t.Errorf("output default = %s, want raioz.yaml", f.DefValue)
 		}
 	})
 }

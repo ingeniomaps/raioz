@@ -11,6 +11,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
+	"raioz/internal/output"
 )
 
 // StatusOptions contains options for the Status use case
@@ -34,19 +35,26 @@ func NewStatusUseCase(deps *Dependencies) *StatusUseCase {
 
 // Execute executes the status use case
 func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error {
-	// Create context for the operation
 	if ctx == nil {
 		ctx = context.Background()
+	}
+
+	// Try YAML mode first
+	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		return uc.StatusYAML(ctx, proj)
 	}
 
 	var ws *interfaces.Workspace
 	var err error
 
-	// Try to determine project name and workspace
+	// Legacy: try to determine project name and workspace
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil {
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
@@ -60,7 +68,10 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 		}
 	} else {
 		// If project name comes from CLI, load config to get workspace name
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil && deps.Project.Name == projectName {
 			workspaceName = deps.GetWorkspaceName()
 		} else {

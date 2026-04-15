@@ -49,7 +49,7 @@ var restartCmd = &cobra.Command{
 }
 
 func init() {
-	restartCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	restartCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	restartCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	restartCmd.Flags().BoolVar(&restartAll, "all", false, "Restart all services")
 	restartCmd.Flags().BoolVar(&restartIncludeInfra, "include-infra", false, "Also restart infrastructure services")

@@ -9,23 +9,24 @@ import (
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // VolumeType represents the type of volume
 type VolumeType string
 
 const (
-	VolumeTypeNamed   VolumeType = "named"   // Named volume: mongo-data:/data/db
-	VolumeTypeBind    VolumeType = "bind"    // Bind mount: ./path:/container/path
+	VolumeTypeNamed     VolumeType = "named"     // Named volume: mongo-data:/data/db
+	VolumeTypeBind      VolumeType = "bind"      // Bind mount: ./path:/container/path
 	VolumeTypeAnonymous VolumeType = "anonymous" // Anonymous: /container/path
 )
 
 // VolumeInfo contains information about a parsed volume
 type VolumeInfo struct {
-	Type         VolumeType
-	Source       string // For named: volume name, for bind: host path
-	Destination  string // Container path
-	Original     string // Original volume string
+	Type        VolumeType
+	Source      string // For named: volume name, for bind: host path
+	Destination string // Container path
+	Original    string // Original volume string
 }
 
 // ParseVolume parses a volume string and determines its type
@@ -189,9 +190,13 @@ func ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, erro
 	return resolved, nil
 }
 
-// NormalizeVolumeNamesInStrings normalizes volume names in volume strings with project prefix
-// Replaces original volume names with normalized names (project_volume_name)
-func NormalizeVolumeNamesInStrings(volumes []string, projectName string, volumeMap map[string]string) ([]string, error) {
+// NormalizeVolumeNamesInStrings normalizes volume names in volume
+// strings with project prefix. Replaces original volume names with
+// normalized names (project_volume_name).
+func NormalizeVolumeNamesInStrings(
+	volumes []string, projectName string,
+	volumeMap map[string]string,
+) ([]string, error) {
 	normalized := make([]string, 0, len(volumes))
 
 	for _, vol := range volumes {
@@ -237,7 +242,7 @@ func VolumeExistsWithContext(ctx context.Context, name string) (bool, error) {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerVolumeTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "inspect", name)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "inspect", name)
 	err := cmd.Run()
 
 	if err != nil {
@@ -277,7 +282,7 @@ func EnsureVolumeWithContext(ctx context.Context, name string) error {
 	defer cancel()
 
 	// Create volume
-	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "create", name)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "create", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -312,7 +317,7 @@ func RemoveVolumeWithContext(ctx context.Context, name string) error {
 	defer cancel()
 
 	// Remove volume
-	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "rm", name)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "rm", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

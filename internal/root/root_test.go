@@ -66,7 +66,7 @@ func TestLoad(t *testing.T) {
 		root := &RootConfig{
 			SchemaVersion: "1.0",
 			Project: config.Project{
-				Name:    "test-project",
+				Name: "test-project",
 			},
 			Services: make(map[string]config.Service),
 			Infra:    make(map[string]config.InfraEntry),
@@ -116,7 +116,7 @@ func TestSave(t *testing.T) {
 		root := &RootConfig{
 			SchemaVersion: "1.0",
 			Project: config.Project{
-				Name:    "test-project",
+				Name: "test-project",
 			},
 			Services: make(map[string]config.Service),
 			Infra:    make(map[string]config.InfraEntry),
@@ -149,7 +149,7 @@ func TestSave(t *testing.T) {
 			SchemaVersion: "1.0",
 			GeneratedAt:   originalTime,
 			Project: config.Project{
-				Name:    "test",
+				Name: "test",
 			},
 			Services: make(map[string]config.Service),
 			Infra:    make(map[string]config.InfraEntry),
@@ -251,7 +251,7 @@ func TestUpdateFromDeps(t *testing.T) {
 		SchemaVersion: "1.0",
 		GeneratedAt:   "2024-01-01T00:00:00Z",
 		Project: config.Project{
-			Name:    "old-project",
+			Name: "old-project",
 		},
 		Services: map[string]config.Service{
 			"old-service": {
@@ -261,8 +261,8 @@ func TestUpdateFromDeps(t *testing.T) {
 				},
 			},
 		},
-		Infra:    make(map[string]config.InfraEntry),
-		Env:      config.EnvConfig{},
+		Infra: make(map[string]config.InfraEntry),
+		Env:   config.EnvConfig{},
 		Metadata: map[string]ServiceMetadata{
 			"old-service": {
 				Origin:  OriginRoot,
@@ -274,7 +274,7 @@ func TestUpdateFromDeps(t *testing.T) {
 	newDeps := &config.Deps{
 		SchemaVersion: "1.0",
 		Project: config.Project{
-			Name:    "new-project",
+			Name: "new-project",
 		},
 		Services: map[string]config.Service{
 			"new-service": {
@@ -344,7 +344,7 @@ func TestUpdateFromDeps(t *testing.T) {
 
 		deps := &config.Deps{
 			SchemaVersion: "1.0",
-			Project:      config.Project{Name: "test"},
+			Project:       config.Project{Name: "test"},
 			Services: map[string]config.Service{
 				"api": {
 					Source: config.SourceConfig{
@@ -381,7 +381,7 @@ func TestUpdateFromDeps(t *testing.T) {
 
 		deps := &config.Deps{
 			SchemaVersion: "1.0",
-			Project:      config.Project{Name: "test"},
+			Project:       config.Project{Name: "test"},
 			Services: map[string]config.Service{
 				"new-service": {
 					Source: config.SourceConfig{

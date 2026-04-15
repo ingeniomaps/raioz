@@ -46,7 +46,7 @@ var cleanCmd = &cobra.Command{
 }
 
 func init() {
-	cleanCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	cleanCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	cleanCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	cleanCmd.Flags().BoolVar(&cleanAll, "all", false, "Clean all projects")
 	cleanCmd.Flags().BoolVar(&cleanImages, "images", false, "Remove unused Docker images")

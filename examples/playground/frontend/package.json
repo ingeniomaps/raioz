@@ -1,0 +1,8 @@
+{
+  "name": "playground-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "echo 'Frontend dev server running on :3000' && node server.js",
+    "start": "node server.js"
+  }
+}

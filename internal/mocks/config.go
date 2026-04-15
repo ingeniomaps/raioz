@@ -13,17 +13,23 @@ var _ interfaces.Validator = (*MockValidator)(nil)
 
 // MockConfigLoader is a mock implementation of interfaces.ConfigLoader
 type MockConfigLoader struct {
-	LoadDepsFunc                  func(configPath string) (*config.Deps, []string, error)
-	IsServiceEnabledFunc          func(svc config.Service, profile string, envVars map[string]string) bool
-	ValidateFeatureFlagsFunc      func(deps *config.Deps) error
-	FilterByProfileFunc           func(deps *config.Deps, profile string) *config.Deps
-	FilterByProfilesFunc          func(deps *config.Deps, profiles []string) *config.Deps
-	FilterByFeatureFlagsFunc      func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string)
+	LoadDepsFunc             func(configPath string) (*config.Deps, []string, error)
+	IsServiceEnabledFunc     func(svc config.Service, profile string, envVars map[string]string) bool
+	ValidateFeatureFlagsFunc func(deps *config.Deps) error
+	FilterByProfileFunc      func(deps *config.Deps, profile string) *config.Deps
+	FilterByProfilesFunc     func(deps *config.Deps, profiles []string) *config.Deps
+	FilterByFeatureFlagsFunc func(
+		deps *config.Deps, profile string, envVars map[string]string,
+	) (*config.Deps, []string)
 	FilterIgnoredServicesFunc     func(deps *config.Deps) (*config.Deps, []string, error)
 	CheckIgnoredDependenciesFunc  func(deps *config.Deps, ignoredServices []string) map[string][]string
-	DetectMissingDependenciesFunc func(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.MissingDependency, error)
-	DetectDependencyConflictsFunc func(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.DependencyConflict, error)
-	FindServiceConfigFunc         func(servicePath string) (*config.Deps, string, error)
+	DetectMissingDependenciesFunc func(
+		deps *config.Deps, pathResolver func(string, config.Service) string,
+	) ([]config.MissingDependency, error)
+	DetectDependencyConflictsFunc func(
+		deps *config.Deps, pathResolver func(string, config.Service) string,
+	) ([]config.DependencyConflict, error)
+	FindServiceConfigFunc func(servicePath string) (*config.Deps, string, error)
 }
 
 func (m *MockConfigLoader) LoadDeps(configPath string) (*config.Deps, []string, error) {
@@ -61,7 +67,9 @@ func (m *MockConfigLoader) FilterByProfiles(deps *config.Deps, profiles []string
 	return nil
 }
 
-func (m *MockConfigLoader) FilterByFeatureFlags(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+func (m *MockConfigLoader) FilterByFeatureFlags(
+	deps *config.Deps, profile string, envVars map[string]string,
+) (*config.Deps, []string) {
 	if m.FilterByFeatureFlagsFunc != nil {
 		return m.FilterByFeatureFlagsFunc(deps, profile, envVars)
 	}
@@ -82,14 +90,18 @@ func (m *MockConfigLoader) CheckIgnoredDependencies(deps *config.Deps, ignoredSe
 	return nil
 }
 
-func (m *MockConfigLoader) DetectMissingDependencies(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.MissingDependency, error) {
+func (m *MockConfigLoader) DetectMissingDependencies(
+	deps *config.Deps, pathResolver func(string, config.Service) string,
+) ([]config.MissingDependency, error) {
 	if m.DetectMissingDependenciesFunc != nil {
 		return m.DetectMissingDependenciesFunc(deps, pathResolver)
 	}
 	return nil, nil
 }
 
-func (m *MockConfigLoader) DetectDependencyConflicts(deps *config.Deps, pathResolver func(string, config.Service) string) ([]config.DependencyConflict, error) {
+func (m *MockConfigLoader) DetectDependencyConflicts(
+	deps *config.Deps, pathResolver func(string, config.Service) string,
+) ([]config.DependencyConflict, error) {
 	if m.DetectDependencyConflictsFunc != nil {
 		return m.DetectDependencyConflictsFunc(deps, pathResolver)
 	}

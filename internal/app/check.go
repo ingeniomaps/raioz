@@ -17,12 +17,14 @@ type CheckResult = checkcase.CheckResult
 
 // CheckUseCase handles the "check" use case - checking alignment between config and state
 type CheckUseCase struct {
+	deps    *Dependencies
 	useCase *checkcase.UseCase
 }
 
 // NewCheckUseCase creates a new CheckUseCase with injected dependencies
 func NewCheckUseCase(deps *Dependencies) *CheckUseCase {
 	return &CheckUseCase{
+		deps: deps,
 		useCase: checkcase.NewUseCase(&checkcase.Dependencies{
 			ConfigLoader: deps.ConfigLoader,
 			Workspace:    deps.Workspace,
@@ -33,6 +35,23 @@ func NewCheckUseCase(deps *Dependencies) *CheckUseCase {
 
 // Execute executes the check use case
 func (uc *CheckUseCase) Execute(ctx context.Context, opts CheckOptions) (*CheckResult, error) {
+	// Try YAML mode first
+	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		// CheckYAML prints its own section header, per-service runtime
+		// results, proxy/port validation errors, and the final "N issue(s)
+		// found" or "All checks passed" line. We only need the boolean
+		// signal back from it to decide how the CLI wrapper closes out.
+		err := CheckYAML(proj)
+		return &CheckResult{
+			ConfigValid: err == nil,
+			HasIssues:   err != nil,
+			// NoState stays false for yaml projects: the concept of legacy
+			// state-file alignment doesn't apply. The CLI display handler
+			// skips the "no state found" hint in this mode.
+			YAMLMode: true,
+		}, nil
+	}
+
 	options := checkcase.Options{
 		ProjectName: opts.ProjectName,
 		ConfigPath:  opts.ConfigPath,

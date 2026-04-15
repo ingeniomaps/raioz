@@ -41,7 +41,7 @@ var logsCmd = &cobra.Command{
 }
 
 func init() {
-	logsCmd.Flags().StringVarP(&configPath, "file", "f", ".raioz.json", "Path to config file")
+	logsCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	logsCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	logsCmd.Flags().BoolVar(&logsFollow, "follow", false, "Follow log output")
 	logsCmd.Flags().IntVar(&logsTail, "tail", 0, "Number of lines to show from the end of logs (0 = all)")

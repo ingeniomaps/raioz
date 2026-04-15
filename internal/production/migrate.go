@@ -195,13 +195,8 @@ func SuggestGitSource(serviceName, imageName string) *config.SourceConfig {
 // EnhanceMigratedDeps enhances a migrated .raioz.json with suggestions for git sources
 func EnhanceMigratedDeps(deps *config.Deps) {
 	for name, svc := range deps.Services {
-		// If service uses image source, suggest git source if possible
 		if svc.Source.Kind == "image" {
-			suggested := SuggestGitSource(name, svc.Source.Image)
-			if suggested != nil {
-				// Don't overwrite, but could be used as a hint
-				// For now, we keep the image source
-			}
+			_ = SuggestGitSource(name, svc.Source.Image)
 		}
 	}
 }

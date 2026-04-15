@@ -16,25 +16,25 @@ const globalStateFileName = "state.json"
 
 // GlobalState represents the global state across all projects
 type GlobalState struct {
-	ActiveProjects []string              `json:"activeProjects"`
+	ActiveProjects []string                `json:"activeProjects"`
 	Projects       map[string]ProjectState `json:"projects"`
 }
 
 // ProjectState represents the state of a single project
 type ProjectState struct {
-	Name          string            `json:"name"`
-	Workspace     string            `json:"workspace"`
-	LastExecution time.Time         `json:"lastExecution"`
-	Services      []ServiceState    `json:"services"`
+	Name          string         `json:"name"`
+	Workspace     string         `json:"workspace"`
+	LastExecution time.Time      `json:"lastExecution"`
+	Services      []ServiceState `json:"services"`
 }
 
 // ServiceState represents the state of a single service
 type ServiceState struct {
 	Name    string `json:"name"`
-	Mode    string `json:"mode"` // dev or prod
-	Version string `json:"version"` // Commit SHA or image tag
+	Mode    string `json:"mode"`            // dev or prod
+	Version string `json:"version"`         // Commit SHA or image tag
 	Image   string `json:"image,omitempty"` // Full image name (if applicable)
-	Status  string `json:"status"` // running or stopped
+	Status  string `json:"status"`          // running or stopped
 }
 
 // GetGlobalStatePath returns the path to the global state file
@@ -75,7 +75,11 @@ func LoadGlobalState() (*GlobalState, error) {
 		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to parse global state file").
 			WithContext("path", path).
 			WithError(err).
-			WithSuggestion("The global state file may be corrupted. Try deleting it — it will be recreated on the next 'raioz up'")
+			WithSuggestion(
+				"The global state file may be corrupted. " +
+					"Try deleting it — it will be recreated " +
+					"on the next 'raioz up'",
+			)
 	}
 
 	// Ensure maps are initialized
@@ -142,9 +146,14 @@ func GetProjectState(projectName string) (*ProjectState, error) {
 
 	projectState, exists := state.Projects[projectName]
 	if !exists {
-		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, fmt.Sprintf("project '%s' not found in global state", projectName)).
-			WithContext("project", projectName).
-			WithSuggestion("Run 'raioz up' first to register the project in the global state")
+		return nil, raiozErrors.New(
+			raiozErrors.ErrCodeStateLoadError,
+			fmt.Sprintf("project '%s' not found in global state", projectName),
+		).WithContext("project", projectName).
+			WithSuggestion(
+				"Run 'raioz up' first to register the project " +
+					"in the global state",
+			)
 	}
 
 	return &projectState, nil

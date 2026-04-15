@@ -1,0 +1,77 @@
+# 17 — Profiles: start only what you need
+#
+# Backend devs don't need the frontend running.
+# Frontend devs don't need every microservice.
+# Profiles let each team member start their slice.
+#
+# Usage:
+#   raioz up                       # start everything
+#   raioz up --profile backend     # api + workers + infra (no frontend)
+#   raioz up --profile frontend    # frontend + api (its dependency) + infra
+#
+# Services without profiles always start.
+# Dependencies always start (they're infrastructure).
+
+project: saas-app
+proxy: true
+
+services:
+  # No profile → always starts (shared gateway)
+  api:
+    path: ./api
+    dependsOn: [postgres, redis]
+    health: /health
+    watch: true
+
+  # Only starts with: raioz up --profile frontend
+  dashboard:
+    path: ./dashboard
+    dependsOn: [api]
+    watch: native
+    profiles: [frontend]
+
+  admin-panel:
+    path: ./admin
+    dependsOn: [api]
+    watch: native
+    profiles: [frontend]
+
+  # Only starts with: raioz up --profile backend
+  email-worker:
+    path: ./workers/email
+    dependsOn: [redis, postgres]
+    profiles: [backend]
+
+  report-worker:
+    path: ./workers/reports
+    dependsOn: [postgres]
+    profiles: [backend]
+
+  # Starts with either: --profile backend OR --profile data
+  etl-pipeline:
+    path: ./etl
+    dependsOn: [postgres]
+    profiles: [backend, data]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+
+  redis:
+    image: redis:7
+    ports: ["6379"]
+
+# What starts with each profile:
+#
+#   --profile backend:
+#     api, email-worker, report-worker, etl-pipeline + postgres, redis
+#
+#   --profile frontend:
+#     api, dashboard, admin-panel + postgres, redis
+#
+#   --profile data:
+#     api, etl-pipeline + postgres, redis
+#
+#   (no profile):
+#     everything

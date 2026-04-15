@@ -9,16 +9,17 @@ import (
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // CleanupOptions contains options for cleanup operations
 type CleanupOptions struct {
-	DryRun     bool
-	All        bool
-	Images     bool
-	Volumes    bool
-	Networks   bool
-	Force      bool
+	DryRun   bool
+	All      bool
+	Images   bool
+	Volumes  bool
+	Networks bool
+	Force    bool
 }
 
 // CleanProject cleans up stopped services and resources for a project
@@ -49,7 +50,7 @@ func CleanProjectWithContext(ctx context.Context, composePath string, dryRun boo
 	defer cancel()
 
 	// Remove stopped containers, networks, and images created by compose
-	cmd := exec.CommandContext(timeoutCtx, "docker", "compose", "-f", composePath, "down", "--remove-orphans")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "down", "--remove-orphans")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -82,7 +83,7 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 
 	if dryRun {
 		// List unused images
-		cmd := exec.CommandContext(timeoutCtx, "docker", "images", "--filter", "dangling=true", "-q")
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "images", "--filter", "dangling=true", "-q")
 		output, err := cmd.Output()
 		if err != nil {
 			if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -106,7 +107,7 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 	}
 
 	// Remove unused images
-	cmd := exec.CommandContext(timeoutCtx, "docker", "image", "prune", "-f")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "image", "prune", "-f")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -134,7 +135,7 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 
 	if dryRun {
 		// List unused volumes
-		cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "ls", "-q", "-f", "dangling=true")
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "ls", "-q", "-f", "dangling=true")
 		output, err := cmd.Output()
 		if err != nil {
 			if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -162,7 +163,7 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 	}
 
 	// Remove unused volumes
-	cmd := exec.CommandContext(timeoutCtx, "docker", "volume", "prune", "-f")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "prune", "-f")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -190,7 +191,7 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 
 	if dryRun {
 		// List unused networks (not raioz-* networks that might be in use)
-		cmd := exec.CommandContext(timeoutCtx, "docker", "network", "ls", "-q", "-f", "dangling=true")
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "ls", "-q", "-f", "dangling=true")
 		output, err := cmd.Output()
 		if err != nil {
 			if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -203,7 +204,7 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 		for _, net := range networks {
 			if net != "" {
 				// Get network name
-				cmd2 := exec.CommandContext(timeoutCtx, "docker", "network", "inspect", "-f", "{{.Name}}", net)
+				cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect", "-f", "{{.Name}}", net)
 				nameOutput, err := cmd2.Output()
 				if err == nil {
 					netName := strings.TrimSpace(string(nameOutput))
@@ -220,7 +221,7 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 	}
 
 	// Remove unused networks
-	cmd := exec.CommandContext(timeoutCtx, "docker", "network", "prune", "-f")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "prune", "-f")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

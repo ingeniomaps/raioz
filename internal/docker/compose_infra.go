@@ -28,7 +28,11 @@ func addInfraToCompose(
 
 	for name, entry := range deps.Infra {
 		if entry.Path != "" {
-			names, err := mergeExternalComposeFile(compose, projectDir, entry.Path, workspaceName, deps.Project.Name, networkName, hasExplicitWorkspace, name, infraVolumeMap)
+			names, err := mergeExternalComposeFile(
+				compose, projectDir, entry.Path, workspaceName,
+				deps.Project.Name, networkName, hasExplicitWorkspace,
+				name, infraVolumeMap,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -39,7 +43,11 @@ func addInfraToCompose(
 			continue
 		}
 
-		infraConfig, err := buildInlineInfraConfig(name, *entry.Inline, deps, ws, projectDir, networkName, workspaceName, hasExplicitWorkspace, infraVolumeMap)
+		infraConfig, err := buildInlineInfraConfig(
+			name, *entry.Inline, deps, ws, projectDir,
+			networkName, workspaceName, hasExplicitWorkspace,
+			infraVolumeMap,
+		)
 		if err != nil {
 			return nil, err
 		}

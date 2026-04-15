@@ -12,15 +12,16 @@ import (
 
 	"raioz/internal/config"
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/runtime"
 )
 
 // NetworkInfo contains information about a Docker network
 type NetworkInfo struct {
-	Name       string
-	Driver     string
-	Scope      string
-	External   bool
-	CreatedBy   string
+	Name      string
+	Driver    string
+	Scope     string
+	External  bool
+	CreatedBy string
 }
 
 // EnsureNetwork ensures that a Docker network exists, creating it if necessary
@@ -40,8 +41,9 @@ func EnsureNetworkWithContext(ctx context.Context, name string) error {
 	return EnsureNetworkWithConfigAndContext(ctx, NetworkConfig{Name: name}, false)
 }
 
-// EnsureNetworkWithConfigAndContext ensures that a Docker network exists, creating it if necessary, with context support
-// If askConfirmation is true, prompts the user before creating the network
+// EnsureNetworkWithConfigAndContext ensures that a Docker network exists,
+// creating it if necessary, with context support.
+// If askConfirmation is true, prompts the user before creating the network.
 func EnsureNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig, askConfirmation bool) error {
 	// Check if network exists
 	exists, info, err := NetworkExistsWithContext(ctx, config.Name)
@@ -105,7 +107,7 @@ func NetworkExistsWithContext(ctx context.Context, name string) (bool, *NetworkI
 	defer cancel()
 
 	format := "{{.Name}}|{{.Driver}}|{{.Scope}}|{{.Options}}"
-	cmd := exec.CommandContext(timeoutCtx, "docker", "network", "inspect", name, "--format", format)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect", name, "--format", format)
 	output, err := cmd.Output()
 
 	if err != nil {
@@ -184,7 +186,7 @@ func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig
 
 	args = append(args, config.Name)
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -197,7 +199,7 @@ func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig
 
 // RemoveNetwork removes a Docker network
 func RemoveNetwork(name string) error {
-	cmd := exec.Command("docker", "network", "rm", name)
+	cmd := exec.Command(runtime.Binary(), "network", "rm", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// If network is in use, that's ok - we don't want to force remove
@@ -220,7 +222,7 @@ func IsNetworkInUseWithContext(ctx context.Context, name string) (bool, error) {
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerNetworkTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(timeoutCtx, "docker", "network", "inspect", name, "--format", "{{len .Containers}}")
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect", name, "--format", "{{len .Containers}}")
 	output, err := cmd.Output()
 	if err != nil {
 		// If network doesn't exist, it's not in use
@@ -287,4 +289,32 @@ func GetNetworkProjects(networkName string, baseDir string) ([]string, error) {
 	}
 
 	return projects, nil
+}
+
+// ConnectContainerToNetwork attaches a running container to a Docker network.
+// If the container is already connected, this is a no-op.
+func ConnectContainerToNetwork(ctx context.Context, containerName, networkName string, aliases []string) error {
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerNetworkTimeout)
+	defer cancel()
+
+	args := []string{"network", "connect"}
+	for _, alias := range aliases {
+		args = append(args, "--alias", alias)
+	}
+	args = append(args, networkName, containerName)
+
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Already connected is not an error
+		if strings.Contains(string(output), "already exists") {
+			return nil
+		}
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return fmt.Errorf("network connect timed out after %v", exectimeout.DockerNetworkTimeout)
+		}
+		return fmt.Errorf("failed to connect %s to network %s: %w (%s)",
+			containerName, networkName, err, string(output))
+	}
+	return nil
 }

@@ -13,7 +13,11 @@ import (
 )
 
 // resolveEnvVars resolves environment variables for a host service
-func resolveEnvVars(ctx context.Context, ws *workspace.Workspace, deps *config.Deps, serviceName string, svc config.Service, projectDir string, servicePath string) ([]string, error) {
+func resolveEnvVars(
+	ctx context.Context, ws *workspace.Workspace,
+	deps *config.Deps, serviceName string,
+	svc config.Service, projectDir string, servicePath string,
+) ([]string, error) {
 	// Resolve env file path (same logic as Docker)
 	envFilePath, err := env.ResolveEnvFileForService(ws, deps, serviceName, svc.Env, projectDir, servicePath)
 	if err != nil {
@@ -187,13 +191,16 @@ func shouldWaitForCommand(command string) bool {
 
 	// Scripts (installer.sh, setup.sh, etc.) should execute synchronously to catch errors
 	// These are typically deployment/setup scripts that should complete before continuing
-	if strings.HasSuffix(commandLower, ".sh") || strings.HasPrefix(commandLower, "./") || strings.HasPrefix(commandLower, "sh ") {
+	isScript := strings.HasSuffix(commandLower, ".sh") ||
+		strings.HasPrefix(commandLower, "./") ||
+		strings.HasPrefix(commandLower, "sh ")
+	if isScript {
 		// Exclude long-running scripts that should run in background
 		// If it's a simple script execution (not npm run, go run, etc.), wait for it
 		if !strings.Contains(commandLower, "npm run") &&
-		   !strings.Contains(commandLower, "go run") &&
-		   !strings.Contains(commandLower, "python") &&
-		   !strings.Contains(commandLower, "node") {
+			!strings.Contains(commandLower, "go run") &&
+			!strings.Contains(commandLower, "python") &&
+			!strings.Contains(commandLower, "node") {
 			return true
 		}
 	}

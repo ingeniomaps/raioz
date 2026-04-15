@@ -70,8 +70,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 		serviceDeps := &config.Deps{
 			SchemaVersion: "1.0",
 			Project: config.Project{
-				Name:    "test-project",
-
+				Name: "test-project",
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -120,8 +119,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 		serviceDeps := &config.Deps{
 			SchemaVersion: "1.0",
 			Project: config.Project{
-				Name:    "test-project",
-
+				Name: "test-project",
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -197,8 +195,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 		serviceDeps := &config.Deps{
 			SchemaVersion: "1.0",
 			Project: config.Project{
-				Name:    "test-project",
-
+				Name: "test-project",
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -259,8 +256,7 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 		rootConfigWithRootService := &RootConfig{
 			SchemaVersion: "1.0",
 			Project: config.Project{
-				Name:    "test-project",
-
+				Name: "test-project",
 			},
 			Services: map[string]config.Service{
 				serviceName: {
@@ -406,8 +402,8 @@ func TestFormatDrifts(t *testing.T) {
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > len(substr) && (s[:len(substr)] == substr ||
-		s[len(s)-len(substr):] == substr ||
-		containsMiddle(s, substr))))
+			s[len(s)-len(substr):] == substr ||
+			containsMiddle(s, substr))))
 }
 
 func containsMiddle(s, substr string) bool {

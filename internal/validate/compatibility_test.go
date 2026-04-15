@@ -1,16 +1,17 @@
 package validate
 
 import (
-	"raioz/internal/config"
 	"testing"
+
+	"raioz/internal/config"
 )
 
 func TestValidateTransitiveDependencies(t *testing.T) {
 	tests := []struct {
-		name        string
-		deps        *config.Deps
-		wantIssues  bool
-		wantError   bool
+		name       string
+		deps       *config.Deps
+		wantIssues bool
+		wantError  bool
 	}{
 		{
 			name: "valid transitive dependencies",

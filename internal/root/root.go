@@ -17,30 +17,30 @@ const rootFileName = "raioz.root.json"
 type ServiceOrigin string
 
 const (
-	OriginRoot    ServiceOrigin = "root"    // From .raioz.json (original)
+	OriginRoot     ServiceOrigin = "root"     // From .raioz.json (original)
 	OriginOverride ServiceOrigin = "override" // From override system
 	OriginAssisted ServiceOrigin = "assisted" // Added via dependency assist
 )
 
 // ServiceMetadata contains metadata about a service in the root configuration
 type ServiceMetadata struct {
-	Origin      ServiceOrigin `json:"origin"`
-	AddedAt     string        `json:"addedAt,omitempty"`     // ISO 8601 timestamp
-	AddedBy     string        `json:"addedBy,omitempty"`     // User or system action
+	Origin         ServiceOrigin `json:"origin"`
+	AddedAt        string        `json:"addedAt,omitempty"`        // ISO 8601 timestamp
+	AddedBy        string        `json:"addedBy,omitempty"`        // User or system action
 	PreviousOrigin ServiceOrigin `json:"previousOrigin,omitempty"` // For overrides
-	Reason      string        `json:"reason,omitempty"`      // Reason for override/assist
+	Reason         string        `json:"reason,omitempty"`         // Reason for override/assist
 }
 
 // RootConfig represents the resolved root configuration for a workspace
 type RootConfig struct {
-	SchemaVersion string                    `json:"schemaVersion"`
-	GeneratedAt   string                    `json:"generatedAt"`   // ISO 8601 timestamp
-	LastUpdatedAt string                    `json:"lastUpdatedAt"` // ISO 8601 timestamp
-	Network       config.NetworkConfig      `json:"network"`       // Network configuration (shared by workspace)
-	Project       config.Project            `json:"project"`
-	Services      map[string]config.Service `json:"services"`
+	SchemaVersion string                       `json:"schemaVersion"`
+	GeneratedAt   string                       `json:"generatedAt"`   // ISO 8601 timestamp
+	LastUpdatedAt string                       `json:"lastUpdatedAt"` // ISO 8601 timestamp
+	Network       config.NetworkConfig         `json:"network"`       // Network configuration (shared by workspace)
+	Project       config.Project               `json:"project"`
+	Services      map[string]config.Service    `json:"services"`
 	Infra         map[string]config.InfraEntry `json:"infra"`
-	Env           config.EnvConfig          `json:"env"`
+	Env           config.EnvConfig             `json:"env"`
 	// Metadata tracks the origin of each service
 	Metadata map[string]ServiceMetadata `json:"metadata,omitempty"`
 }
@@ -113,7 +113,10 @@ func Save(ws *workspace.Workspace, root *RootConfig) error {
 // GenerateFromDeps generates a RootConfig from a Deps configuration
 // This is used when creating a new root config from .raioz.json
 // assistedServices is a map of service names to their "addedBy" identifier for dependency assist
-func GenerateFromDeps(deps *config.Deps, appliedOverrides []string, assistedServices map[string]string) (*RootConfig, error) {
+func GenerateFromDeps(
+	deps *config.Deps, appliedOverrides []string,
+	assistedServices map[string]string,
+) (*RootConfig, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	root := &RootConfig{
@@ -143,13 +146,13 @@ func GenerateFromDeps(deps *config.Deps, appliedOverrides []string, assistedServ
 
 		if isOverride {
 			root.Metadata[name] = ServiceMetadata{
-				Origin: OriginOverride,
+				Origin:  OriginOverride,
 				AddedAt: now,
 				AddedBy: "override",
 			}
 		} else {
 			root.Metadata[name] = ServiceMetadata{
-				Origin: OriginRoot,
+				Origin:  OriginRoot,
 				AddedAt: now,
 				AddedBy: ".raioz.json",
 			}
@@ -162,7 +165,11 @@ func GenerateFromDeps(deps *config.Deps, appliedOverrides []string, assistedServ
 // UpdateFromDeps updates an existing RootConfig from a Deps configuration
 // This preserves existing metadata and updates services
 // assistedServices is a map of service names to their "addedBy" identifier for dependency assist
-func UpdateFromDeps(root *RootConfig, deps *config.Deps, appliedOverrides []string, assistedServices map[string]string) error {
+func UpdateFromDeps(
+	root *RootConfig, deps *config.Deps,
+	appliedOverrides []string,
+	assistedServices map[string]string,
+) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// Update basic fields

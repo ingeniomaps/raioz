@@ -16,7 +16,7 @@ Run `/i18n` when:
 ## Catalogs
 
 Location: `internal/i18n/locales/`
-- `en.json` — English (primary, 503+ keys)
+- `en.json` — English (primary, 670+ keys)
 - `es.json` — Spanish (must mirror en.json exactly)
 
 ## Key naming conventions
@@ -128,5 +128,4 @@ catalogs have the same keys.
 - Keep translations concise — terminal output, not prose
 - Interpolation args must match between languages
 - `slog` log messages are internal-only and NOT translated
-- Cobra command descriptions go in
-  `cmd/zzz_i18n_descriptions.go`, not inline
+- Cobra command descriptions use `i18n.T()` inline in each command file

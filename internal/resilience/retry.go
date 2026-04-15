@@ -12,21 +12,21 @@ import (
 
 // RetryConfig configures retry behavior
 type RetryConfig struct {
-	MaxAttempts      int
-	InitialDelay     time.Duration
-	MaxDelay         time.Duration
+	MaxAttempts       int
+	InitialDelay      time.Duration
+	MaxDelay          time.Duration
 	BackoffMultiplier float64
-	RetryableErrors  []error // Errors that should trigger retry
+	RetryableErrors   []error // Errors that should trigger retry
 }
 
 // DefaultRetryConfig returns a default retry configuration
 func DefaultRetryConfig() RetryConfig {
 	return RetryConfig{
 		MaxAttempts:       3,
-		InitialDelay:     1 * time.Second,
-		MaxDelay:         30 * time.Second,
+		InitialDelay:      1 * time.Second,
+		MaxDelay:          30 * time.Second,
 		BackoffMultiplier: 2.0,
-		RetryableErrors:  []error{},
+		RetryableErrors:   []error{},
 	}
 }
 
@@ -34,10 +34,10 @@ func DefaultRetryConfig() RetryConfig {
 func NetworkRetryConfig() RetryConfig {
 	return RetryConfig{
 		MaxAttempts:       5,
-		InitialDelay:     2 * time.Second,
-		MaxDelay:         60 * time.Second,
+		InitialDelay:      2 * time.Second,
+		MaxDelay:          60 * time.Second,
 		BackoffMultiplier: 2.0,
-		RetryableErrors:  []error{},
+		RetryableErrors:   []error{},
 	}
 }
 
@@ -45,10 +45,10 @@ func NetworkRetryConfig() RetryConfig {
 func GitRetryConfig() RetryConfig {
 	return RetryConfig{
 		MaxAttempts:       3,
-		InitialDelay:     2 * time.Second,
-		MaxDelay:         30 * time.Second,
+		InitialDelay:      2 * time.Second,
+		MaxDelay:          30 * time.Second,
 		BackoffMultiplier: 2.0,
-		RetryableErrors:  []error{},
+		RetryableErrors:   []error{},
 	}
 }
 
@@ -56,10 +56,10 @@ func GitRetryConfig() RetryConfig {
 func DockerRetryConfig() RetryConfig {
 	return RetryConfig{
 		MaxAttempts:       3,
-		InitialDelay:     1 * time.Second,
-		MaxDelay:         30 * time.Second,
+		InitialDelay:      1 * time.Second,
+		MaxDelay:          30 * time.Second,
 		BackoffMultiplier: 2.0,
-		RetryableErrors:  []error{},
+		RetryableErrors:   []error{},
 	}
 }
 

@@ -53,9 +53,9 @@ func CompareConfigs(local *config.Deps, prod *ProductionConfig) *ComparisonResul
 	for name := range prodServiceMap {
 		if !localServices[name] {
 			result.ServiceDifferences = append(result.ServiceDifferences, ServiceDifference{
-				ServiceName:     name,
+				ServiceName:      name,
 				InProductionOnly: true,
-				Severity:        "info",
+				Severity:         "info",
 			})
 		}
 	}
@@ -236,15 +236,14 @@ func compareInfra(local *config.Deps, prod *ProductionConfig, result *Comparison
 			// Only mark as infra if it looks like infrastructure (DB, cache, etc.)
 			if isInfraService(name) {
 				result.InfraDifferences = append(result.InfraDifferences, InfraDifference{
-					InfraName:       name,
+					InfraName:        name,
 					InProductionOnly: true,
-					Severity:        "info",
+					Severity:         "info",
 				})
 			}
 		}
 	}
 }
-
 
 // FormatComparisonResult formats a comparison result as a readable string
 func FormatComparisonResult(result *ComparisonResult) string {

@@ -17,11 +17,11 @@ type serviceResult struct {
 
 // infraPreset defines a common infrastructure template
 type infraPreset struct {
-	Name    string
-	Image   string
-	Tag     string
-	Port    string
-	Volume  string
+	Name   string
+	Image  string
+	Tag    string
+	Port   string
+	Volume string
 }
 
 var infraPresets = []infraPreset{
@@ -154,7 +154,7 @@ func (uc *UseCase) promptInfra() (map[string]config.InfraEntry, error) {
 
 	for _, sel := range selections {
 		sel = strings.TrimSpace(sel)
-		idx := -1
+		var idx int
 		switch sel {
 		case "1":
 			idx = 0
