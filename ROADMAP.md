@@ -8,10 +8,38 @@ real-world friction. For shipped history, see
 Work lives here until a release is cut, then the items that actually
 shipped move to `CHANGELOG.md#Unreleased`, then to a versioned entry.
 
+## v0.1.1 (in progress)
+
+Hotfix release surfacing from the keycloak pilot user (2026-04-14).
+The planned fixes for `dependencies.<n>.proxy:` being silently
+dropped (#1), the `expose:` fallback (#2), and unknown-field
+warnings (#4) are **implemented on `develop`** and awaiting release
+— see [CHANGELOG.md#Unreleased](CHANGELOG.md). One item was
+deliberately deferred to v0.2.0 because it needs a design pass
+larger than a patch release should carry; see below.
+
 ## v0.2.0 (tentative)
 
 The v0.1.0 release cut corners in three areas to ship on time. v0.2.0
 pays that debt back before adding new surface.
+
+### Read `ExposedPorts` from the Docker image manifest
+
+_Deferred from v0.1.1._ `detect.ForImage()`
+(`internal/detect/detect.go:363`) returns `Port: 0` for every image.
+Most official images declare `EXPOSE` in their Dockerfile (e.g.
+`redis/redisinsight: 5540`, `dpage/pgadmin4: 80,443`,
+`postgres:16: 5432`), so the proxy route ends up incomplete for
+common deps unless the user adds `expose:` manually (partial
+mitigation already shipping in v0.1.1, but that only covers cases
+where the user opts in).
+
+Fix: run `docker inspect --type=image --format
+'{{json .Config.ExposedPorts}}'` and take the first TCP port. Cache
+by image:tag. Pull on demand with a short timeout; fall back to
+`Port: 0` (current behavior) if pull fails. Larger change — design
+pass, caching layer, and offline-mode fallback — which is why it
+didn't fit the v0.1.1 hotfix window.
 
 ### Code quality — re-tighten lint baseline
 

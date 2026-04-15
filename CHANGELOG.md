@@ -6,7 +6,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-_Nothing yet. See [ROADMAP.md](ROADMAP.md) for planned work._
+Patch-level fixes for configuration parsing, surfaced by the keycloak
+pilot user configuring `raioz.yaml` against v0.1.0 (2026-04-14).
+
+### Added
+
+- `dependencies.<n>.proxy: {target, port}` — mirror of the existing
+  `services.<n>.proxy:` escape hatch. Overrides proxy detection for a
+  dependency whose runtime raioz can't fully introspect (e.g. a
+  `compose:`-backed dep whose target container name or port doesn't
+  match the defaults). Bridges into `Infra.ProxyOverride` and is read
+  by `buildProxyRoute` via the same `proxyTargetOverride` path used for
+  services.
+- Advisory warnings for unknown YAML fields at config load. Typos
+  (e.g. `whtch:` instead of `watch:`) or fields introduced by a newer
+  raioz version now surface as `<file>: line N: field <name> not found
+  in type …` on stderr instead of being silently dropped. Warning-only
+  by design to preserve forward compatibility; a `--strict` flag for
+  hard fail is tracked for a future release.
+
+### Fixed
+
+- `dependencies.<n>.proxy:` was accepted by the YAML parser but
+  silently dropped — Caddy then routed the dependency through its
+  image's default port (typically 80) regardless of what the user
+  declared. The bridge layer now populates `Infra.ProxyOverride` and
+  `cloneInfraEntry` propagates it through the workspace-merge path.
+- Proxy port fallback for dependencies now consults
+  `dependencies.<n>.expose[0]` when detection couldn't resolve a port
+  and the legacy `ports:` field is empty. Previously a dep that only
+  declared `expose:` would get a proxy route with port 0. `ports:`
+  still wins when both are set, preserving existing behavior.
 
 ## [0.1.0] - 2026-04-14
 
