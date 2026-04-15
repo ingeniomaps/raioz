@@ -168,11 +168,11 @@ func DeleteWorkspace(workspaceName string) error {
 func validatePathInBase(path, base string) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("abs %q: %w", path, err)
 	}
 	absBase, err := filepath.Abs(base)
 	if err != nil {
-		return err
+		return fmt.Errorf("abs %q: %w", base, err)
 	}
 	if !strings.HasPrefix(absPath, absBase+string(filepath.Separator)) && absPath != absBase {
 		return fmt.Errorf("path %s is outside base %s", absPath, absBase)

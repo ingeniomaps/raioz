@@ -2,6 +2,7 @@ package graph
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 )
 
@@ -42,5 +43,8 @@ func RenderJSON(g *Graph, w io.Writer) error {
 
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	if err := enc.Encode(out); err != nil {
+		return fmt.Errorf("encode graph JSON: %w", err)
+	}
+	return nil
 }

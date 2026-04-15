@@ -122,7 +122,7 @@ func (m *Manager) startCloudflared(ctx context.Context, serviceName string, port
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cloudflared stderr pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {

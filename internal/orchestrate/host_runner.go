@@ -216,7 +216,10 @@ func (r *HostRunner) Logs(ctx context.Context, svc interfaces.ServiceContext, fo
 	cmd := exec.CommandContext(ctx, "tail", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("tail %q: %w", logPath, err)
+	}
+	return nil
 }
 
 // GetPID returns the PID of a running host service, or 0 if not tracked.

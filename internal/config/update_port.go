@@ -27,7 +27,10 @@ func UpdatePort(configPath, name, kind string, oldPort, newPort int) error {
 		return nil // nothing changed
 	}
 
-	return os.WriteFile(configPath, []byte(strings.Join(updated, "\n")), 0644)
+	if err := os.WriteFile(configPath, []byte(strings.Join(updated, "\n")), 0644); err != nil {
+		return fmt.Errorf("write updated config %q: %w", configPath, err)
+	}
+	return nil
 }
 
 // updatePortLines does the line-level search-and-replace. Returns nil when

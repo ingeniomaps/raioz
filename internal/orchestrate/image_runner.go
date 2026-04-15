@@ -231,16 +231,16 @@ func (r *ImageRunner) writeCompose(svc interfaces.ServiceContext, compose map[st
 	path := r.composePath(svc)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return "", err
+		return "", fmt.Errorf("mkdir compose dir: %w", err)
 	}
 
 	data, err := yaml.Marshal(compose)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal compose: %w", err)
 	}
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		return "", err
+		return "", fmt.Errorf("write compose %q: %w", path, err)
 	}
 
 	return path, nil
@@ -365,14 +365,14 @@ func (r *ImageRunner) writeInfraOverlay(svc interfaces.ServiceContext) (string, 
 
 	path := r.overlayPath(svc)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return "", err
+		return "", fmt.Errorf("mkdir overlay dir: %w", err)
 	}
 	data, err := yaml.Marshal(overlay)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal overlay: %w", err)
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return "", err
+		return "", fmt.Errorf("write overlay %q: %w", path, err)
 	}
 	return path, nil
 }

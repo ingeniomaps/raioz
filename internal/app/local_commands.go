@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +19,7 @@ import (
 func IsLocalProject(configPath string, baseDir string) (bool, string, error) {
 	absConfigPath, err := filepath.Abs(configPath)
 	if err != nil {
-		return false, "", err
+		return false, "", fmt.Errorf("abs %q: %w", configPath, err)
 	}
 	projectDir := filepath.Dir(absConfigPath)
 	workspacesDir := filepath.Join(baseDir, "workspaces")
@@ -90,7 +91,10 @@ func ExecuteLocalProjectCommand(ctx context.Context, projectDir string, command 
 	cmd.Env = append(cmd.Env, "RAIOZ_MODE="+mode)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("run local project command: %w", err)
+	}
+	return nil
 }
 
 // CheckLocalProjectHealth checks if a local project is running via its health command

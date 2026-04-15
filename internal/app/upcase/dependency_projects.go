@@ -243,7 +243,7 @@ func loadUserDecision(projectName string, sm interfaces.StateManager) (*bool, er
 		if os.IsNotExist(err) {
 			return nil, nil // No decisions file, no saved decision
 		}
-		return nil, err
+		return nil, fmt.Errorf("read decisions file %q: %w", decisionsPath, err)
 	}
 
 	// Parse decisions (simple format)

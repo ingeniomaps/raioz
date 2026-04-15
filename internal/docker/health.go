@@ -47,7 +47,7 @@ func WaitForServicesHealthy(
 		case <-timeoutCtx.Done():
 			return fmt.Errorf("timeout waiting for services to become healthy after %v", DefaultHealthCheckTimeout)
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("health check cancelled: %w", ctx.Err())
 		default:
 		}
 
@@ -77,7 +77,7 @@ func WaitForServicesHealthy(
 		case <-timeoutCtx.Done():
 			return fmt.Errorf("timeout waiting for services to become healthy after %v", DefaultHealthCheckTimeout)
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("health check cancelled: %w", ctx.Err())
 		case <-time.After(HealthCheckInterval):
 			// Continue checking
 		}

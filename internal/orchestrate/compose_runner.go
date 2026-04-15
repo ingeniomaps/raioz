@@ -149,16 +149,16 @@ func (r *ComposeRunner) writeOverlay(svc interfaces.ServiceContext, overlay map[
 	path := r.overlayPath(svc)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return "", err
+		return "", fmt.Errorf("mkdir overlay dir: %w", err)
 	}
 
 	data, err := yaml.Marshal(overlay)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal overlay: %w", err)
 	}
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
-		return "", err
+		return "", fmt.Errorf("write overlay %q: %w", path, err)
 	}
 
 	return path, nil

@@ -334,7 +334,7 @@ func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand str
 func IsServiceRunning(pid int) (bool, error) {
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("find process %d: %w", pid, err)
 	}
 
 	// Send signal 0 to check if process exists
@@ -345,5 +345,5 @@ func IsServiceRunning(pid int) (bool, error) {
 	if err.Error() == "os: process already finished" {
 		return false, nil
 	}
-	return false, err
+	return false, fmt.Errorf("probe process %d: %w", pid, err)
 }

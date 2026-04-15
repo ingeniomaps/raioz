@@ -47,9 +47,17 @@ func (e *EnvValue) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements custom JSON marshaling for EnvValue
 func (e EnvValue) MarshalJSON() ([]byte, error) {
 	if e.IsObject && e.Variables != nil {
-		return json.Marshal(e.Variables)
+		data, err := json.Marshal(e.Variables)
+		if err != nil {
+			return nil, fmt.Errorf("marshal env variables: %w", err)
+		}
+		return data, nil
 	}
-	return json.Marshal(e.Files)
+	data, err := json.Marshal(e.Files)
+	if err != nil {
+		return nil, fmt.Errorf("marshal env files: %w", err)
+	}
+	return data, nil
 }
 
 // GetFilePaths returns the file paths if this is a file-based config, or empty slice
@@ -115,12 +123,20 @@ func (n *NetworkConfig) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements custom JSON marshaling for NetworkConfig
 func (n NetworkConfig) MarshalJSON() ([]byte, error) {
 	if !n.IsObject || n.Subnet == "" {
-		return json.Marshal(n.Name)
+		data, err := json.Marshal(n.Name)
+		if err != nil {
+			return nil, fmt.Errorf("marshal network name: %w", err)
+		}
+		return data, nil
 	}
-	return json.Marshal(map[string]string{
+	data, err := json.Marshal(map[string]string{
 		"name":   n.Name,
 		"subnet": n.Subnet,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal network config: %w", err)
+	}
+	return data, nil
 }
 
 // GetName returns the network name
@@ -247,7 +263,7 @@ func (e *InfraEntry) UnmarshalJSON(data []byte) error {
 	if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"' {
 		var path string
 		if err := json.Unmarshal(data, &path); err != nil {
-			return err
+			return fmt.Errorf("unmarshal infra path: %w", err)
 		}
 		e.Path = path
 		e.Inline = nil
@@ -255,7 +271,7 @@ func (e *InfraEntry) UnmarshalJSON(data []byte) error {
 	}
 	var inf Infra
 	if err := json.Unmarshal(data, &inf); err != nil {
-		return err
+		return fmt.Errorf("unmarshal inline infra: %w", err)
 	}
 	e.Path = ""
 	e.Inline = &inf
@@ -265,10 +281,18 @@ func (e *InfraEntry) UnmarshalJSON(data []byte) error {
 // MarshalJSON emits either the path string or the inline object.
 func (e InfraEntry) MarshalJSON() ([]byte, error) {
 	if e.Path != "" {
-		return json.Marshal(e.Path)
+		out, err := json.Marshal(e.Path)
+		if err != nil {
+			return nil, fmt.Errorf("marshal infra path: %w", err)
+		}
+		return out, nil
 	}
 	if e.Inline != nil {
-		return json.Marshal(e.Inline)
+		out, err := json.Marshal(e.Inline)
+		if err != nil {
+			return nil, fmt.Errorf("marshal inline infra: %w", err)
+		}
+		return out, nil
 	}
 	return []byte("null"), nil
 }

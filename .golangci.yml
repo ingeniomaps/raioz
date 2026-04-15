@@ -28,6 +28,13 @@ linters-settings:
     excludes:
       - G204
       - G306
+  wrapcheck:
+    # Internal interfaces are the point of abstraction — wrapping "docker
+    # runner: %w" around every delegation is noise. Only flag error
+    # origins outside raioz's own packages so the linter focuses on
+    # stdlib / third-party boundaries where a wrap actually adds context.
+    ignorePackageGlobs:
+      - raioz/internal/**
   revive:
     # Start from the empty default set and opt in to the rules that
     # actually catch bugs. The default rule set fires ~980 issues on this
@@ -68,6 +75,7 @@ linters:
     - errcheck
     - gosec
     - revive
+    - wrapcheck
 
 issues:
   exclude-dirs:
@@ -121,6 +129,20 @@ issues:
     - path: _test\.go
       linters:
         - revive
+
+    # Wrapcheck in tests wants every os.Stat / json.Unmarshal wrapped —
+    # the test is the context. Keep the signal in production.
+    - path: _test\.go
+      linters:
+        - wrapcheck
+
+    # Infra adapter layer — these files are intentionally thin wrappers
+    # around stdlib (os, os/exec) implementing hexagonal ports. Adding
+    # "OSFileSystem.ReadFile: %w" on every method is redundant with the
+    # stack; the package boundary is itself the context.
+    - path: internal/infra/
+      linters:
+        - wrapcheck
 
     # G204 (subprocess launched with variable) — raioz is an orchestrator.
     # Every call to exec.Command* uses the configured runtime binary

@@ -144,7 +144,9 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("docker logs: %w", err)
+		}
 	}
 
 	return nil
@@ -153,14 +155,17 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 // showHostLogs displays logs from a host service log file.
 func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) error {
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("stat log file %q: %w", logPath, err)
 	}
 
 	if follow {
 		cmd := exec.CommandContext(ctx, "tail", "-f", logPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("tail -f %q: %w", logPath, err)
+		}
+		return nil
 	}
 
 	tailLines := "50"
@@ -171,7 +176,10 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 	cmd := exec.CommandContext(ctx, "tail", "-n", tailLines, logPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("tail %q: %w", logPath, err)
+	}
+	return nil
 }
 
 // RestartYAML restarts services in a YAML orchestrated project.
@@ -211,7 +219,10 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 			cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 			cmd.Dir = svc.Source.Path
 			cmd.Stdin = nil // Will be set by cobra for interactive
-			return cmd.Run()
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("exec in service dir: %w", err)
+			}
+			return nil
 		}
 		return fmt.Errorf("service '%s' is not running", serviceName)
 	}
@@ -238,7 +249,10 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker exec: %w", err)
+	}
+	return nil
 }
 
 // isHostProcessAlive checks if a process with the given PID is running.

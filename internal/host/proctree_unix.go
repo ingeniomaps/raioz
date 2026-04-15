@@ -3,6 +3,7 @@
 package host
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
@@ -22,7 +23,7 @@ func killProcessTree(pid int) error {
 		if err == syscall.ESRCH {
 			return nil
 		}
-		return err
+		return fmt.Errorf("SIGTERM group %d: %w", pid, err)
 	}
 	return nil
 }
@@ -35,7 +36,7 @@ func forceKillProcessTree(pid int) error {
 		if err == syscall.ESRCH {
 			return nil
 		}
-		return err
+		return fmt.Errorf("SIGKILL group %d: %w", pid, err)
 	}
 	return nil
 }

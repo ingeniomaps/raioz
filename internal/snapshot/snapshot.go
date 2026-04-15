@@ -123,7 +123,7 @@ func (m *Manager) List(project string) ([]Snapshot, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("read snapshot dir %q: %w", dir, err)
 	}
 
 	var snapshots []Snapshot
@@ -147,7 +147,10 @@ func (m *Manager) List(project string) ([]Snapshot, error) {
 // Delete removes a snapshot and frees disk space.
 func (m *Manager) Delete(project, name string) error {
 	dir := filepath.Join(m.baseDir, project, name)
-	return os.RemoveAll(dir)
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("remove snapshot dir %q: %w", dir, err)
+	}
+	return nil
 }
 
 // exportVolume creates a tar.gz of a Docker volume's contents.

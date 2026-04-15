@@ -115,5 +115,8 @@ func (r *DockerfileRunner) Logs(ctx context.Context, svc interfaces.ServiceConte
 	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	cmd.Stdout = exec.CommandContext(ctx, "echo").Stdout
 	cmd.Stderr = exec.CommandContext(ctx, "echo").Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker logs: %w", err)
+	}
+	return nil
 }

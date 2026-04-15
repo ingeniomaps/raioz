@@ -90,8 +90,10 @@ func runDashboardYAML(
 
 	model := tui.New(cfg)
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	_, err := p.Run()
-	return err
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("run dashboard: %w", err)
+	}
+	return nil
 }
 
 func runDashboardLegacy(
@@ -148,8 +150,10 @@ func runDashboardLegacy(
 
 	model := tui.New(cfg)
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	_, err = p.Run()
-	return err
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("run dashboard: %w", err)
+	}
+	return nil
 }
 
 func init() {

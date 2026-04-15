@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -163,7 +164,7 @@ type DockerConfig struct {
 func LoadDeps(path string) (*Deps, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("read config %q: %w", path, err)
 	}
 
 	// Check for deprecated fields and collect warnings
@@ -186,7 +187,7 @@ func LoadDeps(path string) (*Deps, []string, error) {
 		ProjectComposePath string                `json:"projectComposePath,omitempty"`
 	}
 	if err := json.Unmarshal(data, &legacyStruct); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("parse legacy config %q: %w", path, err)
 	}
 	if legacyStruct.Infra == nil {
 		legacyStruct.Infra = make(map[string]InfraEntry)

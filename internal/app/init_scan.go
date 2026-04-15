@@ -35,7 +35,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 		var err error
 		dir, err = os.Getwd()
 		if err != nil {
-			return err
+			return fmt.Errorf("get working directory: %w", err)
 		}
 	}
 

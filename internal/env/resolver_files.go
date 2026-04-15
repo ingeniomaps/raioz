@@ -2,6 +2,7 @@ package env
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -38,7 +39,7 @@ func loadSingleFile(filePath string) (map[string]string, error) {
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open env file %q: %w", filePath, err)
 	}
 	defer file.Close()
 
