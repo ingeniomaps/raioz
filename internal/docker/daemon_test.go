@@ -14,6 +14,7 @@ import (
 // --- ImageExists wrappers: call with nonexistent image ---
 
 func TestImageExists_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	exists, err := ImageExists("raioz-test-nonexistent:9.9.9-xyz")
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -24,6 +25,7 @@ func TestImageExists_Nonexistent(t *testing.T) {
 }
 
 func TestImageExistsWithContext_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	exists, err := ImageExistsWithContext(
 		context.Background(), "raioz-test-nonexistent:9.9.9-xyz",
 	)
@@ -38,6 +40,7 @@ func TestImageExistsWithContext_Nonexistent(t *testing.T) {
 // --- GetImageInfo wrappers ---
 
 func TestGetImageInfo_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	_, err := GetImageInfo("raioz-test-nonexistent:9.9.9-xyz")
 	if err == nil {
 		t.Error("expected error for nonexistent image")
@@ -45,6 +48,7 @@ func TestGetImageInfo_Nonexistent(t *testing.T) {
 }
 
 func TestGetImageInfoWithContext_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	_, err := GetImageInfoWithContext(
 		context.Background(), "raioz-test-nonexistent:9.9.9-xyz",
 	)
@@ -56,6 +60,7 @@ func TestGetImageInfoWithContext_Nonexistent(t *testing.T) {
 // --- EnsureImage wrappers: wraps ImageExistsWithContext + Pull ---
 
 func TestEnsureImage_Wrapper(t *testing.T) {
+	requireDocker(t)
 	// Call EnsureImage with a nonexistent image; it will try to pull,
 	// which will fail. We just want to exercise the wrapper entry point.
 	_ = EnsureImage("raioz-test-nonexistent-9999:bogus")
@@ -64,6 +69,7 @@ func TestEnsureImage_Wrapper(t *testing.T) {
 // --- Volume wrappers ---
 
 func TestVolumeExistsWithContext_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	exists, err := VolumeExistsWithContext(
 		context.Background(), "raioz-test-nonexistent-vol-12345",
 	)
@@ -76,6 +82,7 @@ func TestVolumeExistsWithContext_Nonexistent(t *testing.T) {
 }
 
 func TestEnsureVolume_Roundtrip(t *testing.T) {
+	requireDocker(t)
 	name := "raioz-test-ensure-vol-1"
 	_ = RemoveVolume(name)
 
@@ -99,6 +106,7 @@ func TestEnsureVolume_Roundtrip(t *testing.T) {
 }
 
 func TestRemoveVolume_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	// Removing a nonexistent volume should be a no-op.
 	if err := RemoveVolume("raioz-test-nonexistent-vol-remove-12345"); err != nil {
 		t.Errorf("RemoveVolume nonexistent: %v", err)
@@ -108,6 +116,7 @@ func TestRemoveVolume_Nonexistent(t *testing.T) {
 // --- Network wrappers ---
 
 func TestEnsureNetworkWithContext_New(t *testing.T) {
+	requireDocker(t)
 	name := "raioz-test-ens-net-ctx"
 	_ = RemoveNetwork(name)
 	if err := EnsureNetworkWithContext(context.Background(), name); err != nil {
@@ -117,6 +126,7 @@ func TestEnsureNetworkWithContext_New(t *testing.T) {
 }
 
 func TestCreateNetworkWithContext_New(t *testing.T) {
+	requireDocker(t)
 	name := "raioz-test-create-net-ctx"
 	_ = RemoveNetwork(name)
 	if err := CreateNetworkWithContext(context.Background(), name); err != nil {
@@ -126,6 +136,7 @@ func TestCreateNetworkWithContext_New(t *testing.T) {
 }
 
 func TestIsNetworkInUse_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	inUse, err := IsNetworkInUse("raioz-test-nonexistent-network-12345")
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -136,6 +147,7 @@ func TestIsNetworkInUse_Nonexistent(t *testing.T) {
 }
 
 func TestIsNetworkInUseWithContext_Empty(t *testing.T) {
+	requireDocker(t)
 	// Create a network, check it's not in use (0 containers), remove it
 	name := "raioz-test-isuse-ctx"
 	_ = RemoveNetwork(name)
@@ -156,6 +168,7 @@ func TestIsNetworkInUseWithContext_Empty(t *testing.T) {
 // --- CleanUnusedImages dry run ---
 
 func TestCleanUnusedImages_DryRun(t *testing.T) {
+	requireDocker(t)
 	actions, err := CleanUnusedImages(true)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -167,6 +180,7 @@ func TestCleanUnusedImages_DryRun(t *testing.T) {
 }
 
 func TestCleanUnusedVolumes_DryRun(t *testing.T) {
+	requireDocker(t)
 	actions, err := CleanUnusedVolumes(true, false)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -184,6 +198,7 @@ func TestCleanUnusedVolumes_NoForce(t *testing.T) {
 }
 
 func TestCleanUnusedNetworks_DryRun(t *testing.T) {
+	requireDocker(t)
 	actions, err := CleanUnusedNetworks(true)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -344,6 +359,7 @@ func TestStopContainerWithContext_Empty(t *testing.T) {
 }
 
 func TestStopContainerWithContext_Nonexistent(t *testing.T) {
+	requireDocker(t)
 	// Stopping a nonexistent container should return nil (handled message)
 	err := StopContainerWithContext(
 		context.Background(), "raioz-test-nonexistent-container-xyz",
@@ -372,6 +388,7 @@ func TestFindAlternativePort(t *testing.T) {
 // --- StopServiceWithContext: existing path, running docker ---
 
 func TestStopServiceWithContext_NonexistentCompose(t *testing.T) {
+	requireDocker(t)
 	// File exists but service doesn't — exercises real docker call
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")

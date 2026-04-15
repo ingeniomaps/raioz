@@ -10,6 +10,7 @@ import (
 // --- ConnectContainerToNetwork: bad container ---
 
 func TestConnectContainerToNetwork_NotFound(t *testing.T) {
+	requireDocker(t)
 	err := ConnectContainerToNetwork(
 		context.Background(),
 		"raioz-test-nonexistent-container-xyz",
@@ -24,6 +25,7 @@ func TestConnectContainerToNetwork_NotFound(t *testing.T) {
 // --- CleanProjectWithContext: valid file, actual clean (will call docker) ---
 
 func TestCleanProjectWithContext_ValidCompose(t *testing.T) {
+	requireDocker(t)
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")
 	// Minimal empty compose that doesn't deploy anything
@@ -41,6 +43,7 @@ func TestCleanProjectWithContext_ValidCompose(t *testing.T) {
 // --- GetContainerNameWithContext: valid file, no running service ---
 
 func TestGetContainerNameWithContext_Valid(t *testing.T) {
+	requireDocker(t)
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")
 	content := `services:
@@ -63,6 +66,7 @@ func TestGetContainerNameWithContext_Valid(t *testing.T) {
 // --- ExecInService: call with existing compose path ---
 
 func TestExecInService_ValidPath(t *testing.T) {
+	requireDocker(t)
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")
 	if err := os.WriteFile(compose, []byte("services: {}\n"), 0644); err != nil {
@@ -78,6 +82,7 @@ func TestExecInService_ValidPath(t *testing.T) {
 // --- RestartServicesWithContext: valid path ---
 
 func TestRestartServicesWithContext_ValidPath(t *testing.T) {
+	requireDocker(t)
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")
 	if err := os.WriteFile(compose, []byte("services: {}\n"), 0644); err != nil {
@@ -92,6 +97,7 @@ func TestRestartServicesWithContext_ValidPath(t *testing.T) {
 // --- ForceRecreateServicesWithContext: valid path ---
 
 func TestForceRecreateServicesWithContext_ValidPath(t *testing.T) {
+	requireDocker(t)
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")
 	if err := os.WriteFile(compose, []byte("services: {}\n"), 0644); err != nil {
@@ -105,6 +111,7 @@ func TestForceRecreateServicesWithContext_ValidPath(t *testing.T) {
 // --- UpServicesWithContext: valid path ---
 
 func TestUpServicesWithContext_ValidPath(t *testing.T) {
+	requireDocker(t)
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")
 	if err := os.WriteFile(compose, []byte("services: {}\n"), 0644); err != nil {
@@ -117,6 +124,7 @@ func TestUpServicesWithContext_ValidPath(t *testing.T) {
 // --- DownWithContext: valid existing compose ---
 
 func TestDownWithContext_ValidPath(t *testing.T) {
+	requireDocker(t)
 	tmp := t.TempDir()
 	compose := filepath.Join(tmp, "docker-compose.yml")
 	if err := os.WriteFile(compose, []byte("services: {}\n"), 0644); err != nil {

@@ -57,6 +57,13 @@ func (r *DockerRunnerImpl) GetServicesStatusWithContext(
 	return dockerpkg.GetServicesStatusWithContext(ctx, composePath)
 }
 
+// GetContainerStatusByName returns the Docker state of a container looked up by name.
+func (r *DockerRunnerImpl) GetContainerStatusByName(
+	ctx context.Context, containerName string,
+) (string, error) {
+	return dockerpkg.GetContainerStatusByName(ctx, containerName)
+}
+
 // GetServicesInfoWithContext returns detailed information about services
 func (r *DockerRunnerImpl) GetServicesInfoWithContext(
 	ctx context.Context, composePath string, serviceNames []string,

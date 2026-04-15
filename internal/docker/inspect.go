@@ -51,6 +51,66 @@ func GetContainerName(composePath string, serviceName string) (string, error) {
 	return GetContainerNameWithContext(context.Background(), composePath, serviceName)
 }
 
+// GetContainerLabel returns the value of a single Docker label on a container
+// looked up by name. Returns "" with no error when the container does not
+// exist or when the label is absent. Useful for reasoning about ownership
+// ("is this container labeled for project X?") without parsing full inspect
+// JSON. Errors are returned only on timeout.
+func GetContainerLabel(ctx context.Context, name, key string) (string, error) {
+	if name == "" || key == "" {
+		return "", nil
+	}
+
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
+	defer cancel()
+
+	// Dotted label keys (e.g. com.raioz.project) need `index` in a Go
+	// template — dot-access would misparse them as field chains.
+	format := fmt.Sprintf(`{{ index .Config.Labels %q }}`, key)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(),
+		"inspect", "--format", format, name)
+	out, err := cmd.Output()
+	if err != nil {
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return "", fmt.Errorf("docker inspect timed out after %v", exectimeout.DockerInspectTimeout)
+		}
+		return "", nil
+	}
+	value := strings.TrimSpace(string(out))
+	if value == "<no value>" {
+		// Go template returns "<no value>" when the key is absent.
+		return "", nil
+	}
+	return value, nil
+}
+
+// GetContainerStatusByName returns the raw Docker state of a container
+// (running, exited, created, paused, restarting, removing, dead) looked up
+// directly via `docker inspect --format '{{.State.Status}}' <name>`.
+// Returns "" with no error when the container does not exist. An error is
+// only returned on timeout. Use this when the caller knows the container
+// name but does not have a compose file available (e.g. status of services
+// started via non-compose runners).
+func GetContainerStatusByName(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		return "", nil
+	}
+
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(),
+		"inspect", "--format", "{{.State.Status}}", name)
+	out, err := cmd.Output()
+	if err != nil {
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return "", fmt.Errorf("docker inspect timed out after %v", exectimeout.DockerInspectTimeout)
+		}
+		return "", nil
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // GetContainerNameWithContext returns the container name for a service with context support
 func GetContainerNameWithContext(ctx context.Context, composePath string, serviceName string) (string, error) {
 	// Validate path to prevent command injection
@@ -233,7 +293,8 @@ func GetServicesInfo(
 	return GetServicesInfoWithContext(context.Background(), composePath, serviceNames, projectName, services, ws)
 }
 
-// GetServicesInfoWithContext retrieves detailed information for all services with context support
+// GetServicesInfoWithContext retrieves detailed information for all services with context support.
+// It batches docker inspect and docker stats calls to avoid N+1 command overhead.
 func GetServicesInfoWithContext(
 	ctx context.Context,
 	composePath string,
@@ -242,23 +303,167 @@ func GetServicesInfoWithContext(
 	services map[string]config.Service,
 	ws *workspace.Workspace,
 ) (map[string]*ServiceInfo, error) {
-	result := make(map[string]*ServiceInfo)
+	result := make(map[string]*ServiceInfo, len(serviceNames))
 
+	// Step 1: resolve container names for all services
+	containerMap := make(map[string]string) // serviceName → containerName
 	for _, name := range serviceNames {
+		cn, err := GetContainerNameWithContext(ctx, composePath, name)
+		if err != nil || cn == "" {
+			result[name] = &ServiceInfo{Name: name, Status: "stopped", Health: "none"}
+			continue
+		}
+		containerMap[name] = cn
+	}
+
+	if len(containerMap) == 0 {
+		return result, nil
+	}
+
+	// Step 2: single batch docker inspect for all running containers
+	containerNames := make([]string, 0, len(containerMap))
+	for _, cn := range containerMap {
+		containerNames = append(containerNames, cn)
+	}
+	inspectMap := batchInspect(ctx, containerNames)
+
+	// Step 3: single batch docker stats for all running containers
+	statsMap := batchResourceUsage(ctx, containerNames)
+
+	// Step 4: assemble ServiceInfo for each service
+	for _, name := range serviceNames {
+		if _, ok := containerMap[name]; !ok {
+			continue // already set to stopped above
+		}
+		cn := containerMap[name]
+		info := &ServiceInfo{Name: name, Status: "running", Health: "none"}
+
+		if inspect, ok := inspectMap[cn]; ok {
+			if inspect.State.Health != nil {
+				info.Health = strings.ToLower(inspect.State.Health.Status)
+			}
+			if inspect.State.StartedAt != "" {
+				startedAt, err := time.Parse(time.RFC3339Nano, inspect.State.StartedAt)
+				if err == nil {
+					info.Uptime = formatUptime(time.Since(startedAt))
+					info.LastUpdated = startedAt.Format("2006-01-02 15:04:05")
+				}
+			}
+			info.Image = inspect.Config.Image
+			if inspect.Image != "" {
+				parts := strings.Split(inspect.Image, ":")
+				if len(parts) > 1 {
+					digest := parts[1]
+					if len(digest) > 12 {
+						info.Version = digest[:12]
+					} else {
+						info.Version = digest
+					}
+				}
+			}
+		}
+
+		if stats, ok := statsMap[cn]; ok {
+			info.CPU = stats.cpu
+			info.Memory = stats.memory
+		}
+
+		// Git version override for git-based services
 		var svc *config.Service
 		if s, ok := services[name]; ok {
 			svc = &s
 		}
-
-		info, err := GetServiceInfoWithContext(ctx, composePath, name, projectName, svc, ws)
-		if err != nil {
-			// Continue with other services even if one fails
-			continue
+		if svc != nil && svc.Source.Kind == "git" && ws != nil {
+			repoPath := workspace.GetServicePath(ws, name, *svc)
+			gitCtx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
+			defer cancel()
+			if commitSHA, err := git.GetCommitSHA(gitCtx, repoPath); err == nil {
+				info.Version = commitSHA
+				if commitDate, err := git.GetCommitDate(gitCtx, repoPath); err == nil {
+					info.LastUpdated = commitDate
+				}
+			}
 		}
+
 		result[name] = info
 	}
 
 	return result, nil
+}
+
+type containerStats struct {
+	cpu    string
+	memory string
+}
+
+// batchInspect runs a single `docker inspect` for multiple containers and
+// returns parsed data keyed by container name.
+func batchInspect(ctx context.Context, names []string) map[string]ContainerInspect {
+	result := make(map[string]ContainerInspect, len(names))
+	if len(names) == 0 {
+		return result
+	}
+
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
+	defer cancel()
+
+	args := append([]string{"inspect"}, names...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return result
+	}
+
+	var inspectData []ContainerInspect
+	if err := json.Unmarshal(out, &inspectData); err != nil {
+		return result
+	}
+
+	// docker inspect returns results in the same order as the names
+	for i, data := range inspectData {
+		if i < len(names) {
+			result[names[i]] = data
+		}
+	}
+
+	return result
+}
+
+// batchResourceUsage runs a single `docker stats --no-stream` for multiple
+// containers instead of one call per container.
+func batchResourceUsage(ctx context.Context, names []string) map[string]containerStats {
+	result := make(map[string]containerStats, len(names))
+	if len(names) == 0 {
+		return result
+	}
+
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerStatsTimeout)
+	defer cancel()
+
+	args := append([]string{"stats", "--no-stream", "--format",
+		"{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"}, names...)
+	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return result
+	}
+
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		name := strings.TrimSpace(parts[0])
+		cpu := strings.TrimSpace(parts[1])
+		memory := strings.TrimSpace(parts[2])
+		memParts := strings.Fields(memory)
+		if len(memParts) >= 3 {
+			memory = memParts[0] + "/" + memParts[2]
+		}
+		result[name] = containerStats{cpu: cpu, memory: memory}
+	}
+
+	return result
 }
 
 // formatUptime formats a duration into human-readable uptime

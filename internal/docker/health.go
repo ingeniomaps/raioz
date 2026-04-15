@@ -87,7 +87,7 @@ func WaitForServicesHealthy(
 // isServiceHealthyWithContext checks if a service is healthy
 func isServiceHealthyWithContext(
 	ctx context.Context, composePath string,
-	serviceName string, projectName string,
+	serviceName string, _ string,
 ) (bool, error) {
 	// Get container name
 	containerName, err := GetContainerNameWithContext(ctx, composePath, serviceName)
@@ -99,7 +99,7 @@ func isServiceHealthyWithContext(
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
 	defer cancel()
 
-	// Get container inspect data
+	// Get container inspect data — single call reused for all checks below
 	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "inspect", containerName)
 	output, err := cmd.Output()
 	if err != nil {
@@ -125,9 +125,9 @@ func isServiceHealthyWithContext(
 		return healthStatus == "healthy", nil
 	}
 
-	// If no health check is configured, try to detect service type and use custom checks
-	// This is especially important for databases that need to be ready before project commands run
-	healthy, err := checkServiceReadinessWithoutHealthcheck(ctx, composePath, serviceName, projectName)
+	// If no health check is configured, try to detect service type and use custom checks.
+	// Pass the already-fetched inspect data to avoid redundant docker calls.
+	healthy, err := checkServiceReadinessFromInspect(ctx, containerName, &inspect)
 	if err == nil {
 		return healthy, nil
 	}
@@ -138,38 +138,17 @@ func isServiceHealthyWithContext(
 	return false, nil // Don't consider healthy without health check or custom readiness check
 }
 
-// checkServiceReadinessWithoutHealthcheck checks if a service is ready even without healthcheck
-// This is used for services that don't have health checks configured but need to be ready
-func checkServiceReadinessWithoutHealthcheck(
-	ctx context.Context, composePath string,
-	serviceName string, projectName string,
+// checkServiceReadinessFromInspect checks if a service is ready using
+// already-fetched inspect data. This avoids redundant docker inspect calls
+// that the previous implementation (checkServiceReadinessWithoutHealthcheck)
+// was making.
+func checkServiceReadinessFromInspect(
+	ctx context.Context, containerName string,
+	inspect *ContainerInspect,
 ) (bool, error) {
-	// Get container name
-	containerName, err := GetContainerNameWithContext(ctx, composePath, serviceName)
-	if err != nil || containerName == "" {
-		return false, nil // Service not running
-	}
-
-	// Create context with timeout for inspect
-	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
-	defer cancel()
-
-	// Get container inspect data to check image and env vars
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "inspect", containerName)
-	output, err := cmd.Output()
-	if err != nil {
-		return false, fmt.Errorf("failed to inspect container: %w", err)
-	}
-
-	var inspectData []ContainerInspect
-	if err := json.Unmarshal(output, &inspectData); err != nil || len(inspectData) == 0 {
-		return false, fmt.Errorf("failed to parse inspect data")
-	}
-
-	inspect := inspectData[0]
 	image := inspect.Config.Image
 
-	// Extract environment variables
+	// Extract environment variables from the already-fetched inspect data
 	envVars := make(map[string]string)
 	for _, env := range inspect.Config.Env {
 		parts := strings.SplitN(env, "=", 2)
@@ -180,17 +159,18 @@ func checkServiceReadinessWithoutHealthcheck(
 
 	// Check if it's a postgres container and try pg_isready
 	if strings.Contains(image, "postgres") {
-		// Get postgres user and database from env vars
 		pgUser := envVars["POSTGRES_USER"]
 		if pgUser == "" {
-			pgUser = "postgres" // Default
+			pgUser = "postgres"
 		}
 		pgDb := envVars["POSTGRES_DB"]
 		if pgDb == "" {
-			pgDb = pgUser // Default to same as user
+			pgDb = pgUser
 		}
 
-		// Try to execute pg_isready inside the container
+		timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
+		defer cancel()
+
 		pgCmd := exec.CommandContext(
 			timeoutCtx, runtime.Binary(), "exec", containerName,
 			"pg_isready", "-U", pgUser, "-d", pgDb,
@@ -198,11 +178,9 @@ func checkServiceReadinessWithoutHealthcheck(
 		if err := pgCmd.Run(); err == nil {
 			return true, nil
 		}
-		// If pg_isready fails, service is not ready
 		return false, nil
 	}
 
 	// For other services without health checks, we can't reliably determine readiness
-	// Return error to indicate we can't check
-	return false, fmt.Errorf("no health check and no custom readiness check available for service %s", serviceName)
+	return false, fmt.Errorf("no custom readiness check available for %s", containerName)
 }

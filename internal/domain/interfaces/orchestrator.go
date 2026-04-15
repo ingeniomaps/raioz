@@ -21,6 +21,19 @@ type ServiceContext struct {
 	// Runners that support it (HostRunner) use it instead of killing the PID
 	// so commands like `make start` can cleanly tear down their own children.
 	StopCommand string
+
+	// ExternalComposeFiles is populated for dependencies declared with
+	// `compose:` in raioz.yaml (user-supplied fragments instead of bare
+	// `image:`). ImageRunner uses these files as-is and writes an overlay
+	// next to them to add the shared network + raioz labels. Empty means
+	// the dep is image-based (generated compose).
+	ExternalComposeFiles []string
+
+	// EnvFilePaths is the list of .env files the dependency declared. Used
+	// as --env-file flags when running docker compose, so ${VAR}
+	// interpolation in the user's compose resolves correctly. Populated
+	// alongside ExternalComposeFiles.
+	EnvFilePaths []string
 }
 
 // Orchestrator defines operations for starting and stopping services

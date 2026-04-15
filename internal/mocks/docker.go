@@ -67,6 +67,7 @@ type MockDockerRunner struct {
 		hasExplicitWorkspace bool,
 	) (string, error)
 	GetContainerNameWithContextFunc func(ctx context.Context, composePath string, serviceName string) (string, error)
+	GetContainerStatusByNameFunc    func(ctx context.Context, containerName string) (string, error)
 	ResolveRelativeVolumesFunc      func(volumes []string, projectDir string) ([]string, error)
 	AreServicesRunningFunc          func(composePath string, serviceNames []string) (bool, error)
 	IsNetworkInUseWithContextFunc   func(ctx context.Context, networkName string) (bool, error)

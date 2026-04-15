@@ -106,6 +106,10 @@ type DockerRunner interface {
 	NormalizeInfraName(workspace string, infra string, project string, hasExplicitWorkspace bool) (string, error)
 	// GetContainerNameWithContext returns the container name for a service in a compose file
 	GetContainerNameWithContext(ctx context.Context, composePath string, serviceName string) (string, error)
+	// GetContainerStatusByName returns the Docker state of a container (running,
+	// exited, created, ...) looked up by name via docker inspect. Empty string
+	// (no error) means the container does not exist.
+	GetContainerStatusByName(ctx context.Context, containerName string) (string, error)
 	// ResolveRelativeVolumes converts relative paths in bind mount volumes to absolute paths
 	ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error)
 	// AreServicesRunning checks if services are running in a compose project

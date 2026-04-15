@@ -50,7 +50,14 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 			// sets an explicit project name via WithComposeProjectName, it is exported
 			// as COMPOSE_PROJECT_NAME so --remove-orphans only affects containers in
 			// that project, not anything sharing the directory basename.
-			args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+			// `--env-file` flags must appear BEFORE the subcommand (docker
+			// compose parses them as top-level flags), which is why we
+			// prepend them instead of appending. The context-plumbed list
+			// is typically populated for dependencies declared with
+			// `compose:` whose user-supplied fragment uses ${VAR}
+			// interpolation from an external .env file.
+			args := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
+			args = append(args, ComposeFileArgs(composePath)...)
 			args = append(args, "up", "-d", "--remove-orphans")
 			if len(serviceNames) > 0 {
 				args = append(args, serviceNames...)
@@ -59,9 +66,7 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			if proj := composeProjectEnvFromContext(timeoutCtx); proj != "" {
-				cmd.Env = append(os.Environ(), proj)
-			}
+			cmd.Env = composeCommandEnv(timeoutCtx)
 
 			err := cmd.Run()
 			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
@@ -191,14 +196,13 @@ func DownWithContext(ctx context.Context, composePath string) error {
 			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 			defer cancel()
 
-			downArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+			downArgs := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
+			downArgs = append(downArgs, ComposeFileArgs(composePath)...)
 			downArgs = append(downArgs, "down")
 			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), downArgs...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
-			if proj := composeProjectEnvFromContext(timeoutCtx); proj != "" {
-				cmd.Env = append(os.Environ(), proj)
-			}
+			cmd.Env = composeCommandEnv(timeoutCtx)
 
 			err := cmd.Run()
 			return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose down", exectimeout.DockerComposeDownTimeout)
@@ -294,4 +298,34 @@ func StopContainerWithContext(ctx context.Context, containerName string) error {
 		os.Stdout.Write(out)
 	}
 	return nil
+}
+
+// ListContainersByLabels returns the names of all containers (running or
+// stopped) that match ALL provided label=value filters. Returns an empty
+// slice on any docker error; callers should treat a miss as "nothing to do"
+// rather than a fatal failure.
+func ListContainersByLabels(ctx context.Context, labels map[string]string) []string {
+	if len(labels) == 0 {
+		return nil
+	}
+	args := []string{"ps", "-a", "--format", "{{.Names}}"}
+	for k, v := range labels {
+		args = append(args, "--filter", fmt.Sprintf("label=%s=%s", k, v))
+	}
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	raw := strings.TrimSpace(string(out))
+	if raw == "" {
+		return nil
+	}
+	var names []string
+	for _, line := range strings.Split(raw, "\n") {
+		if n := strings.TrimSpace(line); n != "" {
+			names = append(names, n)
+		}
+	}
+	return names
 }

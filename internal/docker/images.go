@@ -135,6 +135,13 @@ func ValidateInfraImagesWithContext(ctx context.Context, deps *config.Deps) erro
 		if entry.Inline == nil {
 			continue
 		}
+		// Compose-mode deps delegate image management to the user's
+		// compose file — `docker compose up` pulls whatever the fragment
+		// declares. Skip raioz's own pre-flight pull so we don't try to
+		// pull an empty `:latest` reference.
+		if len(entry.Inline.Compose) > 0 {
+			continue
+		}
 		image := BuildImageName(entry.Inline.Image, entry.Inline.Tag)
 		if err := EnsureImageWithContext(ctx, image); err != nil {
 			return fmt.Errorf("infra %s: %w", name, err)
