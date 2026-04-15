@@ -20,6 +20,12 @@ import (
 // Skip straight to 1024 instead.
 const privilegedPortCeiling = 1024
 
+// portInUseProbe is the host-port-busy check used by findFreePort. Declared
+// as a package variable so tests can stub it — the production flow always
+// wants to see real host state, but a unit test asserting deterministic port
+// numbers shouldn't fail just because the CI host happens to have 3000 bound.
+var portInUseProbe = docker.CheckPortInUse
+
 // PortAllocation is the resolved port for a single service together with the
 // metadata the orchestrator needs to wire it up.
 type PortAllocation struct {
@@ -131,9 +137,9 @@ func AllocateHostPorts(
 	if err := allocAutoDeps(deps, depNames, taken, result); err != nil {
 		return nil, err
 	}
-	if err := bindCheckResult(result); err != nil {
-		return nil, err
-	}
+	// NOTE: host-port bind conflicts are checked by the caller via
+	// checkPortBindConflicts() so they can be resolved interactively
+	// instead of failing hard.
 	return result, nil
 }
 
@@ -345,7 +351,7 @@ func assignAutoDepPorts(
 // the port space.
 //
 // Used by implicit/auto passes only. Explicit passes never go through here —
-// they add to `taken` directly and let Pass 3 (bindCheckResult) surface
+// they add to `taken` directly and let checkPortBindConflicts surface
 // external conflicts as a hard error. That difference matches the design:
 // implicit is negotiable, explicit is sacred.
 func findFreePort(wanted int, taken map[int]string, owner string) (int, error) {
@@ -358,7 +364,7 @@ func findFreePort(wanted int, taken map[int]string, owner string) (int, error) {
 	}
 	for {
 		if _, clash := taken[final]; !clash {
-			inUse, err := docker.CheckPortInUse(fmt.Sprintf("%d", final))
+			inUse, err := portInUseProbe(fmt.Sprintf("%d", final))
 			if err != nil || !inUse {
 				return final, nil
 			}
@@ -385,5 +391,5 @@ func sortedKeys[T any](m map[string]T) []string {
 	return out
 }
 
-// Error builders (portConflictExplicitError, bindCheckResult,
+// Error builders (portConflictExplicitError, checkPortBindConflicts,
 // serviceBindError, depBindError) live in port_alloc_errors.go.

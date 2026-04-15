@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"raioz/internal/config"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -15,7 +16,11 @@ import (
 
 // checkInfraHealth waits for infrastructure containers to be healthy.
 // If a container is restarting or exited, shows the last log lines with actionable suggestions.
-func checkInfraHealth(ctx context.Context, infraNames []string, projectName string) error {
+// Uses a single `docker inspect` call per cycle for all containers instead of one per container.
+func checkInfraHealth(
+	ctx context.Context, infraNames []string, projectName string,
+	infra map[string]config.InfraEntry,
+) error {
 	if len(infraNames) == 0 {
 		return nil
 	}
@@ -27,20 +32,37 @@ func checkInfraHealth(ctx context.Context, infraNames []string, projectName stri
 	checkInterval := 1 * time.Second
 	deadline := time.Now().Add(maxWait)
 
+	// Build container names once, honoring dep-level name overrides and
+	// workspace-shared naming so the health check inspects the exact same
+	// containers ImageRunner created.
+	containerNames := make([]string, len(infraNames))
+	nameIndex := make(map[string]string) // containerName → infraName
+	for i, name := range infraNames {
+		var nameOverride string
+		if entry, ok := infra[name]; ok && entry.Inline != nil {
+			nameOverride = entry.Inline.Name
+		}
+		cn := naming.DepContainer(projectName, name, nameOverride)
+		containerNames[i] = cn
+		nameIndex[cn] = name
+	}
+
 	for time.Now().Before(deadline) {
+		// Single docker inspect call for ALL containers
+		statuses := getBatchContainerStatuses(ctx, containerNames)
+
 		allHealthy := true
-		for _, name := range infraNames {
-			containerName := naming.Container(projectName, name)
-			status := getContainerStatus(ctx, containerName)
+		for _, cn := range containerNames {
+			status := statuses[cn]
+			infraName := nameIndex[cn]
 
 			switch {
 			case status == "running":
 				continue
 			case status == "restarting" || status == "exited":
-				// Container is failing — show diagnostics immediately
-				output.PrintWarning(fmt.Sprintf("%s is %s — checking logs...", name, status))
-				showContainerDiagnostics(ctx, containerName, name)
-				return fmt.Errorf("dependency '%s' failed to start (status: %s)", name, status)
+				output.PrintWarning(fmt.Sprintf("%s is %s — checking logs...", infraName, status))
+				showContainerDiagnostics(ctx, cn, infraName)
+				return fmt.Errorf("dependency '%s' failed to start (status: %s)", infraName, status)
 			default:
 				allHealthy = false
 			}
@@ -56,15 +78,39 @@ func checkInfraHealth(ctx context.Context, infraNames []string, projectName stri
 	return nil // Timeout but don't block — services might still come up
 }
 
-// getContainerStatus returns the status of a Docker container.
-func getContainerStatus(ctx context.Context, containerName string) string {
-	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
-		"--format", "{{.State.Status}}", containerName)
+// getBatchContainerStatuses inspects multiple containers in a single docker
+// call and returns a map of containerName → status. This replaces N individual
+// `docker inspect` calls with one.
+func getBatchContainerStatuses(ctx context.Context, containerNames []string) map[string]string {
+	result := make(map[string]string, len(containerNames))
+	for _, cn := range containerNames {
+		result[cn] = "unknown"
+	}
+
+	if len(containerNames) == 0 {
+		return result
+	}
+
+	// docker inspect accepts multiple container names and returns a JSON array
+	args := append([]string{"inspect", "--format",
+		"{{.Name}}\t{{.State.Status}}"}, containerNames...)
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return "unknown"
+		return result
 	}
-	return strings.TrimSpace(string(out))
+
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		name := strings.TrimPrefix(strings.TrimSpace(parts[0]), "/")
+		status := strings.TrimSpace(parts[1])
+		result[name] = status
+	}
+
+	return result
 }
 
 // showContainerDiagnostics shows the last few log lines and actionable suggestions.

@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
+	"raioz/internal/output"
 )
 
 // ExecOptions contains options for the Exec use case
@@ -42,7 +43,10 @@ func (uc *ExecUseCase) Execute(ctx context.Context, opts ExecOptions) error {
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil {
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
@@ -53,7 +57,10 @@ func (uc *ExecUseCase) Execute(ctx context.Context, opts ExecOptions) error {
 			).WithSuggestion(i18n.T("error.no_project_suggestion"))
 		}
 	} else {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil && deps.Project.Name == projectName {
 			workspaceName = deps.GetWorkspaceName()
 		} else {

@@ -54,7 +54,10 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 	}
 
 	// Load config to find the dependency
-	cfgDeps, _, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+	cfgDeps, warnings, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+	for _, w := range warnings {
+		output.PrintWarning(w)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot load config: %w", err)
 	}

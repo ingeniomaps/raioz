@@ -149,18 +149,21 @@ func mergeVariables(oldV, newV map[string]string) map[string]string {
 
 func cloneService(s config.Service) config.Service {
 	out := config.Service{
-		Source:      s.Source,
-		DependsOn:   append([]string(nil), s.DependsOn...),
-		Env:         s.Env,
-		Volumes:     append([]string(nil), s.Volumes...),
-		Profiles:    append([]string(nil), s.Profiles...),
-		Enabled:     s.Enabled,
-		Mock:        s.Mock,
-		FeatureFlag: s.FeatureFlag,
-		Commands:    s.Commands,
-		Watch:       s.Watch,
-		Hostname:    s.Hostname,
-		Routing:     s.Routing,
+		Source:         s.Source,
+		DependsOn:      append([]string(nil), s.DependsOn...),
+		Env:            s.Env,
+		Volumes:        append([]string(nil), s.Volumes...),
+		Profiles:       append([]string(nil), s.Profiles...),
+		Enabled:        s.Enabled,
+		Mock:           s.Mock,
+		FeatureFlag:    s.FeatureFlag,
+		Commands:       s.Commands,
+		Watch:          s.Watch,
+		Hostname:       s.Hostname,
+		Routing:        s.Routing,
+		ProxyOverride:  s.ProxyOverride, // BUG: previously missing — proxy override silently dropped on workspace merge
+		Port:           s.Port,
+		HealthEndpoint: s.HealthEndpoint,
 	}
 	if s.Docker != nil {
 		out.Docker = &config.DockerConfig{
@@ -215,14 +218,19 @@ func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
 	if entry.Inline != nil {
 		inf := *entry.Inline
 		out.Inline = &config.Infra{
+			Name:        inf.Name,
 			Image:       inf.Image,
 			Tag:         inf.Tag,
+			Compose:     append([]string(nil), inf.Compose...),
 			Ports:       append([]string(nil), inf.Ports...),
 			Volumes:     append([]string(nil), inf.Volumes...),
 			IP:          inf.IP,
 			Env:         inf.Env,
 			Profiles:    append([]string(nil), inf.Profiles...),
 			Healthcheck: inf.Healthcheck,
+			Expose:      append([]int(nil), inf.Expose...),
+			Publish:     inf.Publish,
+			Routing:     inf.Routing,
 		}
 	}
 	return out

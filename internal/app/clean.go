@@ -39,7 +39,10 @@ func NewCleanUseCase(deps *Dependencies) *CleanUseCase {
 func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 	projectName := opts.ProjectName
 	if !opts.All && projectName == "" {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil {
 			projectName = deps.Project.Name
 		} else {

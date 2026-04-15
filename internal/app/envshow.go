@@ -14,6 +14,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/naming"
+	"raioz/internal/output"
 )
 
 // EnvShowOptions contains options for the env show use case.
@@ -44,7 +45,10 @@ func (uc *EnvShowUseCase) Execute(
 	_ context.Context,
 	opts EnvShowOptions,
 ) ([]EnvEntry, error) {
-	deps, _, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+	deps, warnings, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+	for _, w := range warnings {
+		output.PrintWarning(w)
+	}
 	if err != nil {
 		return nil, err
 	}

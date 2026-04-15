@@ -29,6 +29,9 @@ var proxyStatusCmd = &cobra.Command{
 
 		if proj := app.ResolveYAMLProject(deps, ""); proj != nil {
 			deps.ProxyManager.SetProjectName(proj.ProjectName)
+			if proj.Deps != nil {
+				deps.ProxyManager.SetWorkspace(proj.Deps.Workspace)
+			}
 		}
 
 		running, err := deps.ProxyManager.Status(ctx)
@@ -60,6 +63,9 @@ var proxyStopCmd = &cobra.Command{
 
 		if proj := app.ResolveYAMLProject(deps, ""); proj != nil {
 			deps.ProxyManager.SetProjectName(proj.ProjectName)
+			if proj.Deps != nil {
+				deps.ProxyManager.SetWorkspace(proj.Deps.Workspace)
+			}
 		}
 
 		return deps.ProxyManager.Stop(ctx)

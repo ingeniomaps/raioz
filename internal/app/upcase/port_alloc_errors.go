@@ -25,18 +25,33 @@ func portConflictExplicitError(owner, holder string, port int) error {
 	).WithSuggestion(i18n.T("error.port_conflict_explicit_suggestion"))
 }
 
-// bindCheckResult probes every resolved host port via a tcp listener. If
-// something outside this project already owns it, that's a real conflict
-// raioz cannot resolve — fail fast with a clear pointer to the owner.
-// Explicit paths end up here too: they added directly to `taken` during
-// allocation instead of probing, so this pass is their conflict gate.
-func bindCheckResult(result *PortAllocResult) error {
+// PortBindConflict describes a single host-port bind clash detected after
+// allocation. The caller decides how to handle it (interactive prompt,
+// hard error, auto-reassign, etc.).
+type PortBindConflict struct {
+	Kind     string // "service" or "dep"
+	Name     string
+	Port     int
+	Explicit bool
+}
+
+// checkPortBindConflicts probes every resolved host port via a tcp listener
+// and returns a conflict entry for each port that is already bound. Unlike
+// the old bindCheckResult it does NOT return an error — the caller decides
+// whether to fail, prompt the user, or auto-reassign.
+func checkPortBindConflicts(result *PortAllocResult) []PortBindConflict {
+	var conflicts []PortBindConflict
 	for _, alloc := range result.Services {
 		inUse, err := docker.CheckPortInUse(fmt.Sprintf("%d", alloc.Port))
 		if err != nil || !inUse {
 			continue
 		}
-		return serviceBindError(alloc)
+		conflicts = append(conflicts, PortBindConflict{
+			Kind:     "service",
+			Name:     alloc.Name,
+			Port:     alloc.Port,
+			Explicit: alloc.Explicit,
+		})
 	}
 	for _, alloc := range result.Deps {
 		for _, m := range alloc.Mappings {
@@ -44,10 +59,15 @@ func bindCheckResult(result *PortAllocResult) error {
 			if err != nil || !inUse {
 				continue
 			}
-			return depBindError(alloc, m)
+			conflicts = append(conflicts, PortBindConflict{
+				Kind:     "dep",
+				Name:     alloc.Name,
+				Port:     m.HostPort,
+				Explicit: alloc.Explicit,
+			})
 		}
 	}
-	return nil
+	return conflicts
 }
 
 // serviceBindError builds the bind-clash error for a service. The explicit

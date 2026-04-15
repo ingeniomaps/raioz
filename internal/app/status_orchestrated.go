@@ -57,7 +57,7 @@ func (uc *StatusUseCase) showOrchestratedStatus(ctx context.Context, opts Status
 		output.PrintSectionHeader("DEPENDENCIES")
 		for name, entry := range cfgDeps.Infra {
 			imageRef := infraImageRef(entry)
-			statusStr := uc.queryServiceStatus(ctx, name, cfgDeps)
+			statusStr := uc.queryDepStatus(ctx, name, entry, cfgDeps)
 
 			label := imageRef
 			// Show dev override if active
@@ -85,19 +85,36 @@ func (uc *StatusUseCase) showOrchestratedStatus(ctx context.Context, opts Status
 	return nil
 }
 
-// queryServiceStatus checks if a service container is running.
+// queryServiceStatus checks the state of a service container by name.
+// Services are always per-project, so naming.Container is correct here. For
+// dependencies (which may be workspace-shared or have a name override) use
+// queryDepStatus instead.
 func (uc *StatusUseCase) queryServiceStatus(ctx context.Context, name string, deps *config.Deps) string {
-	containerName := naming.Container(deps.Project.Name, name)
+	return uc.queryStatusByContainer(ctx, naming.Container(deps.Project.Name, name))
+}
 
-	// Try docker inspect
-	statuses, err := uc.deps.DockerRunner.GetServicesStatusWithContext(ctx, "")
-	if err == nil {
-		if status, ok := statuses[containerName]; ok {
-			return status
-		}
+// queryDepStatus resolves the actual container name for a dependency,
+// honoring workspace-shared naming and user-supplied `name:` overrides.
+func (uc *StatusUseCase) queryDepStatus(
+	ctx context.Context, name string, entry config.InfraEntry, deps *config.Deps,
+) string {
+	var nameOverride string
+	if entry.Inline != nil {
+		nameOverride = entry.Inline.Name
 	}
+	return uc.queryStatusByContainer(ctx,
+		naming.DepContainer(deps.Project.Name, name, nameOverride))
+}
 
-	return "unknown"
+func (uc *StatusUseCase) queryStatusByContainer(ctx context.Context, containerName string) string {
+	status, err := uc.deps.DockerRunner.GetContainerStatusByName(ctx, containerName)
+	if err != nil {
+		return "unknown"
+	}
+	if status == "" {
+		return "stopped"
+	}
+	return status
 }
 
 // infraImageRef returns the image:tag reference for an infra entry.

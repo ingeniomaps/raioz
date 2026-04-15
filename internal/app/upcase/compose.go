@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"raioz/internal/config"
+	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
@@ -83,12 +84,17 @@ func (uc *UseCase) processCompose(
 	// This ensures infrastructure (databases, etc.) is available and healthy before services start
 	upStartTime := time.Now()
 
+	// Scope all compose operations with an explicit project name so
+	// --remove-orphans only affects THIS project's containers, never
+	// containers from other projects that share the directory basename.
+	scopedCtx := docker.WithComposeProjectName(ctx, "raioz-"+deps.Project.Name)
+
 	// Step 1: Deploy infra first (if any)
 	if len(infraNames) > 0 {
 		output.PrintProgress(i18n.T("up.starting_infra", len(infraNames)))
 		logging.InfoWithContext(ctx, "Starting infrastructure services",
 			"compose_path", composePath, "infra_count", len(infraNames), "infra_names", infraNames)
-		if err := uc.deps.DockerRunner.UpServicesWithContext(ctx, composePath, infraNames); err != nil {
+		if err := uc.deps.DockerRunner.UpServicesWithContext(scopedCtx, composePath, infraNames); err != nil {
 			logging.ErrorWithContext(ctx, "Failed to start infrastructure services",
 				"compose_path", composePath, "duration_ms", time.Since(upStartTime).Milliseconds(),
 				"error", err.Error())
@@ -132,7 +138,7 @@ func (uc *UseCase) processCompose(
 			"compose_path", composePath, "services_count", len(serviceNames),
 			"service_names", serviceNames)
 		servicesStartTime := time.Now()
-		if err := uc.deps.DockerRunner.UpServicesWithContext(ctx, composePath, serviceNames); err != nil {
+		if err := uc.deps.DockerRunner.UpServicesWithContext(scopedCtx, composePath, serviceNames); err != nil {
 			logging.ErrorWithContext(ctx, "Failed to start application services",
 				"compose_path", composePath,
 				"duration_ms", time.Since(servicesStartTime).Milliseconds(),

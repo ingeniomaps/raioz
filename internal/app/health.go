@@ -30,7 +30,10 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 	ctx = logging.WithOperation(ctx, "raioz health")
 
 	// Load configuration
-	configDeps, _, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+	configDeps, warnings, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+	for _, w := range warnings {
+		output.PrintWarning(w)
+	}
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,

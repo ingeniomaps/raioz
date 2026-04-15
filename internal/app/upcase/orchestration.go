@@ -28,6 +28,7 @@ func (uc *UseCase) processOrchestration(
 	deps *config.Deps,
 	ws *interfaces.Workspace,
 	projectDir string,
+	configPath string,
 ) (*orchestrationResult, error) {
 	// Step 0: Kill stale host processes from previous run
 	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name)
@@ -47,6 +48,18 @@ func (uc *UseCase) processOrchestration(
 	if err != nil {
 		return nil, err
 	}
+
+	// Step 1c: Check for host-port bind conflicts. When an external process
+	// or a container from another project occupies a port raioz needs, we
+	// prompt the user instead of failing or killing the occupant.
+	if conflicts := checkPortBindConflicts(portAllocs); len(conflicts) > 0 {
+		if err := resolvePortBindConflicts(
+			ctx, conflicts, portAllocs, configPath, deps.Project.Name,
+		); err != nil {
+			return nil, err
+		}
+	}
+
 	for name, alloc := range portAllocs.Services {
 		det := detections[name]
 		det.Port = alloc.Port
@@ -107,8 +120,13 @@ func (uc *UseCase) processOrchestration(
 				}
 			}
 
-			// Build container name
-			containerName := naming.Container(deps.Project.Name, name)
+			// Build container name. Deps may be workspace-shared or have an
+			// explicit `name:` override — both cases resolved by DepContainer.
+			var nameOverride string
+			if entry.Inline != nil {
+				nameOverride = entry.Inline.Name
+			}
+			containerName := naming.DepContainer(deps.Project.Name, name, nameOverride)
 
 			// Resolve what ports (if any) this dep should publish to the host.
 			// Priority: allocator result (publish: …) → legacy ports: list →
@@ -124,6 +142,22 @@ func (uc *UseCase) processOrchestration(
 				"", // no path for images
 				deps.Project.Name,
 			)
+
+			// When the dep declares `compose:`, hand its files + env files
+			// straight to ImageRunner. ImageRunner branches on these: if
+			// set it uses the user's compose with a network/labels overlay
+			// layered on top; if not it generates a minimal compose from
+			// the `image:` field (legacy behavior).
+			if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
+				svcCtx.ExternalComposeFiles = append([]string(nil), entry.Inline.Compose...)
+				if entry.Inline.Env != nil {
+					for _, f := range entry.Inline.Env.GetFilePaths() {
+						if f != "" {
+							svcCtx.EnvFilePaths = append(svcCtx.EnvFilePaths, f)
+						}
+					}
+				}
+			}
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
 				imageRef := ""
@@ -141,7 +175,7 @@ func (uc *UseCase) processOrchestration(
 
 		// Wait for infra health with diagnostics
 		output.PrintProgress(i18n.T("up.waiting_infra_healthy"))
-		if err := checkInfraHealth(ctx, infraNames, deps.Project.Name); err != nil {
+		if err := checkInfraHealth(ctx, infraNames, deps.Project.Name, deps.Infra); err != nil {
 			return nil, errors.New(errors.ErrCodeDockerNotRunning, err.Error()).
 				WithSuggestion("Fix the issue above and run 'raioz up' again")
 		}
@@ -210,14 +244,20 @@ func (uc *UseCase) processOrchestration(
 		output.PrintProgressDone(i18n.T("up.services_started", len(serviceNames)))
 	}
 
-	// Persist host PIDs so raioz down / next raioz up can find them
-	saveHostPIDs(projectDir, deps.Project.Name, dispatcher, serviceNames, detections)
+	// Persist host PIDs (and project/workspace/network provenance) so
+	// `raioz down` / next `raioz up` / `raioz status` can find them.
+	saveHostPIDs(projectDir, deps.Project.Name, deps.Workspace, networkName,
+		dispatcher, serviceNames, detections)
 
 	// Step 4: Start proxy if enabled. The proxy block is extracted into its
 	// own file to keep this function under the 400-line cap; see
-	// orchestration_proxy.go.
+	// orchestration_proxy.go. A proxy failure aborts `up` — the user opted
+	// into `proxy: true` in raioz.yaml, so pretending everything is fine
+	// when HTTPS routing is broken just hides the problem.
 	if deps.Proxy && uc.deps.ProxyManager != nil {
-		uc.startProxy(ctx, deps, detections, serviceNames, networkName)
+		if err := uc.startProxy(ctx, deps, detections, serviceNames, networkName); err != nil {
+			return nil, err
+		}
 	}
 
 	return &orchestrationResult{
@@ -249,8 +289,17 @@ func buildEndpoints(
 		}
 
 		if detection.IsDocker() {
-			// Docker services use their container name as host within the network
-			ep.Host = naming.Container(deps.Project.Name, name)
+			// Docker services use their container name as host within the network.
+			// Dependencies may be workspace-shared, services are always per-project.
+			if entry, ok := deps.Infra[name]; ok {
+				var nameOverride string
+				if entry.Inline != nil {
+					nameOverride = entry.Inline.Name
+				}
+				ep.Host = naming.DepContainer(deps.Project.Name, name, nameOverride)
+			} else {
+				ep.Host = naming.Container(deps.Project.Name, name)
+			}
 		} else {
 			ep.Host = "localhost"
 		}

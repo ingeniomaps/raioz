@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"syscall"
+	"time"
 
 	"raioz/internal/detect"
 	"raioz/internal/logging"
@@ -40,9 +41,13 @@ func cleanStaleHostProcesses(ctx context.Context, projectDir, projectName string
 	state.SaveLocalState(projectDir, localState)
 }
 
-// saveHostPIDs persists host service PIDs to .raioz.state.json.
+// saveHostPIDs persists project state to .raioz.state.json. Always writes,
+// even when there are no host PIDs, so `status` / `down` can rely on the
+// file for project/workspace/network provenance. Projects that only use
+// Docker services need this too — otherwise down loads an empty struct and
+// ends up saving garbage (`project:""`, zero time) back over the file.
 func saveHostPIDs(
-	projectDir, projectName string,
+	projectDir, projectName, workspaceName, networkName string,
 	dispatcher *orchestrate.Dispatcher,
 	serviceNames []string,
 	detections DetectionMap,
@@ -50,31 +55,35 @@ func saveHostPIDs(
 	localState, _ := state.LoadLocalState(projectDir)
 	if localState == nil {
 		localState = &state.LocalState{
-			Project:  projectName,
 			HostPIDs: make(map[string]int),
 		}
 	}
 
+	localState.Project = projectName
+	localState.Workspace = workspaceName
+	localState.NetworkName = networkName
+	localState.LastUp = time.Now()
+
 	localState.HostPIDs = make(map[string]int)
-	for _, name := range serviceNames {
-		det, ok := detections[name]
-		if !ok {
-			continue
-		}
-		if det.Runtime == detect.RuntimeCompose ||
-			det.Runtime == detect.RuntimeDockerfile ||
-			det.Runtime == detect.RuntimeImage {
-			continue // Docker-managed, not a host process
-		}
-		pid := dispatcher.GetHostPID(name)
-		if pid > 0 {
-			localState.HostPIDs[name] = pid
+	if dispatcher != nil {
+		for _, name := range serviceNames {
+			det, ok := detections[name]
+			if !ok {
+				continue
+			}
+			if det.Runtime == detect.RuntimeCompose ||
+				det.Runtime == detect.RuntimeDockerfile ||
+				det.Runtime == detect.RuntimeImage {
+				continue // Docker-managed, not a host process
+			}
+			pid := dispatcher.GetHostPID(name)
+			if pid > 0 {
+				localState.HostPIDs[name] = pid
+			}
 		}
 	}
 
-	if len(localState.HostPIDs) > 0 {
-		state.SaveLocalState(projectDir, localState)
-	}
+	state.SaveLocalState(projectDir, localState)
 }
 
 // isProcessAlive checks if a process with the given PID is running.
@@ -88,6 +97,9 @@ func isProcessAlive(pid int) bool {
 
 // killProcessGraceful sends SIGTERM, then SIGKILL after a short wait.
 func killProcessGraceful(pid int) {
+	if pid <= 0 {
+		return // negative/zero PIDs are special values in kill(2) — never use them
+	}
 	// Kill the process group to catch child processes (e.g., go run spawns a child)
 	pgid, err := syscall.Getpgid(pid)
 	if err == nil && pgid > 0 {

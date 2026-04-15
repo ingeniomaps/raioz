@@ -45,7 +45,10 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	if configPath == "" {
 		configPath = resolveDownConfigPath()
 	}
-	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
+	deps, warnings, err := uc.deps.ConfigLoader.LoadDeps(configPath)
+	for _, w := range warnings {
+		output.PrintWarning(w)
+	}
 	if err == nil && deps != nil && deps.SchemaVersion == "2.0" {
 		return nil // Already handled by downOrchestrated
 	}
@@ -114,7 +117,7 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 
 	// Project-level down (default) vs full workspace down (--all)
 	if !opts.All {
-		done, err := uc.stopProjectServices(ctx, opts, composePath, projectName, workspaceName)
+		done, err := uc.stopProjectServices(ctx, opts, composePath, projectName)
 		if done {
 			return err
 		}
@@ -250,7 +253,7 @@ func (uc *DownUseCase) acquireLock(
 func (uc *DownUseCase) stopProjectServices(
 	ctx context.Context,
 	opts DownOptions,
-	composePath, projectName, workspaceName string,
+	composePath, projectName string,
 ) (bool, error) {
 	currentDeps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	if currentDeps == nil {
@@ -263,29 +266,7 @@ func (uc *DownUseCase) stopProjectServices(
 		servicesToStop[name] = true
 	}
 
-	canPruneInfra := false
-	if opts.PruneShared {
-		globalState, err := uc.deps.StateManager.LoadGlobalState()
-		if err == nil {
-			activeInWorkspace := 0
-			for name, p := range globalState.Projects {
-				if name == projectName {
-					continue
-				}
-				if p.Workspace == workspaceName {
-					activeInWorkspace++
-				}
-			}
-			canPruneInfra = activeInWorkspace == 0
-		}
-	}
-	if canPruneInfra {
-		for name := range currentDeps.Infra {
-			servicesToStop[name] = true
-		}
-	}
-
-	if len(servicesToStop) == 0 {
+	if len(servicesToStop) == 0 && len(currentDeps.Infra) == 0 {
 		output.PrintInfo(i18n.T("output.no_services_to_stop"))
 	} else {
 		output.PrintInfo(i18n.T("output.stopping_project_services"))
@@ -294,17 +275,20 @@ func (uc *DownUseCase) stopProjectServices(
 				logging.WarnWithContext(ctx, "Failed to stop service during project down", "service", name, "error", err.Error())
 			}
 		}
+
+		// Dependencies live in separate per-dep compose files created by
+		// ImageRunner, NOT in the main compose file. Use the same teardown
+		// function that the orchestrated path uses.
+		stopDependencyComposeProjects(ctx, currentDeps, projectName)
 	}
 
 	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 		logging.Warn("failed to update global state", "error", err)
 	}
 
-	if canPruneInfra {
-		output.PrintInfo(i18n.T("output.infra_pruned"))
-	} else if opts.PruneShared {
-		output.PrintInfo(i18n.T("output.infra_kept"))
-	}
+	// Always stop the proxy — it was started by `up` and must be cleaned up.
+	uc.stopProxy(ctx, opts)
+
 	output.PrintSuccess(i18n.T("output.project_stopped", projectName))
 	return true, nil
 }

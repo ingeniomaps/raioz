@@ -98,8 +98,12 @@ func streamAllLogs(
 	}
 
 	// Stream docker container logs for dependencies
-	for name := range deps.Infra {
-		containerName := naming.Container(deps.Project.Name, name)
+	for name, entry := range deps.Infra {
+		var nameOverride string
+		if entry.Inline != nil {
+			nameOverride = entry.Inline.Name
+		}
+		containerName := naming.DepContainer(deps.Project.Name, name, nameOverride)
 		color := serviceColors[colorIdx%len(serviceColors)]
 		colorIdx++
 

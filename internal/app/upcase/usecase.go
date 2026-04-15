@@ -276,7 +276,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 
 	if isYAMLMode(deps) {
 		// New orchestrator flow: detect runtimes, start with native tools
-		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir)
+		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath)
 		if err != nil {
 			return err
 		}

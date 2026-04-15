@@ -9,6 +9,7 @@ import (
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 
 	"gopkg.in/yaml.v3"
 )
@@ -126,11 +127,17 @@ func (r *ComposeRunner) createNetworkOverlay(svc interfaces.ServiceContext) (str
 		return r.writeOverlay(svc, overlay)
 	}
 
-	// Add network to each service
+	// Add network + raioz labels to each service so raioz can identify and
+	// sweep these containers without matching by name (names come from the
+	// user's compose file and may collide with unrelated projects).
+	labels := naming.Labels(
+		naming.WorkspaceName(), svc.ProjectName, svc.Name, naming.KindService,
+	)
 	svcOverrides := make(map[string]any)
 	for _, name := range services {
 		svcOverrides[name] = map[string]any{
 			"networks": []string{svc.NetworkName, "default"},
+			"labels":   labels,
 		}
 	}
 	overlay["services"] = svcOverrides

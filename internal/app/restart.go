@@ -9,6 +9,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
+	"raioz/internal/output"
 )
 
 // RestartOptions contains options for the Restart use case
@@ -49,7 +50,10 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil {
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
@@ -60,7 +64,10 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 			).WithSuggestion(i18n.T("error.no_project_suggestion"))
 		}
 	} else {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		for _, w := range warnings {
+			output.PrintWarning(w)
+		}
 		if deps != nil && deps.Project.Name == projectName {
 			workspaceName = deps.GetWorkspaceName()
 		} else {
