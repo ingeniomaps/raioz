@@ -4,14 +4,10 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"os/exec"
 	"sort"
 	"strings"
-	"syscall"
-	"time"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
@@ -86,67 +82,6 @@ func NewManager(certsDir string) *Manager {
 		tlsMode:  "mkcert",
 		publish:  true, // default: bind host 80/443
 	}
-}
-
-// SetDomain sets a custom domain (e.g., "dev.acme.com" instead of "localhost").
-func (m *Manager) SetDomain(domain string) {
-	if domain != "" {
-		m.domain = domain
-	}
-}
-
-// SetTLSMode sets the TLS mode: "mkcert" for local certs, "letsencrypt" for real certs.
-func (m *Manager) SetTLSMode(mode string) {
-	if mode != "" {
-		m.tlsMode = mode
-	}
-}
-
-// SetBindHost sets the bind address. Use "0.0.0.0" for shared dev servers.
-func (m *Manager) SetBindHost(host string) {
-	m.bindHost = host
-}
-
-// SetProjectName sets the project name for container/volume naming.
-func (m *Manager) SetProjectName(name string) {
-	m.projectName = name
-}
-
-// SetNetworkSubnet records the CIDR of the Docker network the proxy will
-// attach to. Empty when the user didn't declare one (Docker picks its own
-// subnet on creation).
-func (m *Manager) SetNetworkSubnet(cidr string) {
-	m.networkSubnet = cidr
-}
-
-// SetContainerIP pins the proxy container to a specific address inside the
-// Docker network. Empty means "let raioz pick the default (<subnet>.1.1)
-// when a subnet is set, otherwise let Docker auto-assign".
-func (m *Manager) SetContainerIP(ip string) {
-	m.containerIP = ip
-}
-
-// SetWorkspace switches the manager to workspace-shared mode. The
-// container, volume, Caddyfile path, and labels all reflect the workspace
-// (one Caddy per workspace, not per project). Empty switches it back to
-// per-project mode.
-func (m *Manager) SetWorkspace(name string) {
-	m.workspaceName = name
-}
-
-// SetPublish toggles the host port binding. nil/true keeps the default
-// (proxy reachable on host 80/443). false skips the binding entirely;
-// callers must ensure a deterministic IP is set so the user knows what
-// to put in /etc/hosts.
-func (m *Manager) SetPublish(publish *bool) {
-	if publish != nil {
-		m.publish = *publish
-	}
-}
-
-// IsPublished reports whether the proxy will bind host ports.
-func (m *Manager) IsPublished() bool {
-	return m.publish
 }
 
 // ContainerIP exposes the resolved IP for callers (e.g., the orchestrator's
@@ -430,113 +365,4 @@ func (m *Manager) removeStaleContainer(ctx context.Context, containerName string
 	return nil
 }
 
-// portCheckFunc is the package-level probe used by checkPortsAvailable.
-// Declared as a variable so tests can stub it out — the production flow
-// really does want to bind-probe real ports, but tests exercising Start()
 // shouldn't require free 80/443 on the test host.
-var portCheckFunc = isHostPortInUse
-
-// checkPortsAvailable verifies the host ports the proxy intends to publish are
-// free before we try to create the container. Returns a descriptive error
-// listing the conflicting port(s) so the user can act (stop the other
-// process, configure SetBindHost, etc.).
-func (m *Manager) checkPortsAvailable() error {
-	ports := []int{80, 443}
-	var taken []int
-	for _, p := range ports {
-		inUse, err := portCheckFunc(p)
-		if err != nil {
-			// Don't fail on probe error (e.g. IPv6-only quirk); rely on
-			// docker run to report the real problem.
-			continue
-		}
-		if inUse {
-			taken = append(taken, p)
-		}
-	}
-	if len(taken) == 0 {
-		return nil
-	}
-	return fmt.Errorf(
-		"proxy cannot start: host port(s) %v already in use. "+
-			"Stop the conflicting process, or configure the proxy to bind to a "+
-			"different address (see proxy.bindHost).", taken,
-	)
-}
-
-// isHostPortInUse reports whether a host TCP port is already bound. The
-// probe is two-stage:
-//
-//  1. Try a TCP DIAL against 127.0.0.1:<port>. If something accepts the
-//     connection, the port is in use — works regardless of who's serving
-//     it (Docker daemon as root, another user's process, anything).
-//     Connection-refused means nobody's listening → port is free.
-//  2. As a secondary signal try to bind. The historical bind-only probe
-//     misreported privileged ports as busy when raioz ran non-root
-//     (EACCES is "we can't bind", not "someone else has it"); the dial
-//     stage above sidesteps that, but the bind attempt is still useful
-//     to catch the rare case where dial succeeded but no one is actually
-//     listening (e.g. a stale CLOSE_WAIT).
-//
-// Returns (false, nil) only when both probes are inconclusive — at that
-// point we let the actual `docker run` surface the real error rather than
-// false-positive blocking the user.
-func isHostPortInUse(port int) (bool, error) {
-	if inUse, probed := probeTCPDial("127.0.0.1", port); probed {
-		return inUse, nil
-	}
-	if inUse, probed := probeTCPBind("", port); probed {
-		return inUse, nil
-	}
-	if inUse, probed := probeTCPBind("127.0.0.1", port); probed {
-		return inUse, nil
-	}
-	return false, nil
-}
-
-// probeTCPDial tries to OPEN a TCP connection to host:port. Doesn't require
-// any privilege — works as non-root against privileged ports too. Used as
-// the first signal because it matches the question we actually care about:
-// "is something listening?" not "could WE bind?".
-func probeTCPDial(host string, port int) (inUse, probed bool) {
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), tcpProbeTimeout)
-	if err == nil {
-		_ = conn.Close()
-		return true, true // someone accepted → port in use
-	}
-	if errors.Is(err, syscall.ECONNREFUSED) {
-		return false, true // nobody listening → port free
-	}
-	// Any other error (timeout, host unreachable, etc.): we couldn't
-	// determine a definitive answer.
-	return false, false
-}
-
-// tcpProbeTimeout caps the dial probe so a single port check never blocks
-// the up flow for more than a fraction of a second. 250ms is generous for
-// loopback connect-refused/accept latency.
-const tcpProbeTimeout = 250 * time.Millisecond
-
-// probeTCPBind attempts to bind host:port. Returns (inUse, probed) where
-// `probed` is false when we couldn't determine either way (e.g. permission
-// errors that don't actually mean the port is occupied).
-func probeTCPBind(host string, port int) (inUse, probed bool) {
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
-	if err == nil {
-		_ = ln.Close()
-		return false, true
-	}
-	// EADDRINUSE is the only signal we trust for "someone else has this port".
-	if errors.Is(err, syscall.EADDRINUSE) {
-		return true, true
-	}
-	// Permission errors (EACCES on privileged ports as non-root) mean our
-	// probe can't answer the question — leave it to docker run to surface
-	// an actual conflict.
-	if errors.Is(err, syscall.EACCES) || errors.Is(err, syscall.EPERM) {
-		return false, false
-	}
-	// Any other error (e.g. EAFNOSUPPORT on IPv6-disabled hosts): mark as
-	// unprobed so the caller can try another host or give up gracefully.
-	return false, false
-}
