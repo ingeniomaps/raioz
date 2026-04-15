@@ -8,15 +8,15 @@ real-world friction. For shipped history, see
 Work lives here until a release is cut, then the items that actually
 shipped move to `CHANGELOG.md#Unreleased`, then to a versioned entry.
 
-## v0.1.1 (in progress)
+## v0.1.1 — shipped 2026-04-15
 
 Hotfix release surfacing from the keycloak pilot user (2026-04-14).
-The planned fixes for `dependencies.<n>.proxy:` being silently
-dropped (#1), the `expose:` fallback (#2), and unknown-field
-warnings (#4) are **implemented on `develop`** and awaiting release
-— see [CHANGELOG.md#Unreleased](CHANGELOG.md). One item was
-deliberately deferred to v0.2.0 because it needs a design pass
-larger than a patch release should carry; see below.
+Fixes for `dependencies.<n>.proxy:` being silently dropped (#1),
+the `expose:` fallback (#2), and unknown-field warnings (#4) shipped
+— see [CHANGELOG.md#011---2026-04-15](CHANGELOG.md). The
+`ExposedPorts` lookup (#3) was deliberately deferred to v0.2.0
+because it needs a design pass larger than a patch release should
+carry; see below.
 
 ## v0.2.0 (tentative)
 

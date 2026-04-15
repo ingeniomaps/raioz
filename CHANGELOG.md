@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-15
+
 Patch-level fixes for configuration parsing, surfaced by the keycloak
 pilot user configuring `raioz.yaml` against v0.1.0 (2026-04-14).
 
