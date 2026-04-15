@@ -68,13 +68,14 @@ Scope must be lowercase, short (1-2 words), and
 represent a module or subsystem.
 Avoid broad scopes like "system".
 
-Common scopes: `auth`, `api`, `realm`, `docker`,
-`infra`, `ui`, `db`, `frontend`, `partners`, `users`.
+Common scopes in raioz: `proxy`, `naming`, `config`,
+`orchestrate`, `cli`, `app`, `detect`, `docker`, `i18n`,
+`lint`, `release`, `ci`.
 
 ```
-feat(realm): add partner tracking   # clear scope
-fix(auth): handle null email        # clear scope
-chore: remove dead files            # no scope needed
+feat(proxy): add workspace-shared routing   # clear scope
+fix(naming): use active prefix for deps     # clear scope
+chore: remove dead files                    # no scope needed
 ```
 
 ## Breaking changes
@@ -82,19 +83,21 @@ chore: remove dead files            # no scope needed
 Mark with `!` after the type:
 
 ```
-refactor(infra)!: use NETWORK_NAME from env
+refactor(config)!: rename dependencies.infra to dependencies
 
-All compose files now read the network name from
-env vars. Update NETWORK_NAME in .env.
+Top-level key `infra:` in raioz.yaml is now `dependencies:`.
+Run `raioz migrate yaml` to auto-rewrite existing configs.
 ```
 
 Add `BREAKING CHANGE:` footer when extra detail helps:
 
 ```
-build(docker)!: require KC_VERSION build arg
+feat(proxy)!: require network.subnet when proxy.publish is false
 
-BREAKING CHANGE: docker build without --build-arg
-KC_VERSION will fail. make build reads it from .env.
+BREAKING CHANGE: proxy.publish:false configs without
+network.subnet now fail fast instead of silently
+auto-assigning a subnet. Declare network.subnet
+explicitly so /etc/hosts entries stay deterministic.
 ```
 
 Use `!` when the change:
@@ -192,44 +195,54 @@ refactor(api): update service       # what changed?
 
 ## Good examples
 
-```
-feat(realm): add partner tracking
-
-Protocol mappers needed for analytics — track where
-each user registered from (partner, platform, direct).
-```
+Drawn from real raioz commit history — safe to mirror.
 
 ```
-fix(auth): handle null email
-```
+feat(proxy): add workspace-shared routing and publish toggle
 
-```
-fix(infra): read network name from env
-
-Multiple projects on the same host need isolated
-networks. Hardcoded name caused collisions.
+Single Caddy fronts every project in a workspace; routes
+persist per project so 'raioz down' only removes the caller's
+entries. New publish:false mode skips host port binding so
+multiple workspaces run in parallel, mapped via /etc/hosts.
 ```
 
 ```
-refactor(docker): use compose.yaml naming
+fix(naming): use active prefix for DepComposeProjectName
 
-Docker Compose v2 recommends compose.yaml over
-docker-compose.yml. Avoids deprecation warnings.
+Hardcoded "raioz-" didn't match container names when a
+workspace was set, so `docker compose ls` missed those deps.
 ```
 
 ```
-chore: remove dead config directory
+refactor(orchestrate): wire workspace-shared proxy and port allocator
 
-Only infinispan-cluster.xml was used. Realm import,
-themes, and single-node config were never loaded.
+Threads the new config fields through up/down. No behavior
+change for per-project projects; workspace projects now
+share proxy + deps correctly.
 ```
 
 ```
-build(docker)!: require KC_VERSION build arg
+chore(i18n): add port conflict resolution strings
 
-Prevents silently building with outdated version.
-make build reads it from .env automatically.
+Interactive port allocator needs user-facing prompts when a
+port is held by another container, an external process, or
+a sibling raioz project.
+```
 
-BREAKING CHANGE: docker build without --build-arg
-KC_VERSION will fail.
+```
+build(ci): consolidate CI into a single workflow
+
+Merges lint.yml into ci.yml with three parallel jobs
+(lint, test, integration). Drops duplicate go test / build
+runs and the redundant file-length check.
+```
+
+```
+feat(proxy)!: require network.subnet when proxy.publish is false
+
+Enforces a deterministic IP so /etc/hosts entries stay
+valid across re-ups. No auto-assignment fallback.
+
+BREAKING CHANGE: proxy.publish:false without network.subnet
+now fails fast; previous silent auto-assignment is removed.
 ```

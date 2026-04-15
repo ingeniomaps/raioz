@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -136,4 +138,48 @@ func resolveYAMLPaths(cfg *RaiozConfig, baseDir string) {
 func IsYAMLConfig(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return ext == ".yaml" || ext == ".yml"
+}
+
+// unknownFieldWarnings runs a second, strict decode purely to surface
+// unknown fields as advisory warnings. Lenient decoding (LoadYAML) remains
+// the source of truth for populating the config — yaml.v3's KnownFields
+// mode promotes "unknown field" into an error we'd otherwise have to
+// hard-fail on, which would break configs carrying custom annotations or
+// fields added by future raioz versions.
+//
+// We rely on the invariant that if the lenient decode succeeded, any
+// *yaml.TypeError from the strict pass is specifically an unknown-field
+// error: genuine type mismatches (e.g. int into string) would have failed
+// lenient decoding too.
+func unknownFieldWarnings(path string, data []byte) []string {
+	var discard RaiozConfig
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	err := dec.Decode(&discard)
+	if err == nil {
+		return nil
+	}
+	var typeErr *yaml.TypeError
+	if !errors.As(err, &typeErr) {
+		return nil
+	}
+	base := filepath.Base(path)
+	warnings := make([]string, 0, len(typeErr.Errors))
+	for _, msg := range typeErr.Errors {
+		warnings = append(warnings, fmt.Sprintf(
+			"%s: %s — field ignored. Check for typos or fields from a newer raioz version.",
+			base, msg))
+	}
+	return warnings
+}
+
+// readYAMLBytes is a small helper so callers that need both the parsed
+// config AND the raw bytes (for the strict second pass) avoid reading
+// the file twice.
+func readYAMLBytes(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read config file %s: %w", path, err)
+	}
+	return data, nil
 }

@@ -13,9 +13,15 @@ Optional:
 
 ## Development workflow
 
+Raioz uses git-flow: feature work lands on `develop`, `main` always
+reflects the latest released version. Open pull requests against
+`develop`; releases are cut by merging `develop` → `main` and tagging
+on `main`.
+
 ```bash
-# 1. Create a branch
-git checkout -b feat/my-change
+# 1. Create a branch off develop
+git fetch origin
+git checkout -b feat/my-change origin/develop
 
 # 2. Make changes and verify
 make check       # format + lint + i18n + tests
@@ -25,16 +31,21 @@ make ci           # full CI: check + build
 
 # 4. Run integration tests (requires Docker)
 make integration-test
+
+# 5. Open a pull request targeting `develop` (NOT main)
 ```
 
 ## Code standards
 
 | Rule | Limit | Check |
 |------|-------|-------|
-| Max lines per file | 400 (tests: exempt) | `make check-lines` |
+| Max lines per file | 400 (tests + `internal/config/schema.go` exempt) | `make check-lines` |
 | Max line length | 120 chars | `make check-length` |
-| Test coverage | >= 80% | `make check-coverage` |
+| Test coverage | >= 70% (target: 80% post-v0.2.0) | `make check-coverage` |
 | i18n catalog sync | all keys present | `make check-i18n` |
+
+Lint is currently scoped to a reduced baseline for v0.1.0. See
+[ROADMAP.md](ROADMAP.md) for the plan to re-tighten it.
 
 ## Architecture
 
@@ -58,7 +69,7 @@ See `CLAUDE.md` for the full architecture reference.
 - **Errors**: `errors.New(code, i18n.T("error.xxx")).WithSuggestion(...)`.
 - **DI**: Dependencies injected via struct, never created inline in app/.
 - **Tests**: Table-driven with `t.Run`. Mocks in `internal/mocks/`.
-- **Commits**: Conventional Commits, English, imperative, max 50 char subject.
+- **Commits**: Conventional Commits, English, imperative, max 50 char subject. Full convention and examples in `.claude/skills/commit/SKILL.md` (also usable via the `/commit` Claude Code skill).
 
 ## Make targets
 

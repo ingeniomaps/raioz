@@ -244,17 +244,19 @@ func isNonHTTPImage(image string) bool {
 }
 
 // proxyTargetOverride returns the user's explicit (target, port) for a
-// service if declared in raioz.yaml (`services.<name>.proxy:`). Empty strings
-// / zero port signal "not set" and caller must fall back to detection. This
-// is the escape hatch for services whose `command:` launches a compose stack
-// raioz can't see — detection labels them as "host" and the proxy ends up
-// pointing at host.docker.internal with no port (BUG-13).
+// service or dependency if declared in raioz.yaml (`<kind>.<name>.proxy:`).
+// Empty strings / zero port signal "not set" and caller must fall back to
+// detection. This is the escape hatch for entries whose runtime raioz can't
+// fully introspect — services with `command:` that launches a hidden compose
+// stack (BUG-13), or dependencies using `compose:` / a non-default port.
 func proxyTargetOverride(deps *config.Deps, name string) (string, int) {
-	svc, ok := deps.Services[name]
-	if !ok || svc.ProxyOverride == nil {
-		return "", 0
+	if svc, ok := deps.Services[name]; ok && svc.ProxyOverride != nil {
+		return svc.ProxyOverride.Target, svc.ProxyOverride.Port
 	}
-	return svc.ProxyOverride.Target, svc.ProxyOverride.Port
+	if entry, ok := deps.Infra[name]; ok && entry.Inline != nil && entry.Inline.ProxyOverride != nil {
+		return entry.Inline.ProxyOverride.Target, entry.Inline.ProxyOverride.Port
+	}
+	return "", 0
 }
 
 // buildProxyRoute turns (service name, detection) into a ProxyRoute, honoring
@@ -301,8 +303,16 @@ func buildProxyRoute(
 		if svc, ok := deps.Services[name]; ok {
 			port = inferServicePort(svc, *detection)
 		}
-		if entry, ok := deps.Infra[name]; ok && entry.Inline != nil && len(entry.Inline.Ports) > 0 {
-			port = parseFirstPort(entry.Inline.Ports[0])
+		if entry, ok := deps.Infra[name]; ok && entry.Inline != nil {
+			switch {
+			case len(entry.Inline.Ports) > 0:
+				port = parseFirstPort(entry.Inline.Ports[0])
+			case len(entry.Inline.Expose) > 0:
+				// `expose:` is documented as "container port this dep
+				// listens on" — the natural proxy target when the user
+				// didn't also publish a host-side mapping (v0.1.1 fix).
+				port = entry.Inline.Expose[0]
+			}
 		}
 	}
 

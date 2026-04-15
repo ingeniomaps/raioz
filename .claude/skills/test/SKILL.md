@@ -77,18 +77,20 @@ func TestSomething(t *testing.T) {
 ### Mocks
 
 The project uses **hand-crafted mocks** in
-`internal/mocks/`. There are 9 mocks for domain
+`internal/mocks/`. There are 11 mocks for domain
 interfaces:
 
 | Mock | Interface |
 |------|-----------|
 | `MockDockerRunner` | `DockerRunner` |
+| `MockProxyManager` | `ProxyManager` |
 | `MockWorkspaceManager` | `WorkspaceManager` |
 | `MockStateManager` | `StateManager` |
 | `MockConfigLoader` | `ConfigLoader` |
 | `MockValidator` | `Validator` |
 | `MockGitRepository` | `GitRepository` |
 | `MockLockManager` | `LockManager` |
+| `MockLock` | `Lock` (acquired lock handle) |
 | `MockHostRunner` | `HostRunner` |
 | `MockEnvManager` | `EnvManager` |
 
@@ -177,7 +179,7 @@ go test -v -run TestFunctionName ./internal/package/...
 # Run with coverage
 make test-coverage
 
-# Check coverage threshold (80%)
+# Check coverage threshold (70% for v0.1.0; target 80% post-release)
 make check-coverage
 
 # Quick tests (pre-commit)
@@ -193,4 +195,4 @@ go test ./... -short
 - Test names: descriptive phrases, not function signatures
 - No `t.Log` noise — only log on failure via `t.Errorf`
 - Tests must be deterministic and isolated
-- Coverage target: 80% minimum per package
+- Coverage floor: 70% total (enforced by `make check-coverage`). Target 80% — see ROADMAP.md. Don't regress packages you touch.

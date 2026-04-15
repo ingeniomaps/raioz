@@ -217,6 +217,14 @@ type YAMLDependency struct {
 	Hostname string          `yaml:"hostname,omitempty"`
 	Routing  *RoutingConfig  `yaml:"routing,omitempty"`
 	Dev      *YAMLDevConfig  `yaml:"dev,omitempty"`
+
+	// Proxy overrides how the shared HTTPS proxy reaches this dependency.
+	// Same semantics as services.<name>.proxy — useful when `compose:`
+	// launches a stack whose target container raioz can't infer, or when
+	// the image's default port doesn't match what your process actually
+	// listens on. Both fields optional; raioz falls back to detection for
+	// whichever is left out.
+	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"`
 }
 
 // YAMLIntSlice accepts either a single int (`expose: 5432`) or a list

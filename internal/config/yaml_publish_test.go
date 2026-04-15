@@ -190,6 +190,65 @@ dependencies:
 	}
 }
 
+// TestLoadDepsFromYAML_UnknownFieldEmitsWarning: typo'd or newer-schema
+// fields must surface as advisory warnings (not errors) so users catch
+// silent drops like the v0.1.0 `dependencies.<n>.proxy:` bug at load time.
+func TestLoadDepsFromYAML_UnknownFieldEmitsWarning(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/raioz.yaml"
+	yamlText := `project: test
+services:
+  api:
+    path: ./api
+    whtch: true
+`
+	if err := writeTestFile(path, yamlText); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, warnings, err := LoadDepsFromYAML(path)
+	if err != nil {
+		t.Fatalf("unknown fields must NOT fail the load: %v", err)
+	}
+	found := false
+	for _, w := range warnings {
+		if containsAll(w, "whtch") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected warning mentioning the unknown field `whtch`, got: %v", warnings)
+	}
+}
+
+// TestLoadDepsFromYAML_NoUnknownFields_NoWarning: happy path stays quiet —
+// a well-formed config emits zero unknown-field warnings (deprecation
+// warnings unrelated to this helper are tested separately).
+func TestLoadDepsFromYAML_NoUnknownFields_NoWarning(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/raioz.yaml"
+	yamlText := `project: test
+services:
+  api:
+    path: ./api
+dependencies:
+  postgres:
+    image: postgres:16
+`
+	if err := writeTestFile(path, yamlText); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, warnings, err := LoadDepsFromYAML(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	for _, w := range warnings {
+		if strings.Contains(strings.ToLower(w), "field") &&
+			strings.Contains(strings.ToLower(w), "not found") {
+			t.Errorf("unexpected unknown-field warning on clean config: %s", w)
+		}
+	}
+}
+
 // --- tiny helpers that keep the tests self-contained ------------------------
 
 func writeTestFile(path, content string) error {
