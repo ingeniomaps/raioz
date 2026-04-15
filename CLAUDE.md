@@ -33,10 +33,18 @@ go test -v -run TestFunctionName ./internal/package/...
 
 ## Code Quality Constraints (enforced in CI)
 
-- **Max 400 lines per file** (excluding tests) — `make check-lines`
+- **Max 400 lines per file** (excluding tests + `internal/config/schema.go` JSON blob) — `make check-lines`
 - **Max 120 characters per line** — `make check-length`
-- **Test coverage >= 80%** — `make check-coverage`
+- **Test coverage >= 70%** — `make check-coverage` (temporarily relaxed for v0.1.0; see [ROADMAP.md](ROADMAP.md) for the plan back to 80%)
 - **i18n catalogs in sync** — `make check-i18n`
+
+### Lint baseline (reduced for v0.1.0)
+`.golangci.yml` currently enables only: `govet`, `staticcheck`, `unused`,
+`ineffassign`, `gofmt`, `goimports`, `misspell`, `whitespace`,
+`copyloopvar`, `bodyclose`. The strict config previously in place fired
+~2,500 opinionated issues on this codebase; re-introducing stricter
+linters one at a time (errcheck → gosec → revive → wrapcheck) is a
+tracked v0.2.0 task. See `ROADMAP.md`.
 
 ## Architecture
 
@@ -199,13 +207,13 @@ Prints the `/etc/hosts` line for the current project's proxy, ready for
 `sudo tee -a /etc/hosts`. Only useful in practice with `proxy.publish:
 false`, but works in any mode.
 
-## CLI Commands (29 total)
+## CLI Commands (30 total)
 
 ### Core
 `up`, `down`, `status`, `logs`, `restart`, `exec`, `check`, `clean`, `init`, `doctor`, `clone`
 
 ### Development
-`dev` (hot-swap dep→local), `env` (show service env vars), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy), `dashboard` (interactive TUI)
+`dev` (hot-swap dep→local), `env` (show service env vars), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy), `dashboard` (interactive TUI), `hosts` (print `/etc/hosts` line for `proxy.publish:false` setups)
 
 ### Management
 `list`, `version`, `lang`, `ignore`, `volumes`, `compare`, `ci`, `health`, `migrate`, `ports`, `yaml` (migrate config)

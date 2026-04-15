@@ -59,7 +59,8 @@ raioz up
 ```
 cmd/raioz/main.go              Entry point (7 lines)
          │
-internal/cli/                   Cobra commands (27 total)
+internal/cli/                   Cobra commands (28 registered; 30 including
+         │                      subcommands like `snapshot create/restore/…`)
          │                      Thin: parse flags → create deps → call use case
          │
 internal/app/                   Use cases
@@ -68,7 +69,7 @@ internal/app/                   Use cases
          │                      Only uses domain interfaces
          │
 internal/domain/                Contracts
-  interfaces/                   27 port interfaces
+  interfaces/                   19 port interfaces
   models/                       Type aliases for decoupling
          │
 internal/infra/                 Adapters
@@ -78,10 +79,10 @@ internal/infra/                 Adapters
 internal/                       Concrete packages
   detect/                       Runtime detection (24 runtimes)
   orchestrate/                  Dispatcher + runners
-  proxy/                        Caddy management
+  proxy/                        Caddy management (per-project + workspace-shared)
   discovery/                    Service discovery env vars
   watch/                        File watcher
-  naming/                       Docker resource naming
+  naming/                       Docker resource naming + container labels
   runtime/                      Container runtime abstraction
   config/                       Config loading (YAML + JSON)
   docker/                       Docker operations
@@ -93,6 +94,15 @@ internal/                       Concrete packages
   graph/                        Dependency visualization
   snapshot/                     Volume backup/restore
   tunnel/                       Tunnel exposure
+  validate/                     Preflight and invariant validators
+  resilience/                   Retry + circuit breakers
+  notify/                       Desktop notifications
+  audit/                        Audit log of user-facing operations
+  logging/                      Structured logging with context
+  output/                       Terminal output formatting (progress, tables)
+  path/                         Path validation and normalization
+  ignore/                       .raiozignore parsing
+  production/                   Legacy migration helpers
   git/ host/ lock/ mocks/       Git, host processes, locks, test mocks
 ```
 
@@ -144,13 +154,28 @@ Generates environment variables for cross-runtime communication:
 
 ### naming
 
-Centralized naming for all Docker resources:
+Centralized naming for all Docker resources. Service containers are
+per-project, but dependencies and proxy are workspace-shared when a
+workspace is declared so sibling projects reuse them.
 
 ```
-With workspace:    {workspace}-{project}-{service}
-Without workspace: raioz-{project}-{service}
-Network:           {workspace}-net or raioz-{project}-net
+                        With workspace              Without workspace
+Service container       {workspace}-{project}-{svc} raioz-{project}-{svc}
+Dependency container    {workspace}-{dep}  (shared) raioz-{project}-{dep}
+Network                 {workspace}-net             raioz-{project}-net
+Proxy container         {workspace}-proxy  (shared) raioz-proxy-{project}
+Caddy volume            {workspace}-caddy  (shared) raioz-caddy-{project}
 ```
+
+Every raioz-managed container is stamped with labels
+(`com.raioz.managed=true`, `com.raioz.kind`, `com.raioz.workspace`,
+`com.raioz.project`, `com.raioz.service`). `raioz down` sweeps by label
+— not by name prefix — so it can't take down containers owned by an
+unrelated project that happens to share a prefix.
+
+Shared dependencies intentionally **omit** `com.raioz.project` so a
+`raioz down` on any one project doesn't tumba them; the last project
+leaving the workspace does. See `internal/naming/labels.go`.
 
 ### state
 
@@ -189,3 +214,80 @@ App layer only sees interfaces. This enables testing with mocks.
 via a bridge layer. This keeps the user-facing config minimal while
 the internal representation stays rich for backward compatibility
 with `.raioz.json`.
+
+## Architectural invariants
+
+Rules that shipped in v0.1.0 and must be preserved. Breaking any of
+them has caused real regressions in the past; each line below
+corresponds to a bug that already happened once.
+
+### 1. Identity is labels, not names
+Every raioz-managed container is stamped with `com.raioz.managed=true`
+plus kind/workspace/project/service labels. `raioz down` filters by
+those labels. Any new runner (or wrapper) MUST stamp the full set — a
+container without `com.raioz.managed=true` is invisible to teardown
+and will leak. See `internal/naming/labels.go` and
+`internal/orchestrate/image_runner.go`.
+
+### 2. Shared deps omit `com.raioz.project`
+Workspace-shared dependencies (`dependencies.<n>.name` set OR
+`workspace:` set) are named `{workspace}-{dep}` and intentionally
+omit the project label. That omission IS the signal: when `raioz
+down` is invoked on one project, it skips any container without
+`com.raioz.project=<me>`, so sibling projects keep running. The last
+project leaving the workspace tears them down via
+`otherProjectsActiveInWorkspace`. No ref-count state file.
+
+`ImageRunner.Start` is idempotent for this reason: if a sibling
+project already started `{workspace}-postgres`, `raioz up` in the
+current project sees it and returns without re-creating.
+
+### 3. Certs are per-domain with SAN validation
+Certificates live in `~/.raioz/certs/<domain>/`. `EnsureCerts(domain)`
+validates the existing SAN includes BOTH `<domain>` AND `*.<domain>`
+before reusing. Without this, a cert issued for `acme.localhost`
+could be reused for `hypixo.dev` — broken HTTPS with no obvious cause.
+
+### 4. `auto_https off` for mkcert
+The Caddyfile global block uses `auto_https off` when `tls: mkcert`
+is active. Caddy's default behavior falls back to ACME for custom
+domains without public DNS — which hangs forever. Do not replace this
+with `disable_redirects` alone; that only silences the HTTP→HTTPS
+redirect, not the ACME fallback.
+
+### 5. Workspace-shared proxy routes are per-project
+When `workspace:` is set, a single `{workspace}-proxy` Caddy fronts
+every project in the workspace. Each project's routes are persisted
+at `/tmp/<workspace>/proxy/routes/<project>.json`; the shared
+Caddyfile is the union of every project's file. `raioz down` removes
+only the current project's routes and reloads Caddy. Only the last
+project leaving the workspace tumba the proxy.
+
+`Reload` must NOT use `docker cp` to push the Caddyfile (the bind
+mount is read-only and `cp` fails with "device or resource busy"). It
+writes to the host path; the bind mount propagates the change into
+the container.
+
+### 6. Clone functions must stay in sync with config structs
+`internal/app/upcase/workspace_project_conflict.go` has
+`cloneService` and `cloneInfraEntry` used by the workspace-merge
+path. Adding a field to `config.Service` or `config.Infra` that
+affects orchestration REQUIRES updating these clones — missing
+fields silently vanish on re-up after any workspace state mismatch.
+Every past regression in this area traced to a missing field.
+
+### 7. Image classification is shared and bare-name-matched
+`proxy.IsNonHTTPImage(image)` in `internal/proxy/filter.go` is the
+single source of truth for "does this dep speak HTTP?". Match on the
+bare image name (last path segment before tag/digest), NOT substring
+— substring matching tagged `redis/redisinsight` as Redis.
+New blocklist entries go in `nonHTTPImageNames` in that file, never
+inlined elsewhere.
+
+### 8. Dial-first port probe
+`isHostPortInUse` tries a TCP dial to `127.0.0.1:<port>` before
+attempting to bind. Non-root raioz processes previously missed
+privileged ports (`:80`) held by another process because `net.Listen`
+returned `EACCES`, which was misread as "probe inconclusive". Dial
+doesn't need privilege and answers the question we actually care
+about: "is something listening?".

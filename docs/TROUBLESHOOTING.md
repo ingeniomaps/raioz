@@ -54,9 +54,18 @@ raioz up
 # Force cleanup
 raioz clean
 
-# Nuclear option: remove all project containers
-docker ps -a --filter "label=com.docker.compose.project=raioz-myproject" -q | xargs docker rm -f
+# Nuclear option: remove every raioz-managed container for this project
+docker ps -a --filter "label=com.raioz.managed=true" \
+             --filter "label=com.raioz.project=myproject" \
+             -q | xargs -r docker rm -f
+
+# Nuclear option across ALL projects (careful — hits every workspace on this host)
+docker ps -a --filter "label=com.raioz.managed=true" -q | xargs -r docker rm -f
 ```
+
+Raioz stamps every container with `com.raioz.managed=true` and
+`com.raioz.project=<project>`. Filtering by label (not name prefix) is
+how `raioz down` itself works; the commands above mirror that.
 
 ---
 
@@ -100,6 +109,92 @@ raioz ports     # check port mappings
 
 The proxy routes to the port Raioz detected. If auto-detection
 got it wrong, set `ports` explicitly in `raioz.yaml`.
+
+### Dep has an HTTP UI but no proxy route is created
+
+Images like `dpage/pgadmin4`, `redis/redisinsight`, `mongo-express`,
+and `rabbitmq:management` serve web UIs — but raioz treats certain
+images as non-HTTP by default (postgres, redis, mysql, mongo,
+rabbitmq, kafka, etc.) and skips creating an HTTPS route.
+
+**Fix:** Opt in explicitly with `routing:`:
+```yaml
+dependencies:
+  adminer:
+    image: adminer
+    routing: {}             # opt-in; empty object is enough
+```
+
+An empty `routing: {}` is sufficient — it just signals "yes, proxy
+this". Add `ws: true`, `stream: true`, or `grpc: true` inside if you
+need those.
+
+### Two workspaces fighting for ports 80/443
+
+Second `raioz up` fails with "host port 80 already in use" because
+another workspace's Caddy is bound there.
+
+**Fix:** Run each workspace on its own subnet without host port
+binding. Proxy becomes reachable only via its container IP:
+
+```yaml
+workspace: acme-corp
+project: e-commerce
+network:
+  subnet: 172.28.0.0/16        # pinned subnet = deterministic IPs
+proxy:
+  domain: acme.localhost
+  publish: false               # don't bind host 80/443
+```
+
+Then map hostnames via `/etc/hosts`:
+
+```bash
+raioz hosts | sudo tee -a /etc/hosts
+# 172.28.1.1 api.acme.localhost frontend.acme.localhost   # raioz:acme-corp
+```
+
+**Linux-only** — macOS and Windows route Docker through a VM whose
+bridge IPs aren't reachable from the host.
+
+### `command:` launches its own compose, proxy can't find the service
+
+When a service uses `command: make start` (or any script that spawns
+its own `docker compose`), raioz can't introspect the resulting
+containers. It classifies the service as "host" and the proxy ends
+up pointing at `host.docker.internal` with no port — 502 everywhere.
+
+**Fix:** Tell the proxy explicitly where to forward:
+
+```yaml
+services:
+  keycloak:
+    path: ./keycloak
+    command: make start
+    stop: make stop
+    proxy:
+      target: hypixo-keycloak   # container name on the shared network
+      port: 8080
+```
+
+### Dependency container name collides with external tooling
+
+Raioz names shared deps `{workspace}-{dep}` (e.g. `acme-postgres`),
+but your IDE plugin / backup script / external client expects a
+specific literal name like `my-app-postgres`.
+
+**Fix:** Override the container name:
+
+```yaml
+dependencies:
+  postgres:
+    image: postgres:16
+    name: my-app-postgres       # literal override, raioz uses this verbatim
+```
+
+When `name:` is set, the dep is also treated as workspace-shared
+regardless of whether `workspace:` is declared, because the override
+signals "this is a named, durable container other tools depend on".
 
 ---
 
