@@ -35,16 +35,20 @@ go test -v -run TestFunctionName ./internal/package/...
 
 - **Max 400 lines per file** (excluding tests + `internal/config/schema.go` JSON blob) — `make check-lines`
 - **Max 120 characters per line** — `make check-length`
-- **Test coverage >= 70%** — `make check-coverage` (temporarily relaxed for v0.1.0; see [ROADMAP.md](ROADMAP.md) for the plan back to 80%)
+- **Test coverage >= 73%** — `make check-coverage` (raised from 70% in v0.2.0; mocks/testing packages excluded from the metric. See [ROADMAP.md](ROADMAP.md) for the path back to 80%)
 - **i18n catalogs in sync** — `make check-i18n`
 
-### Lint baseline (reduced for v0.1.0)
-`.golangci.yml` currently enables only: `govet`, `staticcheck`, `unused`,
+### Lint baseline
+`.golangci.yml` enables: `govet`, `staticcheck`, `unused`,
 `ineffassign`, `gofmt`, `goimports`, `misspell`, `whitespace`,
-`copyloopvar`, `bodyclose`. The strict config previously in place fired
-~2,500 opinionated issues on this codebase; re-introducing stricter
-linters one at a time (errcheck → gosec → revive → wrapcheck) is a
-tracked v0.2.0 task. See `ROADMAP.md`.
+`copyloopvar`, `bodyclose`, `errcheck`, `gosec`, `revive` (curated
+ruleset), `wrapcheck` (scoped to errors from outside `raioz/internal/**`,
+infra adapter layer + tests exempted). `_test.go` is excluded from
+errcheck/gosec/revive/wrapcheck — tests get their signal from
+assertions, not pedantic style rules. Gosec G204 (subprocess with
+variable) and G306 (WriteFile permissions) are excluded globally
+because raioz orchestrates docker by design and writes user-readable
+configs. See `.golangci.yml` itself for the per-rule rationale.
 
 ## Architecture
 

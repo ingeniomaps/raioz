@@ -91,7 +91,7 @@ var cloneCmd = &cobra.Command{
 		output.PrintInfo(i18n.T("clone.starting"))
 
 		if err := os.Chdir(absDir); err != nil {
-			return err
+			return fmt.Errorf("chdir to %q: %w", absDir, err)
 		}
 
 		deps := app.NewDependencies()

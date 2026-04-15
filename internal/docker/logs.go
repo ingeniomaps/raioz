@@ -78,7 +78,10 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 	if !opts.Follow {
 		return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose logs", exectimeout.DockerLogsTimeout)
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("docker compose logs: %w", err)
+	}
+	return nil
 }
 
 // GetAvailableServices returns list of available services from compose

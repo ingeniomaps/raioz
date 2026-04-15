@@ -102,11 +102,13 @@ New use cases in `internal/app/` must:
 
 ### 9. Coverage threshold
 
-Current threshold is 70% (temporarily relaxed for v0.1.0;
+Current threshold is 73% (raised in v0.2.0 from 70%;
 target is 80% — see [ROADMAP.md](../../../ROADMAP.md)).
+The script excludes `internal/mocks` and `internal/testing` from
+the metric so test infrastructure doesn't drag the number down.
 
 ```bash
-make check-coverage    # fails if total coverage < COVERAGE_THRESHOLD (default 70)
+make check-coverage    # fails if total coverage < COVERAGE_THRESHOLD (default 73)
 ```
 
 If coverage drops meaningfully on packages you touched,

@@ -2,10 +2,14 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
+	"strconv"
 	"strings"
+	"sync"
 
 	"raioz/internal/config"
 	exectimeout "raioz/internal/exec"
@@ -205,4 +209,89 @@ func GetImageInfoWithContext(ctx context.Context, image string) (map[string]stri
 	}
 
 	return info, nil
+}
+
+// exposedPortCache memoizes ExposedPorts lookups for the lifetime of the
+// process. Image contents don't change mid-session, so a simple map keyed
+// by the full image reference is enough — no TTL, no eviction.
+var exposedPortCache sync.Map // map[string]exposedPortEntry
+
+type exposedPortEntry struct {
+	port int
+	err  error
+}
+
+// GetImageExposedPort returns the first TCP port declared via EXPOSE in the
+// image's manifest, or 0 + error when no TCP port is declared, the image is
+// not present locally, or docker inspect fails. Results are cached per
+// image reference.
+//
+// Pure inspect — does not pull. Callers that need the image present must
+// call EnsureImage first.
+func GetImageExposedPort(ctx context.Context, image string) (int, error) {
+	if cached, ok := exposedPortCache.Load(image); ok {
+		entry := cached.(exposedPortEntry)
+		return entry.port, entry.err
+	}
+
+	port, err := inspectExposedPort(ctx, image)
+	exposedPortCache.Store(image, exposedPortEntry{port: port, err: err})
+	return port, err
+}
+
+func inspectExposedPort(ctx context.Context, image string) (int, error) {
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(),
+		"image", "inspect", image,
+		"--format", "{{json .Config.ExposedPorts}}")
+	output, err := cmd.Output()
+	if err != nil {
+		if exectimeout.IsTimeoutError(timeoutCtx, err) {
+			return 0, fmt.Errorf("image inspect timed out after %v", exectimeout.DockerInspectTimeout)
+		}
+		return 0, fmt.Errorf("image inspect failed: %w", err)
+	}
+
+	return parseExposedPorts(strings.TrimSpace(string(output)))
+}
+
+// parseExposedPorts accepts the JSON docker emits for
+// `.Config.ExposedPorts` (e.g. `{"5432/tcp":{},"5432/udp":{}}`, `{}`, or
+// `null`) and returns the numerically lowest TCP port. Lowest-first keeps
+// the choice deterministic for images that expose several ports (pgAdmin:
+// 80 + 443 → picks 80).
+func parseExposedPorts(raw string) (int, error) {
+	if raw == "" || raw == "null" || raw == "{}" {
+		return 0, fmt.Errorf("no ExposedPorts declared")
+	}
+
+	var ports map[string]struct{}
+	if err := json.Unmarshal([]byte(raw), &ports); err != nil {
+		return 0, fmt.Errorf("unmarshal ExposedPorts: %w", err)
+	}
+
+	var tcp []int
+	for key := range ports {
+		proto := "tcp"
+		portStr := key
+		if idx := strings.Index(key, "/"); idx >= 0 {
+			portStr = key[:idx]
+			proto = key[idx+1:]
+		}
+		if proto != "tcp" {
+			continue
+		}
+		p, err := strconv.Atoi(portStr)
+		if err != nil || p <= 0 {
+			continue
+		}
+		tcp = append(tcp, p)
+	}
+	if len(tcp) == 0 {
+		return 0, fmt.Errorf("no TCP port in ExposedPorts")
+	}
+	sort.Ints(tcp)
+	return tcp[0], nil
 }

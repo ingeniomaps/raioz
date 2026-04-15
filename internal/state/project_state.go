@@ -77,7 +77,7 @@ func SaveLocalState(projectDir string, state *LocalState) error {
 func RemoveLocalState(projectDir string) error {
 	path := filepath.Join(projectDir, projectStateFile)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("remove state file %q: %w", path, err)
 	}
 	return nil
 }

@@ -40,7 +40,7 @@ func isProcessRunning(pid int) bool {
 func readLockPID(path string) (int, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("open lock file %q: %w", path, err)
 	}
 	defer file.Close()
 
@@ -121,7 +121,9 @@ func (l *Lock) Release() error {
 		l.file.Close()
 	}
 	if l.path != "" {
-		return os.Remove(l.path)
+		if err := os.Remove(l.path); err != nil {
+			return fmt.Errorf("remove lock file %q: %w", l.path, err)
+		}
 	}
 	return nil
 }

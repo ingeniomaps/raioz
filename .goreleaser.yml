@@ -8,14 +8,10 @@ builds:
       - -X main.version={{.Version}}
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
-    # Windows is intentionally excluded — raioz uses Unix-only syscalls
-    # (SysProcAttr.Setpgid, syscall.Kill, syscall.Statfs) for host-process
-    # lifecycle and disk-space preflight. Windows users run raioz from WSL2,
-    # which uses the linux_amd64 binary. Revisit when host_runner and
-    # preflight get platform-split build tags.
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
@@ -23,6 +19,9 @@ builds:
 archives:
   - formats: [tar.gz]
     name_template: "raioz_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 
 checksum:
   name_template: checksums.txt

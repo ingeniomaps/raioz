@@ -14,7 +14,14 @@ if [ ! -f "$COVERAGE_FILE" ]; then
     exit 1
 fi
 
-TOTAL_COVERAGE=$(go tool cover -func="$COVERAGE_FILE" \
+# Strip test-only packages (mocks, testing helpers) from the profile
+# before computing the total. They exist solely to support the test
+# suite, so reporting them as "uncovered production code" is misleading.
+FILTERED=$(mktemp)
+trap 'rm -f "$FILTERED"' EXIT
+grep -v -E "raioz/internal/(mocks|testing)" "$COVERAGE_FILE" > "$FILTERED"
+
+TOTAL_COVERAGE=$(go tool cover -func="$FILTERED" \
     | grep -E "^total:" | awk '{print $3}' | sed 's/%//')
 
 if [ -z "$TOTAL_COVERAGE" ]; then
@@ -32,7 +39,7 @@ else
     echo "Coverage below threshold (${TOTAL_COVERAGE}% < ${THRESHOLD}%)"
     echo ""
     echo "Coverage by package:"
-    go tool cover -func="$COVERAGE_FILE" \
+    go tool cover -func="$FILTERED" \
         | grep -E "^raioz" | sort -k3 -n
     exit 1
 fi

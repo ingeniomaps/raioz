@@ -186,7 +186,9 @@ func resolveDiscoveryVars(
 
 func parseFirstPort(portStr string) int {
 	var port int
-	fmt.Sscanf(portStr, "%d", &port)
+	// Sscanf errors surface as port == 0, which is the "unknown port"
+	// sentinel the caller already expects.
+	_, _ = fmt.Sscanf(portStr, "%d", &port)
 	return port
 }
 

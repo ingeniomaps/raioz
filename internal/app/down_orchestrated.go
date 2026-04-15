@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
@@ -80,7 +80,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		if localState.Project == "" {
 			_ = state.RemoveLocalState(projectDir)
 		} else {
-			state.SaveLocalState(projectDir, localState)
+			_ = state.SaveLocalState(projectDir, localState)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		if localState.Project == "" {
 			_ = state.RemoveLocalState(projectDir)
 		} else {
-			state.SaveLocalState(projectDir, localState)
+			_ = state.SaveLocalState(projectDir, localState)
 		}
 	}
 
@@ -133,7 +133,8 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	if networkName != "" {
 		inUse, _ := uc.deps.DockerRunner.IsNetworkInUseWithContext(ctx, networkName)
 		if !inUse {
-			exec.CommandContext(ctx, runtime.Binary(), "network", "rm", networkName).Run()
+			// Best-effort: network removal may race with another project teardown.
+			_ = exec.CommandContext(ctx, runtime.Binary(), "network", "rm", networkName).Run()
 			logging.InfoWithContext(ctx, "Network removed", "network", networkName)
 		}
 	}
@@ -285,7 +286,7 @@ func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps, proje
 		args = append(args, composeArgs...)
 		args = append(args, "down")
 		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-		cmd.Run() // Ignore errors — file might not exist
+		_ = cmd.Run() // file might not exist; best-effort teardown
 	}
 }
 
@@ -314,13 +315,9 @@ func otherProjectsActiveInWorkspace(ctx context.Context, workspace, currentProje
 	return false
 }
 
-// killProcessGroup sends SIGTERM to the process group, then SIGKILL.
-// Killing the group ensures child processes (e.g., go run's compiled binary) are also stopped.
+// killProcessGroup kills pid and its descendants (`go run`'s compiled
+// binary, `sh -c`'s grandchildren, etc). Cross-platform via the host
+// helper; best-effort because the process may already be gone.
 func killProcessGroup(pid int) {
-	pgid, err := syscall.Getpgid(pid)
-	if err == nil && pgid > 0 {
-		syscall.Kill(-pgid, syscall.SIGTERM)
-	}
-	// Fallback: kill PID directly
-	exec.Command("kill", fmt.Sprintf("%d", pid)).Run()
+	_ = host.KillProcessTree(pid)
 }

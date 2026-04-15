@@ -120,7 +120,7 @@ func getResourceUsageWithContext(ctx context.Context, containerName string) (str
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
 			return "", "", fmt.Errorf("docker stats timed out after %v", exectimeout.DockerStatsTimeout)
 		}
-		return "", "", err
+		return "", "", fmt.Errorf("docker stats: %w", err)
 	}
 
 	parts := strings.Split(strings.TrimSpace(string(output)), "\t")

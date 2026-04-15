@@ -21,6 +21,43 @@ linters-settings:
     simplify: true
   goimports:
     local-prefixes: raioz
+  gosec:
+    # G204 (subprocess launched with tainted input) and G306 (WriteFile
+    # permissions) are disabled globally — see issues.exclude-rules below
+    # for the rationale.
+    excludes:
+      - G204
+      - G306
+  wrapcheck:
+    # Internal interfaces are the point of abstraction — wrapping "docker
+    # runner: %w" around every delegation is noise. Only flag error
+    # origins outside raioz's own packages so the linter focuses on
+    # stdlib / third-party boundaries where a wrap actually adds context.
+    ignorePackageGlobs:
+      - raioz/internal/**
+  revive:
+    # Start from the empty default set and opt in to the rules that
+    # actually catch bugs. The default rule set fires ~980 issues on this
+    # codebase — most from `unused-parameter` and `exported`, which are
+    # style preferences that don't match the project's conventions.
+    rules:
+      - name: redefines-builtin-id
+      - name: empty-block
+      - name: var-declaration
+      - name: var-naming
+      - name: unreachable-code
+      - name: if-return
+      - name: indent-error-flow
+      - name: superfluous-else
+      - name: errorf
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: time-naming
+      - name: range
+      - name: blank-imports
 
 linters:
   disable-all: true
@@ -35,6 +72,10 @@ linters:
     - whitespace
     - copyloopvar
     - bodyclose
+    - errcheck
+    - gosec
+    - revive
+    - wrapcheck
 
 issues:
   exclude-dirs:
@@ -66,6 +107,57 @@ issues:
     - path: internal/i18n/i18n_test\.go
       linters:
         - misspell
+
+    # Tests frequently ignore error returns on os.Setenv / os.Remove /
+    # file cleanup helpers. The signal we care about from errcheck lives
+    # in production code; mechanical _ = on every test helper would add
+    # noise without catching real bugs.
+    - path: _test\.go
+      linters:
+        - errcheck
+
+    # Tests legitimately bind to ephemeral ports, write fixture files with
+    # 0644, and shell out to docker with dynamic args. Gosec's security
+    # model doesn't fit test code — the signal is in production.
+    - path: _test\.go
+      linters:
+        - gosec
+
+    # Tests routinely shadow builtins in table-driven fixtures (new,
+    # old, copy) and have intentionally empty assertion blocks. Revive's
+    # style rules are overhead for test readability.
+    - path: _test\.go
+      linters:
+        - revive
+
+    # Wrapcheck in tests wants every os.Stat / json.Unmarshal wrapped —
+    # the test is the context. Keep the signal in production.
+    - path: _test\.go
+      linters:
+        - wrapcheck
+
+    # Infra adapter layer — these files are intentionally thin wrappers
+    # around stdlib (os, os/exec) implementing hexagonal ports. Adding
+    # "OSFileSystem.ReadFile: %w" on every method is redundant with the
+    # stack; the package boundary is itself the context.
+    - path: internal/infra/
+      linters:
+        - wrapcheck
+
+    # G204 (subprocess launched with variable) — raioz is an orchestrator.
+    # Every call to exec.Command* uses the configured runtime binary
+    # (docker/podman/nerdctl) with args built from the user's raioz.yaml
+    # (image names, container names, ports). The user operates the tool;
+    # the inputs are not attacker-controlled. Excluded in linters-settings.
+    #
+    # G306 (WriteFile permissions) — raioz writes generated config files
+    # (Caddyfile, compose overlays, raioz.yaml from `init`, route
+    # manifests, state files) where 0644 is the expected UNIX-friendly
+    # mode. None of them contain secrets — credentials live in the user's
+    # own `.env.*` files which raioz only reads. Forcing 0600 would break
+    # the common case where a team commits raioz.yaml to git and other
+    # user accounts need to read the compose overlay. Excluded in
+    # linters-settings.
 
 output:
   formats:

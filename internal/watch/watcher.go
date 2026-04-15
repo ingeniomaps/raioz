@@ -124,7 +124,7 @@ func (w *Watcher) Close() {
 
 // addRecursive adds a directory and all non-excluded subdirectories to the watcher.
 func (w *Watcher) addRecursive(root string) error {
-	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors (permission denied, etc.)
 		}
@@ -136,6 +136,10 @@ func (w *Watcher) addRecursive(root string) error {
 		}
 		return w.fsWatcher.Add(path)
 	})
+	if err != nil {
+		return fmt.Errorf("walk %q: %w", root, err)
+	}
+	return nil
 }
 
 // isRelevantEvent filters out noise events.

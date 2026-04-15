@@ -101,11 +101,7 @@ func ValidateBeforeUp(ctx context.Context, deps *config.Deps, ws *workspace.Work
 	}
 
 	// Step 9: Validate networks (preventive check before creating)
-	if err := ValidateNetworks(ctx, deps); err != nil {
-		return err
-	}
-
-	return nil
+	return ValidateNetworks(ctx, deps)
 }
 
 // ValidateBeforeDown performs validations needed before running 'raioz down'

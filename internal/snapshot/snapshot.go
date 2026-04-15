@@ -79,8 +79,13 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 
 	// Save metadata
 	metaPath := filepath.Join(dir, "snapshot.json")
-	data, _ := json.MarshalIndent(snap, "", "  ")
-	os.WriteFile(metaPath, data, 0644)
+	data, err := json.MarshalIndent(snap, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal snapshot metadata: %w", err)
+	}
+	if err := os.WriteFile(metaPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write snapshot metadata: %w", err)
+	}
 
 	return snap, nil
 }
@@ -118,7 +123,7 @@ func (m *Manager) List(project string) ([]Snapshot, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("read snapshot dir %q: %w", dir, err)
 	}
 
 	var snapshots []Snapshot
@@ -142,7 +147,10 @@ func (m *Manager) List(project string) ([]Snapshot, error) {
 // Delete removes a snapshot and frees disk space.
 func (m *Manager) Delete(project, name string) error {
 	dir := filepath.Join(m.baseDir, project, name)
-	return os.RemoveAll(dir)
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("remove snapshot dir %q: %w", dir, err)
+	}
+	return nil
 }
 
 // exportVolume creates a tar.gz of a Docker volume's contents.

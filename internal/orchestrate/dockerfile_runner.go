@@ -67,13 +67,12 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 
 // Stop stops and removes the container.
 func (r *DockerfileRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) error {
-	// Stop
+	// Best-effort: container may already be stopped or removed.
 	stopCmd := exec.CommandContext(ctx, runtime.Binary(), "stop", svc.ContainerName)
-	stopCmd.Run() // Ignore error (might not be running)
+	_ = stopCmd.Run()
 
-	// Remove
 	rmCmd := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", svc.ContainerName)
-	rmCmd.Run() // Ignore error
+	_ = rmCmd.Run()
 
 	return nil
 }
@@ -116,5 +115,8 @@ func (r *DockerfileRunner) Logs(ctx context.Context, svc interfaces.ServiceConte
 	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	cmd.Stdout = exec.CommandContext(ctx, "echo").Stdout
 	cmd.Stderr = exec.CommandContext(ctx, "echo").Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker logs: %w", err)
+	}
+	return nil
 }

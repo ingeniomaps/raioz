@@ -58,7 +58,7 @@ func getBaseDirForLocalCheck() (string, error) {
 	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("resolve user home dir: %w", err)
 	}
 	return filepath.Join(homeDir, ".raioz"), nil
 }

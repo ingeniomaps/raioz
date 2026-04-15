@@ -2,11 +2,10 @@ package upcase
 
 import (
 	"context"
-	"os"
-	"syscall"
 	"time"
 
 	"raioz/internal/detect"
+	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
 	"raioz/internal/state"
@@ -36,9 +35,10 @@ func cleanStaleHostProcesses(ctx context.Context, projectDir, projectName string
 		killProcessGraceful(pid)
 	}
 
-	// Clear PIDs from state
+	// Clear PIDs from state. Best-effort: if persist fails, next run's
+	// isProcessAlive check already handles stale entries defensively.
 	localState.HostPIDs = make(map[string]int)
-	state.SaveLocalState(projectDir, localState)
+	_ = state.SaveLocalState(projectDir, localState)
 }
 
 // saveHostPIDs persists project state to .raioz.state.json. Always writes,
@@ -83,43 +83,29 @@ func saveHostPIDs(
 		}
 	}
 
-	state.SaveLocalState(projectDir, localState)
+	// Best-effort: persisting PIDs is optional — `down` can still sweep
+	// by container labels when the state file is missing or partial.
+	_ = state.SaveLocalState(projectDir, localState)
 }
 
 // isProcessAlive checks if a process with the given PID is running.
 func isProcessAlive(pid int) bool {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	return process.Signal(syscall.Signal(0)) == nil
+	return host.IsProcessAlive(pid)
 }
 
-// killProcessGraceful sends SIGTERM, then SIGKILL after a short wait.
+// killProcessGraceful sends a graceful tree kill, then force-kills if still alive.
 func killProcessGraceful(pid int) {
 	if pid <= 0 {
 		return // negative/zero PIDs are special values in kill(2) — never use them
 	}
-	// Kill the process group to catch child processes (e.g., go run spawns a child)
-	pgid, err := syscall.Getpgid(pid)
-	if err == nil && pgid > 0 {
-		syscall.Kill(-pgid, syscall.SIGTERM)
-	} else {
-		syscall.Kill(pid, syscall.SIGTERM)
-	}
+	// Kill the whole tree so grandchildren (e.g. `go run`'s compiled
+	// binary) also exit. Best-effort: the process may already be dead
+	// or lack permission — the probe below covers both cases.
+	_ = host.KillProcessTree(pid)
 
-	// Also send to PID directly as fallback
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return
-	}
-	proc.Signal(syscall.SIGTERM)
-
-	// Give it a moment, then force kill if still alive
+	// Brief grace period, then force-kill if still alive.
+	time.Sleep(100 * time.Millisecond)
 	if isProcessAlive(pid) {
-		if pgid > 0 {
-			syscall.Kill(-pgid, syscall.SIGKILL)
-		}
-		proc.Kill()
+		_ = host.ForceKillProcessTree(pid)
 	}
 }

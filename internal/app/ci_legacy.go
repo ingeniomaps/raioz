@@ -188,7 +188,7 @@ func (uc *CIUseCase) executeSetup(
 		}()
 	}
 
-	defer lockInstance.Release()
+	defer func() { _ = lockInstance.Release() }()
 
 	if err := uc.validateCIPorts(deps, ws, workspaceName, result); err != nil {
 		return err
@@ -217,7 +217,7 @@ func (uc *CIUseCase) executeSetup(
 			result.Errors,
 			fmt.Sprintf("Failed to get project directory: %v", err),
 		)
-		return err
+		return fmt.Errorf("abs project dir %q: %w", opts.ConfigPath, err)
 	}
 
 	composePath, _, err := uc.deps.DockerRunner.GenerateCompose(

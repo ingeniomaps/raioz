@@ -107,8 +107,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	// Save filtered deps for re-applying --only after merge
 	var onlyFilteredDeps *config.Deps
 	if len(opts.Only) > 0 {
-		copy := *deps
-		onlyFilteredDeps = &copy
+		depsCopy := *deps
+		onlyFilteredDeps = &depsCopy
 	}
 
 	// Check what we have: services, infra, or project commands

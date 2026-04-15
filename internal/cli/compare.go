@@ -48,6 +48,8 @@ func init() {
 		false,
 		"Output results in JSON format",
 	)
-	compareCmd.MarkFlagRequired("production")
+	// MarkFlagRequired only errors when the flag name doesn't exist — a
+	// compile-time programmer mistake, not a runtime condition.
+	_ = compareCmd.MarkFlagRequired("production")
 	// Note: compareCmd is added to rootCmd in root.go init() to avoid circular dependencies
 }

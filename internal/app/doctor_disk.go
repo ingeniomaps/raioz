@@ -10,5 +10,6 @@ func getFreeDiskSpaceGB() float64 {
 	if err := syscall.Statfs("/", &stat); err != nil {
 		return -1
 	}
-	return float64(stat.Bavail*uint64(stat.Bsize)) / (1024 * 1024 * 1024)
+	// Bsize is the filesystem block size, always positive.
+	return float64(stat.Bavail*uint64(stat.Bsize)) / (1024 * 1024 * 1024) // #nosec G115
 }

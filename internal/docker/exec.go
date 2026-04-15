@@ -40,7 +40,7 @@ func ExecInService(
 		if captured != "" {
 			return fmt.Errorf("%s", captured)
 		}
-		return err
+		return fmt.Errorf("docker exec: %w", err)
 	}
 
 	return nil

@@ -56,7 +56,10 @@ func init() {
 			logging.SetJSONFormat(true)
 		}
 		if langFlag != "" {
-			i18n.SetLang(langFlag)
+			if err := i18n.SetLang(langFlag); err != nil {
+				logging.Warn("Failed to set language, falling back to default",
+					"lang", langFlag, "error", err)
+			}
 		}
 	}
 

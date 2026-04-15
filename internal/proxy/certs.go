@@ -87,9 +87,10 @@ func EnsureCerts(domain string) (string, error) {
 		return "", fmt.Errorf("failed to create certs directory: %w", err)
 	}
 
-	// Install root CA (if not already done)
+	// Install root CA (if not already done). Best-effort — mkcert is
+	// idempotent and returns non-zero when the CA is already trusted.
 	install := exec.Command("mkcert", "-install")
-	install.Run() // Ignore error — may already be installed
+	_ = install.Run()
 
 	// Generate wildcard cert for the domain
 	gen := exec.Command("mkcert",
