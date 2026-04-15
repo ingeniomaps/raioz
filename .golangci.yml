@@ -15,7 +15,6 @@
 run:
   timeout: 5m
   tests: true
-  build-tags: ""
 
 linters-settings:
   gofmt:
