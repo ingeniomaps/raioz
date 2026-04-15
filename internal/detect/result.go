@@ -33,9 +33,11 @@ const (
 
 // DetectResult holds everything Raioz learned about a service's directory.
 type DetectResult struct {
-	Runtime      Runtime  // Primary detected runtime
-	ComposeFile  string   // First compose file path (backwards compat). Mirrors ComposeFiles[0].
-	ComposeFiles []string // All compose files to pass to `docker compose -f <a> -f <b>`. Len>=1 when Runtime==RuntimeCompose.
+	Runtime     Runtime // Primary detected runtime
+	ComposeFile string  // First compose file path (backwards compat). Mirrors ComposeFiles[0].
+	// All compose files to pass to `docker compose -f <a> -f <b>`.
+	// Len>=1 when Runtime==RuntimeCompose.
+	ComposeFiles []string
 	Dockerfile   string   // Path to Dockerfile if found
 	StartCommand string   // Inferred start command (e.g., "npm run dev", "go run .")
 	DevCommand   string   // Inferred dev command if different from start
