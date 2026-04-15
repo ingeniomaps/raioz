@@ -6,6 +6,74 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+Pays back the technical-debt items the v0.1.0 release deferred:
+linters, Windows binaries, dependency tracking, image-port detection,
+and a coverage push. No breaking changes to `raioz.yaml` or CLI flags.
+
+### Added
+
+- Windows binaries (`windows/amd64`, `windows/arm64`) ship from
+  goreleaser. Process-tree management (Setpgid + group kill on Unix)
+  and disk-space probes (`syscall.Statfs`) split behind `_unix.go` /
+  `_windows.go` build tags. New `internal/host` exports
+  `KillProcessTree`, `ForceKillProcessTree`, `SetNewProcessGroup`, and
+  `IsProcessAlive` so the three sites that needed Unix-only signals
+  (host runner, host lifecycle, down) share a single cross-platform
+  abstraction. Windows uses `taskkill /T` for tree kill, `tasklist`
+  for liveness, and `golang.org/x/sys/windows.GetDiskFreeSpaceEx` for
+  disk space.
+- Proxy routes for image-based dependencies now read `EXPOSE` from the
+  image manifest. After deps start, raioz runs
+  `docker image inspect --format '{{json .Config.ExposedPorts}}'` for
+  any dep whose `detection.Port` is still 0, picks the lowest TCP
+  port, and writes it back so the proxy reaches `postgres:5432`,
+  `pgadmin4:80`, etc. without the user copying the port into `ports:`
+  or `expose:`. Results cache per `image:tag` for the process
+  lifetime; lookup failure preserves the existing `Port: 0` fallback
+  chain.
+- Dependabot now tracks GitHub Actions versions
+  (`actions/checkout`, `setup-go`, `golangci-lint-action`, etc.)
+  alongside Go modules. Weekly Monday schedule, separate commit
+  prefix (`ci`), 5-PR cap.
+
+### Changed
+
+- Lint baseline tightened in four atomic PRs:
+  - `errcheck` enabled; `_test.go` excluded. 37 production sites
+    addressed (best-effort cleanup gets explicit discards with
+    why-comments; real errors propagate or log; Cobra flag boilerplate
+    discards).
+  - `gosec` enabled; G204 (subprocess with variable) and G306
+    (WriteFile permissions) excluded globally with rationale — raioz
+    orchestrates docker by design and writes user-readable configs.
+    G115 suppressed inline at the one safe site (filesystem block
+    size cast).
+  - `revive` enabled with a curated 17-rule set (default fires
+    ~980 issues mostly from `unused-parameter` and `exported`, which
+    don't fit this codebase's conventions). Fixed 5 production hits:
+    `copy`/`max` builtin shadowing, empty blocks, var-declaration
+    redundancy, if-return collapses.
+  - `wrapcheck` enabled scoped to errors from outside raioz
+    (`ignorePackageGlobs: raioz/internal/**`); `internal/infra/`
+    (hexagonal adapter layer) and `_test.go` exempted. 58 stdlib /
+    third-party error sites wrapped with `fmt.Errorf("…: %w", err)`.
+- Coverage threshold raised from 70% to 73%, with `internal/mocks`
+  and `internal/testing` excluded from the metric (test
+  infrastructure, not production code). Real total now ~74%. New
+  unit tests cover pure helpers in `compose_spec`, `hosts`,
+  `update_port`, `infer_deps`, `naming`, `host/proctree`,
+  `production`, and `output`. Path to 80% needs integration tests
+  under a live Docker daemon — see ROADMAP.
+
+### Fixed
+
+- `host_runner.Restart` no longer ignores the error from `Stop`
+  ahead of `Start` — silenced explicitly with a comment so the next
+  reader knows the intent.
+- `cleanStaleHostProcesses` no longer silently drops the
+  `state.SaveLocalState` error after clearing PIDs — the call is
+  best-effort but documented.
+
 ## [0.1.1] - 2026-04-15
 
 Patch-level fixes for configuration parsing, surfaced by the keycloak
