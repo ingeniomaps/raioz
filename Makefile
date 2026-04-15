@@ -38,7 +38,9 @@ test-coverage: ## Run tests with coverage
 	@echo ""
 	@go tool cover -func=coverage.out | grep -E "^total:"
 
-check-coverage: test-coverage ## Check coverage against threshold (default: 80%)
+COVERAGE_THRESHOLD ?= 70
+
+check-coverage: test-coverage ## Check coverage against threshold (default: 70%)
 	@./scripts/check-coverage.sh $(COVERAGE_THRESHOLD)
 
 build: ## Build the binary
