@@ -170,3 +170,47 @@ func TestYAMLToDeps_ServiceProxyOverride_Absent(t *testing.T) {
 		t.Error("override must stay nil when yaml omits the proxy block")
 	}
 }
+
+// TestYAMLToDeps_DependencyProxyOverride: `dependencies.<n>.proxy:` bridges
+// into Infra.ProxyOverride so the orchestrator can steer Caddy at a
+// non-default container/port. Regression guard for v0.1.0 where the field
+// was silently dropped.
+func TestYAMLToDeps_DependencyProxyOverride(t *testing.T) {
+	cfg := &RaiozConfig{
+		Project: "hypixo",
+		Deps: map[string]YAMLDependency{
+			"redisinsight": {
+				Image: "redis/redisinsight:latest",
+				Proxy: &YAMLServiceProxy{
+					Target: "hypixo-redisinsight",
+					Port:   5540,
+				},
+			},
+		},
+	}
+	deps, err := YAMLToDeps(cfg)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	entry := deps.Infra["redisinsight"]
+	if entry.Inline == nil || entry.Inline.ProxyOverride == nil {
+		t.Fatal("Infra.ProxyOverride must be populated from yaml dependency `proxy:`")
+	}
+	if entry.Inline.ProxyOverride.Target != "hypixo-redisinsight" ||
+		entry.Inline.ProxyOverride.Port != 5540 {
+		t.Errorf("bridged dep override wrong: %+v", entry.Inline.ProxyOverride)
+	}
+}
+
+func TestYAMLToDeps_DependencyProxyOverride_Absent(t *testing.T) {
+	cfg := &RaiozConfig{
+		Project: "p",
+		Deps: map[string]YAMLDependency{
+			"postgres": {Image: "postgres:16"},
+		},
+	}
+	deps, _ := YAMLToDeps(cfg)
+	if deps.Infra["postgres"].Inline.ProxyOverride != nil {
+		t.Error("override must stay nil when dep yaml omits the proxy block")
+	}
+}

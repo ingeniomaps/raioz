@@ -195,6 +195,11 @@ type Infra struct {
 	// heuristic (e.g. a bespoke "postgres-admin-ui" container that does
 	// actually speak HTTP). See internal/app/upcase/orchestration_proxy.go.
 	Routing *RoutingConfig `json:"routing,omitempty"`
+
+	// ProxyOverride forces a specific (target, port) pair for the proxy,
+	// bypassing detection. Mirrors Service.ProxyOverride and is populated
+	// from the user's `dependencies.<name>.proxy:` block in raioz.yaml.
+	ProxyOverride *ServiceProxyOverride `json:"proxyOverride,omitempty"`
 }
 
 // ServiceProxyOverride tells the proxy exactly where to reverse_proxy for a

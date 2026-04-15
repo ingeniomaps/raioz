@@ -238,6 +238,16 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 		infra.Routing = dep.Routing
 	}
 
+	// Honor user-declared proxy target/port. Mirrors the services path in
+	// yamlServiceToService — without this, dependencies.<n>.proxy:
+	// silently dropped and Caddy fell back to container:80 (v0.1.0 bug).
+	if dep.Proxy != nil && (dep.Proxy.Target != "" || dep.Proxy.Port > 0) {
+		infra.ProxyOverride = &ServiceProxyOverride{
+			Target: dep.Proxy.Target,
+			Port:   dep.Proxy.Port,
+		}
+	}
+
 	return InfraEntry{Inline: infra}
 }
 
