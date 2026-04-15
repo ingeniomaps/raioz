@@ -20,21 +20,23 @@ func TestEnsureCerts_AlreadyExist(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	certsDir := filepath.Join(home, ".raioz", "certs")
-	if err := os.MkdirAll(certsDir, 0o755); err != nil {
+	// Pre-populate the per-domain subdir with a valid cert whose SAN covers
+	// localhost + *.localhost. EnsureCerts must accept it as-is and skip
+	// the mkcert invocation.
+	domainDir := filepath.Join(home, ".raioz", "certs", "localhost")
+	if err := os.MkdirAll(domainDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-
-	// Pre-create cert files so EnsureCerts returns early without calling mkcert
-	os.WriteFile(filepath.Join(certsDir, certFileName), []byte("fake cert"), 0o644)
-	os.WriteFile(filepath.Join(certsDir, keyFileName), []byte("fake key"), 0o644)
+	writeSelfSignedCert(t, filepath.Join(domainDir, certFileName),
+		[]string{"localhost", "*.localhost"})
+	_ = os.WriteFile(filepath.Join(domainDir, keyFileName), []byte("fake key"), 0o644)
 
 	got, err := EnsureCerts("localhost")
 	if err != nil {
 		t.Fatalf("EnsureCerts: %v", err)
 	}
-	if got != certsDir {
-		t.Errorf("got %q, want %q", got, certsDir)
+	if got != domainDir {
+		t.Errorf("got %q, want %q", got, domainDir)
 	}
 }
 
@@ -42,10 +44,11 @@ func TestEnsureCerts_DefaultDomain(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	certsDir := filepath.Join(home, ".raioz", "certs")
-	os.MkdirAll(certsDir, 0o755)
-	os.WriteFile(filepath.Join(certsDir, certFileName), []byte("x"), 0o644)
-	os.WriteFile(filepath.Join(certsDir, keyFileName), []byte("x"), 0o644)
+	domainDir := filepath.Join(home, ".raioz", "certs", "localhost")
+	os.MkdirAll(domainDir, 0o755)
+	writeSelfSignedCert(t, filepath.Join(domainDir, certFileName),
+		[]string{"localhost", "*.localhost"})
+	_ = os.WriteFile(filepath.Join(domainDir, keyFileName), []byte("x"), 0o644)
 
 	// Empty domain should default to "localhost"
 	got, err := EnsureCerts("")

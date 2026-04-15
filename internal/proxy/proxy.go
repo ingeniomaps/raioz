@@ -4,9 +4,14 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os/exec"
+	"sort"
 	"strings"
+	"syscall"
+	"time"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
@@ -18,11 +23,58 @@ import (
 type Manager struct {
 	routes      map[string]interfaces.ProxyRoute
 	networkName string
-	projectName string // used for container/volume naming
+	projectName string // used for per-project container/volume naming
 	domain      string // default: "localhost"
 	certsDir    string // path to mkcert certificates
 	tlsMode     string // "mkcert" (default/local) | "letsencrypt" (server)
 	bindHost    string // "" = 127.0.0.1 (local), "0.0.0.0" = accessible from network
+
+	// workspaceName, when non-empty, switches the proxy to workspace-shared
+	// mode. A single Caddy container per workspace fronts every project
+	// instead of one Caddy per project. The name is the user-declared
+	// `workspace:` from raioz.yaml.
+	workspaceName string
+
+	// networkSubnet is the CIDR of the Docker network raioz owns. Used to
+	// compute the default proxy IP (<base>.1.1) and to validate any
+	// user-declared proxy.ip. Empty means "no subnet set, let Docker
+	// auto-assign on --network attach".
+	networkSubnet string
+	// containerIP is the explicit IP the proxy should bind inside the
+	// Docker network. Populated from raioz.yaml `proxy.ip:` or derived
+	// from `networkSubnet` via DefaultProxyIP.
+	containerIP string
+
+	// publish is whether the proxy should bind host ports 80/443. Default
+	// true; false skips the docker run -p flags so the proxy is only
+	// reachable via its container IP. Used for multi-workspace
+	// parallelism — each workspace's proxy lives entirely on its own
+	// subnet without fighting over the host port pool.
+	publish bool
+}
+
+// isWorkspaceShared reports whether the proxy is in shared (workspace-scoped)
+// mode. Other helpers branch on this to pick workspace-scoped names, labels,
+// and lifecycle behavior.
+func (m *Manager) isWorkspaceShared() bool {
+	return m.workspaceName != ""
+}
+
+// containerName picks the right container name based on the mode:
+// shared (workspace) or per-project (legacy).
+func (m *Manager) containerName() string {
+	if m.isWorkspaceShared() {
+		return naming.WorkspaceProxyContainer()
+	}
+	return ContainerName(m.projectName)
+}
+
+// caddyVolume returns the volume name to mount at /data inside Caddy.
+func (m *Manager) caddyVolume() string {
+	if m.isWorkspaceShared() {
+		return naming.WorkspaceCaddyVolume()
+	}
+	return naming.CaddyVolume(m.projectName)
 }
 
 // NewManager creates a new proxy Manager.
@@ -32,6 +84,7 @@ func NewManager(certsDir string) *Manager {
 		domain:   "localhost",
 		certsDir: certsDir,
 		tlsMode:  "mkcert",
+		publish:  true, // default: bind host 80/443
 	}
 }
 
@@ -59,6 +112,81 @@ func (m *Manager) SetProjectName(name string) {
 	m.projectName = name
 }
 
+// SetNetworkSubnet records the CIDR of the Docker network the proxy will
+// attach to. Empty when the user didn't declare one (Docker picks its own
+// subnet on creation).
+func (m *Manager) SetNetworkSubnet(cidr string) {
+	m.networkSubnet = cidr
+}
+
+// SetContainerIP pins the proxy container to a specific address inside the
+// Docker network. Empty means "let raioz pick the default (<subnet>.1.1)
+// when a subnet is set, otherwise let Docker auto-assign".
+func (m *Manager) SetContainerIP(ip string) {
+	m.containerIP = ip
+}
+
+// SetWorkspace switches the manager to workspace-shared mode. The
+// container, volume, Caddyfile path, and labels all reflect the workspace
+// (one Caddy per workspace, not per project). Empty switches it back to
+// per-project mode.
+func (m *Manager) SetWorkspace(name string) {
+	m.workspaceName = name
+}
+
+// SetPublish toggles the host port binding. nil/true keeps the default
+// (proxy reachable on host 80/443). false skips the binding entirely;
+// callers must ensure a deterministic IP is set so the user knows what
+// to put in /etc/hosts.
+func (m *Manager) SetPublish(publish *bool) {
+	if publish != nil {
+		m.publish = *publish
+	}
+}
+
+// IsPublished reports whether the proxy will bind host ports.
+func (m *Manager) IsPublished() bool {
+	return m.publish
+}
+
+// ContainerIP exposes the resolved IP for callers (e.g., the orchestrator's
+// "add to /etc/hosts" hint). Empty when no IP is pinned.
+func (m *Manager) ContainerIP() string {
+	ip, _ := m.resolveContainerIP()
+	return ip
+}
+
+// HostsLine renders an /etc/hosts entry that maps every route the manager
+// knows about to the proxy's container IP. Returns "" when no IP is
+// resolvable or when there are no routes — both signal "nothing useful to
+// print" rather than an error condition.
+func (m *Manager) HostsLine() string {
+	ip := m.ContainerIP()
+	if ip == "" || len(m.routes) == 0 {
+		return ""
+	}
+	hosts := make([]string, 0, len(m.routes))
+	for _, route := range m.routes {
+		hosts = append(hosts, route.Hostname+"."+m.domain)
+	}
+	sort.Strings(hosts) // stable output for diffs / docs
+	return ip + "  " + strings.Join(hosts, " ")
+}
+
+// resolveContainerIP picks the IP the proxy should bind to, applying the
+// precedence rules: explicit > derived-from-subnet > none (auto-assign).
+// An invalid user IP is rejected with a descriptive error so the problem
+// surfaces before docker run.
+func (m *Manager) resolveContainerIP() (string, error) {
+	if m.containerIP != "" {
+		if err := ValidateProxyIP(m.containerIP, m.networkSubnet); err != nil {
+			return "", err
+		}
+		return m.containerIP, nil
+	}
+	return DefaultProxyIP(m.networkSubnet), nil
+}
+
 // ContainerName returns the proxy container name.
 func ContainerName(project string) string {
 	return naming.ProxyContainer(project)
@@ -67,7 +195,7 @@ func ContainerName(project string) string {
 // Start starts the Caddy proxy container on the given network.
 func (m *Manager) Start(ctx context.Context, networkName string) error {
 	m.networkName = networkName
-	containerName := ContainerName(m.projectName)
+	containerName := m.containerName()
 
 	// Ensure mkcert certificates exist before starting
 	if m.tlsMode == "mkcert" {
@@ -86,29 +214,101 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		return m.Reload(ctx)
 	}
 
+	// Remove any stale container left over from a prior failed run. Docker
+	// keeps containers that failed to start in `Created` / `Exited` state,
+	// and attempting `docker run --name <same>` on top of that returns
+	// "container name already in use" — in the old code that error bubbled
+	// up as a warning and `up` continued with a permanently broken proxy.
+	if err := m.removeStaleContainer(ctx, containerName); err != nil {
+		logging.WarnWithContext(ctx, "Failed to remove stale proxy container",
+			"name", containerName, "error", err.Error())
+	}
+
+	// Pre-flight: fail fast if the host ports the proxy wants are already
+	// taken (another web server, a sibling raioz project, etc.). Without
+	// this, the `docker run` below returns a cryptic "port is already
+	// allocated" and the proxy ends up stuck in Created forever.
+	//
+	// Skipped entirely when publish is off — we're not binding the host
+	// ports at all in that mode.
+	if m.publish {
+		if err := m.checkPortsAvailable(); err != nil {
+			return err
+		}
+	}
+
+	// Validate that the required IP is resolvable when publish is off. The
+	// proxy is only reachable via its container IP in that mode, so the
+	// user MUST be able to predict that IP — otherwise they can't write
+	// the /etc/hosts entry that makes URLs work.
+	if !m.publish {
+		ip, err := m.resolveContainerIP()
+		if err != nil {
+			return err
+		}
+		if ip == "" {
+			return fmt.Errorf(
+				"proxy.publish: false requires a deterministic IP — declare " +
+					"network.subnet (raioz derives <subnet>.1.1) or proxy.ip explicitly")
+		}
+	}
+
 	// Generate Caddyfile
 	caddyfilePath, err := m.generateCaddyfile()
 	if err != nil {
 		return fmt.Errorf("failed to generate Caddyfile: %w", err)
 	}
 
-	// Build docker run args
-	httpBind := "80:80"
-	httpsBind := "443:443"
-	if m.bindHost != "" {
-		httpBind = m.bindHost + ":80:80"
-		httpsBind = m.bindHost + ":443:443"
-	}
-
+	// Build docker run args. When publish is off we omit the -p flags
+	// entirely — Caddy still listens on 80/443 inside the container, and
+	// callers reach it via the container's network IP.
 	args := []string{"run", "-d",
 		"--name", containerName,
 		"--network", networkName,
 		"--restart", "unless-stopped",
-		"-p", httpBind,
-		"-p", httpsBind,
 		"-v", caddyfilePath + ":/etc/caddy/Caddyfile:ro",
-		"-v", naming.CaddyVolume(m.projectName) + ":/data",
+		"-v", m.caddyVolume() + ":/data",
 		"--add-host=host.docker.internal:host-gateway",
+	}
+	if m.publish {
+		httpBind := "80:80"
+		httpsBind := "443:443"
+		if m.bindHost != "" {
+			httpBind = m.bindHost + ":80:80"
+			httpsBind = m.bindHost + ":443:443"
+		}
+		args = append(args, "-p", httpBind, "-p", httpsBind)
+	}
+
+	// Pin the proxy to a known IP inside the network when one is resolvable.
+	// Either the user declared `proxy.ip:` in raioz.yaml, or we derived
+	// <subnet>.1.1 from `network.subnet:`. Without an IP arg Docker
+	// auto-assigns from its pool — works fine but the address is not
+	// stable across restarts, which breaks scripts and /etc/hosts entries
+	// that target a specific IP.
+	proxyIP, err := m.resolveContainerIP()
+	if err != nil {
+		return err
+	}
+	if proxyIP != "" {
+		args = append(args, "--ip", proxyIP)
+		logging.InfoWithContext(ctx, "Pinning proxy IP",
+			"ip", proxyIP, "subnet", m.networkSubnet)
+	}
+
+	// Stamp raioz labels so down flows can sweep the proxy by label filter
+	// instead of matching container names against brittle prefixes.
+	// Workspace-shared proxies omit com.raioz.project (project=""), the same
+	// signal shared deps use to indicate "no single project owns this; only
+	// kill it when the workspace is empty".
+	labelProject := m.projectName
+	if m.isWorkspaceShared() {
+		labelProject = ""
+	}
+	for k, v := range naming.Labels(
+		m.workspaceName, labelProject, "proxy", naming.KindProxy,
+	) {
+		args = append(args, "--label", k+"="+v)
 	}
 
 	// Mount certs if using mkcert (local mode)
@@ -136,7 +336,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 
 // Stop stops and removes the proxy container.
 func (m *Manager) Stop(ctx context.Context) error {
-	containerName := ContainerName(m.projectName)
+	containerName := m.containerName()
 
 	stop := exec.CommandContext(ctx, runtime.Binary(), "stop", containerName)
 	stop.Run()
@@ -169,37 +369,31 @@ func (m *Manager) GetURL(serviceName string) string {
 }
 
 // Reload regenerates the Caddyfile and reloads Caddy without downtime.
+//
+// The Caddyfile is bind-mounted from the host into the container at
+// /etc/caddy/Caddyfile, so writing on the host (which generateCaddyfile
+// already did) propagates instantly inside. We only need to ask Caddy to
+// re-read it via the admin API. A historical `docker cp` here used to fail
+// with "device or resource busy" because the bind mount target is
+// read-only on the container side — keep the path simple.
 func (m *Manager) Reload(ctx context.Context) error {
-	caddyfilePath, err := m.generateCaddyfile()
-	if err != nil {
+	if _, err := m.generateCaddyfile(); err != nil {
 		return err
 	}
-
-	containerName := ContainerName(m.projectName)
-
-	// Copy new Caddyfile into the container
-	cp := exec.CommandContext(ctx, runtime.Binary(), "cp", caddyfilePath, containerName+":/etc/caddy/Caddyfile")
-	if output, err := cp.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to copy Caddyfile: %w\n%s", err, string(output))
-	}
-
-	// Reload Caddy
 	reload := exec.CommandContext(
-		ctx, runtime.Binary(), "exec", containerName,
+		ctx, runtime.Binary(), "exec", m.containerName(),
 		"caddy", "reload", "--config", "/etc/caddy/Caddyfile",
 	)
 	if output, err := reload.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to reload proxy: %w\n%s", err, string(output))
 	}
-
 	logging.InfoWithContext(ctx, "Proxy reloaded", "routes", len(m.routes))
 	return nil
 }
 
 // Status returns whether the proxy is running.
 func (m *Manager) Status(ctx context.Context) (bool, error) {
-	containerName := ContainerName(m.projectName)
-	return m.isRunning(ctx, containerName)
+	return m.isRunning(ctx, m.containerName())
 }
 
 func (m *Manager) isRunning(ctx context.Context, containerName string) (bool, error) {
@@ -210,4 +404,139 @@ func (m *Manager) isRunning(ctx context.Context, containerName string) (bool, er
 		return false, nil
 	}
 	return strings.TrimSpace(string(output)) == "running", nil
+}
+
+// removeStaleContainer wipes any pre-existing container with the proxy name
+// that is NOT in the running state. Covers Created (docker run failed mid-way)
+// and Exited (previous run crashed) — both of which block `docker run --name`
+// from succeeding until the stale entry is removed.
+func (m *Manager) removeStaleContainer(ctx context.Context, containerName string) error {
+	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
+		"--format", "{{.State.Status}}", containerName)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil // container does not exist, nothing to remove
+	}
+	state := strings.TrimSpace(string(out))
+	if state == "" || state == "running" {
+		return nil
+	}
+	logging.InfoWithContext(ctx, "Removing stale proxy container",
+		"container", containerName, "state", state)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
+		return fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
+	}
+	return nil
+}
+
+// portCheckFunc is the package-level probe used by checkPortsAvailable.
+// Declared as a variable so tests can stub it out — the production flow
+// really does want to bind-probe real ports, but tests exercising Start()
+// shouldn't require free 80/443 on the test host.
+var portCheckFunc = isHostPortInUse
+
+// checkPortsAvailable verifies the host ports the proxy intends to publish are
+// free before we try to create the container. Returns a descriptive error
+// listing the conflicting port(s) so the user can act (stop the other
+// process, configure SetBindHost, etc.).
+func (m *Manager) checkPortsAvailable() error {
+	ports := []int{80, 443}
+	var taken []int
+	for _, p := range ports {
+		inUse, err := portCheckFunc(p)
+		if err != nil {
+			// Don't fail on probe error (e.g. IPv6-only quirk); rely on
+			// docker run to report the real problem.
+			continue
+		}
+		if inUse {
+			taken = append(taken, p)
+		}
+	}
+	if len(taken) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"proxy cannot start: host port(s) %v already in use. "+
+			"Stop the conflicting process, or configure the proxy to bind to a "+
+			"different address (see proxy.bindHost).", taken,
+	)
+}
+
+// isHostPortInUse reports whether a host TCP port is already bound. The
+// probe is two-stage:
+//
+//  1. Try a TCP DIAL against 127.0.0.1:<port>. If something accepts the
+//     connection, the port is in use — works regardless of who's serving
+//     it (Docker daemon as root, another user's process, anything).
+//     Connection-refused means nobody's listening → port is free.
+//  2. As a secondary signal try to bind. The historical bind-only probe
+//     misreported privileged ports as busy when raioz ran non-root
+//     (EACCES is "we can't bind", not "someone else has it"); the dial
+//     stage above sidesteps that, but the bind attempt is still useful
+//     to catch the rare case where dial succeeded but no one is actually
+//     listening (e.g. a stale CLOSE_WAIT).
+//
+// Returns (false, nil) only when both probes are inconclusive — at that
+// point we let the actual `docker run` surface the real error rather than
+// false-positive blocking the user.
+func isHostPortInUse(port int) (bool, error) {
+	if inUse, probed := probeTCPDial("127.0.0.1", port); probed {
+		return inUse, nil
+	}
+	if inUse, probed := probeTCPBind("", port); probed {
+		return inUse, nil
+	}
+	if inUse, probed := probeTCPBind("127.0.0.1", port); probed {
+		return inUse, nil
+	}
+	return false, nil
+}
+
+// probeTCPDial tries to OPEN a TCP connection to host:port. Doesn't require
+// any privilege — works as non-root against privileged ports too. Used as
+// the first signal because it matches the question we actually care about:
+// "is something listening?" not "could WE bind?".
+func probeTCPDial(host string, port int) (inUse, probed bool) {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), tcpProbeTimeout)
+	if err == nil {
+		_ = conn.Close()
+		return true, true // someone accepted → port in use
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return false, true // nobody listening → port free
+	}
+	// Any other error (timeout, host unreachable, etc.): we couldn't
+	// determine a definitive answer.
+	return false, false
+}
+
+// tcpProbeTimeout caps the dial probe so a single port check never blocks
+// the up flow for more than a fraction of a second. 250ms is generous for
+// loopback connect-refused/accept latency.
+const tcpProbeTimeout = 250 * time.Millisecond
+
+// probeTCPBind attempts to bind host:port. Returns (inUse, probed) where
+// `probed` is false when we couldn't determine either way (e.g. permission
+// errors that don't actually mean the port is occupied).
+func probeTCPBind(host string, port int) (inUse, probed bool) {
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err == nil {
+		_ = ln.Close()
+		return false, true
+	}
+	// EADDRINUSE is the only signal we trust for "someone else has this port".
+	if errors.Is(err, syscall.EADDRINUSE) {
+		return true, true
+	}
+	// Permission errors (EACCES on privileged ports as non-root) mean our
+	// probe can't answer the question — leave it to docker run to surface
+	// an actual conflict.
+	if errors.Is(err, syscall.EACCES) || errors.Is(err, syscall.EPERM) {
+		return false, false
+	}
+	// Any other error (e.g. EAFNOSUPPORT on IPv6-disabled hosts): mark as
+	// unprobed so the caller can try another host or give up gracefully.
+	return false, false
 }

@@ -39,4 +39,38 @@ type ProxyManager interface {
 	SetBindHost(host string)
 	// SetProjectName sets the project name for container/volume naming
 	SetProjectName(name string)
+	// SetNetworkSubnet records the CIDR of the Docker network the proxy
+	// will attach to. Used to derive the default proxy IP and to validate
+	// any user-declared `proxy.ip:` against the subnet range.
+	SetNetworkSubnet(cidr string)
+	// SetContainerIP pins the proxy container to a specific address inside
+	// the Docker network. Empty string means "let raioz pick the
+	// convention (<subnet>.1.1) when subnet is set, else auto-assign".
+	SetContainerIP(ip string)
+	// SetWorkspace switches the proxy to workspace-shared mode (a single
+	// Caddy per workspace fronting every project) when non-empty. Empty
+	// reverts to per-project mode.
+	SetWorkspace(name string)
+	// SaveProjectRoutes persists this project's currently-known routes to
+	// the workspace's shared routes directory so the next Caddyfile
+	// generation includes them. No-op in per-project mode.
+	SaveProjectRoutes() error
+	// RemoveProjectRoutes deletes this project's persisted routes file.
+	// Idempotent. No-op in per-project mode.
+	RemoveProjectRoutes() error
+	// RemainingProjects returns the number of persisted project routes
+	// files still in the workspace. Used by the down flow to decide
+	// between Reload (siblings remain) and Stop (last one out).
+	RemainingProjects() int
+	// SetPublish toggles whether the proxy binds host ports 80/443. nil
+	// or true keeps the legacy host-published behavior; false skips the
+	// binding so the proxy is reachable only via its container IP.
+	SetPublish(publish *bool)
+	// IsPublished reports the current publish flag (true when host ports
+	// are bound).
+	IsPublished() bool
+	// HostsLine returns an /etc/hosts-style line mapping the proxy's
+	// container IP to every route hostname. Returns "" when the IP
+	// can't be resolved or there are no routes.
+	HostsLine() string
 }
