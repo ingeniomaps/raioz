@@ -5,11 +5,48 @@ package config
 type RaiozConfig struct {
 	Workspace string                    `yaml:"workspace,omitempty"`
 	Project   string                    `yaml:"project"`
+	Network   *YAMLNetwork              `yaml:"network,omitempty"`
 	Proxy     *ProxyConfig              `yaml:"proxy,omitempty"`
 	Pre       YAMLStringOrSlice         `yaml:"pre,omitempty"`
 	Post      YAMLStringOrSlice         `yaml:"post,omitempty"`
 	Services  map[string]YAMLService    `yaml:"services,omitempty"`
 	Deps      map[string]YAMLDependency `yaml:"dependencies,omitempty"`
+}
+
+// YAMLNetwork lets the user override the Docker network raioz manages for a
+// project. Polymorphic in YAML so the common case stays terse:
+//
+//	network: my-existing-net            # string form: just a name
+//	network:                            # object form: name and/or subnet
+//	  name: acme-net
+//	  subnet: 172.28.0.0/16
+//	network:                            # subnet-only: name derived as usual
+//	  subnet: 150.150.0.0/16
+//
+// When omitted, raioz falls back to <workspace>-net or <project>-net and lets
+// Docker pick any subnet.
+type YAMLNetwork struct {
+	Name   string `yaml:"name,omitempty"`
+	Subnet string `yaml:"subnet,omitempty"`
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler for YAMLNetwork so both the
+// string shorthand and the object form parse into the same struct.
+func (n *YAMLNetwork) UnmarshalYAML(unmarshal func(any) error) error {
+	var asString string
+	if err := unmarshal(&asString); err == nil && asString != "" {
+		n.Name = asString
+		return nil
+	}
+
+	// Alias avoids infinite recursion back into this UnmarshalYAML.
+	type yamlNetworkAlias YAMLNetwork
+	var obj yamlNetworkAlias
+	if err := unmarshal(&obj); err != nil {
+		return err
+	}
+	*n = YAMLNetwork(obj)
+	return nil
 }
 
 // ProxyConfig can be a simple bool or a detailed object.
@@ -18,6 +55,28 @@ type ProxyConfig struct {
 	Mode    string `yaml:"mode,omitempty"`   // "subdomain" (default) | "path"
 	Domain  string `yaml:"domain,omitempty"` // custom domain (default: "localhost")
 	TLS     string `yaml:"tls,omitempty"`    // "mkcert" (default) | "letsencrypt"
+
+	// IP pins the proxy container to a specific address inside the Docker
+	// network. Useful for scripts / /etc/hosts entries that need a stable
+	// IP to reach the proxy. When empty AND network.subnet is set, raioz
+	// defaults to <subnet-base>.1.1 — a memorable, reserved-slot address
+	// that stays free across reinstalls. Requires network.subnet to be set
+	// (Docker won't honor --ip without a user-defined subnet).
+	IP string `yaml:"ip,omitempty"`
+
+	// Publish controls whether the proxy binds host ports 80/443. Default
+	// (nil/true) keeps the legacy behavior — accessible from the host via
+	// localhost. Set to false to skip the host binding entirely; the proxy
+	// is then only reachable via its container IP inside the Docker
+	// network. Useful for running multiple workspaces in parallel without
+	// fighting over 80/443 — each gets its own subnet + IP and you map
+	// them via /etc/hosts.
+	//
+	// Requires a deterministic IP (network.subnet or proxy.ip) so the user
+	// knows what to put in /etc/hosts. Linux only: macOS and Windows route
+	// Docker traffic through a VM whose bridge IPs aren't reachable from
+	// the host, so publish:false is functionally broken there.
+	Publish *bool `yaml:"publish,omitempty"`
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler for ProxyConfig to support both bool and object.
@@ -76,11 +135,52 @@ type YAMLService struct {
 	// this service. Overrides auto-detection. Accepts a single string or a
 	// list (merged in order, matching `docker compose -f a -f b`).
 	Compose YAMLStringSlice `yaml:"compose,omitempty"`
+
+	// Proxy overrides how the shared HTTPS proxy reaches this service.
+	// Normally raioz picks a target from detection (container DNS for Docker
+	// services, host.docker.internal for host processes) and a port from
+	// `port:` / .env. That heuristic breaks when `command:` launches its
+	// own compose stack whose containers raioz can't see (e.g. `make start`
+	// spawning hypixo-keycloak on 8080) — raioz classifies the service as
+	// "host" and the proxy ends up pointing at host.docker.internal with no
+	// port. Setting `proxy:` bypasses the heuristic entirely.
+	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"`
+}
+
+// YAMLServiceProxy tells the proxy exactly where to forward traffic for a
+// service. Both fields optional; raioz falls back to detection for whichever
+// the user leaves out.
+type YAMLServiceProxy struct {
+	// Target is the DNS name or IP the proxy should reverse_proxy to. Use
+	// the container name when the service lives on the shared network
+	// (e.g. "hypixo-keycloak"), or a hostname reachable from the proxy
+	// network (e.g. "host.docker.internal").
+	Target string `yaml:"target,omitempty"`
+	// Port is the port to dial on Target.
+	Port int `yaml:"port,omitempty"`
 }
 
 // YAMLDependency represents a dependency (infrastructure/external service) in raioz.yaml.
 type YAMLDependency struct {
-	Image string `yaml:"image"`
+	// Name is an optional container-name override. When set, raioz uses this
+	// literal string as the Docker container name instead of generating one.
+	// Useful when you need the dep to match a name that other tooling (IDEs,
+	// backup scripts, external clients) already expects.
+	Name string `yaml:"name,omitempty"`
+
+	// Compose points raioz at one or more existing docker-compose files for
+	// this dependency. Mutually exclusive with `image:` — use compose when
+	// you already maintain a production-grade fragment (healthchecks,
+	// volumes, custom entrypoints, multi-container cluster) and want raioz
+	// to orchestrate it rather than re-declare with a minimal `image:`.
+	//
+	// Raioz adds a network+labels overlay so the containers join the
+	// workspace network and get swept cleanly on `raioz down`. Env
+	// interpolation (${VAR} in your compose) resolves against the files
+	// listed in `env:`, which raioz passes as --env-file to docker compose.
+	Compose YAMLStringSlice `yaml:"compose,omitempty"`
+
+	Image string `yaml:"image,omitempty"`
 
 	// Ports is the legacy publish list (Docker-compose style). Keeps working
 	// for backwards compatibility but emits a deprecation warning at load:

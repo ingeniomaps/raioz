@@ -91,6 +91,12 @@ type Service struct {
 	Hostname       string         `json:"hostname,omitempty"`       // Custom proxy hostname
 	Routing        *RoutingConfig `json:"routing,omitempty"`        // Proxy routing config
 
+	// ProxyOverride forces a specific (target, port) pair for the proxy
+	// reverse_proxy directive, bypassing runtime detection. Needed when a
+	// service's `command:` launches its own docker compose that raioz
+	// can't introspect — see BUG-13.
+	ProxyOverride *ServiceProxyOverride `json:"proxyOverride,omitempty"`
+
 	// Port is the explicit host port the user declared in raioz.yaml (`port:`).
 	// 0 means "unset — let raioz infer and allocate". See the allocator in
 	// internal/app/upcase/port_alloc.go for precedence rules.

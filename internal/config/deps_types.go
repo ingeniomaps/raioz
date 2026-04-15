@@ -152,7 +152,21 @@ type HealthcheckConfig struct {
 
 // Infra represents an inline infrastructure definition.
 type Infra struct {
-	Image string `json:"image"`
+	// Name is an optional literal container-name override. Empty means raioz
+	// picks the name based on workspace/project (see naming.SharedContainer
+	// / naming.Container).
+	Name string `json:"name,omitempty"`
+
+	// Compose is the list of user-supplied docker-compose fragment paths
+	// that define this dependency. Mutually exclusive with Image. When
+	// set, raioz runs `docker compose -f <file> ... -f <overlay> up -d`
+	// with the user's files PLUS a raioz-generated overlay that adds the
+	// workspace network and stamps raioz labels on every service. The
+	// user's file controls image, volumes, healthchecks, ports, etc.;
+	// raioz only wires it up to the shared network + labels.
+	Compose []string `json:"compose,omitempty"`
+
+	Image string `json:"image,omitempty"`
 	Tag   string `json:"tag,omitempty"`
 	// Ports is the legacy publish list. Kept for backwards compatibility;
 	// new configs should use Expose + Publish (see fields below).
@@ -174,6 +188,21 @@ type Infra struct {
 	// dep lives on the Docker network; containers reach it by DNS, host
 	// tools do not). See PublishSpec for the semantic fields.
 	Publish *PublishSpec `json:"publish,omitempty"`
+
+	// Routing overrides the proxy behavior for this dependency. Setting it
+	// (even to an empty object) opts the dep into getting an HTTPS route,
+	// which is the escape hatch for images whose name matches the DB/broker
+	// heuristic (e.g. a bespoke "postgres-admin-ui" container that does
+	// actually speak HTTP). See internal/app/upcase/orchestration_proxy.go.
+	Routing *RoutingConfig `json:"routing,omitempty"`
+}
+
+// ServiceProxyOverride tells the proxy exactly where to reverse_proxy for a
+// service, overriding auto-detection. Populated from the user's
+// `services.<name>.proxy:` block in raioz.yaml.
+type ServiceProxyOverride struct {
+	Target string `json:"target,omitempty"`
+	Port   int    `json:"port,omitempty"`
 }
 
 // PublishSpec captures the user's host-side binding intent for a dependency.

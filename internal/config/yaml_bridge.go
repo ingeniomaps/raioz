@@ -8,6 +8,45 @@ import (
 // YAMLToDeps converts a RaiozConfig (from raioz.yaml) to the existing Deps structure.
 // This bridge allows all existing code (filters, validation, orchestration) to work unchanged.
 func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
+	// Reject configurations where the same name appears as both a service
+	// and a dependency. Without this guard, two separate compose projects
+	// end up fighting over the same container name and the resulting
+	// behavior is effectively undefined (whichever starts last wins, the
+	// other dies with "container name already in use").
+	var collisions []string
+	for name := range cfg.Services {
+		if _, isDep := cfg.Deps[name]; isDep {
+			collisions = append(collisions, name)
+		}
+	}
+	if len(collisions) > 0 {
+		return nil, fmt.Errorf(
+			"name collision in raioz.yaml: %v appears in both services and dependencies. "+
+				"Rename one side — services are per-project code you edit, dependencies "+
+				"are shared images you consume", collisions)
+	}
+
+	// Each dependency must declare exactly one of `image:` or `compose:`.
+	// Both is ambiguous (which one wins?); neither leaves raioz with
+	// nothing to start.
+	for name, dep := range cfg.Deps {
+		hasImage := dep.Image != ""
+		hasCompose := len(dep.Compose) > 0
+		if hasImage && hasCompose {
+			return nil, fmt.Errorf(
+				"dependency %q declares both `image:` and `compose:` — pick one. "+
+					"Use `compose:` when you have a pre-existing docker-compose fragment "+
+					"(volumes, healthchecks, custom entrypoints); `image:` when you just "+
+					"want a single container from a public image", name)
+		}
+		if !hasImage && !hasCompose {
+			return nil, fmt.Errorf(
+				"dependency %q must declare either `image:` (for a single container "+
+					"from a public image) or `compose:` (path to a docker-compose file "+
+					"you already maintain)", name)
+		}
+	}
+
 	deps := &Deps{
 		SchemaVersion: "2.0",
 		Workspace:     cfg.Workspace,
@@ -32,12 +71,11 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 		deps.PostHook = strings.Join(cfg.Post, " && ")
 	}
 
-	// Convert network from workspace name
-	if cfg.Workspace != "" {
-		deps.Network = NetworkConfig{Name: cfg.Workspace + "-net"}
-	} else {
-		deps.Network = NetworkConfig{Name: cfg.Project + "-net"}
-	}
+	// Network config. Precedence: user-declared > workspace-derived > project-derived.
+	// Only promote to IsObject=true when the user actually asked for a subnet —
+	// otherwise downstream compose generation omits the ipam block and lets
+	// Docker pick a subnet, matching the previous default.
+	deps.Network = resolveNetworkConfig(cfg)
 
 	// Convert services
 	for name, svc := range cfg.Services {
@@ -125,17 +163,49 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 	service.HealthEndpoint = svc.Health
 	service.Hostname = svc.Hostname
 	service.Routing = svc.Routing
+	if svc.Proxy != nil && (svc.Proxy.Target != "" || svc.Proxy.Port > 0) {
+		service.ProxyOverride = &ServiceProxyOverride{
+			Target: svc.Proxy.Target,
+			Port:   svc.Proxy.Port,
+		}
+	}
 
 	return service, nil
+}
+
+// resolveNetworkConfig returns the NetworkConfig for a RaiozConfig, honoring
+// any user-supplied `network:` block and falling back to the conventional
+// workspace-or-project-derived name when the block is absent.
+func resolveNetworkConfig(cfg *RaiozConfig) NetworkConfig {
+	name := ""
+	subnet := ""
+	if cfg.Network != nil {
+		name = cfg.Network.Name
+		subnet = cfg.Network.Subnet
+	}
+	if name == "" {
+		if cfg.Workspace != "" {
+			name = cfg.Workspace + "-net"
+		} else {
+			name = cfg.Project + "-net"
+		}
+	}
+	return NetworkConfig{
+		Name:     name,
+		Subnet:   subnet,
+		IsObject: subnet != "",
+	}
 }
 
 // yamlDependencyToInfra converts a YAMLDependency to an InfraEntry.
 func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 	infra := &Infra{
+		Name:    dep.Name,
 		Image:   extractImage(dep.Image),
 		Tag:     extractTag(dep.Image),
 		Ports:   []string(dep.Ports),
 		Volumes: []string(dep.Volumes),
+		Compose: append([]string(nil), dep.Compose...),
 	}
 
 	if len(dep.Env) > 0 {
@@ -159,6 +229,13 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 			Auto:  dep.Publish.Auto,
 			Ports: append([]int(nil), dep.Publish.Ports...),
 		}
+	}
+
+	// Propagate routing overrides so deps can opt into proxy routing even
+	// when their image matches the DB-like heuristic that otherwise skips
+	// them.
+	if dep.Routing != nil {
+		infra.Routing = dep.Routing
 	}
 
 	return InfraEntry{Inline: infra}

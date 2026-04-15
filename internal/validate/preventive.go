@@ -281,6 +281,12 @@ func ValidateDockerImages(ctx context.Context, deps *config.Deps) error {
 			continue
 		}
 		infra := *entry.Inline
+		// Compose-mode deps supply their own image inside the user's
+		// compose fragment; no image validation here. Skip the image
+		// checks entirely in that mode.
+		if len(infra.Compose) > 0 {
+			continue
+		}
 		if infra.Image == "" {
 			return errors.New(
 				errors.ErrCodeMissingField,

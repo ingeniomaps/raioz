@@ -53,8 +53,13 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 	}
 
 	for name, dep := range cfg.Deps {
-		if dep.Image == "" {
-			return fmt.Errorf("dependency '%s' must have an 'image' field in %s", name, path)
+		// A dep needs either `image:` (raioz generates a minimal compose)
+		// or `compose:` (user supplies existing fragments). YAMLToDeps
+		// re-validates mutual exclusion; here we just check "at least
+		// one" so the simpler error message surfaces first.
+		if dep.Image == "" && len(dep.Compose) == 0 {
+			return fmt.Errorf(
+				"dependency '%s' must have either 'image:' or 'compose:' in %s", name, path)
 		}
 	}
 
