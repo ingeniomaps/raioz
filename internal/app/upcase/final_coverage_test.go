@@ -562,7 +562,7 @@ func TestCheckInfraHealthNoContainers(t *testing.T) {
 	// eventually time out (short test via context cancellation not possible
 	// since the function uses its own deadline).
 	// To keep the test fast, pass an empty list which short-circuits.
-	err := checkInfraHealth(context.Background(), []string{}, "p")
+	err := checkInfraHealth(context.Background(), []string{}, "p", nil)
 	if err != nil {
 		t.Errorf("empty infra → nil, got %v", err)
 	}

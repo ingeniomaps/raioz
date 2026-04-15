@@ -99,25 +99,42 @@ func TestInfraImageRef(t *testing.T) {
 func TestStatusUseCase_queryServiceStatus(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{
-			GetServicesStatusWithContextFunc: func(ctx context.Context, cp string) (map[string]string, error) {
-				return map[string]string{"raioz-p-api": "running"}, nil
+			GetContainerStatusByNameFunc: func(_ context.Context, name string) (string, error) {
+				// naming.Container(p, api) → <prefix>-p-api
+				if name == "" {
+					t.Error("empty container name")
+				}
+				return "running", nil
 			},
 		},
 	})
 	deps := &config.Deps{Project: config.Project{Name: "p"}}
-	// Should return whatever naming.Container produces for that key
-	status := uc.queryServiceStatus(context.Background(), "api", deps)
-	// naming.Container produces raioz-p-api (or similar)
-	if status == "" {
-		t.Error("expected non-empty status")
+	got := uc.queryServiceStatus(context.Background(), "api", deps)
+	if got != "running" {
+		t.Errorf("expected running, got %q", got)
+	}
+}
+
+func TestStatusUseCase_queryServiceStatus_NotFound(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(_ context.Context, _ string) (string, error) {
+				return "", nil
+			},
+		},
+	})
+	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	got := uc.queryServiceStatus(context.Background(), "api", deps)
+	if got != "stopped" {
+		t.Errorf("expected stopped, got %q", got)
 	}
 }
 
 func TestStatusUseCase_queryServiceStatus_Error(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{
-			GetServicesStatusWithContextFunc: func(ctx context.Context, cp string) (map[string]string, error) {
-				return nil, context.Canceled
+			GetContainerStatusByNameFunc: func(_ context.Context, _ string) (string, error) {
+				return "", context.Canceled
 			},
 		},
 	})

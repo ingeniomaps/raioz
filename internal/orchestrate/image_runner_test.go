@@ -82,6 +82,9 @@ func TestImageRunner_WriteCompose(t *testing.T) {
 func TestImageRunner_GenerateCompose(t *testing.T) {
 	svc := makeImageSvc()
 	svc.ProjectName = "gen-" + t.Name()
+	// Keep ContainerName consistent with ProjectName: the label-stamp logic
+	// treats a mismatch as "shared dep" and omits the project label on purpose.
+	svc.ContainerName = naming.Container(svc.ProjectName, svc.Name)
 	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 
 	r := &ImageRunner{}
@@ -111,6 +114,24 @@ func TestImageRunner_GenerateCompose(t *testing.T) {
 
 	if name, _ := pg["container_name"].(string); name != svc.ContainerName {
 		t.Errorf("expected container_name %s, got %v", svc.ContainerName, pg["container_name"])
+	}
+
+	// Raioz labels must be emitted so down flows can sweep by label.
+	rawLabels, ok := pg["labels"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected labels map, got %T", pg["labels"])
+	}
+	if rawLabels[naming.LabelManaged] != "true" {
+		t.Errorf("expected %s=true, got %v", naming.LabelManaged, rawLabels[naming.LabelManaged])
+	}
+	if rawLabels[naming.LabelProject] != svc.ProjectName {
+		t.Errorf("expected project label %s, got %v", svc.ProjectName, rawLabels[naming.LabelProject])
+	}
+	if rawLabels[naming.LabelKind] != naming.KindDependency {
+		t.Errorf("expected kind=dependency, got %v", rawLabels[naming.LabelKind])
+	}
+	if rawLabels[naming.LabelService] != svc.Name {
+		t.Errorf("expected service=%s, got %v", svc.Name, rawLabels[naming.LabelService])
 	}
 
 	// Ports should be present
@@ -278,12 +299,14 @@ func TestImageRunner_Stop_WithFile(t *testing.T) {
 	}
 }
 
-func TestImageRunner_Status_NoFile(t *testing.T) {
+func TestImageRunner_Status_NotFound(t *testing.T) {
 	svc := makeImageSvc()
-	svc.ProjectName = "status-nofile-" + t.Name()
-	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 
-	r := &ImageRunner{docker: &mocks.MockDockerRunner{}}
+	r := &ImageRunner{docker: &mocks.MockDockerRunner{
+		GetContainerStatusByNameFunc: func(_ context.Context, _ string) (string, error) {
+			return "", nil
+		},
+	}}
 	status, err := r.Status(context.Background(), svc)
 	if err != nil {
 		t.Errorf("Status: %v", err)
@@ -295,21 +318,15 @@ func TestImageRunner_Status_NoFile(t *testing.T) {
 
 func TestImageRunner_Status_Running(t *testing.T) {
 	svc := makeImageSvc()
-	svc.ProjectName = "status-running-" + t.Name()
-	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 
-	r := &ImageRunner{docker: &mocks.MockDockerRunner{}}
-	if _, err := r.generateCompose(svc); err != nil {
-		t.Fatalf("generateCompose: %v", err)
-	}
-
-	r.docker = &mocks.MockDockerRunner{
-		GetServicesStatusWithContextFunc: func(
-			_ context.Context, _ string,
-		) (map[string]string, error) {
-			return map[string]string{svc.Name: "running"}, nil
+	r := &ImageRunner{docker: &mocks.MockDockerRunner{
+		GetContainerStatusByNameFunc: func(_ context.Context, name string) (string, error) {
+			if name != svc.ContainerName {
+				t.Errorf("expected %s, got %s", svc.ContainerName, name)
+			}
+			return "running", nil
 		},
-	}
+	}}
 
 	status, err := r.Status(context.Background(), svc)
 	if err != nil {
@@ -320,23 +337,32 @@ func TestImageRunner_Status_Running(t *testing.T) {
 	}
 }
 
+func TestImageRunner_Status_NonRunningState(t *testing.T) {
+	svc := makeImageSvc()
+
+	r := &ImageRunner{docker: &mocks.MockDockerRunner{
+		GetContainerStatusByNameFunc: func(_ context.Context, _ string) (string, error) {
+			return "exited", nil
+		},
+	}}
+
+	status, err := r.Status(context.Background(), svc)
+	if err != nil {
+		t.Errorf("Status: %v", err)
+	}
+	if status != "exited" {
+		t.Errorf("expected exited, got %s", status)
+	}
+}
+
 func TestImageRunner_Status_Error(t *testing.T) {
 	svc := makeImageSvc()
-	svc.ProjectName = "status-err-" + t.Name()
-	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 
-	r := &ImageRunner{docker: &mocks.MockDockerRunner{}}
-	if _, err := r.generateCompose(svc); err != nil {
-		t.Fatalf("generateCompose: %v", err)
-	}
-
-	r.docker = &mocks.MockDockerRunner{
-		GetServicesStatusWithContextFunc: func(
-			_ context.Context, _ string,
-		) (map[string]string, error) {
-			return nil, os.ErrPermission
+	r := &ImageRunner{docker: &mocks.MockDockerRunner{
+		GetContainerStatusByNameFunc: func(_ context.Context, _ string) (string, error) {
+			return "", os.ErrPermission
 		},
-	}
+	}}
 
 	status, err := r.Status(context.Background(), svc)
 	if err == nil {
@@ -344,6 +370,111 @@ func TestImageRunner_Status_Error(t *testing.T) {
 	}
 	if status != "unknown" {
 		t.Errorf("expected unknown, got %s", status)
+	}
+}
+
+// TestImageRunner_GenerateCompose_SharedDepOmitsProjectLabel verifies that a
+// workspace-shared dep is stamped WITHOUT com.raioz.project, so `raioz down`
+// of a single project can't sweep it away while sibling projects still use it.
+func TestImageRunner_GenerateCompose_SharedDepOmitsProjectLabel(t *testing.T) {
+	naming.SetPrefix("acme")
+	defer naming.SetPrefix("")
+
+	svc := makeImageSvc()
+	svc.ProjectName = "shared-" + t.Name()
+	// Simulate orchestration.go resolving the container name via DepContainer
+	// for a workspace — yields `acme-postgres`, distinct from `acme-<proj>-postgres`.
+	svc.ContainerName = naming.SharedContainer(svc.Name)
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+
+	r := &ImageRunner{}
+	path, err := r.generateCompose(svc)
+	if err != nil {
+		t.Fatalf("generateCompose: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	_ = yaml.Unmarshal(data, &parsed)
+	pg := parsed["services"].(map[string]any)["postgres"].(map[string]any)
+	labels := pg["labels"].(map[string]any)
+
+	if _, ok := labels[naming.LabelProject]; ok {
+		t.Error("shared dep must NOT carry a project label (would break workspace sharing)")
+	}
+	if labels[naming.LabelWorkspace] != "acme" {
+		t.Errorf("expected workspace=acme, got %v", labels[naming.LabelWorkspace])
+	}
+	if labels[naming.LabelKind] != naming.KindDependency {
+		t.Errorf("expected kind=dependency, got %v", labels[naming.LabelKind])
+	}
+}
+
+// TestImageRunner_BuildComposeSpec_ExternalCompose confirms that when the
+// dep declares `compose:` in raioz.yaml, the runner uses those files
+// (converted to absolute paths) plus a generated overlay — not the
+// auto-generated image compose.
+func TestImageRunner_BuildComposeSpec_ExternalCompose(t *testing.T) {
+	naming.SetPrefix("acme")
+	defer naming.SetPrefix("")
+
+	projDir := t.TempDir()
+	userCompose := filepath.Join(projDir, "postgres.yml")
+	if err := os.WriteFile(userCompose, []byte("services:\n  postgres:\n    image: postgres\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := makeImageSvc()
+	svc.ProjectName = "extcompose-" + t.Name()
+	svc.ContainerName = naming.SharedContainer(svc.Name)
+	svc.ExternalComposeFiles = []string{userCompose}
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+
+	r := &ImageRunner{}
+	spec, err := r.buildComposeSpec(svc)
+	if err != nil {
+		t.Fatalf("buildComposeSpec: %v", err)
+	}
+
+	if !strings.Contains(spec, "postgres.yml") {
+		t.Errorf("user compose file missing from spec: %s", spec)
+	}
+	if !strings.Contains(spec, "raioz-overlay.yml") {
+		t.Errorf("raioz overlay missing from spec: %s", spec)
+	}
+
+	// Overlay file must exist on disk with network + labels for the dep.
+	overlayPath := r.overlayPath(svc)
+	data, err := os.ReadFile(overlayPath)
+	if err != nil {
+		t.Fatalf("overlay not written: %v", err)
+	}
+	body := string(data)
+	if !strings.Contains(body, naming.LabelManaged) ||
+		!strings.Contains(body, naming.LabelKind) {
+		t.Errorf("overlay missing raioz labels:\n%s", body)
+	}
+	if !strings.Contains(body, svc.NetworkName) {
+		t.Errorf("overlay missing network %q:\n%s", svc.NetworkName, body)
+	}
+}
+
+func TestImageRunner_BuildComposeSpec_ImageMode(t *testing.T) {
+	svc := makeImageSvc()
+	svc.ProjectName = "imgmode-" + t.Name()
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+	// no ExternalComposeFiles → image mode
+
+	r := &ImageRunner{}
+	spec, err := r.buildComposeSpec(svc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(spec, "raioz-overlay.yml") {
+		t.Errorf("image mode must not emit overlay, spec=%s", spec)
+	}
+	if !strings.Contains(spec, "docker-compose.yml") {
+		t.Errorf("image mode must use generated docker-compose.yml, spec=%s", spec)
 	}
 }
 

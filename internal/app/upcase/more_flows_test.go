@@ -339,11 +339,11 @@ func TestSaveHostPIDsSkipsDockerRuntime(t *testing.T) {
 	// Function touches dispatcher.GetHostPID; we can't fake that here easily.
 	// Instead test the early-return branch: no service names == nothing saved.
 	dir := t.TempDir()
-	saveHostPIDs(dir, "p", nil, nil, nil)
-	// ensure no file was written (since no PIDs saved)
-	if _, err := os.Stat(filepath.Join(dir, ".raioz.state.json")); err == nil {
-		// File may or may not exist; just ensure no panic. Fine either way.
-		_ = err
+	saveHostPIDs(dir, "p", "", "net", nil, nil, nil)
+	// State file must now exist even without host PIDs — the project +
+	// network provenance is on its own worth persisting.
+	if _, err := os.Stat(filepath.Join(dir, ".raioz.state.json")); err != nil {
+		t.Errorf("expected state file to be written, got %v", err)
 	}
 }
 
@@ -440,7 +440,7 @@ func TestPostHookExecFailureSwallowed(t *testing.T) {
 
 func TestCheckInfraHealthEmpty(t *testing.T) {
 	initI18nUp(t)
-	err := checkInfraHealth(context.Background(), nil, "proj")
+	err := checkInfraHealth(context.Background(), nil, "proj", nil)
 	if err != nil {
 		t.Errorf("empty infra should be no-op, got %v", err)
 	}

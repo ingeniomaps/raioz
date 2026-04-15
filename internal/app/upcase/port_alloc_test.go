@@ -1,14 +1,28 @@
 package upcase
 
 import (
-	"fmt"
 	"net"
+	"os"
 	"strings"
 	"testing"
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
 )
+
+// TestMain stubs the host-port busy probe for the entire upcase test suite.
+// Without this, tests asserting concrete port numbers (e.g. "npm default is
+// 3000") fail whenever the CI or developer host happens to already have that
+// port bound — turning what should be a deterministic unit test into a
+// host-specific flake. The production flow is unaffected: portInUseProbe is
+// restored to docker.CheckPortInUse after the tests run.
+func TestMain(m *testing.M) {
+	prev := portInUseProbe
+	portInUseProbe = func(string) (bool, error) { return false, nil }
+	code := m.Run()
+	portInUseProbe = prev
+	os.Exit(code)
+}
 
 // newDeps is a tiny helper to build a config.Deps with a set of services for
 // allocator tests. Each entry is (name, runtime-unused-here, explicitPort).
@@ -222,7 +236,9 @@ func TestAllocateHostPorts_DifferentRuntimeDefaultsNoConflict(t *testing.T) {
 
 func TestAllocateHostPorts_CrossProjectBindClash(t *testing.T) {
 	// Occupy a real port with a listener, then ask the allocator to place an
-	// explicit service on it. Must fail with a host-bound error.
+	// explicit service on it. AllocateHostPorts itself does NOT check for bind
+	// conflicts (by design — the caller handles them interactively via
+	// checkPortBindConflicts). Verify that checkPortBindConflicts detects it.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Skipf("cannot bind test port: %v", err)
@@ -233,12 +249,17 @@ func TestAllocateHostPorts_CrossProjectBindClash(t *testing.T) {
 	deps := newDeps(map[string]int{"web": port})
 	detections := DetectionMap{"web": hostDet(detect.RuntimeNPM)}
 
-	_, err = AllocateHostPorts(deps, detections)
-	if err == nil {
-		t.Fatal("expected host-bind error, got nil")
+	result, err := AllocateHostPorts(deps, detections)
+	if err != nil {
+		t.Fatalf("AllocateHostPorts should succeed (bind check is separate): %v", err)
 	}
-	if !strings.Contains(err.Error(), fmt.Sprintf("%d", port)) {
-		t.Errorf("error should mention port %d, got: %v", port, err)
+
+	conflicts := checkPortBindConflicts(result)
+	if len(conflicts) == 0 {
+		t.Fatal("expected bind conflict for occupied port, got none")
+	}
+	if conflicts[0].Port != port {
+		t.Errorf("expected conflict on port %d, got %d", port, conflicts[0].Port)
 	}
 }
 
