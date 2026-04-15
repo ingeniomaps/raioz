@@ -290,9 +290,14 @@ func extractTag(imageRef string) string {
 	return "latest"
 }
 
-// LoadDepsFromYAML loads a raioz.yaml and returns a Deps struct together with
-// any deprecation warnings that surfaced during the load (legacy fields that
-// still parse fine but should be migrated).
+// LoadDepsFromYAML loads a raioz.yaml and returns a Deps struct together
+// with advisory warnings that surfaced during the load. Two sources:
+//
+//  1. Legacy-field deprecations (`ports:` superseded by `publish:`, etc.).
+//  2. Unknown fields — typos or fields from a newer raioz version that the
+//     current binary silently dropped. Warning-only by design: hard
+//     failure would break forward-compat and configs with custom
+//     annotations (ci/* sidecars etc.).
 func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 	cfg, err := LoadYAML(path)
 	if err != nil {
@@ -300,6 +305,14 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 	}
 
 	warnings := yamlDeprecationWarnings(cfg)
+
+	// Strict re-parse on the raw bytes for unknown-field detection. Any
+	// read error here is purely diagnostic — the lenient load already
+	// succeeded — so we swallow it rather than turning it into a hard
+	// failure for the happy path.
+	if data, readErr := readYAMLBytes(path); readErr == nil {
+		warnings = append(warnings, unknownFieldWarnings(path, data)...)
+	}
 
 	deps, err := YAMLToDeps(cfg)
 	if err != nil {
