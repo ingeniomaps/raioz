@@ -99,8 +99,8 @@ func TestRestartUseCase_Execute_ProjectNameProvided(t *testing.T) {
 	}
 	uc := NewRestartUseCase(deps)
 	err := uc.Execute(context.Background(), RestartOptions{
-		ProjectName: "proj",
-		All:         true,
+		ProjectName:  "proj",
+		All:          true,
 		IncludeInfra: true,
 	})
 	if err != nil {

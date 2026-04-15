@@ -76,8 +76,8 @@ func TestLoadDepsLegacy_FileNotFound(t *testing.T) {
 func TestFilterByProfiles_Empty(t *testing.T) {
 	deps := &Deps{
 		Services: map[string]Service{
-			"api":  {Profiles: []string{"dev"}},
-			"web":  {},
+			"api": {Profiles: []string{"dev"}},
+			"web": {},
 		},
 		Infra: map[string]InfraEntry{
 			"pg": {Inline: &Infra{Image: "postgres:16"}},
@@ -94,9 +94,9 @@ func TestFilterByProfiles_FiltersServices(t *testing.T) {
 	enabled := true
 	deps := &Deps{
 		Services: map[string]Service{
-			"api":     {Profiles: []string{"dev"}, Enabled: &enabled},
-			"worker":  {Profiles: []string{"prod"}},
-			"shared":  {},
+			"api":    {Profiles: []string{"dev"}, Enabled: &enabled},
+			"worker": {Profiles: []string{"prod"}},
+			"shared": {},
 		},
 		Infra: map[string]InfraEntry{
 			"pg":    {Inline: &Infra{Image: "postgres:16", Profiles: []string{"dev"}}},

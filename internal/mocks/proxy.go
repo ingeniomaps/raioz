@@ -11,25 +11,25 @@ var _ interfaces.ProxyManager = (*MockProxyManager)(nil)
 
 // MockProxyManager is a mock implementation of interfaces.ProxyManager.
 type MockProxyManager struct {
-	StartFunc            func(ctx context.Context, networkName string) error
-	StopFunc             func(ctx context.Context) error
-	AddRouteFunc         func(ctx context.Context, route interfaces.ProxyRoute) error
-	RemoveRouteFunc      func(ctx context.Context, serviceName string) error
-	GetURLFunc           func(serviceName string) string
-	ReloadFunc           func(ctx context.Context) error
-	StatusFunc           func(ctx context.Context) (bool, error)
-	SetDomainFunc        func(domain string)
-	SetTLSModeFunc       func(mode string)
-	SetBindHostFunc      func(host string)
-	SetProjectNameFunc   func(name string)
-	SetNetworkSubnetFunc      func(cidr string)
-	SetContainerIPFunc        func(ip string)
-	SetWorkspaceFunc          func(name string)
-	SaveProjectRoutesFunc     func() error
-	RemoveProjectRoutesFunc   func() error
-	RemainingProjectsFunc     func() int
-	SetPublishFunc            func(*bool)
-	HostsLineFunc             func() string
+	StartFunc               func(ctx context.Context, networkName string) error
+	StopFunc                func(ctx context.Context) error
+	AddRouteFunc            func(ctx context.Context, route interfaces.ProxyRoute) error
+	RemoveRouteFunc         func(ctx context.Context, serviceName string) error
+	GetURLFunc              func(serviceName string) string
+	ReloadFunc              func(ctx context.Context) error
+	StatusFunc              func(ctx context.Context) (bool, error)
+	SetDomainFunc           func(domain string)
+	SetTLSModeFunc          func(mode string)
+	SetBindHostFunc         func(host string)
+	SetProjectNameFunc      func(name string)
+	SetNetworkSubnetFunc    func(cidr string)
+	SetContainerIPFunc      func(ip string)
+	SetWorkspaceFunc        func(name string)
+	SaveProjectRoutesFunc   func() error
+	RemoveProjectRoutesFunc func() error
+	RemainingProjectsFunc   func() int
+	SetPublishFunc          func(*bool)
+	HostsLineFunc           func() string
 
 	// Track calls
 	AddedRoutes               []interfaces.ProxyRoute

@@ -136,8 +136,8 @@ func TestCheckWorkspaceProjectConflict_NoOverlapInfra(t *testing.T) {
 	}
 	currentDeps := &config.Deps{
 		Project:  config.Project{Name: "new-proj"},
-		Services: map[string]config.Service{"api": {}},       // no overlap
-		Infra:    map[string]config.InfraEntry{"redis": {}},   // no overlap
+		Services: map[string]config.Service{"api": {}},      // no overlap
+		Infra:    map[string]config.InfraEntry{"redis": {}}, // no overlap
 	}
 
 	sm := &mocks.MockStateManager{

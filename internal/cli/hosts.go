@@ -28,8 +28,8 @@ import (
 // Output is intentionally a single, valid /etc/hosts line so it composes
 // well with `sudo tee -a /etc/hosts`, sed scripts, etc.
 var hostsCmd = &cobra.Command{
-	Use:          "hosts",
-	Short:        "Print the /etc/hosts line for this project's proxy",
+	Use:   "hosts",
+	Short: "Print the /etc/hosts line for this project's proxy",
 	Long: `Compute the proxy container IP and the list of proxied hostnames for
 the current raioz project, and print them as a single /etc/hosts entry.
 

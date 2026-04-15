@@ -14,8 +14,8 @@ func TestFilterIgnoredServices_NoIgnored(t *testing.T) {
 
 	deps := &Deps{
 		Services: map[string]Service{
-			"api":  {},
-			"web":  {},
+			"api": {},
+			"web": {},
 		},
 		Infra: map[string]InfraEntry{},
 	}

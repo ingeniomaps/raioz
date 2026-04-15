@@ -350,14 +350,14 @@ func (m *mockProxyManager) Status(ctx context.Context) (bool, error) {
 	}
 	return false, nil
 }
-func (m *mockProxyManager) SetDomain(domain string)       {}
-func (m *mockProxyManager) SetTLSMode(mode string)        {}
-func (m *mockProxyManager) SetBindHost(host string)       {}
-func (m *mockProxyManager) SetProjectName(name string)    {}
-func (m *mockProxyManager) SetNetworkSubnet(cidr string)  {}
-func (m *mockProxyManager) SetContainerIP(ip string)      {}
-func (m *mockProxyManager) SetWorkspace(name string)      {}
-func (m *mockProxyManager) SaveProjectRoutes() error      { return nil }
+func (m *mockProxyManager) SetDomain(domain string)      {}
+func (m *mockProxyManager) SetTLSMode(mode string)       {}
+func (m *mockProxyManager) SetBindHost(host string)      {}
+func (m *mockProxyManager) SetProjectName(name string)   {}
+func (m *mockProxyManager) SetNetworkSubnet(cidr string) {}
+func (m *mockProxyManager) SetContainerIP(ip string)     {}
+func (m *mockProxyManager) SetWorkspace(name string)     {}
+func (m *mockProxyManager) SaveProjectRoutes() error     { return nil }
 func (m *mockProxyManager) RemoveProjectRoutes() error {
 	m.removeProjectRoutesCalled = true
 	return nil
@@ -368,6 +368,6 @@ func (m *mockProxyManager) RemainingProjects() int {
 	}
 	return 0
 }
-func (m *mockProxyManager) SetPublish(*bool) {}
+func (m *mockProxyManager) SetPublish(*bool)  {}
 func (m *mockProxyManager) IsPublished() bool { return true }
 func (m *mockProxyManager) HostsLine() string { return "" }

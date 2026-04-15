@@ -125,8 +125,8 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 //   - proxy disabled in yaml           → no check
 //   - tls == "letsencrypt"             → no check (Caddy handles it)
 //   - tls == "mkcert" (default)        → need mkcert binary OR pre-existing
-//                                        certs in ~/.raioz/certs/; otherwise
-//                                        hard fail with install pointer.
+//     certs in ~/.raioz/certs/; otherwise
+//     hard fail with install pointer.
 //
 // Exported so `raioz check` can reuse the same logic and surface the same
 // error before `raioz up` ever runs — no more "check said green, up failed".

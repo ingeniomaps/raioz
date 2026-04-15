@@ -56,8 +56,8 @@ func TestDetectMissingDependencies_MissingInfra(t *testing.T) {
 func TestDetectMissingDependencies_DepInServices(t *testing.T) {
 	deps := &Deps{
 		Services: map[string]Service{
-			"api":    {DependsOn: []string{"auth"}},
-			"auth":   {},
+			"api":  {DependsOn: []string{"auth"}},
+			"auth": {},
 		},
 		Infra: map[string]InfraEntry{},
 	}
@@ -81,7 +81,7 @@ func TestDetectMissingDependencies_GitServiceWithSubConfig(t *testing.T) {
 
 	// Create a .raioz.json in the service directory with an extra dependency
 	subConfig := map[string]interface{}{
-		"project":  map[string]interface{}{"name": "auth"},
+		"project": map[string]interface{}{"name": "auth"},
 		"services": map[string]interface{}{
 			"worker": map[string]interface{}{
 				"source": map[string]interface{}{"kind": "local"},
@@ -126,7 +126,7 @@ func TestDetectMissingDependencies_SkipsNonGitServices(t *testing.T) {
 	svcDir := filepath.Join(tmpDir, "api")
 	os.MkdirAll(svcDir, 0o755)
 	subConfig := map[string]interface{}{
-		"project":  map[string]interface{}{"name": "api"},
+		"project": map[string]interface{}{"name": "api"},
 		"services": map[string]interface{}{
 			"extra": map[string]interface{}{
 				"source": map[string]interface{}{"kind": "local"},
