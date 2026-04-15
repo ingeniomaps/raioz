@@ -188,7 +188,7 @@ func (uc *CIUseCase) executeSetup(
 		}()
 	}
 
-	defer lockInstance.Release()
+	defer func() { _ = lockInstance.Release() }()
 
 	if err := uc.validateCIPorts(deps, ws, workspaceName, result); err != nil {
 		return err

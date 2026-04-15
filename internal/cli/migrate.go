@@ -133,7 +133,9 @@ func init() {
 		"",
 		"Network name (defaults to {project-name}-network)",
 	)
-	migrateCmd.MarkFlagRequired("compose")
-	migrateCmd.MarkFlagRequired("project")
+	// MarkFlagRequired only errors when the flag name doesn't exist — a
+	// compile-time programmer mistake, not a runtime condition.
+	_ = migrateCmd.MarkFlagRequired("compose")
+	_ = migrateCmd.MarkFlagRequired("project")
 	// Note: migrateCmd is added to rootCmd in root.go init() to avoid circular dependencies
 }

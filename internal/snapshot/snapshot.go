@@ -79,8 +79,13 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 
 	// Save metadata
 	metaPath := filepath.Join(dir, "snapshot.json")
-	data, _ := json.MarshalIndent(snap, "", "  ")
-	os.WriteFile(metaPath, data, 0644)
+	data, err := json.MarshalIndent(snap, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal snapshot metadata: %w", err)
+	}
+	if err := os.WriteFile(metaPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write snapshot metadata: %w", err)
+	}
 
 	return snap, nil
 }

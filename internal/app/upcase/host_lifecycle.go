@@ -36,9 +36,10 @@ func cleanStaleHostProcesses(ctx context.Context, projectDir, projectName string
 		killProcessGraceful(pid)
 	}
 
-	// Clear PIDs from state
+	// Clear PIDs from state. Best-effort: if persist fails, next run's
+	// isProcessAlive check already handles stale entries defensively.
 	localState.HostPIDs = make(map[string]int)
-	state.SaveLocalState(projectDir, localState)
+	_ = state.SaveLocalState(projectDir, localState)
 }
 
 // saveHostPIDs persists project state to .raioz.state.json. Always writes,
@@ -83,7 +84,9 @@ func saveHostPIDs(
 		}
 	}
 
-	state.SaveLocalState(projectDir, localState)
+	// Best-effort: persisting PIDs is optional — `down` can still sweep
+	// by container labels when the state file is missing or partial.
+	_ = state.SaveLocalState(projectDir, localState)
 }
 
 // isProcessAlive checks if a process with the given PID is running.
@@ -100,12 +103,14 @@ func killProcessGraceful(pid int) {
 	if pid <= 0 {
 		return // negative/zero PIDs are special values in kill(2) — never use them
 	}
-	// Kill the process group to catch child processes (e.g., go run spawns a child)
+	// Kill the process group to catch child processes (e.g., go run spawns a child).
+	// Errors here are best-effort: the process may already be dead or
+	// lack permission — retry below covers both cases.
 	pgid, err := syscall.Getpgid(pid)
 	if err == nil && pgid > 0 {
-		syscall.Kill(-pgid, syscall.SIGTERM)
+		_ = syscall.Kill(-pgid, syscall.SIGTERM)
 	} else {
-		syscall.Kill(pid, syscall.SIGTERM)
+		_ = syscall.Kill(pid, syscall.SIGTERM)
 	}
 
 	// Also send to PID directly as fallback
@@ -113,13 +118,13 @@ func killProcessGraceful(pid int) {
 	if err != nil {
 		return
 	}
-	proc.Signal(syscall.SIGTERM)
+	_ = proc.Signal(syscall.SIGTERM)
 
 	// Give it a moment, then force kill if still alive
 	if isProcessAlive(pid) {
 		if pgid > 0 {
-			syscall.Kill(-pgid, syscall.SIGKILL)
+			_ = syscall.Kill(-pgid, syscall.SIGKILL)
 		}
-		proc.Kill()
+		_ = proc.Kill()
 	}
 }

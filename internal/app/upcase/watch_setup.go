@@ -245,5 +245,7 @@ func updateHostPID(projectDir, serviceName string, pid int) {
 		return
 	}
 	localState.HostPIDs[serviceName] = pid
-	state.SaveLocalState(projectDir, localState)
+	// Best-effort: watch PID updates are advisory for `status` — losing
+	// one doesn't break the watched process itself.
+	_ = state.SaveLocalState(projectDir, localState)
 }

@@ -141,7 +141,10 @@ func tailFile(ctx context.Context, name, logPath, color string, padLen int) {
 	}
 
 	prefixedCopy(ctx, stdout, name, color, padLen)
-	cmd.Wait()
+	// Wait returns the exit error from the child; irrelevant here since
+	// the tail goroutine is fire-and-forget and context cancellation
+	// already killed the process.
+	_ = cmd.Wait()
 }
 
 // tailDocker streams docker logs with colored prefix.
@@ -157,7 +160,7 @@ func tailDocker(ctx context.Context, name, container, color string, padLen int) 
 	}
 
 	prefixedCopy(ctx, stdout, name, color, padLen)
-	cmd.Wait()
+	_ = cmd.Wait()
 }
 
 // prefixedCopy reads lines from r and prints them with a colored service prefix.

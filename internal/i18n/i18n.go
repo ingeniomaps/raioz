@@ -156,10 +156,14 @@ func SavePreference(lang string) error {
 
 	configPath := filepath.Join(dir, configFile)
 
-	// Load existing config to preserve other fields
+	// Load existing config to preserve other fields. If the file is
+	// corrupt, fall back to an empty map — we'd rather rewrite a clean
+	// config than refuse to persist the language change.
 	existing := make(map[string]any)
 	if data, err := os.ReadFile(configPath); err == nil {
-		json.Unmarshal(data, &existing)
+		if err := json.Unmarshal(data, &existing); err != nil {
+			existing = make(map[string]any)
+		}
 	}
 
 	existing["language"] = lang

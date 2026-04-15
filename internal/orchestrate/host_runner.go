@@ -55,7 +55,9 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 
 	// Redirect output to log file (persists after raioz up exits)
 	logDir := naming.LogDir(svc.ProjectName)
-	os.MkdirAll(logDir, 0755)
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return fmt.Errorf("failed to create log dir: %w", err)
+	}
 
 	logFile, err := os.Create(naming.LogFile(svc.ProjectName, svc.Name))
 	if err != nil {
@@ -172,7 +174,9 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 
 // Restart stops and starts the service.
 func (r *HostRunner) Restart(ctx context.Context, svc interfaces.ServiceContext) error {
-	r.Stop(ctx, svc)
+	// Best-effort: Stop errors are non-fatal because Start below will
+	// surface a real problem (port conflict, spawn failure) anyway.
+	_ = r.Stop(ctx, svc)
 	return r.Start(ctx, svc)
 }
 

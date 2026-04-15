@@ -80,7 +80,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		if localState.Project == "" {
 			_ = state.RemoveLocalState(projectDir)
 		} else {
-			state.SaveLocalState(projectDir, localState)
+			_ = state.SaveLocalState(projectDir, localState)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		if localState.Project == "" {
 			_ = state.RemoveLocalState(projectDir)
 		} else {
-			state.SaveLocalState(projectDir, localState)
+			_ = state.SaveLocalState(projectDir, localState)
 		}
 	}
 
@@ -133,7 +133,8 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	if networkName != "" {
 		inUse, _ := uc.deps.DockerRunner.IsNetworkInUseWithContext(ctx, networkName)
 		if !inUse {
-			exec.CommandContext(ctx, runtime.Binary(), "network", "rm", networkName).Run()
+			// Best-effort: network removal may race with another project teardown.
+			_ = exec.CommandContext(ctx, runtime.Binary(), "network", "rm", networkName).Run()
 			logging.InfoWithContext(ctx, "Network removed", "network", networkName)
 		}
 	}
@@ -285,7 +286,7 @@ func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps, proje
 		args = append(args, composeArgs...)
 		args = append(args, "down")
 		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-		cmd.Run() // Ignore errors — file might not exist
+		_ = cmd.Run() // file might not exist; best-effort teardown
 	}
 }
 
@@ -319,8 +320,8 @@ func otherProjectsActiveInWorkspace(ctx context.Context, workspace, currentProje
 func killProcessGroup(pid int) {
 	pgid, err := syscall.Getpgid(pid)
 	if err == nil && pgid > 0 {
-		syscall.Kill(-pgid, syscall.SIGTERM)
+		_ = syscall.Kill(-pgid, syscall.SIGTERM)
 	}
-	// Fallback: kill PID directly
-	exec.Command("kill", fmt.Sprintf("%d", pid)).Run()
+	// Fallback: kill PID directly. Best-effort — process may already be dead.
+	_ = exec.Command("kill", fmt.Sprintf("%d", pid)).Run()
 }

@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"raioz/internal/logging"
 )
 
 // Info represents an active tunnel.
@@ -69,7 +71,7 @@ func (m *Manager) Stop(serviceName string) error {
 		if t.ServiceName == serviceName {
 			if t.PID > 0 {
 				if proc, err := os.FindProcess(t.PID); err == nil {
-					proc.Kill()
+					_ = proc.Kill()
 				}
 			}
 			tunnels = append(tunnels[:i], tunnels[i+1:]...)
@@ -85,11 +87,11 @@ func (m *Manager) StopAll() {
 	for _, t := range m.loadAll() {
 		if t.PID > 0 {
 			if proc, err := os.FindProcess(t.PID); err == nil {
-				proc.Kill()
+				_ = proc.Kill()
 			}
 		}
 	}
-	os.Remove(m.registryPath)
+	_ = os.Remove(m.registryPath)
 }
 
 // List returns all active tunnels, cleaning up dead ones.
@@ -151,7 +153,7 @@ func (m *Manager) startCloudflared(ctx context.Context, serviceName string, port
 			StartedAt:   time.Now(),
 		}, nil
 	case <-time.After(15 * time.Second):
-		cmd.Process.Kill()
+		_ = cmd.Process.Kill()
 		return nil, fmt.Errorf("cloudflared did not return a URL within 15 seconds")
 	}
 }
@@ -208,14 +210,26 @@ func (m *Manager) loadAll() []Info {
 		return nil
 	}
 	var tunnels []Info
-	json.Unmarshal(data, &tunnels)
+	if err := json.Unmarshal(data, &tunnels); err != nil {
+		logging.Warn("Tunnel registry is corrupt, ignoring",
+			"path", m.registryPath, "error", err)
+		return nil
+	}
 	return tunnels
 }
 
 func (m *Manager) saveAll(tunnels []Info) {
-	os.MkdirAll(filepath.Dir(m.registryPath), 0755)
-	data, _ := json.MarshalIndent(tunnels, "", "  ")
-	os.WriteFile(m.registryPath, data, 0600)
+	// Best-effort persistence: tunnel registry is a cache. On write
+	// failure, subsequent loadAll returns an empty list and we start
+	// fresh — no user-visible break beyond losing the tunnel history.
+	if err := os.MkdirAll(filepath.Dir(m.registryPath), 0755); err != nil {
+		return
+	}
+	data, err := json.MarshalIndent(tunnels, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(m.registryPath, data, 0600)
 }
 
 // DetectBackend returns the name of the available backend, or error.

@@ -273,11 +273,12 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 func (m *Manager) Stop(ctx context.Context) error {
 	containerName := m.containerName()
 
+	// Best-effort: container may already be stopped or removed.
 	stop := exec.CommandContext(ctx, runtime.Binary(), "stop", containerName)
-	stop.Run()
+	_ = stop.Run()
 
 	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
-	rm.Run()
+	_ = rm.Run()
 
 	return nil
 }
