@@ -6,12 +6,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `network.name` and `network.subnet` optional fields in `raioz.yaml` — pin the Docker network name and subnet explicitly. String shorthand (`network: my-net`) also accepted.
+- `dependencies.<n>.name` — literal container name override for a dep.
+- `dependencies.<n>.routing` — opt-in HTTPS proxy route for a dep whose image matches the DB/broker heuristic.
+- `services.<n>.proxy.{target, port}` — override detection when `command:` launches a compose stack raioz can't see.
+- Interactive recovery menu when the proxy fails to start on an interactive tty (Retry / Skip / Cancel). Non-interactive stdin still hard-fails.
+- Container labels `com.raioz.managed`, `com.raioz.workspace`, `com.raioz.project`, `com.raioz.service`, `com.raioz.kind` stamped on every raioz-created container. Shared deps omit `com.raioz.project` to signal workspace ownership.
+- `proxy.ip` optional field — pin the Caddy container's IP inside the Docker network. Default: `<subnet-base>.1.1` when `network.subnet` is declared.
+- `proxy.publish` optional field (default `true`) — when set to `false`, the proxy does NOT bind host ports 80/443. Reachable only via its container IP, so multiple workspaces can run in parallel without port contention. Requires `network.subnet` or explicit `proxy.ip`. Linux-only.
+- `raioz hosts` command — prints an `/etc/hosts` entry for the current project's proxy (container IP + every proxied hostname). Ready for `sudo tee -a /etc/hosts`. Trailing `# raioz:<workspace>` comment makes entries grep-findable.
+- Workspace-shared proxy mode — when `workspace:` is declared, a single `{workspace}-proxy` Caddy fronts every project in the workspace. Routes persisted per project at `/tmp/<workspace>/proxy/routes/<project>.json`; Caddyfile is the union of every project's contribution. `raioz down` removes only the current project's routes and reloads; only the last project leaving tumba the proxy.
+
 ### Changed
 - Deprecate `.raioz.json` config with migration warning
 - Rewrite install script for goreleaser compatibility
+- Dependencies in a workspace are now container-shared (`{workspace}-{dep}`), not per-project. First `up` creates; subsequent `up`s reuse. `down` keeps shared deps alive while any sibling project still runs in the workspace; last project out tumba them.
+- Certificates are namespaced per domain (`~/.raioz/certs/<domain>/`) and their SAN is verified before reuse. Prevents silent cross-domain cert reuse.
+- Caddyfile global block uses `auto_https off` in mkcert mode (was `disable_redirects`). Stops Caddy from falling back to ACME on custom domains without public DNS.
+- `raioz.yaml` now fails fast when a name appears in both `services:` and `dependencies:`.
+- Proxy startup now pre-flights host ports `80`/`443` and distinguishes `EADDRINUSE` (real conflict) from `EACCES` (privileged port as non-root — not our concern).
+- Proxy skips HTTPS route creation for deps whose image matches a well-known non-HTTP list (postgres, redis, mysql, mariadb, mongo, rabbitmq, kafka, etc.). Use `routing: {}` to opt in.
+- `.raioz.state.json` is now always written on `up` (even for projects without host services) with project, workspace, `networkName`, and `lastUp` populated. Removed on `down` if project is empty.
 
 ### Fixed
-- Resolve project name for proxy status and stop
+- Resolve project name for proxy status and stop.
+- `raioz status` now reports the correct state for shared/dependency containers (previously always showed `stopped`).
+- `raioz down` no longer sweeps containers belonging to other projects that happen to share a name prefix on the same Docker daemon.
+- Service containers with a user-supplied `command:` (e.g. `make start`) are now caught by the down flow via exact-name fallback (`<prefix>-<project>`).
+- Caddy proxy no longer gets stuck in `Created` state after a port conflict — stale containers are removed before retry, and the failure is surfaced as an actual error instead of a passable warning.
+- `DepComposeProjectName` now uses the active naming prefix instead of hardcoded `raioz-`, so `docker compose ls` matches the real container names.
+- Errors from `docker stop` / `rm` during teardown are logged with stderr instead of silently swallowed.
+- Proxy port preflight no longer emits false-positive `port in use` for privileged ports when running as non-root.
+- Proxy port preflight now uses a TCP dial probe before attempting a bind — unprivileged raioz processes could previously miss privileged ports (e.g. :80) actually held by another process because `net.Listen` returned `EACCES`, which was mistaken for "probe inconclusive".
+- `cloneService` / `cloneInfraEntry` in the workspace-conflict merge path now copy ALL orchestration-relevant fields (`ProxyOverride`, `Port`, `HealthEndpoint`, `Name`, `Routing`, `Expose`, `Publish`). Missing fields silently vanished on re-up after a workspace state mismatch, reverting BUG-13's proxy override and several other fixes.
+- `proxy.IsNonHTTPImage` classifier moved to shared `internal/proxy/filter.go` and rewritten to match on the bare image name (last path segment before tag/digest) instead of substrings. `redis/redisinsight`, `dpage/pgadmin4`, `mongo-express`, and similar HTTP UIs that share a substring with their binary-protocol namesake are now correctly proxied.
+- Workspace-shared proxy: `Reload` no longer runs `docker cp` (the bind-mount target is read-only and `cp` failed with "device or resource busy"). It writes the Caddyfile on the host and calls `caddy reload` — the bind mount propagates the file into the container automatically.
 
 ## [0.1.0] — Meta-orchestrator
 

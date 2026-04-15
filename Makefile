@@ -27,11 +27,12 @@ format: ## Format code with gofmt and goimports
 
 test: ## Run all tests
 	@echo "Running tests..."
-	@go test -v ./...
+	@GOGC=50 GOMEMLIMIT=4GiB go test -v -p 1 -parallel 2 -timeout 120s ./...
 
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
-	@go test -v -coverprofile=coverage.out ./...
+	@GOGC=50 GOMEMLIMIT=4GiB go test -v -p 1 -parallel 2 -timeout 120s \
+		-coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 	@echo ""
