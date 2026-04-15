@@ -2,11 +2,10 @@ package upcase
 
 import (
 	"context"
-	"os"
-	"syscall"
 	"time"
 
 	"raioz/internal/detect"
+	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
 	"raioz/internal/state"
@@ -91,40 +90,22 @@ func saveHostPIDs(
 
 // isProcessAlive checks if a process with the given PID is running.
 func isProcessAlive(pid int) bool {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	return process.Signal(syscall.Signal(0)) == nil
+	return host.IsProcessAlive(pid)
 }
 
-// killProcessGraceful sends SIGTERM, then SIGKILL after a short wait.
+// killProcessGraceful sends a graceful tree kill, then force-kills if still alive.
 func killProcessGraceful(pid int) {
 	if pid <= 0 {
 		return // negative/zero PIDs are special values in kill(2) — never use them
 	}
-	// Kill the process group to catch child processes (e.g., go run spawns a child).
-	// Errors here are best-effort: the process may already be dead or
-	// lack permission — retry below covers both cases.
-	pgid, err := syscall.Getpgid(pid)
-	if err == nil && pgid > 0 {
-		_ = syscall.Kill(-pgid, syscall.SIGTERM)
-	} else {
-		_ = syscall.Kill(pid, syscall.SIGTERM)
-	}
+	// Kill the whole tree so grandchildren (e.g. `go run`'s compiled
+	// binary) also exit. Best-effort: the process may already be dead
+	// or lack permission — the probe below covers both cases.
+	_ = host.KillProcessTree(pid)
 
-	// Also send to PID directly as fallback
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return
-	}
-	_ = proc.Signal(syscall.SIGTERM)
-
-	// Give it a moment, then force kill if still alive
+	// Brief grace period, then force-kill if still alive.
+	time.Sleep(100 * time.Millisecond)
 	if isProcessAlive(pid) {
-		if pgid > 0 {
-			_ = syscall.Kill(-pgid, syscall.SIGKILL)
-		}
-		_ = proc.Kill()
+		_ = host.ForceKillProcessTree(pid)
 	}
 }

@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 )
@@ -67,8 +67,10 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 
-	// Use SysProcAttr to detach so the child inherits the file descriptor
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Start in a new process group so Stop can kill the whole tree (the
+	// parent is usually `sh -c` and the grandchild is the real server).
+	// No-op on Windows — taskkill /T handles the tree without a group.
+	host.SetNewProcessGroup(cmd)
 
 	// Start in background
 	if err := cmd.Start(); err != nil {
@@ -149,26 +151,22 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 	}
 	defer delete(r.processes, svc.Name)
 
-	// SIGTERM to the entire group. If the process is already gone, Kill
-	// returns ESRCH — treat as success.
-	if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
-		return nil
-	}
+	// Graceful tree kill. Ignore errors from the KillProcessTree path —
+	// the poll below is the real barrier.
+	_ = host.KillProcessTree(pid)
 
-	// Poll for actual death up to 5s. We use Signal(0) on the group leader
-	// PID, which returns ESRCH once the process is reaped. This is what
-	// makes Stop() a real barrier: callers (including Restart) can trust
-	// that when it returns, the port the service was holding is free.
+	// Poll for actual death up to 5s so callers (Restart, down) can
+	// trust the port is free once Stop returns.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(pid, 0); err != nil {
-			return nil // process is gone
+		if !host.IsProcessAlive(pid) {
+			return nil
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// Still alive after 5s → SIGKILL the group. Best-effort.
-	_ = syscall.Kill(-pid, syscall.SIGKILL)
+	// Still alive after 5s → force kill. Best-effort.
+	_ = host.ForceKillProcessTree(pid)
 	return nil
 }
 
@@ -191,12 +189,11 @@ func (r *HostRunner) Status(_ context.Context, svc interfaces.ServiceContext) (s
 		return "stopped", nil
 	}
 
-	process, err := os.FindProcess(pid)
-	if err != nil {
+	if _, err := os.FindProcess(pid); err != nil {
 		return "stopped", nil
 	}
 
-	if err := process.Signal(syscall.Signal(0)); err != nil {
+	if !host.IsProcessAlive(pid) {
 		return "stopped", nil
 	}
 

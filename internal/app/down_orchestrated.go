@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
@@ -315,13 +315,9 @@ func otherProjectsActiveInWorkspace(ctx context.Context, workspace, currentProje
 	return false
 }
 
-// killProcessGroup sends SIGTERM to the process group, then SIGKILL.
-// Killing the group ensures child processes (e.g., go run's compiled binary) are also stopped.
+// killProcessGroup kills pid and its descendants (`go run`'s compiled
+// binary, `sh -c`'s grandchildren, etc). Cross-platform via the host
+// helper; best-effort because the process may already be gone.
 func killProcessGroup(pid int) {
-	pgid, err := syscall.Getpgid(pid)
-	if err == nil && pgid > 0 {
-		_ = syscall.Kill(-pgid, syscall.SIGTERM)
-	}
-	// Fallback: kill PID directly. Best-effort — process may already be dead.
-	_ = exec.Command("kill", fmt.Sprintf("%d", pid)).Run()
+	_ = host.KillProcessTree(pid)
 }

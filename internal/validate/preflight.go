@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"raioz/internal/errors"
@@ -166,20 +165,17 @@ func checkGitInstalledWithContext(ctx context.Context) error {
 
 // checkDiskSpace checks if there's sufficient disk space
 func checkDiskSpace() error {
-	var stat syscall.Statfs_t
-
 	// Check current directory
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil // Skip check if can't get working directory
 	}
 
-	if err := syscall.Statfs(wd, &stat); err != nil {
-		return nil // Skip check if can't stat filesystem
+	availableBytes, err := availableDiskSpaceBytes(wd)
+	if err != nil {
+		return nil // Skip check if the platform probe failed
 	}
 
-	// Calculate available space (in bytes)
-	availableBytes := stat.Bavail * uint64(stat.Bsize)
 	availableGB := float64(availableBytes) / (1024 * 1024 * 1024)
 
 	// Warn if less than 1GB available
