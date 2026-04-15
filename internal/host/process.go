@@ -232,7 +232,6 @@ func StopServiceWithCommand(ctx context.Context, pid int, stopCommand string) er
 // StopServiceWithCommandAndPath stops a running host process, optionally using a custom stop command first
 // servicePath is the directory where the stop command should be executed
 func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand string, servicePath string) error {
-
 	// If a custom stop command is provided, execute it first
 	if stopCommand != "" {
 		cmdParts := parseCommand(stopCommand)

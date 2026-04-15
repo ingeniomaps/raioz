@@ -155,11 +155,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := lockInstance.Release(); err != nil {
-				// Log error but don't fail - lock release is best-effort
-			}
-		}()
+		defer func() { _ = lockInstance.Release() }()
 
 		// Execute project command directly
 		err = uc.processLocalProject(ctx, opts.ConfigPath, deps, "up", ws)
@@ -186,11 +182,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := lockInstance.Release(); err != nil {
-			// Log error but don't fail - lock release is best-effort
-		}
-	}()
+	defer func() { _ = lockInstance.Release() }()
 
 	// Check if workspace is already running from a different project (same workspace, overlapping services)
 	conflictResult, mergedDeps, err := uc.checkWorkspaceProjectConflict(ctx, deps, ws, projectDir)
@@ -314,11 +306,8 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		}
 	}
 
-	// Update global state
-	err = uc.updateGlobalState(ctx, deps, ws, composePath, serviceNames)
-	if err != nil {
-		// Log but don't fail - global state is optional
-	}
+	// Update global state — best-effort; global state is optional.
+	_ = uc.updateGlobalState(ctx, deps, ws, composePath, serviceNames)
 
 	// Wait for services and infra to be healthy before executing project commands
 	// This ensures that project.commands.up runs only after dependencies are ready

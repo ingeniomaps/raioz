@@ -154,7 +154,7 @@ func (uc *UseCase) promptInfra() (map[string]config.InfraEntry, error) {
 
 	for _, sel := range selections {
 		sel = strings.TrimSpace(sel)
-		idx := -1
+		var idx int
 		switch sel {
 		case "1":
 			idx = 0

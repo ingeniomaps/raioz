@@ -1,8 +1,9 @@
 package cli
 
 import (
-	"raioz/internal/app"
 	"testing"
+
+	"raioz/internal/app"
 )
 
 func TestCheckCmd(t *testing.T) {

@@ -82,14 +82,12 @@ func NewCircuitBreaker(config CircuitBreakerConfig) *CircuitBreaker {
 func (cb *CircuitBreaker) Execute(ctx context.Context, operation string, fn func() error) error {
 	// Check circuit state
 	cb.mu.Lock()
-	state := cb.state
 
 	// Transition from open to half-open if timeout has passed
-	if state == CircuitOpen {
+	if cb.state == CircuitOpen {
 		if time.Since(cb.lastFailure) >= cb.config.Timeout {
 			cb.state = CircuitHalfOpen
 			cb.successes = 0
-			state = CircuitHalfOpen
 			logging.Info("Circuit breaker transitioning to half-open",
 				"circuit", cb.config.Name,
 				"operation", operation,
@@ -167,14 +165,12 @@ func (cb *CircuitBreaker) ExecuteWithContext(
 ) error {
 	// Check circuit state
 	cb.mu.Lock()
-	state := cb.state
 
 	// Transition from open to half-open if timeout has passed
-	if state == CircuitOpen {
+	if cb.state == CircuitOpen {
 		if time.Since(cb.lastFailure) >= cb.config.Timeout {
 			cb.state = CircuitHalfOpen
 			cb.successes = 0
-			state = CircuitHalfOpen
 			logging.Info("Circuit breaker transitioning to half-open",
 				"circuit", cb.config.Name,
 				"operation", operation,

@@ -2,6 +2,7 @@ package interfaces
 
 import (
 	"context"
+
 	"raioz/internal/detect"
 )
 

@@ -1,8 +1,9 @@
 package validate
 
 import (
-	"raioz/internal/config"
 	"testing"
+
+	"raioz/internal/config"
 )
 
 func TestValidateTransitiveDependencies(t *testing.T) {

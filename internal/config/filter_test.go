@@ -401,11 +401,6 @@ func TestValidateFeatureFlags(t *testing.T) {
 			if tt.wantErr && tt.errMsg != "" {
 				if err == nil || err.Error() == "" {
 					t.Error("Expected error message, got nil")
-				} else if err.Error() == "" || err.Error() != err.Error() {
-					// Just check that error contains the expected message
-					if err != nil && err.Error() != "" {
-						// Error exists, that's good
-					}
 				}
 			}
 		})

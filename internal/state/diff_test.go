@@ -1,8 +1,9 @@
 package state
 
 import (
-	"raioz/internal/config"
 	"testing"
+
+	"raioz/internal/config"
 )
 
 func TestCompareDeps(t *testing.T) {

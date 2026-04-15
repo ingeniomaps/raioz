@@ -195,9 +195,6 @@ func ApplyModeConfig(
 			} else {
 				delete(serviceConfig, "volumes")
 			}
-		} else {
-			// Dev mode: keep all volumes (no filtering needed)
-			// Volumes are already set, no need to change
 		}
 	}
 

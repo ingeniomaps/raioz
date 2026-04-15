@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"bufio"
 	"context"
 	"os/exec"
 	"strings"
@@ -116,40 +115,3 @@ func (m Model) checkProxyCmd() tea.Cmd {
 }
 
 type proxyStatusMsg bool
-
-// streamLogs starts streaming logs for a service in the background.
-func (m Model) streamLogs(serviceName string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithCancel(m.config.Ctx)
-		defer cancel()
-
-		var args []string
-		if m.config.YAMLMode {
-			container := naming.Container(m.config.Project, serviceName)
-			args = []string{"logs", "--follow", "--tail", "50", container}
-		} else {
-			args = []string{"compose"}
-			if m.config.ComposePath != "" {
-				args = append(args, "-f", m.config.ComposePath)
-			}
-			args = append(args, "logs", "--follow", "--tail", "50", serviceName)
-		}
-
-		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return nil
-		}
-		cmd.Stderr = cmd.Stdout
-
-		if err := cmd.Start(); err != nil {
-			return nil
-		}
-
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			_ = scanner.Text()
-		}
-		return nil
-	}
-}

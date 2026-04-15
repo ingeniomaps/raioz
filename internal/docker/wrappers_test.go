@@ -11,11 +11,6 @@ import (
 	"testing"
 )
 
-// dockerAvailable is a placeholder; the tests below tolerate either success
-// or error because they never depend on docker behavior, only on the Go-side
-// control flow.
-func dockerAvailable() bool { return false }
-
 func TestStatusWrappers_MissingPath(t *testing.T) {
 	tmp := t.TempDir()
 	missing := filepath.Join(tmp, "does-not-exist.yml")

@@ -38,12 +38,11 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 
 	// Create context with timeout (only if not following, as follow mode runs indefinitely)
 	var timeoutCtx context.Context
-	var cancel context.CancelFunc
 	if opts.Follow {
 		// For follow mode, use the context as-is (no timeout, user can cancel with Ctrl+C)
 		timeoutCtx = ctx
-		cancel = func() {} // No-op cancel
 	} else {
+		var cancel context.CancelFunc
 		timeoutCtx, cancel = exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerLogsTimeout)
 		defer cancel()
 	}

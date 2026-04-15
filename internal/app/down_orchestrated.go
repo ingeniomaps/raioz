@@ -324,4 +324,3 @@ func killProcessGroup(pid int) {
 	// Fallback: kill PID directly
 	exec.Command("kill", fmt.Sprintf("%d", pid)).Run()
 }
-

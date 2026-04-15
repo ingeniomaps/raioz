@@ -50,12 +50,8 @@ func NewUseCase(deps *Dependencies) *UseCase {
 	}
 }
 
-// Execute runs config validation and alignment check, returns result
-func (uc *UseCase) Execute(ctx context.Context, opts Options) (*CheckResult, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
+// Execute runs config validation and alignment check, returns result.
+func (uc *UseCase) Execute(_ context.Context, opts Options) (*CheckResult, error) {
 	// Resolve workspace
 	_, ws, err := uc.resolveWorkspace(opts)
 	if err != nil {

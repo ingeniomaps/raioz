@@ -21,7 +21,6 @@ import (
 
 // orchestrationResult holds the outputs of processOrchestration.
 type orchestrationResult struct {
-	composePath  string
 	serviceNames []string
 	infraNames   []string
 	dispatcher   *orchestrate.Dispatcher

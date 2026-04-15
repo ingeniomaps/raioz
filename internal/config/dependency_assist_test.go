@@ -176,7 +176,7 @@ func TestFindServiceConfig_Found(t *testing.T) {
 		t.Fatalf("FindServiceConfig() error = %v", err)
 	}
 	if deps == nil {
-		t.Error("expected non-nil deps")
+		t.Fatal("expected non-nil deps")
 	}
 	if path == "" {
 		t.Error("expected non-empty path")
