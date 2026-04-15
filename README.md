@@ -37,9 +37,8 @@ raioz up
 
 ## Install
 
-Pre-built binaries are shipped for **Linux** and **macOS** on both
-`amd64` and `arm64`. Windows users run raioz through WSL2 or build
-from source with `go install`.
+Pre-built binaries are shipped for **Linux**, **macOS**, and
+**Windows** on both `amd64` and `arm64`.
 
 ### Recommended (Linux / macOS)
 
@@ -425,7 +424,7 @@ Delete `raioz.yaml` and your project works exactly the same. Raioz never modifie
 
 ## Requirements
 
-- **OS**: Linux or macOS (amd64 / arm64). Windows via WSL2 or `go install`.
+- **OS**: Linux, macOS, or Windows (amd64 / arm64).
 - **Docker** (or Podman / nerdctl) with Compose plugin.
 - **Git** — used by `raioz clone` and git-sourced services.
 - **Optional**: mkcert (local HTTPS), cloudflared (tunnels).

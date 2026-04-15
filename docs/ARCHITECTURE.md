@@ -177,6 +177,17 @@ Shared dependencies intentionally **omit** `com.raioz.project` so a
 `raioz down` on any one project doesn't tumba them; the last project
 leaving the workspace does. See `internal/naming/labels.go`.
 
+### host
+
+Cross-platform host process management. `SetNewProcessGroup`,
+`KillProcessTree`, `ForceKillProcessTree`, and `IsProcessAlive`
+abstract the difference between Unix process groups
+(`syscall.Setpgid` + signal to negative PID) and Windows tree kill
+(`taskkill /T` + `tasklist`). Used by `host_runner.Stop`,
+`host_lifecycle.killProcessGraceful`, and `down.killProcessGroup`
+so all three sites share the same logic. Implementations live in
+`proctree_unix.go` / `proctree_windows.go` behind build tags.
+
 ### state
 
 Persists minimal state to `.raioz.state.json` in the project directory.

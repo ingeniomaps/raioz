@@ -179,7 +179,7 @@ go test -v -run TestFunctionName ./internal/package/...
 # Run with coverage
 make test-coverage
 
-# Check coverage threshold (70% for v0.1.0; target 80% post-release)
+# Check coverage threshold (73% as of v0.2.0; target 80%)
 make check-coverage
 
 # Quick tests (pre-commit)
@@ -195,4 +195,4 @@ go test ./... -short
 - Test names: descriptive phrases, not function signatures
 - No `t.Log` noise — only log on failure via `t.Errorf`
 - Tests must be deterministic and isolated
-- Coverage floor: 70% total (enforced by `make check-coverage`). Target 80% — see ROADMAP.md. Don't regress packages you touch.
+- Coverage floor: 73% total (enforced by `make check-coverage`; mocks/testing packages excluded from the metric). Target 80% — see ROADMAP.md. Don't regress packages you touch.

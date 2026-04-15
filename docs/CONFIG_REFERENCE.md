@@ -117,6 +117,14 @@ Exactly one of `image` or `compose` is required.
 | `routing` | object | no | — | Proxy routing options. Setting this (even to an empty object `{}`) opts the dep into getting an HTTPS route when its image would otherwise be skipped by the DB/broker heuristic (postgres, redis, mysql, etc.). See [Routing config](#routing-config). |
 | `dev` | object | no | — | Local development override. See [Dev config](#dev-config). |
 
+When neither `ports`, `expose`, nor `proxy.port` resolve a target port,
+raioz reads the image's manifest via `docker image inspect` and uses
+the lowest TCP port from `Config.ExposedPorts`. Most official images
+declare `EXPOSE` (postgres → 5432, pgadmin4 → 80, redisinsight → 5540),
+so explicit `ports:`/`expose:` is only needed for non-standard
+deployments. Lookup runs after deps start (image is local by then) and
+caches per `image:tag` for the process lifetime.
+
 ---
 
 ## Proxy config

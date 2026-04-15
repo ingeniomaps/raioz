@@ -41,11 +41,13 @@ make integration-test
 |------|-------|-------|
 | Max lines per file | 400 (tests + `internal/config/schema.go` exempt) | `make check-lines` |
 | Max line length | 120 chars | `make check-length` |
-| Test coverage | >= 70% (target: 80% post-v0.2.0) | `make check-coverage` |
+| Test coverage | >= 73% (target: 80%; see ROADMAP) | `make check-coverage` |
 | i18n catalog sync | all keys present | `make check-i18n` |
 
-Lint is currently scoped to a reduced baseline for v0.1.0. See
-[ROADMAP.md](ROADMAP.md) for the plan to re-tighten it.
+The strict lint subset (`errcheck`, `gosec`, `revive` curated,
+`wrapcheck` at stdlib boundaries) ships on top of the v0.1.0
+baseline. Tests are exempted from those checks — see
+`.golangci.yml` for the per-rule rationale.
 
 ## Architecture
 
