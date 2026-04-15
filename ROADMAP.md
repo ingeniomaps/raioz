@@ -62,16 +62,23 @@ break between them.
 
 ### Testing — coverage back to 80%
 
-v0.1.0 threshold was lowered from 80% → 70% to match the actual state.
-Push it back up by covering the thinner packages:
+v0.1.0 threshold was 70%. v0.2.0 raised it to 73% after a focused
+testing push and excluding `internal/mocks` + `internal/testing` from
+the metric (they're test infrastructure, not production code). Real
+total now sits at ~74%.
 
-- `internal/tui` — 41%
-- `internal/docker` — 59.6%
-- `internal/app/upcase` — 60.8%
-- `internal/tunnel` — 61.1%
-- `internal/workspace` — 62.7%
+Remaining gap to 80% is concentrated in packages whose uncovered code
+needs a live Docker daemon to exercise:
 
-Then bump `COVERAGE_THRESHOLD` in `Makefile` back to 80.
+- `internal/tui` — 41% (bubbletea models; integration-test heavy)
+- `internal/docker` — 58.9% (image / network / clean operations)
+- `internal/app/upcase` — 61.2% (full up flow integration)
+- `internal/tunnel` — 61.1% (cloudflared / bore subprocess)
+- `internal/workspace` — 64.2%
+
+Path forward is integration tests under a real Docker daemon, not more
+unit tests — most pure-function gaps already closed. Bump
+`COVERAGE_THRESHOLD` to 80 once the integration suite lands.
 
 ### Platform — Windows binary support
 

@@ -35,7 +35,7 @@ go test -v -run TestFunctionName ./internal/package/...
 
 - **Max 400 lines per file** (excluding tests + `internal/config/schema.go` JSON blob) — `make check-lines`
 - **Max 120 characters per line** — `make check-length`
-- **Test coverage >= 70%** — `make check-coverage` (temporarily relaxed for v0.1.0; see [ROADMAP.md](ROADMAP.md) for the plan back to 80%)
+- **Test coverage >= 73%** — `make check-coverage` (raised from 70% in v0.2.0; mocks/testing packages excluded from the metric. See [ROADMAP.md](ROADMAP.md) for the path back to 80%)
 - **i18n catalogs in sync** — `make check-i18n`
 
 ### Lint baseline (reduced for v0.1.0)
