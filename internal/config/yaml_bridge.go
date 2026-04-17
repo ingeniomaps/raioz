@@ -248,6 +248,13 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 		}
 	}
 
+	// Mirrors yamlServiceToService — without this the parser accepts
+	// `hostname:` on a dependency but the proxy still routes via the entry
+	// name (issue #001).
+	if dep.Hostname != "" {
+		infra.Hostname = dep.Hostname
+	}
+
 	return InfraEntry{Inline: infra}
 }
 
@@ -261,16 +268,24 @@ func yamlDeprecationWarnings(cfg *RaiozConfig) []string {
 	}
 	var warnings []string
 	for name, dep := range cfg.Deps {
-		if len(dep.Ports) > 0 {
-			warnings = append(warnings,
-				fmt.Sprintf(
-					"dependency '%s' uses legacy `ports:`; consider migrating to "+
-						"`publish:` (host-side opt-in) and `expose:` (container-side "+
-						"declaration) for clearer semantics",
-					name,
-				),
-			)
+		if len(dep.Ports) == 0 {
+			continue
 		}
+		// Skip the warning when the dep also declares proxy: or hostname:.
+		// In those cases the user is intentionally relying on `ports:` as
+		// the proxy upstream source; pushing them toward `publish:`+`expose:`
+		// would break Caddy routing today (issue #003).
+		if dep.Hostname != "" || dep.Proxy != nil {
+			continue
+		}
+		warnings = append(warnings,
+			fmt.Sprintf(
+				"dependency '%s' uses legacy `ports:`; consider migrating to "+
+					"`publish:` (host-side opt-in) and `expose:` (container-side "+
+					"declaration) for clearer semantics",
+				name,
+			),
+		)
 	}
 	return warnings
 }

@@ -40,6 +40,38 @@ func TestGenerateCaddyfileContent_SimpleRoute(t *testing.T) {
 	}
 }
 
+// TestGenerateCaddyfileContent_DepHostnameOverride_Issue001: regression
+// guard for the gouduet/keycloak case — the route emitted by buildProxyRoute
+// for a dep with `hostname: mail` and `proxy.port: 8025` must produce a
+// Caddyfile that routes https://mail.demo.dev → <container>:8025, not
+// https://mailhog.demo.dev → <container>:1025 (the bug from issue #001 +
+// #003 combined).
+func TestGenerateCaddyfileContent_DepHostnameOverride_Issue001(t *testing.T) {
+	m := NewManager("")
+	m.SetProjectName("demo")
+	m.SetDomain("demo.dev")
+	m.AddRoute(nil, interfaces.ProxyRoute{
+		ServiceName: "mailhog",
+		Hostname:    "mail",
+		Target:      "demo-mailhog",
+		Port:        8025,
+	})
+
+	got := m.GenerateCaddyfileContent()
+	if !strings.Contains(got, "mail.demo.dev") {
+		t.Errorf("expected mail.demo.dev (issue #001), got:\n%s", got)
+	}
+	if strings.Contains(got, "mailhog.demo.dev") {
+		t.Errorf("did not expect entry-name mailhog.demo.dev (issue #001), got:\n%s", got)
+	}
+	if !strings.Contains(got, "demo-mailhog:8025") {
+		t.Errorf("expected reverse_proxy demo-mailhog:8025 (issue #003), got:\n%s", got)
+	}
+	if strings.Contains(got, ":1025") {
+		t.Errorf("did not expect SMTP port 1025 leaking through (issue #003), got:\n%s", got)
+	}
+}
+
 func TestGenerateCaddyfileContent_CustomDomain(t *testing.T) {
 	m := NewManager("")
 	m.SetProjectName("test")

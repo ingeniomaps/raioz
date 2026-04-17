@@ -1,6 +1,8 @@
 package upcase
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"raioz/internal/config"
@@ -108,6 +110,57 @@ func TestBuildProxyRoute_ExposeFallback(t *testing.T) {
 	}
 }
 
+// TestBuildProxyRoute_DepHostnameOverride: `hostname:` on a dep replaces the
+// default subdomain (= entry name) so the route lands at
+// https://<hostname>.<domain> instead of https://<entry-name>.<domain>
+// (issue #001).
+func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
+	deps := &config.Deps{
+		Project: config.Project{Name: "demo"},
+		Infra: map[string]config.InfraEntry{
+			"mailhog": {Inline: &config.Infra{
+				Image:    "mailhog/mailhog",
+				Hostname: "mail",
+				Expose:   []int{8025},
+			}},
+		},
+	}
+	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 8025}
+
+	route := buildProxyRoute(deps, "mailhog", det)
+	if route.Hostname != "mail" {
+		t.Errorf("Hostname = %q, want mail", route.Hostname)
+	}
+}
+
+// TestBuildProxyRoute_DepProxyPortOnlyOverridesPort: when the user passes
+// `proxy.port` without `proxy.target`, detection still picks the container
+// name but the port must be the user-declared one. Without this, a multi-port
+// image like mailhog (1025 SMTP / 8025 UI) gets routed to the wrong upstream
+// port (issue #003).
+func TestBuildProxyRoute_DepProxyPortOnlyOverridesPort(t *testing.T) {
+	deps := &config.Deps{
+		Project: config.Project{Name: "demo"},
+		Infra: map[string]config.InfraEntry{
+			"mailhog": {Inline: &config.Infra{
+				Image: "mailhog/mailhog",
+				ProxyOverride: &config.ServiceProxyOverride{
+					Port: 8025,
+				},
+			}},
+		},
+	}
+	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
+
+	route := buildProxyRoute(deps, "mailhog", det)
+	if route.Port != 8025 {
+		t.Errorf("Port = %d, want 8025 (user override)", route.Port)
+	}
+	if route.Target == "" || route.Target == "host.docker.internal" {
+		t.Errorf("expected Docker container target, got %q", route.Target)
+	}
+}
+
 // TestBuildProxyRoute_PortsBeatsExpose: legacy `ports:` wins when both are
 // set, preserving backwards-compat behavior.
 func TestBuildProxyRoute_PortsBeatsExpose(t *testing.T) {
@@ -126,5 +179,79 @@ func TestBuildProxyRoute_PortsBeatsExpose(t *testing.T) {
 	route := buildProxyRoute(deps, "dep", det)
 	if route.Port != 9000 {
 		t.Errorf("Port = %d, want 9000 (Ports wins over Expose)", route.Port)
+	}
+}
+
+// TestEndToEnd_DepHostnameAndProxyPortFromYAML exercises the full chain
+// disk → LoadDepsFromYAML → buildProxyRoute that issues #001 and #003
+// describe. Reproduces the gouduet/keycloak case verbatim: a mailhog dep
+// with `hostname: mail` (issue #001) and `proxy.port: 8025` (issue #003)
+// while detection picked the SMTP port 1025. Without both fixes the route
+// emits hostname="mailhog" and port=1025 — the bugs the user filed.
+func TestEndToEnd_DepHostnameAndProxyPortFromYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "raioz.yaml")
+	yamlText := `project: demo
+proxy:
+  domain: demo.dev
+dependencies:
+  mailhog:
+    image: mailhog/mailhog:latest
+    hostname: mail
+    ports: ["8026:8025"]
+    proxy:
+      port: 8025
+  redisinsight:
+    image: redis/redisinsight:latest
+    hostname: insight
+    ports: ["5541:5540"]
+`
+	if err := os.WriteFile(path, []byte(yamlText), 0o600); err != nil {
+		t.Fatalf("write yaml: %v", err)
+	}
+
+	deps, _, err := config.LoadDepsFromYAML(path)
+	if err != nil {
+		t.Fatalf("LoadDepsFromYAML: %v", err)
+	}
+
+	mh := deps.Infra["mailhog"].Inline
+	if mh == nil {
+		t.Fatal("mailhog Infra missing")
+	}
+	if mh.Hostname != "mail" {
+		t.Errorf("mailhog.Hostname = %q, want mail (issue #001)", mh.Hostname)
+	}
+	if mh.ProxyOverride == nil || mh.ProxyOverride.Port != 8025 {
+		t.Errorf("mailhog.ProxyOverride.Port = %+v, want 8025 (issue #003)",
+			mh.ProxyOverride)
+	}
+
+	// Detection picked the SMTP port (1025) — this is the failure mode
+	// from the issue. The override must win.
+	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
+	route := buildProxyRoute(deps, "mailhog", det)
+	if route.Hostname != "mail" {
+		t.Errorf("route.Hostname = %q, want mail", route.Hostname)
+	}
+	if route.Port != 8025 {
+		t.Errorf("route.Port = %d, want 8025", route.Port)
+	}
+	if route.Target == "" || route.Target == "host.docker.internal" {
+		t.Errorf("route.Target = %q, want a Docker container name", route.Target)
+	}
+
+	// redisinsight: hostname only, port from detection.
+	ri := deps.Infra["redisinsight"].Inline
+	if ri.Hostname != "insight" {
+		t.Errorf("redisinsight.Hostname = %q, want insight", ri.Hostname)
+	}
+	det2 := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 5540}
+	route2 := buildProxyRoute(deps, "redisinsight", det2)
+	if route2.Hostname != "insight" {
+		t.Errorf("route2.Hostname = %q, want insight", route2.Hostname)
+	}
+	if route2.Port != 5540 {
+		t.Errorf("route2.Port = %d, want 5540", route2.Port)
 	}
 }
