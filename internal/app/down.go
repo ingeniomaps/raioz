@@ -17,6 +17,14 @@ type DownOptions struct {
 	ConfigPath  string
 	All         bool
 	PruneShared bool
+	// Conflicting stops other active raioz projects (cross-workspace)
+	// whose published host ports collide with the cwd's raioz.yaml.
+	// Mutually exclusive with the regular per-cwd down — when set, the
+	// cwd project itself is NOT touched.
+	Conflicting bool
+	// AllProjects stops every active raioz project except the cwd's.
+	// Same exclusivity rule as Conflicting.
+	AllProjects bool
 }
 
 // DownUseCase handles the "down" use case - stopping a project
@@ -35,6 +43,13 @@ func NewDownUseCase(deps *Dependencies) *DownUseCase {
 func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	ctx = logging.WithRequestID(ctx)
 	ctx = logging.WithOperation(ctx, "raioz down")
+
+	// `--conflicting` / `--all-projects` are short-circuits: they tear
+	// down OTHER projects' containers (cross-workspace) and never touch
+	// the cwd's project. Skip every other branch.
+	if opts.Conflicting || opts.AllProjects {
+		return uc.downOtherProjectsOnly(ctx, opts)
+	}
 
 	// Try orchestrated down for YAML projects first
 	if err := uc.downOrchestrated(ctx, opts); err != nil {
