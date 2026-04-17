@@ -6,12 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-Pays back the technical-debt items the v0.1.0 release deferred:
-linters, Windows binaries, dependency tracking, image-port detection,
-and a coverage push. No breaking changes to `raioz.yaml` or CLI flags.
+## [0.3.0] - 2026-04-17
+
+Follow-ups to v0.2.0 surfaced by pilot users running
+workspace-shared mode: a proxy-field plumbing gap exposed in
+runtime, a second class of silent-field-drop in the
+workspace-merge clone path, and a new multi-hostname surface for
+admin/user split patterns (Keycloak, gradual domain migrations).
+No breaking changes to `raioz.yaml` or CLI flags.
 
 ### Added
 
+- `services.<n>.hostnameAliases` and `dependencies.<n>.hostnameAliases`
+  — expose the same upstream under extra subdomains without duplicating
+  the declaration. Aliases share one Caddy site block (single
+  `reverse_proxy`, one TLS directive under mkcert) and each one gets its
+  own `--network-alias` so container→container DNS works for every name.
+  Unblocks the Keycloak admin/user split (`sso.example.dev` +
+  `accounts.example.dev`) and any multi-hostname API pattern. Empty list
+  = prior behavior.
 - `raioz down --conflicting` and `--all-projects`. The first stops
   sibling projects (cross-workspace) whose published host ports collide
   with the cwd's `raioz.yaml`, freeing the ports so `raioz up` can
@@ -22,6 +35,44 @@ and a coverage push. No breaking changes to `raioz.yaml` or CLI flags.
   `.raioz.state.json` stale — the next `raioz up` in that repo
   reconciles via state-vs-docker diff. Flags are mutually exclusive
   and never touch the cwd project itself.
+
+### Fixed
+
+- `dependencies.<n>.hostname:` and `dependencies.<n>.proxy.port:` are
+  now honored by the proxy. Both fields parsed cleanly but were dropped
+  by the YAML→`Infra` bridge before reaching `buildProxyRoute`, so
+  deps fell back to the entry name as the subdomain and to the
+  detection-picked port as the upstream. Multi-port images (e.g.
+  `mailhog/mailhog` exposing 1025 SMTP + 8025 UI) ended up routed to
+  the wrong port. Added `Hostname` to `Infra`, propagated both fields
+  through `yaml_bridge`, and made `proxy.port` standalone (no
+  `proxy.target`) override the detected port. Also stops emitting the
+  `legacy ports:` warning when a dep declares `proxy:` or `hostname:`
+  — the recommended migration to `publish:` + `expose:` would break
+  routing in those cases.
+- `dependencies.<n>.hostname:` is now honored in runtime under
+  workspace-shared mode. The YAML bridge already populated
+  `Infra.Hostname` (the fix above), but `cloneInfraEntry` in the
+  workspace-merge path dropped it on every re-up, so the persisted
+  route and Caddyfile kept falling back to the entry name. Root cause
+  was the same class of silent-field-drop previously fixed for
+  `ProxyOverride`: the clone functions reinstantiated the struct field
+  by field and new fields weren't listed. `cloneInfraEntry` now copies
+  `Hostname`, `HostnameAliases`, and `Seed` (latent bug — the seed file
+  list for `/docker-entrypoint-initdb.d/` was also being dropped).
+  Regression guarded by a generative test that reflects over every
+  exported field on `config.Service` and `config.Infra` and fails if
+  the clone returns a zero value — next time someone adds a field, CI
+  rejects with a pointer to the clone function to update.
+
+## [0.2.0] - 2026-04-15
+
+Pays back the technical-debt items the v0.1.0 release deferred:
+linters, Windows binaries, dependency tracking, image-port detection,
+and a coverage push. No breaking changes to `raioz.yaml` or CLI flags.
+
+### Added
+
 - Windows binaries (`windows/amd64`, `windows/arm64`) ship from
   goreleaser. Process-tree management (Setpgid + group kill on Unix)
   and disk-space probes (`syscall.Statfs`) split behind `_unix.go` /
@@ -77,18 +128,6 @@ and a coverage push. No breaking changes to `raioz.yaml` or CLI flags.
 
 ### Fixed
 
-- `dependencies.<n>.hostname:` and `dependencies.<n>.proxy.port:` are
-  now honored by the proxy. Both fields parsed cleanly but were dropped
-  by the YAML→`Infra` bridge before reaching `buildProxyRoute`, so
-  deps fell back to the entry name as the subdomain and to the
-  detection-picked port as the upstream. Multi-port images (e.g.
-  `mailhog/mailhog` exposing 1025 SMTP + 8025 UI) ended up routed to
-  the wrong port. Added `Hostname` to `Infra`, propagated both fields
-  through `yaml_bridge`, and made `proxy.port` standalone (no
-  `proxy.target`) override the detected port. Also stops emitting the
-  `legacy ports:` warning when a dep declares `proxy:` or `hostname:`
-  — the recommended migration to `publish:` + `expose:` would break
-  routing in those cases.
 - `host_runner.Restart` no longer ignores the error from `Stop`
   ahead of `Start` — silenced explicitly with a comment so the next
   reader knows the intent.

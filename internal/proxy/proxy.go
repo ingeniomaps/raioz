@@ -251,10 +251,18 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		args = append(args, "-v", m.certsDir+":/certs:ro")
 	}
 
-	// Add network aliases for all routes so containers can resolve *.localhost
+	// Add network aliases for all routes so containers can resolve *.localhost.
+	// Each alias in route.Aliases needs its own --network-alias so
+	// container→container DNS works for every hostname, not just the
+	// primary.
 	for _, route := range m.routes {
-		hostname := route.Hostname + "." + m.domain
-		args = append(args, "--network-alias", hostname)
+		args = append(args, "--network-alias", route.Hostname+"."+m.domain)
+		for _, alias := range route.Aliases {
+			if alias == "" {
+				continue
+			}
+			args = append(args, "--network-alias", alias+"."+m.domain)
+		}
 	}
 
 	args = append(args, "caddy:latest")

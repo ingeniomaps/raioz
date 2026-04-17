@@ -111,13 +111,14 @@ type YAMLService struct {
 	// next free port deterministically and injects it via $PORT.
 	Port int `yaml:"port,omitempty"`
 
-	Watch    YAMLWatch       `yaml:"watch,omitempty"`
-	Health   string          `yaml:"health,omitempty"`
-	Hostname string          `yaml:"hostname,omitempty"`
-	Routing  *RoutingConfig  `yaml:"routing,omitempty"`
-	Profiles YAMLStringSlice `yaml:"profiles,omitempty"`
-	Git      string          `yaml:"git,omitempty"`
-	Branch   string          `yaml:"branch,omitempty"`
+	Watch           YAMLWatch       `yaml:"watch,omitempty"`
+	Health          string          `yaml:"health,omitempty"`
+	Hostname        string          `yaml:"hostname,omitempty"`
+	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"`
+	Routing         *RoutingConfig  `yaml:"routing,omitempty"`
+	Profiles        YAMLStringSlice `yaml:"profiles,omitempty"`
+	Git             string          `yaml:"git,omitempty"`
+	Branch          string          `yaml:"branch,omitempty"`
 
 	// Command overrides auto-detection: raioz runs this command verbatim on the
 	// host via HostRunner, passing env vars from `env` as process environment.
@@ -212,11 +213,12 @@ type YAMLDependency struct {
 	//   publish: [5432, 9090]
 	Publish YAMLPublish `yaml:"publish,omitempty"`
 
-	Env      YAMLStringSlice `yaml:"env,omitempty"`
-	Volumes  YAMLStringSlice `yaml:"volumes,omitempty"`
-	Hostname string          `yaml:"hostname,omitempty"`
-	Routing  *RoutingConfig  `yaml:"routing,omitempty"`
-	Dev      *YAMLDevConfig  `yaml:"dev,omitempty"`
+	Env             YAMLStringSlice `yaml:"env,omitempty"`
+	Volumes         YAMLStringSlice `yaml:"volumes,omitempty"`
+	Hostname        string          `yaml:"hostname,omitempty"`
+	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"`
+	Routing         *RoutingConfig  `yaml:"routing,omitempty"`
+	Dev             *YAMLDevConfig  `yaml:"dev,omitempty"`
 
 	// Proxy overrides how the shared HTTPS proxy reaches this dependency.
 	// Same semantics as services.<name>.proxy — useful when `compose:`

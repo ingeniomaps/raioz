@@ -366,17 +366,15 @@ func buildProxyRoute(
 		}
 	}
 
-	if svc, ok := deps.Services[name]; ok && svc.Hostname != "" {
-		hostname = svc.Hostname
-	}
-	if entry, ok := deps.Infra[name]; ok && entry.Inline != nil &&
-		entry.Inline.Hostname != "" {
-		hostname = entry.Inline.Hostname
+	overrideName, aliases := resolveHostnameAndAliases(deps, name)
+	if overrideName != "" {
+		hostname = overrideName
 	}
 
 	route := interfaces.ProxyRoute{
 		ServiceName: name,
 		Hostname:    hostname,
+		Aliases:     aliases,
 		Target:      target,
 		Port:        port,
 	}

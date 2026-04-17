@@ -173,16 +173,38 @@ func TestCheckPortsAvailable_ReportsTakenPorts(t *testing.T) {
 // regression: binding :80/:443 as non-root returns EACCES, which the old
 // probe misread as "port in use" and caused proxy preflight to reject every
 // non-root up. Now EACCES is explicitly NOT treated as in-use.
+//
+// The regression is only observable when the privileged port is actually
+// free — a port that's genuinely bound will correctly report in-use
+// regardless of the EACCES handling, so the two states are
+// indistinguishable from the test's point of view. Pick whichever
+// privileged port is free on this host; skip if none are.
 func TestIsHostPortInUse_PrivilegedPortsAsNonRoot(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("test is meaningful only when running as non-root")
 	}
-	// Port 80 is privileged. If nothing is listening on the test host, our
-	// probe must NOT report it as in-use — that would be the regression.
-	if inUse, err := isHostPortInUse(80); err != nil || inUse {
-		t.Errorf("priv port probe as non-root: inUse=%v err=%v; want free (false, nil)",
-			inUse, err)
+	port, ok := findFreePrivilegedPort()
+	if !ok {
+		t.Skip("no free privileged port found on this host (80/443/81 all occupied)")
 	}
+	if inUse, err := isHostPortInUse(port); err != nil || inUse {
+		t.Errorf("priv port probe as non-root on free port %d: inUse=%v err=%v; want free (false, nil)",
+			port, inUse, err)
+	}
+}
+
+// findFreePrivilegedPort returns the first privileged port that's
+// observably free via a raw dial (no binding, so no EACCES noise). Used
+// by the preflight guard above — we need an objectively free privileged
+// port to tell "probe works" from "port really is in use".
+func findFreePrivilegedPort() (int, bool) {
+	for _, port := range []int{80, 443, 81} {
+		inUse, probed := probeTCPDial("127.0.0.1", port)
+		if probed && !inUse {
+			return port, true
+		}
+	}
+	return 0, false
 }
 
 // TestProbeTCPDial_DetectsRealListener — the dial probe is what makes raioz

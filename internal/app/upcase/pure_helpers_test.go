@@ -1,6 +1,7 @@
 package upcase
 
 import (
+	"reflect"
 	"testing"
 
 	"raioz/internal/config"
@@ -597,6 +598,124 @@ func TestCloneServiceNilDocker(t *testing.T) {
 	}
 }
 
+// TestCloneService_PreservesAllFields_Issue006: generative guard. Populates
+// every exported field of config.Service via reflection, clones it, then
+// walks the clone and fails for any field that came back zero. Prevents
+// the recurring "someone added a field but forgot to copy it in
+// cloneService" bug — already happened twice (ProxyOverride in the past,
+// HostnameAliases now). If this test fails on a new field X, adding
+// `X: s.X` (or deep-copy equivalent) to cloneService is the fix.
+func TestCloneService_PreservesAllFields_Issue006(t *testing.T) {
+	var orig config.Service
+	setAllFieldsNonZero(reflect.ValueOf(&orig).Elem())
+
+	cloned := cloneService(orig)
+
+	v := reflect.ValueOf(cloned)
+	typ := v.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		if v.Field(i).IsZero() {
+			t.Errorf("cloneService dropped field %s — add it to cloneService "+
+				"in workspace_project_conflict.go", field.Name)
+		}
+	}
+}
+
+// TestCloneInfraEntry_PreservesAllFields_Issue006: same guard for
+// cloneInfraEntry. Infra has a bigger footprint (Seed, Expose, Publish…)
+// and the same historical pattern of silent drops on merge.
+func TestCloneInfraEntry_PreservesAllFields_Issue006(t *testing.T) {
+	var orig config.Infra
+	setAllFieldsNonZero(reflect.ValueOf(&orig).Elem())
+	entry := config.InfraEntry{Path: "/p", Inline: &orig}
+
+	cloned := cloneInfraEntry(entry)
+	if cloned.Inline == nil {
+		t.Fatal("cloned.Inline is nil")
+	}
+
+	v := reflect.ValueOf(*cloned.Inline)
+	typ := v.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		if v.Field(i).IsZero() {
+			t.Errorf("cloneInfraEntry dropped field %s — add it to "+
+				"cloneInfraEntry in workspace_project_conflict.go", field.Name)
+		}
+	}
+}
+
+// setAllFieldsNonZero recursively walks a struct via reflection and sets
+// every settable field to a non-zero value. Used by the generative
+// preservation tests above — the IsZero check on the clone only
+// distinguishes "dropped" from "kept" if the original was non-zero to
+// begin with.
+func setAllFieldsNonZero(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.String:
+		v.SetString("x")
+	case reflect.Bool:
+		v.SetBool(true)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(1)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(1)
+	case reflect.Float32, reflect.Float64:
+		v.SetFloat(1)
+	case reflect.Slice:
+		// Non-nil len-1 slice; the element stays zero but IsZero on the
+		// slice header returns false, which is what the preservation
+		// check looks at.
+		v.Set(reflect.MakeSlice(v.Type(), 1, 1))
+	case reflect.Map:
+		v.Set(reflect.MakeMapWithSize(v.Type(), 0))
+	case reflect.Ptr:
+		// Non-nil pointer to a fresh element. Recurse so nested structs
+		// also come back non-zero (a pointer to an all-zero struct would
+		// report zero for its fields but the POINTER itself is non-zero,
+		// which is all the clone check cares about).
+		v.Set(reflect.New(v.Type().Elem()))
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			f := v.Field(i)
+			if f.CanSet() {
+				setAllFieldsNonZero(f)
+			}
+		}
+	}
+}
+
+// TestCloneService_HostnameAliases_Issue006: on workspace merge, the old
+// project's HostnameAliases must survive the clone or the proxy silently
+// drops the extra hostnames the user declared — same class of bug as the
+// previously-fixed ProxyOverride drop that already lives in cloneService.
+func TestCloneService_HostnameAliases_Issue006(t *testing.T) {
+	orig := config.Service{
+		Hostname:        "sso",
+		HostnameAliases: []string{"accounts", "login"},
+	}
+	cloned := cloneService(orig)
+	if cloned.Hostname != "sso" {
+		t.Errorf("Hostname = %q, want sso", cloned.Hostname)
+	}
+	if len(cloned.HostnameAliases) != 2 ||
+		cloned.HostnameAliases[0] != "accounts" ||
+		cloned.HostnameAliases[1] != "login" {
+		t.Errorf("HostnameAliases = %v, want [accounts login]", cloned.HostnameAliases)
+	}
+	cloned.HostnameAliases[0] = "mut"
+	if orig.HostnameAliases[0] == "mut" {
+		t.Error("cloneService did not deep-copy HostnameAliases")
+	}
+}
+
 // --- cloneInfraEntry -----------------------------------------------------------
 
 func TestCloneInfraEntry(t *testing.T) {
@@ -632,6 +751,33 @@ func TestCloneInfraEntry(t *testing.T) {
 		cloned := cloneInfraEntry(orig)
 		if cloned.Inline != nil {
 			t.Error("Inline should stay nil")
+		}
+	})
+	// Issue #006 sibling: cloneInfraEntry was dropping Hostname and
+	// HostnameAliases — latent bug that would bite the moment someone
+	// reached a dep under aliases (e.g. `pg.example.dev` + `db.example.dev`
+	// for the same postgres) across a workspace merge.
+	t.Run("hostname and aliases round-trip", func(t *testing.T) {
+		orig := config.InfraEntry{
+			Inline: &config.Infra{
+				Image:           "mailhog/mailhog",
+				Hostname:        "mail",
+				HostnameAliases: []string{"smtp", "inbox"},
+			},
+		}
+		cloned := cloneInfraEntry(orig)
+		if cloned.Inline == nil {
+			t.Fatal("Inline should not be nil")
+		}
+		if cloned.Inline.Hostname != "mail" {
+			t.Errorf("Hostname = %q, want mail", cloned.Inline.Hostname)
+		}
+		if len(cloned.Inline.HostnameAliases) != 2 {
+			t.Errorf("HostnameAliases len = %d, want 2", len(cloned.Inline.HostnameAliases))
+		}
+		cloned.Inline.HostnameAliases[0] = "mut"
+		if orig.Inline.HostnameAliases[0] == "mut" {
+			t.Error("cloneInfraEntry did not deep-copy HostnameAliases")
 		}
 	})
 }

@@ -97,23 +97,27 @@ func (m *Manager) generateCaddyfile() (string, error) {
 }
 
 // writeRouteBlock writes a single Caddy site block for a service route.
+// Emits a comma-separated address list when route.Aliases is non-empty so
+// multiple hostnames share one upstream — same semantics as declaring two
+// services pointing to the same container, but without duplicating the
+// reverse_proxy block.
 func writeRouteBlock(b *strings.Builder, route interfaces.ProxyRoute, domain string, tls tlsConfig) {
-	hostname := route.Hostname + "." + domain
+	hostnames := routeHostnames(route, domain)
 
 	switch tls.mode {
 	case "letsencrypt":
-		// Real domain with automatic Let's Encrypt
-		fmt.Fprintf(b, "https://%s {\n", hostname)
-		// Caddy handles TLS automatically for real domains
+		// Real domain with automatic Let's Encrypt — Caddy fetches a cert
+		// per hostname listed in the address line.
+		fmt.Fprintf(b, "%s {\n", joinAddrs(hostnames, "https://"))
 	case "mkcert":
 		if tls.certsDir != "" {
-			fmt.Fprintf(b, "https://%s {\n", hostname)
+			fmt.Fprintf(b, "%s {\n", joinAddrs(hostnames, "https://"))
 			fmt.Fprintf(b, "\ttls /certs/%s /certs/%s\n", certFileName, keyFileName)
 		} else {
-			fmt.Fprintf(b, "http://%s {\n", hostname)
+			fmt.Fprintf(b, "%s {\n", joinAddrs(hostnames, "http://"))
 		}
 	default:
-		fmt.Fprintf(b, "http://%s {\n", hostname)
+		fmt.Fprintf(b, "%s {\n", joinAddrs(hostnames, "http://"))
 	}
 
 	// reverse_proxy directive with appropriate options
@@ -148,4 +152,37 @@ func (m *Manager) GenerateCaddyfileContent() string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+// routeHostnames returns the primary + alias hostnames expanded under the
+// given domain. Primary first so the order in the Caddyfile matches the
+// order the user declared in raioz.yaml — helps when reading generated
+// config and when Caddy logs the first hostname as the "canonical" one.
+func routeHostnames(route interfaces.ProxyRoute, domain string) []string {
+	out := make([]string, 0, 1+len(route.Aliases))
+	out = append(out, route.Hostname+"."+domain)
+	for _, alias := range route.Aliases {
+		if alias == "" {
+			continue
+		}
+		out = append(out, alias+"."+domain)
+	}
+	return out
+}
+
+// joinAddrs prefixes each hostname with scheme ("http://" or "https://")
+// and joins them with ", " so a site block can front multiple addresses:
+//
+//	https://sso.example.dev, https://accounts.example.dev {
+//	    ...
+//	}
+//
+// Caddy accepts this form natively — it expands to one virtual host per
+// address sharing the same route directives.
+func joinAddrs(hostnames []string, scheme string) string {
+	parts := make([]string, len(hostnames))
+	for i, h := range hostnames {
+		parts[i] = scheme + h
+	}
+	return strings.Join(parts, ", ")
 }

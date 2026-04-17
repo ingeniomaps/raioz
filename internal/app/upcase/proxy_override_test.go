@@ -9,6 +9,34 @@ import (
 	"raioz/internal/detect"
 )
 
+// TestBuildProxyRoute_HostnameAliases_Issue006: aliases declared on a
+// service must survive buildProxyRoute so downstream code (Caddyfile,
+// network-alias registration) sees every hostname the user wants routed
+// to the upstream.
+func TestBuildProxyRoute_HostnameAliases_Issue006(t *testing.T) {
+	deps := &config.Deps{
+		Project: config.Project{Name: "demo"},
+		Services: map[string]config.Service{
+			"keycloak": {
+				Hostname:        "sso",
+				HostnameAliases: []string{"accounts", "login"},
+				ProxyOverride: &config.ServiceProxyOverride{
+					Target: "demo-keycloak",
+					Port:   8080,
+				},
+			},
+		},
+	}
+	det := &detect.DetectResult{Runtime: detect.RuntimeMake, Port: 0}
+	route := buildProxyRoute(deps, "keycloak", det)
+	if route.Hostname != "sso" {
+		t.Errorf("Hostname = %q, want sso", route.Hostname)
+	}
+	if len(route.Aliases) != 2 || route.Aliases[0] != "accounts" || route.Aliases[1] != "login" {
+		t.Errorf("Aliases = %v, want [accounts login]", route.Aliases)
+	}
+}
+
 func TestBuildProxyRoute_OverrideBeatsDetection(t *testing.T) {
 	// Service classified as host (no Docker detection) — without override,
 	// target would be host.docker.internal with no port. The yaml-declared

@@ -227,6 +227,101 @@ func TestGenerateCaddyfileContent_MultipleRoutes(t *testing.T) {
 	}
 }
 
+// TestGenerateCaddyfileContent_HostnameAliases_Issue006: a route declared
+// with Aliases must fan them into a single Caddy site block sharing the
+// reverse_proxy, so `sso.example.dev` AND `accounts.example.dev` reach the
+// same upstream without duplicating the upstream directive.
+func TestGenerateCaddyfileContent_HostnameAliases_Issue006(t *testing.T) {
+	m := NewManager("")
+	m.SetProjectName("demo")
+	m.SetDomain("example.dev")
+	m.AddRoute(nil, interfaces.ProxyRoute{
+		ServiceName: "keycloak",
+		Hostname:    "sso",
+		Aliases:     []string{"accounts"},
+		Target:      "demo-keycloak",
+		Port:        8080,
+	})
+
+	got := m.GenerateCaddyfileContent()
+
+	// Both hostnames must appear.
+	if !strings.Contains(got, "sso.example.dev") {
+		t.Errorf("expected sso.example.dev in output:\n%s", got)
+	}
+	if !strings.Contains(got, "accounts.example.dev") {
+		t.Errorf("expected accounts.example.dev in output:\n%s", got)
+	}
+
+	// They must share a single site block — one opening brace, one
+	// reverse_proxy directive. Counting is cheap and catches regressions
+	// where someone splits into two blocks.
+	if strings.Count(got, "reverse_proxy") != 1 {
+		t.Errorf("expected one reverse_proxy for both hostnames:\n%s", got)
+	}
+	if strings.Count(got, "{") != 1 {
+		t.Errorf("expected one site block opening:\n%s", got)
+	}
+
+	// Address line must list both with scheme + comma separator.
+	if !strings.Contains(got, "sso.example.dev, http://accounts.example.dev") {
+		t.Errorf("expected comma-separated address line:\n%s", got)
+	}
+}
+
+// TestGenerateCaddyfileContent_HostnameAliases_Mkcert: under mkcert, the
+// wildcard cert covers every subdomain of `domain`, so aliases share the
+// same tls directive. Regression guard: no duplicated `tls` directive.
+func TestGenerateCaddyfileContent_HostnameAliases_Mkcert(t *testing.T) {
+	certsDir := t.TempDir()
+	m := NewManager("")
+	m.SetProjectName("demo")
+	m.SetDomain("example.dev")
+	m.SetTLSMode("mkcert")
+	m.certsDir = certsDir
+	m.AddRoute(nil, interfaces.ProxyRoute{
+		ServiceName: "keycloak",
+		Hostname:    "sso",
+		Aliases:     []string{"accounts"},
+		Target:      "demo-keycloak",
+		Port:        8080,
+	})
+
+	got := m.GenerateCaddyfileContent()
+
+	if !strings.Contains(got, "https://sso.example.dev, https://accounts.example.dev") {
+		t.Errorf("expected https scheme on both hostnames in one block:\n%s", got)
+	}
+	if strings.Count(got, "tls /certs/") != 1 {
+		t.Errorf("expected one tls directive for the aliased block:\n%s", got)
+	}
+}
+
+// TestGenerateCaddyfileContent_HostnameAliases_Empty: empty-string aliases
+// must be filtered out — a stray "" in the list should not produce a
+// malformed `.example.dev` hostname.
+func TestGenerateCaddyfileContent_HostnameAliases_Empty(t *testing.T) {
+	m := NewManager("")
+	m.SetProjectName("demo")
+	m.SetDomain("example.dev")
+	m.AddRoute(nil, interfaces.ProxyRoute{
+		ServiceName: "keycloak",
+		Hostname:    "sso",
+		Aliases:     []string{"", "accounts", ""},
+		Target:      "demo-keycloak",
+		Port:        8080,
+	})
+
+	got := m.GenerateCaddyfileContent()
+
+	if strings.Contains(got, "http://.example.dev") {
+		t.Errorf("empty alias must not produce bare-domain host:\n%s", got)
+	}
+	if !strings.Contains(got, "accounts.example.dev") {
+		t.Errorf("valid alias dropped alongside empty ones:\n%s", got)
+	}
+}
+
 func TestGenerateCaddyfile_WritesFile(t *testing.T) {
 	// Override proxy dir to temp
 	home := t.TempDir()
