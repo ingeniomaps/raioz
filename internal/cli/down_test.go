@@ -32,6 +32,8 @@ func TestDownCmdFlags(t *testing.T) {
 		{"project", "p", ""},
 		{"all", "", "false"},
 		{"prune-shared", "", "false"},
+		{"conflicting", "", "false"},
+		{"all-projects", "", "false"},
 	}
 
 	for _, tt := range flags {
@@ -50,6 +52,36 @@ func TestDownCmdFlags(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDownCmd_ConflictingAndAllProjectsMutex: --conflicting and
+// --all-projects target overlapping concerns (free host ports vs nuke every
+// other project). They must reject combined use to avoid silently picking
+// one over the other.
+func TestDownCmd_ConflictingAndAllProjectsMutex(t *testing.T) {
+	prevConflicting, prevAll := downConflicting, downAllProjects
+	defer func() {
+		downConflicting, downAllProjects = prevConflicting, prevAll
+	}()
+	downConflicting = true
+	downAllProjects = true
+
+	err := downCmd.RunE(downCmd, nil)
+	if err == nil {
+		t.Fatal("expected error when --conflicting and --all-projects are both set")
+	}
+	if !contains(err.Error(), "mutually exclusive") {
+		t.Errorf("error should mention mutual exclusivity, got: %v", err)
+	}
+}
+
+func contains(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
 }
 
 func TestDownCmdRegisteredOnRoot(t *testing.T) {

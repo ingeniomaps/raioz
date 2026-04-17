@@ -249,6 +249,83 @@ dependencies:
 	}
 }
 
+// TestYAMLBridge_HostnameOnDependency: `hostname:` on a dep is parsed into
+// Infra.Hostname so the proxy can route via the user's chosen subdomain
+// instead of falling back to the entry name (issue #001).
+func TestYAMLBridge_HostnameOnDependency(t *testing.T) {
+	cfg := &RaiozConfig{
+		Project: "test",
+		Deps: map[string]YAMLDependency{
+			"mailhog": parseDep(t,
+				"image: mailhog/mailhog:latest\nhostname: mail\n"),
+		},
+	}
+	deps, err := YAMLToDeps(cfg)
+	if err != nil {
+		t.Fatalf("YAMLToDeps: %v", err)
+	}
+	if got := deps.Infra["mailhog"].Inline.Hostname; got != "mail" {
+		t.Errorf("Hostname = %q, want %q", got, "mail")
+	}
+}
+
+// TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenProxy: when the dep also
+// declares `proxy:`, the migration suggested by the warning would break
+// Caddy routing — so the warning must stay silent (issue #003).
+func TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenProxy(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/raioz.yaml"
+	yamlText := `project: test
+dependencies:
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports: ["8026:8025"]
+    proxy:
+      port: 8025
+`
+	if err := writeTestFile(path, yamlText); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, warnings, err := LoadDepsFromYAML(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	for _, w := range warnings {
+		if containsAll(w, "mailhog", "ports", "publish") {
+			t.Errorf("did not expect legacy-ports warning when proxy: is "+
+				"declared, got: %q", w)
+		}
+	}
+}
+
+// TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenHostname: same idea, but
+// triggered by `hostname:` — the user is wiring proxy routing through the
+// legacy ports field on purpose.
+func TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenHostname(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/raioz.yaml"
+	yamlText := `project: test
+dependencies:
+  mailhog:
+    image: mailhog/mailhog:latest
+    hostname: mail
+    ports: ["8026:8025"]
+`
+	if err := writeTestFile(path, yamlText); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, warnings, err := LoadDepsFromYAML(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	for _, w := range warnings {
+		if containsAll(w, "mailhog", "ports", "publish") {
+			t.Errorf("did not expect legacy-ports warning when hostname: is "+
+				"declared, got: %q", w)
+		}
+	}
+}
+
 // --- tiny helpers that keep the tests self-contained ------------------------
 
 func writeTestFile(path, content string) error {

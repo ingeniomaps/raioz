@@ -337,6 +337,14 @@ func buildProxyRoute(
 		port = detection.Port
 	}
 
+	// proxy.port without proxy.target: detection picked the target
+	// (container or host) but the user still wants to force a specific
+	// upstream port. Common case: multi-port images like mailhog
+	// (1025 SMTP + 8025 UI) where detection grabs the wrong one.
+	if overrideTarget == "" && overridePort > 0 {
+		port = overridePort
+	}
+
 	// Fallback port inference for edge cases where detection.Port is 0
 	// (e.g. obscure runtimes the allocator also couldn't resolve). User
 	// overrides are honored verbatim — if the user passed `proxy.port`, we
@@ -360,6 +368,10 @@ func buildProxyRoute(
 
 	if svc, ok := deps.Services[name]; ok && svc.Hostname != "" {
 		hostname = svc.Hostname
+	}
+	if entry, ok := deps.Infra[name]; ok && entry.Inline != nil &&
+		entry.Inline.Hostname != "" {
+		hostname = entry.Inline.Hostname
 	}
 
 	route := interfaces.ProxyRoute{

@@ -216,6 +216,12 @@ type Infra struct {
 	// bypassing detection. Mirrors Service.ProxyOverride and is populated
 	// from the user's `dependencies.<name>.proxy:` block in raioz.yaml.
 	ProxyOverride *ServiceProxyOverride `json:"proxyOverride,omitempty"`
+
+	// Hostname overrides the proxy subdomain for this dependency. Empty
+	// means "use the entry name". Mirrors Service.Hostname so a dep can
+	// be reached at https://<hostname>.<domain> instead of the default
+	// https://<entry-name>.<domain>.
+	Hostname string `json:"hostname,omitempty"`
 }
 
 // ServiceProxyOverride tells the proxy exactly where to reverse_proxy for a
