@@ -12,9 +12,9 @@ type ProxyRoute struct {
 	// upstream. Each alias becomes a sibling hostname in the Caddy site
 	// block and an additional Docker `--network-alias` so containers can
 	// reach the service by any of them. Empty means "no aliases".
-	Aliases []string
-	Target  string // e.g., "api:3000" (container) or "host.docker.internal:3001" (host)
-	Port    int
+	Aliases   []string
+	Target    string // e.g., "api:3000" (container) or "host.docker.internal:3001" (host)
+	Port      int
 	WebSocket bool
 	Stream    bool
 	GRPC      bool

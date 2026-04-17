@@ -87,14 +87,14 @@ type Service struct {
 	Commands    *ServiceCommands   `json:"commands,omitempty"`    // Custom commands
 
 	// New fields for raioz.yaml (meta-orchestrator mode)
-	Watch          YAMLWatch      `json:"-"`                        // Watch config
-	HealthEndpoint string         `json:"healthEndpoint,omitempty"` // e.g. "/api/health"
-	Hostname       string         `json:"hostname,omitempty"`       // Custom proxy hostname
+	Watch          YAMLWatch `json:"-"`                        // Watch config
+	HealthEndpoint string    `json:"healthEndpoint,omitempty"` // e.g. "/api/health"
+	Hostname       string    `json:"hostname,omitempty"`       // Custom proxy hostname
 	// HostnameAliases exposes the same upstream under extra subdomains.
 	// Populated from `hostnameAliases:` in raioz.yaml. Empty means the
 	// service is only reachable through Hostname.
 	HostnameAliases []string       `json:"hostnameAliases,omitempty"`
-	Routing        *RoutingConfig `json:"routing,omitempty"`        // Proxy routing config
+	Routing         *RoutingConfig `json:"routing,omitempty"` // Proxy routing config
 
 	// ProxyOverride forces a specific (target, port) pair for the proxy
 	// reverse_proxy directive, bypassing runtime detection. Needed when a
