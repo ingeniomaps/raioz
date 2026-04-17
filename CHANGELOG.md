@@ -12,6 +12,16 @@ and a coverage push. No breaking changes to `raioz.yaml` or CLI flags.
 
 ### Added
 
+- `raioz down --conflicting` and `--all-projects`. The first stops
+  sibling projects (cross-workspace) whose published host ports collide
+  with the cwd's `raioz.yaml`, freeing the ports so `raioz up` can
+  proceed without a manual `cd` to the other repo. The second stops
+  every active raioz project except the cwd's. Detection uses the
+  `com.raioz.project` container label; teardown uses `docker rm -f`
+  per label. Bypasses the other project's `post:` hook and leaves its
+  `.raioz.state.json` stale — the next `raioz up` in that repo
+  reconciles via state-vs-docker diff. Flags are mutually exclusive
+  and never touch the cwd project itself.
 - Windows binaries (`windows/amd64`, `windows/arm64`) ship from
   goreleaser. Process-tree management (Setpgid + group kill on Unix)
   and disk-space probes (`syscall.Statfs`) split behind `_unix.go` /
@@ -67,6 +77,18 @@ and a coverage push. No breaking changes to `raioz.yaml` or CLI flags.
 
 ### Fixed
 
+- `dependencies.<n>.hostname:` and `dependencies.<n>.proxy.port:` are
+  now honored by the proxy. Both fields parsed cleanly but were dropped
+  by the YAML→`Infra` bridge before reaching `buildProxyRoute`, so
+  deps fell back to the entry name as the subdomain and to the
+  detection-picked port as the upstream. Multi-port images (e.g.
+  `mailhog/mailhog` exposing 1025 SMTP + 8025 UI) ended up routed to
+  the wrong port. Added `Hostname` to `Infra`, propagated both fields
+  through `yaml_bridge`, and made `proxy.port` standalone (no
+  `proxy.target`) override the detected port. Also stops emitting the
+  `legacy ports:` warning when a dep declares `proxy:` or `hostname:`
+  — the recommended migration to `publish:` + `expose:` would break
+  routing in those cases.
 - `host_runner.Restart` no longer ignores the error from `Stop`
   ahead of `Start` — silenced explicitly with a comment so the next
   reader knows the intent.
