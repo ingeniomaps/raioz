@@ -366,24 +366,9 @@ func buildProxyRoute(
 		}
 	}
 
-	if svc, ok := deps.Services[name]; ok && svc.Hostname != "" {
-		hostname = svc.Hostname
-	}
-	if entry, ok := deps.Infra[name]; ok && entry.Inline != nil &&
-		entry.Inline.Hostname != "" {
-		hostname = entry.Inline.Hostname
-	}
-
-	// Extra subdomains that must resolve to the same upstream. The
-	// dep-side list wins when both are set, mirroring the hostname
-	// override precedence above.
-	var aliases []string
-	if svc, ok := deps.Services[name]; ok && len(svc.HostnameAliases) > 0 {
-		aliases = append([]string(nil), svc.HostnameAliases...)
-	}
-	if entry, ok := deps.Infra[name]; ok && entry.Inline != nil &&
-		len(entry.Inline.HostnameAliases) > 0 {
-		aliases = append([]string(nil), entry.Inline.HostnameAliases...)
+	overrideName, aliases := resolveHostnameAndAliases(deps, name)
+	if overrideName != "" {
+		hostname = overrideName
 	}
 
 	route := interfaces.ProxyRoute{
