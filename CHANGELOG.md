@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-17
+
 Follow-ups to v0.2.0 surfaced by pilot users running
 workspace-shared mode: a proxy-field plumbing gap exposed in
 runtime, a second class of silent-field-drop in the
