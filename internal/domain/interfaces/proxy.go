@@ -8,11 +8,16 @@ import (
 type ProxyRoute struct {
 	ServiceName string
 	Hostname    string // e.g., "api" → "api.localhost"
-	Target      string // e.g., "api:3000" (container) or "host.docker.internal:3001" (host)
-	Port        int
-	WebSocket   bool
-	Stream      bool
-	GRPC        bool
+	// Aliases lists extra subdomains that must resolve to the same
+	// upstream. Each alias becomes a sibling hostname in the Caddy site
+	// block and an additional Docker `--network-alias` so containers can
+	// reach the service by any of them. Empty means "no aliases".
+	Aliases []string
+	Target  string // e.g., "api:3000" (container) or "host.docker.internal:3001" (host)
+	Port    int
+	WebSocket bool
+	Stream    bool
+	GRPC      bool
 }
 
 // ProxyManager defines operations for managing the reverse proxy (Caddy).

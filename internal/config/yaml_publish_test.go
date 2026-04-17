@@ -249,6 +249,49 @@ dependencies:
 	}
 }
 
+// TestYAMLBridge_HostnameAliasesOnService: `hostnameAliases:` on a service
+// flows into Service.HostnameAliases so buildProxyRoute can fan them into
+// the Caddy site block (issue #006).
+func TestYAMLBridge_HostnameAliasesOnService(t *testing.T) {
+	var svc YAMLService
+	yamlText := "path: .\nhostname: sso\nhostnameAliases: [accounts, login]\n"
+	if err := yaml.Unmarshal([]byte(yamlText), &svc); err != nil {
+		t.Fatalf("yaml parse: %v", err)
+	}
+	cfg := &RaiozConfig{
+		Project:  "test",
+		Services: map[string]YAMLService{"keycloak": svc},
+	}
+	deps, err := YAMLToDeps(cfg)
+	if err != nil {
+		t.Fatalf("YAMLToDeps: %v", err)
+	}
+	got := deps.Services["keycloak"].HostnameAliases
+	if len(got) != 2 || got[0] != "accounts" || got[1] != "login" {
+		t.Errorf("HostnameAliases = %v, want [accounts login]", got)
+	}
+}
+
+// TestYAMLBridge_HostnameAliasesOnDependency: same as above but on the dep
+// side, ensuring Infra.HostnameAliases is populated (issue #006).
+func TestYAMLBridge_HostnameAliasesOnDependency(t *testing.T) {
+	cfg := &RaiozConfig{
+		Project: "test",
+		Deps: map[string]YAMLDependency{
+			"mailhog": parseDep(t,
+				"image: mailhog/mailhog:latest\nhostname: mail\nhostnameAliases: [smtp]\n"),
+		},
+	}
+	deps, err := YAMLToDeps(cfg)
+	if err != nil {
+		t.Fatalf("YAMLToDeps: %v", err)
+	}
+	got := deps.Infra["mailhog"].Inline.HostnameAliases
+	if len(got) != 1 || got[0] != "smtp" {
+		t.Errorf("HostnameAliases = %v, want [smtp]", got)
+	}
+}
+
 // TestYAMLBridge_HostnameOnDependency: `hostname:` on a dep is parsed into
 // Infra.Hostname so the proxy can route via the user's chosen subdomain
 // instead of falling back to the entry name (issue #001).

@@ -222,6 +222,12 @@ type Infra struct {
 	// be reached at https://<hostname>.<domain> instead of the default
 	// https://<entry-name>.<domain>.
 	Hostname string `json:"hostname,omitempty"`
+
+	// HostnameAliases exposes the same dep under extra subdomains.
+	// Mirrors Service.HostnameAliases. Empty means the dep is only
+	// reachable through Hostname (or the entry name when Hostname is
+	// empty).
+	HostnameAliases []string `json:"hostnameAliases,omitempty"`
 }
 
 // ServiceProxyOverride tells the proxy exactly where to reverse_proxy for a

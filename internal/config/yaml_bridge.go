@@ -162,6 +162,9 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 	service.Watch = svc.Watch
 	service.HealthEndpoint = svc.Health
 	service.Hostname = svc.Hostname
+	if len(svc.HostnameAliases) > 0 {
+		service.HostnameAliases = append([]string(nil), svc.HostnameAliases...)
+	}
 	service.Routing = svc.Routing
 	if svc.Proxy != nil && (svc.Proxy.Target != "" || svc.Proxy.Port > 0) {
 		service.ProxyOverride = &ServiceProxyOverride{
@@ -253,6 +256,9 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 	// name (issue #001).
 	if dep.Hostname != "" {
 		infra.Hostname = dep.Hostname
+	}
+	if len(dep.HostnameAliases) > 0 {
+		infra.HostnameAliases = append([]string(nil), dep.HostnameAliases...)
 	}
 
 	return InfraEntry{Inline: infra}
