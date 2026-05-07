@@ -98,17 +98,24 @@ func (uc *UseCase) processOrchestration(
 			detection := detections[name]
 			entry := deps.Infra[name]
 
-			// Sibling-deps gate (issue #26). Mode A errors here for now —
-			// recursive `raioz up` lands in a follow-up. Mode B with an
-			// active sibling skips the local image; with an inactive
-			// sibling falls through to the runner below.
+			// Sibling-deps gate (issue #26). Four outcomes:
+			//   spawn  → `raioz up` in the sibling cwd (mode A, sibling not up)
+			//   skip A → mode A but sibling already up; nothing to do
+			//   defer  → mode B, sibling already up; skip the local image
+			//   proceed→ regular dep (or mode B with sibling not up)
 			verdict, err := decideSibling(ctx, name, entry.Inline, deps.Workspace)
 			if err != nil {
 				return nil, err
 			}
 			switch verdict.Kind {
-			case siblingErrorModeA:
-				return nil, errors.New(errors.ErrCodeInvalidConfig, verdict.Reason)
+			case siblingSpawnModeA:
+				if err := spawnSibling(ctx, projectDir, name, verdict.SiblingInfo); err != nil {
+					return nil, err
+				}
+				continue
+			case siblingSkipModeA:
+				output.PrintProgress(i18n.T("up.sibling_modea_already_up", name, verdict.SiblingName))
+				continue
 			case siblingSkipDeferred:
 				output.PrintProgress(i18n.T("up.sibling_dep_skipped", name, verdict.Reason))
 				deferredDeps = append(deferredDeps, name)

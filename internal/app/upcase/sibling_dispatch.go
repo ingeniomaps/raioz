@@ -13,18 +13,21 @@ import (
 type siblingDecisionKind int
 
 const (
-	// siblingProceed: not a sibling dep, or sibling not active — run
-	// the normal image/compose dispatcher path.
+	// siblingProceed: not a sibling dep, or mode B with the sibling
+	// not active — run the normal image/compose dispatcher path.
 	siblingProceed siblingDecisionKind = iota
-	// siblingSkipDeferred: sibling project is currently active in the
-	// workspace; skip the local image dispatch AND remember the skip
-	// in LocalState so the matching `down` doesn't try to tear down a
+	// siblingSkipDeferred: mode B and the sibling project is currently
+	// active. Skip the local image dispatch AND remember the skip in
+	// LocalState so the matching `down` doesn't try to tear down a
 	// container we never created.
 	siblingSkipDeferred
-	// siblingErrorModeA: dep uses `project:` (mode A) which needs a
-	// recursive `raioz up` spawn. That ships in a follow-up; for now
-	// we surface a clear error rather than silently proceed.
-	siblingErrorModeA
+	// siblingSpawnModeA: mode A and the sibling project is NOT active
+	// yet. The orchestrator must run `raioz up` recursively in the
+	// sibling's cwd before continuing with the consumer.
+	siblingSpawnModeA
+	// siblingSkipModeA: mode A and the sibling is already active.
+	// Nothing to do — the dep is implicitly satisfied.
+	siblingSkipModeA
 )
 
 // siblingDecision is the verdict for one dep, including the human-
@@ -35,6 +38,9 @@ type siblingDecision struct {
 	// SiblingName is the sibling project's `project:` field — used by
 	// log messages and `requiredHostname` validation in Phase 7.
 	SiblingName string
+	// SiblingInfo is the resolved sibling, populated for mode A
+	// verdicts so the spawner doesn't have to reload the raioz.yaml.
+	SiblingInfo *config.SiblingInfo
 }
 
 // decideSibling consults the sibling-project fields of `inline` against
@@ -57,23 +63,73 @@ func decideSibling(
 		return siblingDecision{Kind: siblingProceed}, nil
 	}
 
-	if inline.Project != "" {
-		return siblingDecision{
-			Kind: siblingErrorModeA,
-			Reason: fmt.Sprintf(
-				"dep %q declares 'project: %s' (mode A) which needs a "+
-					"recursive raioz up — not yet wired. Use 'siblingProject:' "+
-					"with an image fallback for now, or run 'raioz up' in %s "+
-					"yourself before this project",
-				depName, inline.Project, inline.Project),
-		}, nil
-	}
-
-	if inline.SiblingProject == "" {
+	switch {
+	case inline.Project != "":
+		return decideModeA(ctx, depName, inline.Project, consumerWorkspace)
+	case inline.SiblingProject != "":
+		return decideModeB(ctx, depName, inline.SiblingProject, consumerWorkspace)
+	default:
 		return siblingDecision{Kind: siblingProceed}, nil
 	}
+}
 
-	sib, err := config.ResolveSibling(inline.SiblingProject)
+// decideModeA resolves a `project:` dep, checks for a recursion cycle
+// against RAIOZ_SIBLING_STACK, and probes whether the sibling is
+// already up. Returns a spawn verdict when the sibling needs to be
+// brought up, or a skip verdict when it's already running.
+func decideModeA(
+	ctx context.Context,
+	depName string,
+	projectPath string,
+	consumerWorkspace string,
+) (siblingDecision, error) {
+	sib, err := config.ResolveSibling(projectPath)
+	if err != nil {
+		return siblingDecision{}, fmt.Errorf(
+			"resolve sibling for dep %q: %w", depName, err)
+	}
+	if err := config.ValidateSiblingWorkspace(consumerWorkspace, sib); err != nil {
+		return siblingDecision{}, fmt.Errorf("dep %q: %w", depName, err)
+	}
+	if err := checkSiblingCycle(depName, sib); err != nil {
+		return siblingDecision{}, err
+	}
+
+	active, err := docker.IsProjectActive(ctx, sib.Workspace, sib.Project)
+	if err != nil {
+		return siblingDecision{}, fmt.Errorf(
+			"probe sibling for dep %q: %w", depName, err)
+	}
+	if active {
+		return siblingDecision{
+			Kind:        siblingSkipModeA,
+			SiblingName: sib.Project,
+			SiblingInfo: sib,
+			Reason: fmt.Sprintf(
+				"sibling project %q already up — no spawn needed",
+				sib.Project),
+		}, nil
+	}
+	return siblingDecision{
+		Kind:        siblingSpawnModeA,
+		SiblingName: sib.Project,
+		SiblingInfo: sib,
+		Reason: fmt.Sprintf(
+			"spawning `raioz up` in %s for dep %q", sib.Dir, depName),
+	}, nil
+}
+
+// decideModeB resolves a `siblingProject:` dep and probes whether the
+// sibling is currently up. When the sibling is active, returns the
+// skip-deferred verdict so the local image is bypassed; otherwise the
+// caller runs the normal image dispatcher.
+func decideModeB(
+	ctx context.Context,
+	depName string,
+	siblingPath string,
+	consumerWorkspace string,
+) (siblingDecision, error) {
+	sib, err := config.ResolveSibling(siblingPath)
 	if err != nil {
 		return siblingDecision{}, fmt.Errorf(
 			"resolve sibling for dep %q: %w", depName, err)
@@ -91,14 +147,14 @@ func decideSibling(
 		return siblingDecision{
 			Kind:        siblingSkipDeferred,
 			SiblingName: sib.Project,
+			SiblingInfo: sib,
 			Reason: fmt.Sprintf(
 				"sibling project %q is active — using its container",
 				sib.Project),
 		}, nil
 	}
-
-	// Sibling not active → fall through to the normal image/compose
-	// runner; Phase 4's ClearDeferred is implicitly handled by the
-	// orchestrator overwriting LocalState.DeferredToSibling each up.
+	// Sibling not active → fall through to the normal image runner.
+	// LocalState.DeferredToSibling is overwritten on every up, so a
+	// previously-deferred entry for this dep clears itself.
 	return siblingDecision{Kind: siblingProceed}, nil
 }

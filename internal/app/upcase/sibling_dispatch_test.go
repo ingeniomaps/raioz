@@ -65,17 +65,56 @@ func TestDecideSibling_RegularImageDep(t *testing.T) {
 
 // --- mode A (project:) ---------------------------------------------------
 
-func TestDecideSibling_ModeAProducesError(t *testing.T) {
-	inline := &config.Infra{Project: "/abs/keycloak"}
+func TestDecideSibling_ModeA_SiblingActive_SkipsSpawn(t *testing.T) {
+	siblingDir := writeSiblingYAML(t,
+		"workspace: hypixo\nproject: keycloak\n"+
+			"services:\n  keycloak:\n    path: .\n")
+	writeFakeRuntime(t, "hypixo-keycloak\n") // sibling reported active
+
+	inline := &config.Infra{Project: siblingDir}
 	got, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")
 	if err != nil {
-		t.Fatalf("decideSibling itself should not return Go error, got %v", err)
+		t.Fatalf("unexpected err: %v", err)
 	}
-	if got.Kind != siblingErrorModeA {
-		t.Errorf("expected siblingErrorModeA, got %d", got.Kind)
+	if got.Kind != siblingSkipModeA {
+		t.Errorf("expected siblingSkipModeA when sibling is up, got %d", got.Kind)
 	}
-	if !strings.Contains(got.Reason, "siblingProject") {
-		t.Errorf("reason should hint at the workaround, got %q", got.Reason)
+	if got.SiblingInfo == nil || got.SiblingInfo.Project != "keycloak" {
+		t.Errorf("SiblingInfo not populated correctly: %+v", got.SiblingInfo)
+	}
+}
+
+func TestDecideSibling_ModeA_SiblingInactive_RequestsSpawn(t *testing.T) {
+	siblingDir := writeSiblingYAML(t,
+		"workspace: hypixo\nproject: keycloak\n"+
+			"services:\n  keycloak:\n    path: .\n")
+	writeFakeRuntime(t, "") // empty docker ps → not active
+
+	inline := &config.Infra{Project: siblingDir}
+	got, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if got.Kind != siblingSpawnModeA {
+		t.Errorf("expected siblingSpawnModeA, got %d", got.Kind)
+	}
+	if got.SiblingInfo == nil || got.SiblingInfo.Dir != siblingDir {
+		t.Errorf("SiblingInfo not populated: %+v", got.SiblingInfo)
+	}
+}
+
+func TestDecideSibling_ModeA_DetectsCycle(t *testing.T) {
+	siblingDir := writeSiblingYAML(t,
+		"workspace: hypixo\nproject: keycloak\n"+
+			"services:\n  keycloak:\n    path: .\n")
+	// Pretend we're already mid-spawn for siblingDir — simulate the
+	// child raioz process running in a recursive chain.
+	t.Setenv(siblingStackEnv, siblingDir)
+
+	inline := &config.Infra{Project: siblingDir}
+	_, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")
+	if err == nil || !strings.Contains(err.Error(), "sibling cycle") {
+		t.Errorf("expected sibling-cycle error, got %v", err)
 	}
 }
 
