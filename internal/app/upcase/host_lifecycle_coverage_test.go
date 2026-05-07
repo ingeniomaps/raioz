@@ -34,7 +34,7 @@ func TestSaveHostPIDsWithServiceNames(t *testing.T) {
 
 	// saveHostPIDs needs a dispatcher which is hard to mock.
 	// But we can test the early short-circuit with empty serviceNames.
-	saveHostPIDs(dir, "proj", "acme", "acme-net", nil, []string{}, nil)
+	saveHostPIDs(dir, "proj", "acme", "acme-net", nil, []string{}, nil, nil)
 
 	// State file must exist with project/workspace/network populated even
 	// when no host PIDs were started.
@@ -64,7 +64,7 @@ func TestSaveHostPIDsCreatesNewState(t *testing.T) {
 
 	// Call with nil dispatcher + empty detections → should not crash
 	detections := DetectionMap{}
-	saveHostPIDs(dir, "proj", "", "net", nil, []string{"api"}, detections)
+	saveHostPIDs(dir, "proj", "", "net", nil, []string{"api"}, detections, nil)
 }
 
 // --- cleanStaleHostProcesses with stale alive PID ----------------------------

@@ -339,7 +339,7 @@ func TestSaveHostPIDsSkipsDockerRuntime(t *testing.T) {
 	// Function touches dispatcher.GetHostPID; we can't fake that here easily.
 	// Instead test the early-return branch: no service names == nothing saved.
 	dir := t.TempDir()
-	saveHostPIDs(dir, "p", "", "net", nil, nil, nil)
+	saveHostPIDs(dir, "p", "", "net", nil, nil, nil, nil)
 	// State file must now exist even without host PIDs — the project +
 	// network provenance is on its own worth persisting.
 	if _, err := os.Stat(filepath.Join(dir, ".raioz.state.json")); err != nil {

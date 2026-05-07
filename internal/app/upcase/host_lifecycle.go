@@ -46,11 +46,18 @@ func cleanStaleHostProcesses(ctx context.Context, projectDir, projectName string
 // file for project/workspace/network provenance. Projects that only use
 // Docker services need this too — otherwise down loads an empty struct and
 // ends up saving garbage (`project:""`, zero time) back over the file.
+//
+// `deferredDeps` is the list of dep names whose dispatch was skipped at
+// up time because a sibling project owns them (issue #26 mode B). Pass
+// nil for projects without sibling deps; the slice overwrites
+// LocalState.DeferredToSibling so stale entries from previous ups are
+// dropped without an explicit ClearDeferred per dep.
 func saveHostPIDs(
 	projectDir, projectName, workspaceName, networkName string,
 	dispatcher *orchestrate.Dispatcher,
 	serviceNames []string,
 	detections DetectionMap,
+	deferredDeps []string,
 ) {
 	localState, _ := state.LoadLocalState(projectDir)
 	if localState == nil {
@@ -63,6 +70,8 @@ func saveHostPIDs(
 	localState.Workspace = workspaceName
 	localState.NetworkName = networkName
 	localState.LastUp = time.Now()
+
+	localState.DeferredToSibling = deferredDeps
 
 	localState.HostPIDs = make(map[string]int)
 	if dispatcher != nil {

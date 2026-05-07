@@ -85,6 +85,11 @@ func (uc *UseCase) processOrchestration(
 		infraNames = append(infraNames, name)
 	}
 
+	// deferredDeps records the dep names whose dispatch was skipped
+	// because a sibling raioz project owns them (issue #26 mode B).
+	// Persisted into LocalState below so `down` can match the skip.
+	var deferredDeps []string
+
 	if len(infraNames) > 0 {
 		output.PrintProgress(i18n.T("up.starting_infra", len(infraNames)))
 		infraStart := time.Now()
@@ -92,6 +97,23 @@ func (uc *UseCase) processOrchestration(
 		for _, name := range infraNames {
 			detection := detections[name]
 			entry := deps.Infra[name]
+
+			// Sibling-deps gate (issue #26). Mode A errors here for now —
+			// recursive `raioz up` lands in a follow-up. Mode B with an
+			// active sibling skips the local image; with an inactive
+			// sibling falls through to the runner below.
+			verdict, err := decideSibling(ctx, name, entry.Inline, deps.Workspace)
+			if err != nil {
+				return nil, err
+			}
+			switch verdict.Kind {
+			case siblingErrorModeA:
+				return nil, errors.New(errors.ErrCodeInvalidConfig, verdict.Reason)
+			case siblingSkipDeferred:
+				output.PrintProgress(i18n.T("up.sibling_dep_skipped", name, verdict.Reason))
+				deferredDeps = append(deferredDeps, name)
+				continue
+			}
 
 			// Build image reference for the runner
 			envVars := map[string]string{}
@@ -244,7 +266,7 @@ func (uc *UseCase) processOrchestration(
 	// Persist host PIDs (and project/workspace/network provenance) so
 	// `raioz down` / next `raioz up` / `raioz status` can find them.
 	saveHostPIDs(projectDir, deps.Project.Name, deps.Workspace, networkName,
-		dispatcher, serviceNames, detections)
+		dispatcher, serviceNames, detections, deferredDeps)
 
 	// Step 4: Start proxy if enabled. The proxy block is extracted into its
 	// own file to keep this function under the 400-line cap; see

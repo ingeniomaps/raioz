@@ -118,8 +118,15 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		))
 	}
 
-	// Stop dependency compose projects
-	stopDependencyComposeProjects(ctx, deps, projectName)
+	// Stop dependency compose projects. The deferred list comes from
+	// the matching `up`'s LocalState — deps that were skipped because a
+	// sibling project owned them (issue #26 mode B) must be skipped on
+	// down too.
+	var deferredDeps []string
+	if localState != nil {
+		deferredDeps = localState.DeferredToSibling
+	}
+	stopDependencyComposeProjects(ctx, deps, projectName, deferredDeps)
 
 	// Stop proxy
 	uc.stopProxy(ctx, opts)
@@ -245,10 +252,40 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 // are skipped while OTHER raioz projects in the same workspace still have
 // live containers — the last project out tumba the shared deps. Without
 // this guard, project A's down would rip postgres out from under project B.
-func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps, projectName string) {
+//
+// `deferredDeps` lists dep names whose dispatch was skipped at up time
+// because a sibling raioz project owns them (issue #26 mode B). Those
+// have no container in the consumer's namespace and must not be torn
+// down — running `docker compose down` for them would be a no-op but
+// still spawns a process per dep, so we filter early. Pass nil for
+// legacy projects without sibling deps.
+func stopDependencyComposeProjects(
+	ctx context.Context,
+	deps *config.Deps,
+	projectName string,
+	deferredDeps []string,
+) {
 	others := otherProjectsActiveInWorkspace(ctx, deps.Workspace, projectName)
+	deferred := make(map[string]struct{}, len(deferredDeps))
+	for _, n := range deferredDeps {
+		deferred[n] = struct{}{}
+	}
 
 	for name, entry := range deps.Infra {
+		// Mode A (project:) — sibling-owned dep with its own lifecycle.
+		// We never started a container for it and must never stop one.
+		if entry.Inline != nil && entry.Inline.Project != "" {
+			logging.InfoWithContext(ctx, "Skipping mode A sibling dep on down",
+				"dep", name, "sibling", entry.Inline.Project)
+			continue
+		}
+		// Mode B with deferred-to-sibling stamp from up time.
+		if _, isDeferred := deferred[name]; isDeferred {
+			logging.InfoWithContext(ctx, "Skipping deferred sibling dep on down",
+				"dep", name)
+			continue
+		}
+
 		var override string
 		if entry.Inline != nil {
 			override = entry.Inline.Name

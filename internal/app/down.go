@@ -300,7 +300,9 @@ func (uc *DownUseCase) stopProjectServices(
 		// Dependencies live in separate per-dep compose files created by
 		// ImageRunner, NOT in the main compose file. Use the same teardown
 		// function that the orchestrated path uses.
-		stopDependencyComposeProjects(ctx, currentDeps, projectName)
+		// Legacy json projects predate sibling deps (issue #26), so the
+		// deferred list is always nil here.
+		stopDependencyComposeProjects(ctx, currentDeps, projectName, nil)
 	}
 
 	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {

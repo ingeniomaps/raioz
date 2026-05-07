@@ -454,6 +454,7 @@
   "up.compose_generate_error": "Error al generar la configuración de Docker Compose",
   "up.compose_generated": "Configuración de Docker Compose generada",
   "up.starting_infra": "Iniciando servicios de infraestructura (%d)...",
+  "up.sibling_dep_skipped": "Saltando dep '%s' (%s)",
   "up.infra_start_error": "Error al iniciar servicios de infraestructura",
   "up.waiting_infra_healthy": "Esperando que la infraestructura esté saludable...",
   "up.infra_not_healthy_warning": "Algunos servicios de infraestructura pueden no estar completamente saludables, procediendo con el despliegue de servicios",
