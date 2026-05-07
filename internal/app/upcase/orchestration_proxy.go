@@ -339,7 +339,7 @@ func buildProxyRoute(
 
 	// proxy.port without proxy.target: detection picked the target
 	// (container or host) but the user still wants to force a specific
-	// upstream port. Common case: multi-port images like mailhog
+	// upstream port. Common case: multi-port images like mailpit
 	// (1025 SMTP + 8025 UI) where detection grabs the wrong one.
 	if overrideTarget == "" && overridePort > 0 {
 		port = overridePort
