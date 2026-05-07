@@ -94,3 +94,15 @@ Contra: más código; hay que pensar en race conditions del state file (ya exist
 ## Contexto de descubrimiento
 
 Descubierto en `gouduet/api` el 2026-04-17. Sesión de integración keycloak → app → api. Un `gouduet-api` leftover de un test manual ocupaba 8080; `raioz up` pasó el bring-up y siguió reportando "running".
+
+## Resolución
+
+Implementada Opción A en `fix/up-detach-default`:
+
+1. `internal/host/process.go`: nueva `startSettleWindow` (default 500 ms). Tras `cmd.Start()` esperamos esa ventana en un `select`; si `cmd.Wait()` retorna primero, devolvemos error con la cola de stderr embebida.
+2. `internal/host/process_helpers.go`: `formatEarlyExitError` + `readLogTail` para producir un error legible (`service "x" exited within 500ms: exit status 1\n--- stderr tail ---\n...`).
+3. `internal/host/process.go` (StopServiceWithCommandAndPath): tolera `"no child processes"` en `process.Wait()` porque el goroutine de la settle window ya pudo reapearlo — antes esto se reportaba como error de stop espurio.
+
+Tests añadidos en `process_test.go`: early-exit detectado, stderr-tail incluido, sobreviviente no marcado como error. Helpers cubiertos en `process_helpers_test.go`.
+
+Pendiente para una iteración futura (Opción B): supervisor goroutine post-settle que actualice estado en `.raioz.state.json` para detectar muertes tardías; hoy `raioz status` sigue creyendo en el PID y eso cubre crashes después de la ventana solo si el PID muere de verdad.
