@@ -325,3 +325,95 @@ func TestStatusUseCase_getHostServiceInfo_ProcessAlive(t *testing.T) {
 		t.Errorf("expected running, got %+v", info)
 	}
 }
+// --- Issue 009: dep status fallback by labels --------------------------------
+
+// When the canonical container name lookup misses (typical for compose-mode
+// deps where container_name is dictated by the user's compose), status must
+// fall back to a label-based lookup so `raioz status` doesn't lie.
+func TestQueryDepStatus_FallsBackToLabelsWhenCanonicalNameMissing(t *testing.T) {
+	calls := struct {
+		statusCalls []string
+		findCalls   int
+	}{}
+	uc := NewStatusUseCase(&Dependencies{
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				calls.statusCalls = append(calls.statusCalls, name)
+				switch name {
+				case "raioz-yemdiou-postgres": // canonical, missing
+					return "", nil
+				case "yemdiou-postgres": // real container the user's compose created
+					return "running", nil
+				}
+				return "", nil
+			},
+			FindManagedContainerByServiceFunc: func(ctx context.Context, project, service string) string {
+				calls.findCalls++
+				if project == "yemdiou" && service == "postgres" {
+					return "yemdiou-postgres"
+				}
+				return ""
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "yemdiou"}}
+	entry := config.InfraEntry{Inline: &config.Infra{Image: "postgres:16"}}
+	got := uc.queryDepStatus(context.Background(), "postgres", entry, deps)
+	if got != "running" {
+		t.Errorf("queryDepStatus = %q, want %q", got, "running")
+	}
+	if calls.findCalls != 1 {
+		t.Errorf("FindManagedContainerByService calls = %d, want 1", calls.findCalls)
+	}
+	if len(calls.statusCalls) != 2 {
+		t.Errorf("expected two GetContainerStatusByName calls (canonical + real), got %v", calls.statusCalls)
+	}
+}
+
+// When the canonical lookup already finds the container, no label fallback
+// must run — the heuristic is opt-in only when the cheaper path missed.
+func TestQueryDepStatus_NoFallbackWhenCanonicalHits(t *testing.T) {
+	findCalls := 0
+	uc := NewStatusUseCase(&Dependencies{
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				return "running", nil
+			},
+			FindManagedContainerByServiceFunc: func(ctx context.Context, project, service string) string {
+				findCalls++
+				return "should-not-be-called"
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	entry := config.InfraEntry{Inline: &config.Infra{Image: "redis:7"}}
+	got := uc.queryDepStatus(context.Background(), "redis", entry, deps)
+	if got != "running" {
+		t.Errorf("queryDepStatus = %q, want running", got)
+	}
+	if findCalls != 0 {
+		t.Errorf("label fallback ran when canonical lookup succeeded (calls=%d)", findCalls)
+	}
+}
+
+// If nothing matches the canonical name AND the label search returns "",
+// status remains "stopped" — we must not pretend a missing dep is running.
+func TestQueryDepStatus_StillStoppedWhenNoMatch(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				return "", nil
+			},
+			FindManagedContainerByServiceFunc: func(ctx context.Context, project, service string) string {
+				return ""
+			},
+		},
+	})
+	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	entry := config.InfraEntry{Inline: &config.Infra{Image: "x"}}
+	if got := uc.queryDepStatus(context.Background(), "x", entry, deps); got != "stopped" {
+		t.Errorf("queryDepStatus = %q, want stopped", got)
+	}
+}
