@@ -6,6 +6,8 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/i18n"
+	"raioz/internal/output"
 )
 
 // siblingDecisionKind classifies what the up-flow should do with a dep
@@ -172,6 +174,46 @@ func decideModeB(
 	// LocalState.DeferredToSibling is overwritten on every up, so a
 	// previously-deferred entry for this dep clears itself.
 	return siblingDecision{Kind: siblingProceed}, nil
+}
+
+// applySiblingVerdict performs the side effects implied by a verdict:
+// removes the dep from `detections` (sibling-mode deps have no
+// container in this project's namespace, so downstream consumers like
+// buildEndpoints / startProxy / checkInfraHealth must skip them),
+// spawns recursive raioz up when mode A demands it, and tracks
+// deferred mode B deps for the matching down. Returns true when the
+// orchestrator should skip the regular dispatcher path for this dep.
+//
+// Pass deferredDeps as a pointer so we can append in place without
+// returning a new slice every iteration of the orchestration loop.
+func applySiblingVerdict(
+	ctx context.Context,
+	depName string,
+	verdict siblingDecision,
+	projectDir string,
+	detections DetectionMap,
+	deferredDeps *[]string,
+) (skip bool, err error) {
+	switch verdict.Kind {
+	case siblingSpawnModeA:
+		delete(detections, depName)
+		if err := spawnSibling(ctx, projectDir, depName, verdict.SiblingInfo); err != nil {
+			return false, err
+		}
+		return true, nil
+	case siblingSkipModeA:
+		delete(detections, depName)
+		output.PrintProgress(
+			i18n.T("up.sibling_modea_already_up", depName, verdict.SiblingName))
+		return true, nil
+	case siblingSkipDeferred:
+		delete(detections, depName)
+		output.PrintProgress(
+			i18n.T("up.sibling_dep_skipped", depName, verdict.Reason))
+		*deferredDeps = append(*deferredDeps, depName)
+		return true, nil
+	}
+	return false, nil
 }
 
 // validateRequiredHostname errors when the consumer asked for a

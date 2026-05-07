@@ -90,6 +90,14 @@ func (uc *UseCase) processOrchestration(
 	// Persisted into LocalState below so `down` can match the skip.
 	var deferredDeps []string
 
+	// dispatchedInfra records the deps that ACTUALLY went through the
+	// runner — the subset of infraNames that has a container in this
+	// project's namespace. Health check / endpoints / proxy iterate
+	// this list (or `detections` after we delete sibling-skipped
+	// entries) so they don't wait on or generate routes for containers
+	// the sibling owns instead.
+	var dispatchedInfra []string
+
 	if len(infraNames) > 0 {
 		output.PrintProgress(i18n.T("up.starting_infra", len(infraNames)))
 		infraStart := time.Now()
@@ -98,29 +106,23 @@ func (uc *UseCase) processOrchestration(
 			detection := detections[name]
 			entry := deps.Infra[name]
 
-			// Sibling-deps gate (issue #26). Four outcomes:
-			//   spawn  → `raioz up` in the sibling cwd (mode A, sibling not up)
-			//   skip A → mode A but sibling already up; nothing to do
-			//   defer  → mode B, sibling already up; skip the local image
-			//   proceed→ regular dep (or mode B with sibling not up)
+			// Sibling-deps gate (issue #26). applySiblingVerdict deletes
+			// sibling-mode deps from `detections` (so endpoints / proxy /
+			// health auto-skip), spawns recursive raioz up for mode A,
+			// and stamps mode B defers for the matching down.
 			verdict, err := decideSibling(ctx, name, entry.Inline, deps.Workspace)
 			if err != nil {
 				return nil, err
 			}
-			switch verdict.Kind {
-			case siblingSpawnModeA:
-				if err := spawnSibling(ctx, projectDir, name, verdict.SiblingInfo); err != nil {
-					return nil, err
-				}
-				continue
-			case siblingSkipModeA:
-				output.PrintProgress(i18n.T("up.sibling_modea_already_up", name, verdict.SiblingName))
-				continue
-			case siblingSkipDeferred:
-				output.PrintProgress(i18n.T("up.sibling_dep_skipped", name, verdict.Reason))
-				deferredDeps = append(deferredDeps, name)
+			skip, err := applySiblingVerdict(
+				ctx, name, verdict, projectDir, detections, &deferredDeps)
+			if err != nil {
+				return nil, err
+			}
+			if skip {
 				continue
 			}
+			dispatchedInfra = append(dispatchedInfra, name)
 
 			// Build image reference for the runner
 			envVars := map[string]string{}
@@ -196,16 +198,22 @@ func (uc *UseCase) processOrchestration(
 		}
 
 		logging.InfoWithContext(ctx, "Dependencies started",
-			"count", len(infraNames),
+			"count", len(dispatchedInfra),
+			"sibling_skipped", len(infraNames)-len(dispatchedInfra),
 			"duration_ms", time.Since(infraStart).Milliseconds())
 
-		// Wait for infra health with diagnostics
-		output.PrintProgress(i18n.T("up.waiting_infra_healthy"))
-		if err := checkInfraHealth(ctx, infraNames, deps.Project.Name, deps.Infra); err != nil {
-			return nil, errors.New(errors.ErrCodeDockerNotRunning, err.Error()).
-				WithSuggestion("Fix the issue above and run 'raioz up' again")
+		// Health check only runs when at least one dep was actually
+		// dispatched. With every dep deferred to siblings, the check
+		// would burn its 10s timeout looking for containers that live
+		// in the sibling's namespace.
+		if len(dispatchedInfra) > 0 {
+			output.PrintProgress(i18n.T("up.waiting_infra_healthy"))
+			if err := checkInfraHealth(ctx, dispatchedInfra, deps.Project.Name, deps.Infra); err != nil {
+				return nil, errors.New(errors.ErrCodeDockerNotRunning, err.Error()).
+					WithSuggestion("Fix the issue above and run 'raioz up' again")
+			}
+			output.PrintProgressDone(i18n.T("up.infra_healthy"))
 		}
-		output.PrintProgressDone(i18n.T("up.infra_healthy"))
 	}
 
 	// Build endpoints map for service discovery

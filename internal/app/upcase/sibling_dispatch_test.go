@@ -173,6 +173,87 @@ func TestDecideSibling_ModeB_SiblingMissing(t *testing.T) {
 	}
 }
 
+// --- applySiblingVerdict --------------------------------------------------
+
+func TestApplySiblingVerdict_RegularDepProceeds(t *testing.T) {
+	det := DetectionMap{"redis": {}}
+	deferred := []string{}
+	skip, err := applySiblingVerdict(
+		context.Background(), "redis",
+		siblingDecision{Kind: siblingProceed},
+		"/consumer", det, &deferred,
+	)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if skip {
+		t.Error("regular dep should NOT be skipped")
+	}
+	if _, ok := det["redis"]; !ok {
+		t.Error("regular dep should remain in detections")
+	}
+	if len(deferred) != 0 {
+		t.Errorf("deferred should be empty, got %v", deferred)
+	}
+}
+
+func TestApplySiblingVerdict_ModeBDeferred_RemovesFromDetectionsAndStamps(t *testing.T) {
+	det := DetectionMap{"redis": {}, "keycloak": {}}
+	deferred := []string{}
+	skip, err := applySiblingVerdict(
+		context.Background(), "keycloak",
+		siblingDecision{
+			Kind:        siblingSkipDeferred,
+			SiblingName: "keycloak",
+			Reason:      "sibling active",
+		},
+		"/consumer", det, &deferred,
+	)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if !skip {
+		t.Error("deferred dep should be skipped")
+	}
+	if _, ok := det["keycloak"]; ok {
+		t.Error("deferred dep MUST be removed from detections so downstream consumers don't generate routes/env vars for it")
+	}
+	if _, ok := det["redis"]; !ok {
+		t.Error("non-sibling dep should remain in detections")
+	}
+	if len(deferred) != 1 || deferred[0] != "keycloak" {
+		t.Errorf("deferred = %v, want [keycloak]", deferred)
+	}
+}
+
+func TestApplySiblingVerdict_SkipModeA_RemovesFromDetections_NoDefer(t *testing.T) {
+	det := DetectionMap{"keycloak": {}}
+	deferred := []string{}
+	skip, err := applySiblingVerdict(
+		context.Background(), "keycloak",
+		siblingDecision{
+			Kind:        siblingSkipModeA,
+			SiblingName: "keycloak",
+		},
+		"/consumer", det, &deferred,
+	)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if !skip {
+		t.Error("mode A skip should be skipped")
+	}
+	if _, ok := det["keycloak"]; ok {
+		t.Error("mode A dep MUST be removed from detections")
+	}
+	// Mode A is NEVER deferred — sibling has its own lifecycle, down
+	// is governed by `entry.Inline.Project != ""`, not the deferred
+	// stamp.
+	if len(deferred) != 0 {
+		t.Errorf("mode A skip should NOT defer, got %v", deferred)
+	}
+}
+
 // --- requiredHostname ----------------------------------------------------
 
 func TestValidateRequiredHostname_Empty(t *testing.T) {
