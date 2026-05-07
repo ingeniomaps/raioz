@@ -116,12 +116,12 @@ func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
 	}
 
 	// Fallback: labels.
-	if real := dockerpkg.ListContainersByLabels(ctx, map[string]string{
+	if actual := dockerpkg.ListContainersByLabels(ctx, map[string]string{
 		"com.raioz.managed": "true",
 		"com.raioz.project": p.ProjectName,
 		"com.raioz.service": name,
-	}); len(real) > 0 && real[0] != canonical {
-		if state := dockerInspectStatus(ctx, real[0]); state != "" {
+	}); len(actual) > 0 && actual[0] != canonical {
+		if state := dockerInspectStatus(ctx, actual[0]); state != "" {
 			return state
 		}
 	}

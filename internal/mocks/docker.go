@@ -66,17 +66,17 @@ type MockDockerRunner struct {
 		workspace string, infra string, project string,
 		hasExplicitWorkspace bool,
 	) (string, error)
-	GetContainerNameWithContextFunc func(ctx context.Context, composePath string, serviceName string) (string, error)
-	GetContainerStatusByNameFunc    func(ctx context.Context, containerName string) (string, error)
+	GetContainerNameWithContextFunc   func(ctx context.Context, composePath string, serviceName string) (string, error)
+	GetContainerStatusByNameFunc      func(ctx context.Context, containerName string) (string, error)
 	FindManagedContainerByServiceFunc func(ctx context.Context, project, service string) string
-	ResolveRelativeVolumesFunc      func(volumes []string, projectDir string) ([]string, error)
-	AreServicesRunningFunc          func(composePath string, serviceNames []string) (bool, error)
-	IsNetworkInUseWithContextFunc   func(ctx context.Context, networkName string) (bool, error)
-	StopContainerWithContextFunc    func(ctx context.Context, containerName string) error
-	BuildServiceVolumesMapFunc      func(deps *config.Deps) (map[string]interfaces.ServiceVolumes, error)
-	DetectSharedVolumesFunc         func(services map[string]interfaces.ServiceVolumes) map[string][]string
-	FormatSharedVolumesWarningFunc  func(sharedVolumes map[string][]string) string
-	RemoveVolumeWithContextFunc     func(ctx context.Context, name string) error
+	ResolveRelativeVolumesFunc        func(volumes []string, projectDir string) ([]string, error)
+	AreServicesRunningFunc            func(composePath string, serviceNames []string) (bool, error)
+	IsNetworkInUseWithContextFunc     func(ctx context.Context, networkName string) (bool, error)
+	StopContainerWithContextFunc      func(ctx context.Context, containerName string) error
+	BuildServiceVolumesMapFunc        func(deps *config.Deps) (map[string]interfaces.ServiceVolumes, error)
+	DetectSharedVolumesFunc           func(services map[string]interfaces.ServiceVolumes) map[string][]string
+	FormatSharedVolumesWarningFunc    func(sharedVolumes map[string][]string) string
+	RemoveVolumeWithContextFunc       func(ctx context.Context, name string) error
 }
 
 func (m *MockDockerRunner) Up(composePath string) error {

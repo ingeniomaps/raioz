@@ -489,7 +489,7 @@ func TestGetHostServiceInfo_ProxyTargetExitedWins(t *testing.T) {
 
 	deps := &config.Deps{Project: config.Project{Name: "accounts"}}
 	svc := config.Service{
-		Source: config.SourceConfig{Command: "make dev-docker"},
+		Source:        config.SourceConfig{Command: "make dev-docker"},
 		ProxyOverride: &config.ServiceProxyOverride{Target: "hypixo-accounts"},
 	}
 	info := uc.getHostServiceInfo(

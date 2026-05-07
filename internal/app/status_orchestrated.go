@@ -115,10 +115,10 @@ func (uc *StatusUseCase) queryDepStatus(
 	}
 
 	// Fallback: locate the container by its raioz labels.
-	if real := uc.deps.DockerRunner.FindManagedContainerByService(
+	if actual := uc.deps.DockerRunner.FindManagedContainerByService(
 		ctx, deps.Project.Name, name,
-	); real != "" && real != canonical {
-		return uc.queryStatusByContainer(ctx, real)
+	); actual != "" && actual != canonical {
+		return uc.queryStatusByContainer(ctx, actual)
 	}
 	return status
 }
