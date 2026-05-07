@@ -18,15 +18,26 @@ import (
 	"raioz/internal/state"
 )
 
-// StatusYAML shows status for a YAML orchestrated project.
-func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) error {
+// StatusYAML shows status for a YAML orchestrated project. When `filter` is
+// non-empty, only services / dependencies in that list are reported and any
+// unknown name returns an error so the user notices the typo (issue 014).
+func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filter []string) error {
+	if err := validateStatusFilter(proj, filter); err != nil {
+		return err
+	}
+	want := filterSet(filter)
+
 	fmt.Println()
 	output.PrintSectionHeader(proj.ProjectName)
 
 	// Dependencies
-	if len(proj.Deps.Infra) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", len(proj.Deps.Infra)))
+	visibleInfra := countMatching(proj.Deps.Infra, want)
+	if visibleInfra > 0 {
+		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", visibleInfra))
 		for name, entry := range proj.Deps.Infra {
+			if !inFilter(want, name) {
+				continue
+			}
 			status := proj.ContainerStatus(ctx, name)
 			cpu, mem := proj.ContainerStats(ctx, name)
 			image := ""
@@ -41,13 +52,17 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 	}
 
 	// Services
-	if len(proj.Deps.Services) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Services (%d)", len(proj.Deps.Services)))
+	visibleSvc := countMatchingSvc(proj.Deps.Services, want)
+	if visibleSvc > 0 {
+		output.PrintSubsection(fmt.Sprintf("Services (%d)", visibleSvc))
 
 		projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
 		localState, _ := state.LoadLocalState(projectDir)
 
 		for name, svc := range proj.Deps.Services {
+			if !inFilter(want, name) {
+				continue
+			}
 			// Honor yaml overrides (command:, compose:) before scanning disk.
 			result := config.ResolveServiceDetection(svc, svc.Source.Path)
 			runtime := string(result.Runtime)
@@ -199,13 +214,37 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 }
 
 // RestartYAML restarts services in a YAML orchestrated project.
-func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) error {
+//
+// For each service the runtime is detected before invoking docker:
+//   - Host services (declared with `command:` or `commands:`) are stopped
+//     via custom stop command + PID kill, then re-launched through the
+//     HostRunner — same path the up flow uses, including the settle window.
+//   - Docker services delegate to `docker restart <container>` against the
+//     container name resolved from naming.Container. Same legacy behavior
+//     as before for everything that lives in a container.
+//
+// Issue 013. Without this branching, restart of a host service hit
+// `docker restart raioz-<project>-<svc>` and failed with "No such
+// container", which surprised everyone who declared a `command:` and
+// expected restart to "just work".
+func (uc *RestartUseCase) RestartYAML(
+	ctx context.Context, proj *YAMLProject, services []string,
+) error {
 	if len(services) == 0 {
 		output.PrintWarning("No services specified. Use service names or --all")
 		return nil
 	}
 
 	for _, name := range services {
+		if isYAMLHostService(proj, name) {
+			if err := uc.restartHostService(ctx, proj, name); err != nil {
+				output.PrintProgressError(name + ": " + err.Error())
+			} else {
+				output.PrintProgressDone(name)
+			}
+			continue
+		}
+
 		containerName := naming.Container(proj.ProjectName, name)
 		output.PrintProgress("Restarting " + name + "...")
 		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
@@ -216,6 +255,21 @@ func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) erro
 		}
 	}
 	return nil
+}
+
+// isYAMLHostService reports whether the named entry in a YAML project runs
+// as a host process — i.e. has a `command:` or `commands:` block, no Docker.
+// Used to pick the right restart path. Returns false for unknown names so
+// the docker fallback can produce its own (admittedly ugly) error.
+func isYAMLHostService(proj *YAMLProject, name string) bool {
+	svc, ok := proj.Deps.Services[name]
+	if !ok {
+		return false
+	}
+	if svc.Docker != nil {
+		return false
+	}
+	return svc.Source.Command != "" || svc.Commands != nil
 }
 
 // ExecYAML runs a command in a container of a YAML orchestrated project.

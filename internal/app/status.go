@@ -19,6 +19,10 @@ type StatusOptions struct {
 	ProjectName string
 	ConfigPath  string
 	JSON        bool
+	// Services restricts the report to a subset. Empty means "everything"
+	// (legacy behavior). When non-empty, services and deps not listed are
+	// hidden from the report. Issue 014.
+	Services []string
 }
 
 // StatusUseCase handles the "status" use case - showing project status
@@ -41,7 +45,7 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 
 	// Try YAML mode first
 	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
-		return uc.StatusYAML(ctx, proj)
+		return uc.StatusYAML(ctx, proj, opts.Services)
 	}
 
 	var ws *interfaces.Workspace

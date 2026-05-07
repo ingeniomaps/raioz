@@ -42,6 +42,13 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	projectDir, _ := filepath.Abs(filepath.Dir(configPath))
 	projectName := deps.Project.Name
 
+	// Issue 012: when the user passed service names, stop only that subset
+	// and leave the network / proxy / state file alone. The rest of the
+	// project keeps running.
+	if len(opts.Services) > 0 {
+		return uc.downSelectiveServices(ctx, deps, projectDir, projectName, opts.Services)
+	}
+
 	output.PrintProgress("Stopping project " + projectName + "...")
 
 	// Run custom per-service stop commands first (declared in raioz.yaml as `stop:`).

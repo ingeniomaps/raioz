@@ -18,9 +18,12 @@ var downConflicting bool
 var downAllProjects bool
 
 var downCmd = &cobra.Command{
-	Use:          "down",
-	Short:        "Bring down project dependencies",
-	Long:         "Bring down all services and infrastructure for the current project.",
+	Use:   "down [service...]",
+	Short: "Bring down project dependencies",
+	Long: "Bring down services for the current project. Pass service / dependency " +
+		"names to stop only that subset (network, proxy, and state are left " +
+		"intact). Without args, the whole project goes down.",
+	Args:         cobra.ArbitraryArgs,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		defer func() {
@@ -65,6 +68,7 @@ var downCmd = &cobra.Command{
 			PruneShared: pruneShared,
 			Conflicting: downConflicting,
 			AllProjects: downAllProjects,
+			Services:    args,
 		})
 
 		// Handle local project down command

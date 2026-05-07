@@ -8,8 +8,8 @@ func TestStatusCmd(t *testing.T) {
 	if statusCmd == nil {
 		t.Fatal("statusCmd should be initialized")
 	}
-	if statusCmd.Use != "status" {
-		t.Errorf("Use = %s, want status", statusCmd.Use)
+	if statusCmd.Use != "status [service...]" {
+		t.Errorf("Use = %s, want %q", statusCmd.Use, "status [service...]")
 	}
 	if statusCmd.Short == "" {
 		t.Error("Short should not be empty")
