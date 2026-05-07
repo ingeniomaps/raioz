@@ -325,6 +325,7 @@ func TestStatusUseCase_getHostServiceInfo_ProcessAlive(t *testing.T) {
 		t.Errorf("expected running, got %+v", info)
 	}
 }
+
 // --- Issue 009: dep status fallback by labels --------------------------------
 
 // When the canonical container name lookup misses (typical for compose-mode
@@ -415,5 +416,128 @@ func TestQueryDepStatus_StillStoppedWhenNoMatch(t *testing.T) {
 	entry := config.InfraEntry{Inline: &config.Infra{Image: "x"}}
 	if got := uc.queryDepStatus(context.Background(), "x", entry, deps); got != "stopped" {
 		t.Errorf("queryDepStatus = %q, want stopped", got)
+	}
+}
+
+// --- Issue 010: proxy.target as source of truth for host status -------------
+
+// When the user declares `services.<name>.proxy.target: <container>` and that
+// container is running, status must report "running" regardless of what the
+// PID-alive / compose-autodetect heuristics say. The classic break is a
+// host launcher (`make dev-docker`) that exits 0 after `compose up -d`:
+// PID is gone, autodetect targets the wrong compose file, but the container
+// is happily up.
+func TestGetHostServiceInfo_ProxyTargetRunningWins(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		Workspace: &mocks.MockWorkspaceManager{
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+				return "/tmp/x"
+			},
+		},
+		HostRunner: &mocks.MockHostRunner{
+			DetectComposePathFunc: func(p, c, e string) string { return "" },
+		},
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				if name == "hypixo-accounts" {
+					return "running", nil
+				}
+				return "", nil
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "accounts"}, Workspace: "hypixo"}
+	svc := config.Service{
+		Source: config.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &config.ServiceProxyOverride{
+			Target: "hypixo-accounts",
+			Port:   4002,
+		},
+	}
+	info := uc.getHostServiceInfo(
+		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,
+		deps, map[string]*host.ProcessInfo{}, // no PID — launcher already exited
+	)
+	if info.Status != "running" {
+		t.Errorf("expected running (proxy.target alive), got %+v", info)
+	}
+}
+
+// Counterpart: when the named container is not running, we surface that
+// directly without falling back to the (lying) PID/compose path.
+func TestGetHostServiceInfo_ProxyTargetExitedWins(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		Workspace: &mocks.MockWorkspaceManager{
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+				return "/tmp/x"
+			},
+		},
+		HostRunner: &mocks.MockHostRunner{
+			DetectComposePathFunc: func(p, c, e string) string { return "" },
+			IsServiceRunningFunc:  func(pid int) (bool, error) { return true, nil },
+		},
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				if name == "hypixo-accounts" {
+					return "exited", nil
+				}
+				return "", nil
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "accounts"}}
+	svc := config.Service{
+		Source: config.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &config.ServiceProxyOverride{Target: "hypixo-accounts"},
+	}
+	info := uc.getHostServiceInfo(
+		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,
+		deps, map[string]*host.ProcessInfo{
+			// PID is alive, but the *container* is exited — the container wins.
+			"accounts": {PID: 4242},
+		},
+	)
+	if info.Status != "stopped" {
+		t.Errorf("expected stopped (proxy.target exited), got %+v", info)
+	}
+}
+
+// When proxy.target points to a container that does not exist yet (typical
+// before the first `up`), we must NOT short-circuit — the existing
+// PID/compose path still has a chance to decide.
+func TestGetHostServiceInfo_ProxyTargetMissingFallsThrough(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		Workspace: &mocks.MockWorkspaceManager{
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+				return "/tmp/x"
+			},
+		},
+		HostRunner: &mocks.MockHostRunner{
+			DetectComposePathFunc: func(p, c, e string) string { return "" },
+			IsServiceRunningFunc:  func(pid int) (bool, error) { return true, nil },
+		},
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				return "", nil // container does not exist
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "accounts"}}
+	svc := config.Service{
+		Source:        config.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &config.ServiceProxyOverride{Target: "not-yet-built"},
+	}
+	info := uc.getHostServiceInfo(
+		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,
+		deps, map[string]*host.ProcessInfo{
+			"accounts": {PID: 4242},
+		},
+	)
+	// PID-alive fallback should kick in.
+	if info.Status != "running" {
+		t.Errorf("expected fallback PID detection to mark running, got %+v", info)
 	}
 }
