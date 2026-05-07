@@ -173,6 +173,86 @@ func TestDecideSibling_ModeB_SiblingMissing(t *testing.T) {
 	}
 }
 
+// --- requiredHostname ----------------------------------------------------
+
+func TestValidateRequiredHostname_Empty(t *testing.T) {
+	sib := &config.SiblingInfo{Hostnames: []string{}}
+	if err := validateRequiredHostname("kc", "", sib); err != nil {
+		t.Errorf("empty requirement should be a no-op, got %v", err)
+	}
+}
+
+func TestValidateRequiredHostname_Match(t *testing.T) {
+	sib := &config.SiblingInfo{Hostnames: []string{"sso", "admin"}}
+	if err := validateRequiredHostname("kc", "sso", sib); err != nil {
+		t.Errorf("expected nil on match, got %v", err)
+	}
+}
+
+func TestValidateRequiredHostname_Missing_HelpfulError(t *testing.T) {
+	sib := &config.SiblingInfo{
+		Path:      "/sibling/raioz.yaml",
+		Project:   "keycloak",
+		Hostnames: []string{"keycloak", "admin"},
+	}
+	err := validateRequiredHostname("kc", "sso", sib)
+	if err == nil {
+		t.Fatal("expected error for missing hostname")
+	}
+	msg := err.Error()
+	for _, want := range []string{"sso", "keycloak", "/sibling/raioz.yaml", "hostname:", "requiredHostname"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error %q missing %q", msg, want)
+		}
+	}
+}
+
+func TestDecideSibling_ModeA_RequiredHostnameMissing_FailsBeforeSpawn(t *testing.T) {
+	siblingDir := writeSiblingYAML(t,
+		"workspace: hypixo\nproject: keycloak\n"+
+			"services:\n  keycloak:\n    path: .\n")
+	// No fake runtime needed — the hostname check fires before active probe.
+
+	inline := &config.Infra{
+		Project:          siblingDir,
+		RequiredHostname: "sso", // sibling only declares "keycloak"
+	}
+	_, err := decideSibling(context.Background(), "kc", inline, "hypixo")
+	if err == nil || !strings.Contains(err.Error(), "does not declare hostname") {
+		t.Errorf("expected hostname-missing error, got %v", err)
+	}
+}
+
+func TestDecideSibling_ModeB_RequiredHostnameMissing_OnlyWhenSiblingActive(t *testing.T) {
+	siblingDir := writeSiblingYAML(t,
+		"workspace: hypixo\nproject: keycloak\n"+
+			"services:\n  keycloak:\n    path: .\n")
+
+	inline := &config.Infra{
+		Image:            "keycloak",
+		SiblingProject:   siblingDir,
+		RequiredHostname: "sso",
+	}
+
+	// Sibling NOT active → fall through to image runner; hostname check
+	// must not fire (we never defer to the sibling).
+	writeFakeRuntime(t, "")
+	got, err := decideSibling(context.Background(), "kc", inline, "hypixo")
+	if err != nil {
+		t.Fatalf("expected no error when falling back to image, got %v", err)
+	}
+	if got.Kind != siblingProceed {
+		t.Errorf("expected proceed, got %d", got.Kind)
+	}
+
+	// Sibling active → hostname check fires and rejects.
+	writeFakeRuntime(t, "hypixo-keycloak\n")
+	_, err = decideSibling(context.Background(), "kc", inline, "hypixo")
+	if err == nil || !strings.Contains(err.Error(), "does not declare hostname") {
+		t.Errorf("expected hostname-missing error, got %v", err)
+	}
+}
+
 func TestDecideSibling_ModeB_WorkspaceMismatch(t *testing.T) {
 	siblingDir := writeSiblingYAML(t,
 		"workspace: acme\nproject: keycloak\n"+

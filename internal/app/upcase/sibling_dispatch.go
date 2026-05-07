@@ -65,9 +65,11 @@ func decideSibling(
 
 	switch {
 	case inline.Project != "":
-		return decideModeA(ctx, depName, inline.Project, consumerWorkspace)
+		return decideModeA(ctx, depName, inline.Project,
+			inline.RequiredHostname, consumerWorkspace)
 	case inline.SiblingProject != "":
-		return decideModeB(ctx, depName, inline.SiblingProject, consumerWorkspace)
+		return decideModeB(ctx, depName, inline.SiblingProject,
+			inline.RequiredHostname, consumerWorkspace)
 	default:
 		return siblingDecision{Kind: siblingProceed}, nil
 	}
@@ -81,6 +83,7 @@ func decideModeA(
 	ctx context.Context,
 	depName string,
 	projectPath string,
+	requiredHostname string,
 	consumerWorkspace string,
 ) (siblingDecision, error) {
 	sib, err := config.ResolveSibling(projectPath)
@@ -90,6 +93,9 @@ func decideModeA(
 	}
 	if err := config.ValidateSiblingWorkspace(consumerWorkspace, sib); err != nil {
 		return siblingDecision{}, fmt.Errorf("dep %q: %w", depName, err)
+	}
+	if err := validateRequiredHostname(depName, requiredHostname, sib); err != nil {
+		return siblingDecision{}, err
 	}
 	if err := checkSiblingCycle(depName, sib); err != nil {
 		return siblingDecision{}, err
@@ -123,10 +129,16 @@ func decideModeA(
 // sibling is currently up. When the sibling is active, returns the
 // skip-deferred verdict so the local image is bypassed; otherwise the
 // caller runs the normal image dispatcher.
+//
+// requiredHostname is checked against the sibling's declared hostnames
+// only when we'd actually defer to it — when falling back to the
+// image, the requirement does not apply because the local image has
+// its own hostnames.
 func decideModeB(
 	ctx context.Context,
 	depName string,
 	siblingPath string,
+	requiredHostname string,
 	consumerWorkspace string,
 ) (siblingDecision, error) {
 	sib, err := config.ResolveSibling(siblingPath)
@@ -144,6 +156,9 @@ func decideModeB(
 			"probe sibling for dep %q: %w", depName, err)
 	}
 	if active {
+		if err := validateRequiredHostname(depName, requiredHostname, sib); err != nil {
+			return siblingDecision{}, err
+		}
 		return siblingDecision{
 			Kind:        siblingSkipDeferred,
 			SiblingName: sib.Project,
@@ -157,4 +172,30 @@ func decideModeB(
 	// LocalState.DeferredToSibling is overwritten on every up, so a
 	// previously-deferred entry for this dep clears itself.
 	return siblingDecision{Kind: siblingProceed}, nil
+}
+
+// validateRequiredHostname errors when the consumer asked for a
+// specific hostname (`requiredHostname:` on the dep) and the sibling's
+// raioz.yaml does not declare it on any service or routed dep. Empty
+// requirement is a no-op.
+//
+// We trust the sibling's declared hostnames — verifying against the
+// live Caddyfile is more thorough but requires the proxy to be raioz-
+// managed and reachable, which `raioz check` already covers.
+func validateRequiredHostname(
+	depName string,
+	host string,
+	sib *config.SiblingInfo,
+) error {
+	if host == "" {
+		return nil
+	}
+	if sib.SiblingHasHostname(host) {
+		return nil
+	}
+	return fmt.Errorf(
+		"dep %q: sibling project %q at %s does not declare hostname %q — "+
+			"add `hostname: %s` to a service in its raioz.yaml, or drop "+
+			"`requiredHostname:` from this consumer (declared hostnames: %v)",
+		depName, sib.Project, sib.Path, host, host, sib.Hostnames)
 }
