@@ -26,6 +26,34 @@ func (uc *StatusUseCase) getHostServiceInfo(
 		Health: "none",
 	}
 
+	// Issue 010 — Priority 0: when the service declares `proxy.target`,
+	// THAT container is the source of truth. The user has already told us
+	// which container backs the service, so trust it instead of fishing
+	// through compose autodetect (which fails for launchers like
+	// `make dev-docker` that bring up their own compose project with a
+	// non-default `-p` and `-f`) or the PID heuristic (which goes false
+	// the moment a `make` wrapper exits 0 after `compose up -d`).
+	if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
+		state, err := uc.deps.DockerRunner.GetContainerStatusByName(
+			ctx, svc.ProxyOverride.Target,
+		)
+		if err == nil {
+			switch state {
+			case "running":
+				info.Status = "running"
+				info.Health = "unknown"
+				return info
+			case "exited", "dead", "removing", "created", "paused", "restarting":
+				info.Status = "stopped"
+				return info
+			}
+			// state == "" → container does not exist; fall through to the
+			// existing detection path. This keeps backwards compat for
+			// configs where `proxy.target` is declared eagerly even before
+			// the launcher has been run for the first time.
+		}
+	}
+
 	// Check if we have ProcessInfo for this service
 	processInfo, hasProcessInfo := hostProcesses[serviceName]
 

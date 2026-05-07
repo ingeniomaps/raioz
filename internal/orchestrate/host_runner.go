@@ -78,18 +78,35 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 		return fmt.Errorf("failed to start service '%s': %w", svc.Name, err)
 	}
 
+	// Issue 008: detect processes that fork+exec ok but die immediately
+	// (port already bound, missing binary, panic at boot). Same goroutine
+	// also handles reaping after the settle window — the channel buffer
+	// absorbs the eventual exit so we don't leak a zombie.
+	logPath := naming.LogFile(svc.ProjectName, svc.Name)
+	waitCh := make(chan error, 1)
+	go func() { waitCh <- cmd.Wait() }()
+
+	if window := host.SettleWindow(); window > 0 {
+		select {
+		case exitErr := <-waitCh:
+			if exitErr == nil {
+				// Clean exit 0 inside the window: the command was a
+				// launcher that detached a long-running container (issue
+				// 010 shape — `make dev-docker`, `./up.sh`). Continue;
+				// the proxy.target / Status priority-0 logic in
+				// status_host.go owns observability from here on.
+				break
+			}
+			logFile.Close()
+			return host.FormatEarlyExitError(svc.Name, window, exitErr, logPath)
+		case <-time.After(window):
+			// process is still alive — fall through.
+		}
+	}
+
 	r.processes[svc.Name] = cmd.Process.Pid
 	// Don't close logFile — the child process owns the fd now
 	// Go's finalizer will close it when the process is collected
-
-	// Reap the child in the background. Without this, killing the process
-	// leaves a zombie in the process table: kill(pid, 0) still reports
-	// success for zombies, which would make Stop()'s polling loop wait for
-	// the full 5s deadline on every tear-down. The goroutine exits as soon
-	// as the process actually dies — whether naturally or via Stop().
-	go func() {
-		_ = cmd.Wait()
-	}()
 
 	logging.InfoWithContext(ctx, "Host service started",
 		"service", svc.Name, "pid", cmd.Process.Pid)

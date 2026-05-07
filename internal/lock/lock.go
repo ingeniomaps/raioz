@@ -116,14 +116,27 @@ func Acquire(ws *workspace.Workspace) (*Lock, error) {
 	return lock, nil
 }
 
+// Release closes and removes the lock file. Idempotent: a second call is a
+// no-op so callers can release early (to free the lock during long-running
+// foreground phases) and still keep a `defer Release()` as safety net.
 func (l *Lock) Release() error {
+	if l == nil {
+		return nil
+	}
 	if l.file != nil {
 		l.file.Close()
+		l.file = nil
 	}
-	if l.path != "" {
-		if err := os.Remove(l.path); err != nil {
-			return fmt.Errorf("remove lock file %q: %w", l.path, err)
+	if l.path == "" {
+		return nil
+	}
+	path := l.path
+	l.path = ""
+	if err := os.Remove(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
 		}
+		return fmt.Errorf("remove lock file %q: %w", path, err)
 	}
 	return nil
 }

@@ -30,6 +30,12 @@ var statusCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
+		// Issue 011: meta-orchestrator dispatches to sub-projects.
+		resolved := ResolveConfigPath(configPath)
+		if handled, metaErr := tryHandleMeta(ctx, resolved, "status", nil); handled {
+			return metaErr
+		}
+
 		// Initialize dependencies and use case
 		deps := app.NewDependencies()
 		statusUseCase := app.NewStatusUseCase(deps)

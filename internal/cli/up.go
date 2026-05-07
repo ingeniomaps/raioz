@@ -19,6 +19,7 @@ var (
 	onlyServices []string
 	hostBind     string
 	attach       bool
+	watch        bool
 	exclusive    bool
 	notifyDone   bool
 )
@@ -45,6 +46,12 @@ var upCmd = &cobra.Command{
 		// Resolve config path: empty -> .raioz.json; otherwise use given path (any name/ruta)
 		configPath = ResolveConfigPath(configPath)
 
+		// Issue 011: if the config is a meta-orchestrator, delegate to the
+		// MetaRunner before initializing project-mode dependencies.
+		if handled, metaErr := tryHandleMeta(ctx, configPath, "up", nil); handled {
+			return metaErr
+		}
+
 		// Initialize dependencies and use case
 		deps := app.NewDependencies()
 		upUseCase := app.NewUpUseCase(deps)
@@ -58,6 +65,7 @@ var upCmd = &cobra.Command{
 			Only:         onlyServices,
 			Host:         hostBind,
 			Attach:       attach,
+			Watch:        watch,
 			Exclusive:    exclusive,
 		})
 
@@ -80,7 +88,8 @@ func init() {
 	upCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
 	upCmd.Flags().StringSliceVar(&onlyServices, "only", nil, "Start only these services (with their dependencies)")
 	upCmd.Flags().StringVar(&hostBind, "host", "", "Bind address for shared dev server (e.g., 0.0.0.0)")
-	upCmd.Flags().BoolVar(&attach, "attach", false, "Stay attached and stream logs (without file watching)")
+	upCmd.Flags().BoolVar(&attach, "attach", false, "Stay attached and stream logs (blocks until Ctrl+C)")
+	upCmd.Flags().BoolVar(&watch, "watch", false, "File-watch services with watch: true and auto-restart (blocks until Ctrl+C)")
 	upCmd.Flags().BoolVar(&exclusive, "exclusive", false, i18n.T("cmd.up.flag.exclusive"))
 	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 }

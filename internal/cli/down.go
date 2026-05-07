@@ -41,6 +41,10 @@ var downCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
+		if handled, metaErr := tryHandleMeta(ctx, configPath, "down", nil); handled {
+			return metaErr
+		}
+
 		deps := app.NewDependencies()
 		downUseCase := app.NewDownUseCase(deps)
 

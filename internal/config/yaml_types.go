@@ -11,6 +11,29 @@ type RaiozConfig struct {
 	Post      YAMLStringOrSlice         `yaml:"post,omitempty"`
 	Services  map[string]YAMLService    `yaml:"services,omitempty"`
 	Deps      map[string]YAMLDependency `yaml:"dependencies,omitempty"`
+
+	// Kind discriminates the config shape. Empty / "project" (default) means
+	// the regular shape with services/dependencies. "meta" means this file
+	// is a meta-orchestrator that delegates to sub-projects (see issue 011).
+	Kind string `yaml:"kind,omitempty"`
+	// Projects is the list of sub-projects this meta config orchestrates.
+	// Each path is resolved relative to the meta raioz.yaml. Used only when
+	// Kind == "meta".
+	Projects []YAMLMetaProject `yaml:"projects,omitempty"`
+	// StartOrder optionally pins the order in which sub-projects are brought
+	// up. Each entry must match a `path:` from `projects:`. Down runs in
+	// reverse. When omitted, the order of `projects:` is used.
+	StartOrder []string `yaml:"startOrder,omitempty"`
+}
+
+// YAMLMetaProject is one entry in a meta-orchestrator config's `projects:`
+// list. The path is relative to the meta raioz.yaml file.
+type YAMLMetaProject struct {
+	Path string `yaml:"path"`
+	// Optional sub-projects don't abort the meta `up` on failure — the meta
+	// run logs a warning and continues. Useful for repos that aren't always
+	// checked out (ad-service, internal tools, work-in-progress migrations).
+	Optional bool `yaml:"optional,omitempty"`
 }
 
 // YAMLNetwork lets the user override the Docker network raioz manages for a

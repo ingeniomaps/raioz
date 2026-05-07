@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,6 +26,19 @@ type ProcessInfo struct {
 	ComposePath string    `json:"composePath,omitempty"` // Path to docker-compose.yml if service uses docker-compose
 	StartTime   time.Time `json:"startTime"`
 }
+
+// startSettleWindow is how long StartService waits after a successful
+// cmd.Start() to make sure the process did not die immediately. If the
+// process exits inside this window we treat the start as a failure and
+// surface the stderr tail so the user sees why (issue 008).
+//
+// Background: cmd.Start() returns nil for any process that fork+exec'd
+// successfully — even if it crashes 5 ms later (port already bound,
+// missing config, etc). Without this guard `raioz status` then reports
+// "running" while the service is already dead.
+//
+// Exposed as a package var (not a const) so tests can shrink it.
+var startSettleWindow = 500 * time.Millisecond
 
 // StartService starts a service directly on the host (without Docker)
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
@@ -200,6 +214,34 @@ func StartService(
 		return nil, fmt.Errorf("failed to start process for service %s: %w", serviceName, err)
 	}
 
+	// Issue 008: catch processes that fork+exec ok but die immediately
+	// (port already bound, missing config, panic at boot). Only treat a
+	// non-zero exit inside the window as a failure — a clean exit 0 is
+	// how launchers like `make dev-docker` (issue 010) signal that they
+	// detached a long-running container and completed successfully.
+	if startSettleWindow > 0 {
+		waitErr := make(chan error, 1)
+		go func() { waitErr <- cmd.Wait() }()
+
+		select {
+		case exitErr := <-waitErr:
+			if exitErr == nil {
+				// Clean detach. Continue with the existing flow — PID
+				// stays recorded but downstream logic (status_host,
+				// proxy.target) is what makes the service observable.
+				break
+			}
+			stdoutFile.Close()
+			stderrFile.Close()
+			return nil, formatEarlyExitError(serviceName, startSettleWindow, exitErr, stderrPath)
+		case <-time.After(startSettleWindow):
+			// Process is still alive past the settle window. The wait
+			// goroutine remains parked on cmd.Wait() and writes to the
+			// buffered channel when the process eventually exits — that
+			// drain is harmless and avoids zombies.
+		}
+	}
+
 	// Store process info
 	processInfo := &ProcessInfo{
 		PID:         cmd.Process.Pid,
@@ -326,6 +368,13 @@ func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand str
 		}
 		return nil
 	case err := <-done:
+		// "no child processes" / "wait: no child processes" means the
+		// child was already reaped — typically by the settle-window
+		// goroutine in StartService (issue 008). The process is gone,
+		// which is exactly what we wanted.
+		if err != nil && strings.Contains(err.Error(), "no child process") {
+			return nil
+		}
 		return err
 	}
 }

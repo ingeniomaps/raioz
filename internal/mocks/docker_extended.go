@@ -191,6 +191,15 @@ func (m *MockDockerRunner) GetContainerStatusByName(
 	return "", nil
 }
 
+func (m *MockDockerRunner) FindManagedContainerByService(
+	ctx context.Context, project, service string,
+) string {
+	if m.FindManagedContainerByServiceFunc != nil {
+		return m.FindManagedContainerByServiceFunc(ctx, project, service)
+	}
+	return ""
+}
+
 func (m *MockDockerRunner) ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error) {
 	if m.ResolveRelativeVolumesFunc != nil {
 		return m.ResolveRelativeVolumesFunc(volumes, projectDir)

@@ -95,6 +95,12 @@ func (uc *StatusUseCase) queryServiceStatus(ctx context.Context, name string, de
 
 // queryDepStatus resolves the actual container name for a dependency,
 // honoring workspace-shared naming and user-supplied `name:` overrides.
+//
+// When the canonical name lookup misses (typical for deps brought up via
+// `compose:` where the user's compose file dictates a custom container_name),
+// we fall back to a label search by com.raioz.project + com.raioz.service —
+// the labels are stamped on every raioz-managed container, so this finds the
+// actual container regardless of its name. See issue 009.
 func (uc *StatusUseCase) queryDepStatus(
 	ctx context.Context, name string, entry config.InfraEntry, deps *config.Deps,
 ) string {
@@ -102,8 +108,19 @@ func (uc *StatusUseCase) queryDepStatus(
 	if entry.Inline != nil {
 		nameOverride = entry.Inline.Name
 	}
-	return uc.queryStatusByContainer(ctx,
-		naming.DepContainer(deps.Project.Name, name, nameOverride))
+	canonical := naming.DepContainer(deps.Project.Name, name, nameOverride)
+	status := uc.queryStatusByContainer(ctx, canonical)
+	if status != "stopped" {
+		return status
+	}
+
+	// Fallback: locate the container by its raioz labels.
+	if real := uc.deps.DockerRunner.FindManagedContainerByService(
+		ctx, deps.Project.Name, name,
+	); real != "" && real != canonical {
+		return uc.queryStatusByContainer(ctx, real)
+	}
+	return status
 }
 
 func (uc *StatusUseCase) queryStatusByContainer(ctx context.Context, containerName string) string {

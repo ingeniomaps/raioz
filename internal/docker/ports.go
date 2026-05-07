@@ -316,6 +316,22 @@ func IdentifyPortOccupant(ctx context.Context, port int) PortOccupant {
 		occ.ContainerID = parts[1]
 	}
 
+	// Primary check: raioz labels. These are stamped on every container
+	// raioz creates (services, deps, proxy) regardless of how the container
+	// got named — including deps brought up via user-supplied compose files
+	// where `container_name:` is dictated by the user, not by raioz naming
+	// rules. See issue 009.
+	if managed, _ := GetContainerLabel(ctx, occ.ContainerName, naming.LabelManaged); managed == "true" {
+		occ.IsRaioz = true
+		if proj, _ := GetContainerLabel(ctx, occ.ContainerName, naming.LabelProject); proj != "" {
+			occ.ProjectName = proj
+		}
+		return occ
+	}
+
+	// Fallback: legacy name-prefix heuristic. Covers containers created
+	// before labels were introduced (BUG-2 baseline) so we don't
+	// regress users with stale containers on disk.
 	pfx := naming.GetPrefix() + "-"
 	if strings.HasPrefix(occ.ContainerName, pfx) {
 		occ.IsRaioz = true

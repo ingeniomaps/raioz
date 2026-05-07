@@ -24,7 +24,14 @@ type Options struct {
 	DryRun       bool
 	Only         []string
 	Host         string // Bind address for shared dev server (e.g., "0.0.0.0")
-	Attach       bool   // Stay attached and stream logs without file watching
+	// Attach: stream logs in the foreground without file watching.
+	// Blocks until Ctrl+C. The lock is released before blocking.
+	Attach bool
+	// Watch: file-watch services with `watch: true` and auto-restart.
+	// Blocks until Ctrl+C. The lock is released before blocking.
+	// Default (Attach=false && Watch=false): raioz up exits cleanly after
+	// services are healthy. Services keep running; use `raioz logs` / `raioz down`.
+	Watch bool
 }
 
 // Dependencies contains the dependencies needed by the up use case
@@ -338,13 +345,19 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	// Final summary
 	uc.showSummary(ctx, deps, serviceNames, infraNames, startTime)
 
-	// Foreground mode: watch + logs (blocks until Ctrl+C)
+	// Foreground phase is opt-in. By default `raioz up` exits cleanly once
+	// services are healthy so multiple projects in the same workspace can
+	// coexist without lock contention. The lock is released explicitly here
+	// so --attach / --watch don't hold it for the whole session.
+	_ = lockInstance.Release()
+
 	if orchResult != nil {
-		if opts.Attach {
-			// --attach: stream logs without file watching
+		switch {
+		case opts.Attach:
+			// Stream logs in the foreground without file watching.
 			streamForeground(ctx, deps, orchResult.detections)
-		} else {
-			// watch: true services get file watching + logs
+		case opts.Watch:
+			// File-watch services with `watch: true` and auto-restart.
 			startWatcher(ctx, deps, orchResult.dispatcher, orchResult.detections,
 				orchResult.networkName, projectDir)
 		}

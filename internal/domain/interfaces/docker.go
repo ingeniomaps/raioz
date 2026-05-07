@@ -111,6 +111,13 @@ type DockerRunner interface {
 	// exited, created, ...) looked up by name via docker inspect. Empty string
 	// (no error) means the container does not exist.
 	GetContainerStatusByName(ctx context.Context, containerName string) (string, error)
+	// FindManagedContainerByService returns the actual container name for a
+	// raioz-managed service/dep by matching the com.raioz.project +
+	// com.raioz.service labels, or "" if none exists. Used as a fallback when
+	// the canonical name (naming.DepContainer / naming.Container) does not
+	// match the real container — typically because the user's compose file
+	// dictated a custom container_name. See issue 009.
+	FindManagedContainerByService(ctx context.Context, project, service string) string
 	// ResolveRelativeVolumes converts relative paths in bind mount volumes to absolute paths
 	ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error)
 	// AreServicesRunning checks if services are running in a compose project
