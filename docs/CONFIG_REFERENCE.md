@@ -103,12 +103,15 @@ and starts with the native tool (go run, npm dev, etc.).
 
 Dependencies are Docker images you need running (databases, caches, queues).
 
-Exactly one of `image` or `compose` is required.
+Exactly one of `image`, `compose`, or `project` is required.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `image` | string | one of | — | Docker image with tag (e.g., `postgres:16`). Mutually exclusive with `compose`. |
-| `compose` | string or list | one of | — | Path(s) to existing docker-compose fragment(s). Use when the dep already has a production-grade compose file (healthchecks, volumes, custom entrypoints). Raioz adds a network + labels overlay; the user's compose controls everything else. Mutually exclusive with `image`. |
+| `image` | string | one of | — | Docker image with tag (e.g., `postgres:16`). Mutually exclusive with `compose` and `project`. |
+| `compose` | string or list | one of | — | Path(s) to existing docker-compose fragment(s). Use when the dep already has a production-grade compose file (healthchecks, volumes, custom entrypoints). Raioz adds a network + labels overlay; the user's compose controls everything else. Mutually exclusive with `image` and `project`. |
+| `project` | string | one of | — | Path to a sibling raioz project's directory. The sibling IS this dep — raioz brings it up via `raioz up` recursively when not already running, and never tumba it on `raioz down`. Mutually exclusive with `image`/`compose`. See [Sibling raioz projects](#sibling-raioz-projects-as-deps). |
+| `siblingProject` | string | no | — | Fallback marker: pair with `image:`/`compose:` and raioz skips the local declaration when the sibling project is active. Mutually exclusive with `project`. Useful for CI or contributors without the sibling repo cloned. |
+| `requiredHostname` | string | no | — | Assert the sibling's raioz.yaml declares this hostname before deferring to it. Only valid alongside `project:` or `siblingProject:`. |
 | `name` | string | no | auto-derived | Literal container name override. Use when external tooling (IDEs, backup scripts) expects a specific name. Without it, the name is `{workspace}-{dep}` (workspace mode) or `{prefix}-{project}-{dep}` (standalone). |
 | `ports` | string or list | no | — | Port mappings (e.g., `"5432"`, `"5432:5432"`). |
 | `env` | string or list | no | — | Env file paths for the container. |
@@ -116,6 +119,45 @@ Exactly one of `image` or `compose` is required.
 | `hostname` | string | no | dependency name | Custom hostname in Docker network. |
 | `routing` | object | no | — | Proxy routing options. Setting this (even to an empty object `{}`) opts the dep into getting an HTTPS route when its image would otherwise be skipped by the DB/broker heuristic (postgres, redis, mysql, etc.). See [Routing config](#routing-config). |
 | `dev` | object | no | — | Local development override. See [Dev config](#dev-config). |
+
+### Sibling raioz projects as deps
+
+When a stack spans multiple raioz projects in the same workspace,
+declare the relationship explicitly:
+
+```yaml
+# Mode A — the sibling IS this dep (no image fallback)
+dependencies:
+  keycloak:
+    project: ../../keycloak     # path to the sibling's raioz.yaml dir
+    requiredHostname: sso       # optional, asserted pre-spawn
+
+# Mode B — image fallback when the sibling isn't up
+dependencies:
+  kafka:
+    image: bitnami/kafka:3
+    siblingProject: ../../kafka
+    requiredHostname: broker    # only checked when deferring to sibling
+```
+
+Behavior:
+
+- **`raioz up`** for mode A: reads the sibling's raioz.yaml, runs
+  `raioz up` recursively in its dir if not already running, streams
+  the output prefixed with `[sibling: <depName>]`. For mode B: when
+  the sibling is active, skips the local image and stamps the dep in
+  `.raioz.state.json` so `down` matches.
+- **`raioz down`** never tumba al hermano. Mode A is identified via
+  `project:`; mode B via the deferred-to-sibling stamp from up.
+- **Workspace coherence is required** — both sides must declare the
+  same `workspace:`. Cross-workspace siblings fail fast with a
+  descriptive error before any spawn.
+- **Cycles fail fast.** A → B → A is detected via the
+  `RAIOZ_SIBLING_STACK` env var threaded through recursive spawns;
+  the chain is printed in the error.
+- **`requiredHostname:`** is checked against the sibling's declared
+  hostnames (`hostname:` on services + `hostnameAliases:`), not the
+  live Caddyfile. Skipped when mode B falls back to the image.
 
 When neither `ports`, `expose`, nor `proxy.port` resolve a target port,
 raioz reads the image's manifest via `docker image inspect` and uses

@@ -380,7 +380,40 @@ dependencies:                   # Docker images
   legacy-stack:
     compose: ./infra/legacy.yml # bring an existing compose fragment
     env: .env.legacy
+
+  # Mode A — depend on another raioz project (no fallback)
+  keycloak:
+    project: ../../keycloak     # path to a sibling raioz.yaml
+    requiredHostname: sso       # optional: assert the sibling exposes 'sso'
+
+  # Mode B — depend on an image, but skip it when a sibling is already up
+  kafka:
+    image: bitnami/kafka:3
+    siblingProject: ../../kafka # if this raioz project is up, use it
+    requiredHostname: broker    # only checked when deferring to the sibling
 ```
+
+### Sibling raioz projects as dependencies
+
+When a stack spans multiple raioz projects in the same workspace, declare
+the relationship explicitly instead of documenting "run `raioz up` over
+there first" in a comment:
+
+- **`project: ../sibling`** (mode A) — the sibling *is* this dep. `raioz
+  up` reads the sibling's raioz.yaml, runs `raioz up` recursively in
+  its directory if it's not already running, and streams the output
+  prefixed with `[sibling: <name>]`. `raioz down` of the consumer never
+  tumba al hermano — the sibling has its own lifecycle.
+- **`siblingProject: ../sibling`** + `image:` (mode B) — fallback
+  pattern for CI or contributors without the sibling repo cloned. When
+  the sibling is up, raioz skips the local image and stamps the dep as
+  deferred. When the sibling is down, the local image starts as usual.
+- **`requiredHostname:`** (optional) — fail fast when the sibling's
+  raioz.yaml doesn't declare the hostname this consumer expects.
+- Workspace coherence is required: consumer and sibling must share the
+  same `workspace:` so they're on the same Docker network.
+- Cycles fail fast: A → B → A is detected via `RAIOZ_SIBLING_STACK` and
+  the chain is printed in the error.
 
 ## How It Works
 

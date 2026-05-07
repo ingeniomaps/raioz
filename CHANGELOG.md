@@ -6,6 +6,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Sibling raioz projects as dependencies (#26). A `dependencies.<n>`
+  entry can now point at another raioz project in the same workspace
+  via `project: ../sibling` (mode A: the sibling *is* the dep, raioz
+  brings it up recursively when needed) or `siblingProject: ../sibling`
+  combined with `image:` (mode B: fallback to the local image when the
+  sibling isn't running). `requiredHostname:` validates that the
+  sibling's raioz.yaml actually declares the hostname this consumer
+  expects. `raioz down` of the consumer never tumba al hermano — the
+  sibling has its own lifecycle, and mode B skips are persisted in
+  `.raioz.state.json` so down doesn't try to tear down a container
+  that was never created. Cycles (A → B → A) fail fast with the chain
+  printed via `RAIOZ_SIBLING_STACK`.
+
 ## [0.3.0] - 2026-04-17
 
 Follow-ups to v0.2.0 surfaced by pilot users running
