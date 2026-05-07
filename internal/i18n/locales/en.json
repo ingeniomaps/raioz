@@ -136,6 +136,7 @@
   "output.project_not_running": "Project is not running, nothing to stop",
   "output.no_active_ports": "No active ports found",
   "output.active_ports_header": "Active Ports",
+  "output.conflicting_ports_header": "Conflicting Host Ports",
   "output.nothing_to_clean": "Nothing to clean",
   "output.dry_run_header": "Dry Run - Actions That Would Be Taken",
   "output.actions_header": "Actions Taken",
