@@ -8,8 +8,8 @@ func TestDownCmd(t *testing.T) {
 	if downCmd == nil {
 		t.Fatal("downCmd should be initialized")
 	}
-	if downCmd.Use != "down" {
-		t.Errorf("Use = %s, want down", downCmd.Use)
+	if downCmd.Use != "down [service...]" {
+		t.Errorf("Use = %s, want %q", downCmd.Use, "down [service...]")
 	}
 	if downCmd.Short == "" {
 		t.Error("Short should not be empty")

@@ -25,6 +25,12 @@ type DownOptions struct {
 	// AllProjects stops every active raioz project except the cwd's.
 	// Same exclusivity rule as Conflicting.
 	AllProjects bool
+	// Services restricts the down to a subset of services / dependencies
+	// declared in raioz.yaml. Empty means "whole project" (legacy
+	// behavior). When non-empty, only these are stopped — network, proxy
+	// and state file are left intact so the rest of the project keeps
+	// running. Issue 012.
+	Services []string
 }
 
 // DownUseCase handles the "down" use case - stopping a project
