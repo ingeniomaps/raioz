@@ -250,145 +250,29 @@ type YAMLDependency struct {
 	// listens on. Both fields optional; raioz falls back to detection for
 	// whichever is left out.
 	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"`
+
+	// Project points at a sibling raioz project that *is* this dependency
+	// (mode A of issue #26). Path is relative to this raioz.yaml. When
+	// set, the dep has no image/compose of its own — `raioz up` reads the
+	// sibling's raioz.yaml and brings it up via a recursive `raioz up` in
+	// the sibling's cwd if it's not already running. `raioz down` of the
+	// consumer never touches the sibling.
+	//
+	// Mutually exclusive with Image / Compose / SiblingProject.
+	Project string `yaml:"project,omitempty"`
+
+	// SiblingProject is the fallback variant (mode B of issue #26): pair
+	// it with Image (or Compose) and raioz will skip the local image
+	// declaration whenever the sibling project is active, but fall back
+	// to the image when the sibling isn't running. Useful for CI and
+	// contributors without the sibling clone.
+	//
+	// Mutually exclusive with Project.
+	SiblingProject string `yaml:"siblingProject,omitempty"`
+
+	// RequiredHostname asks raioz to verify that the sibling actually
+	// publishes this hostname before treating the dep as satisfied. Only
+	// meaningful with Project or SiblingProject; ignored otherwise.
+	RequiredHostname string `yaml:"requiredHostname,omitempty"`
 }
 
-// YAMLIntSlice accepts either a single int (`expose: 5432`) or a list
-// (`expose: [5432, 9090]`) so the common single-port case stays tidy.
-type YAMLIntSlice []int
-
-// UnmarshalYAML implements yaml.Unmarshaler for YAMLIntSlice.
-func (s *YAMLIntSlice) UnmarshalYAML(unmarshal func(any) error) error {
-	var single int
-	if err := unmarshal(&single); err == nil {
-		*s = []int{single}
-		return nil
-	}
-	var slice []int
-	if err := unmarshal(&slice); err != nil {
-		return err
-	}
-	*s = slice
-	return nil
-}
-
-// YAMLPublish is the polymorphic shape of `publish:`. Zero value means unset
-// (internal only). Auto=true means the user asked for automatic allocation
-// (bool form). Ports lists specific host ports requested explicitly.
-//
-// Mutually exclusive: Auto and Ports cannot both be set. The unmarshaller
-// enforces this; later code can assume at most one is populated.
-type YAMLPublish struct {
-	// Set is true when the field was present in YAML (even as `publish: false`).
-	// Distinguishes "user said internal-only" from "user didn't say anything".
-	// Mostly useful for future semantics; today both mean internal-only.
-	Set bool
-	// Auto is true when the user wrote `publish: true` — raioz picks host ports.
-	Auto bool
-	// Ports is the list of explicit host ports the user requested.
-	Ports []int
-}
-
-// UnmarshalYAML implements yaml.Unmarshaler for YAMLPublish, accepting bool,
-// int, or []int so the YAML stays readable in the common cases.
-func (p *YAMLPublish) UnmarshalYAML(unmarshal func(any) error) error {
-	p.Set = true
-
-	// bool form: publish: true / publish: false
-	var b bool
-	if err := unmarshal(&b); err == nil {
-		p.Auto = b
-		return nil
-	}
-
-	// single int form: publish: 5432
-	var single int
-	if err := unmarshal(&single); err == nil {
-		p.Ports = []int{single}
-		return nil
-	}
-
-	// list form: publish: [5432, 9090]
-	var slice []int
-	if err := unmarshal(&slice); err == nil {
-		p.Ports = slice
-		return nil
-	}
-
-	return nil
-}
-
-// YAMLDevConfig allows a dependency to specify a local path for development override.
-type YAMLDevConfig struct {
-	Path string `yaml:"path"`
-}
-
-// RoutingConfig defines proxy routing behavior for a service.
-type RoutingConfig struct {
-	WS     bool `yaml:"ws,omitempty" json:"ws,omitempty"`
-	Stream bool `yaml:"stream,omitempty" json:"stream,omitempty"`
-	GRPC   bool `yaml:"grpc,omitempty" json:"grpc,omitempty"`
-	Tunnel bool `yaml:"tunnel,omitempty" json:"tunnel,omitempty"`
-}
-
-// YAMLWatch can be a bool (true/false) or a string ("native").
-type YAMLWatch struct {
-	Enabled bool
-	Mode    string // "" (raioz watches), "native" (service has its own hot-reload)
-}
-
-// UnmarshalYAML implements yaml.Unmarshaler for YAMLWatch.
-func (w *YAMLWatch) UnmarshalYAML(unmarshal func(any) error) error {
-	var b bool
-	if err := unmarshal(&b); err == nil {
-		w.Enabled = b
-		w.Mode = ""
-		return nil
-	}
-
-	var s string
-	if err := unmarshal(&s); err == nil {
-		w.Enabled = true
-		w.Mode = s
-		return nil
-	}
-
-	return nil
-}
-
-// YAMLStringSlice is a helper type that allows a YAML field to be either a single string or a list.
-type YAMLStringSlice []string
-
-// UnmarshalYAML implements yaml.Unmarshaler for YAMLStringSlice.
-func (s *YAMLStringSlice) UnmarshalYAML(unmarshal func(any) error) error {
-	var single string
-	if err := unmarshal(&single); err == nil {
-		*s = []string{single}
-		return nil
-	}
-
-	var slice []string
-	if err := unmarshal(&slice); err != nil {
-		return err
-	}
-	*s = slice
-	return nil
-}
-
-// YAMLStringOrSlice is a helper that allows pre/post hooks to be a single string or a list of commands.
-type YAMLStringOrSlice []string
-
-// UnmarshalYAML implements yaml.Unmarshaler for YAMLStringOrSlice.
-func (s *YAMLStringOrSlice) UnmarshalYAML(unmarshal func(any) error) error {
-	var single string
-	if err := unmarshal(&single); err == nil {
-		*s = []string{single}
-		return nil
-	}
-
-	var slice []string
-	if err := unmarshal(&slice); err != nil {
-		return err
-	}
-	*s = slice
-	return nil
-}

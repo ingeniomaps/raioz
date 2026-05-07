@@ -228,6 +228,26 @@ type Infra struct {
 	// reachable through Hostname (or the entry name when Hostname is
 	// empty).
 	HostnameAliases []string `json:"hostnameAliases,omitempty"`
+
+	// Project is the path to a sibling raioz project that owns this dep
+	// (mode A of issue #26). When set, raioz brings the sibling up via
+	// recursive `raioz up` in its cwd if it's not already running, and
+	// never touches it on `raioz down`. Empty means "this is a normal
+	// image/compose dep".
+	//
+	// Resolved to an absolute path by yaml_loader.go::resolveYAMLPaths
+	// before the bridge runs.
+	Project string `json:"project,omitempty"`
+
+	// SiblingProject is the mode-B fallback marker (issue #26): when set
+	// alongside Image/Compose, raioz skips the image-based dispatch only
+	// when the sibling project is currently active; otherwise the image
+	// is started normally. Mutually exclusive with Project.
+	SiblingProject string `json:"siblingProject,omitempty"`
+
+	// RequiredHostname is the optional hostname assertion when Project
+	// or SiblingProject is set. Empty means "no validation".
+	RequiredHostname string `json:"requiredHostname,omitempty"`
 }
 
 // ServiceProxyOverride tells the proxy exactly where to reverse_proxy for a

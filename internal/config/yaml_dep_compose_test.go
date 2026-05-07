@@ -47,8 +47,8 @@ func TestYAMLToDeps_DepMustHaveImageOrCompose(t *testing.T) {
 		},
 	}
 	_, err := YAMLToDeps(cfg)
-	if err == nil || !strings.Contains(err.Error(), "must declare either") {
-		t.Errorf("expected 'must declare either' error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "must declare one of") {
+		t.Errorf("expected 'must declare one of' error, got %v", err)
 	}
 }
 
