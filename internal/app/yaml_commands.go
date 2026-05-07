@@ -214,13 +214,37 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 }
 
 // RestartYAML restarts services in a YAML orchestrated project.
-func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) error {
+//
+// For each service the runtime is detected before invoking docker:
+//   - Host services (declared with `command:` or `commands:`) are stopped
+//     via custom stop command + PID kill, then re-launched through the
+//     HostRunner — same path the up flow uses, including the settle window.
+//   - Docker services delegate to `docker restart <container>` against the
+//     container name resolved from naming.Container. Same legacy behavior
+//     as before for everything that lives in a container.
+//
+// Issue 013. Without this branching, restart of a host service hit
+// `docker restart raioz-<project>-<svc>` and failed with "No such
+// container", which surprised everyone who declared a `command:` and
+// expected restart to "just work".
+func (uc *RestartUseCase) RestartYAML(
+	ctx context.Context, proj *YAMLProject, services []string,
+) error {
 	if len(services) == 0 {
 		output.PrintWarning("No services specified. Use service names or --all")
 		return nil
 	}
 
 	for _, name := range services {
+		if isYAMLHostService(proj, name) {
+			if err := uc.restartHostService(ctx, proj, name); err != nil {
+				output.PrintProgressError(name + ": " + err.Error())
+			} else {
+				output.PrintProgressDone(name)
+			}
+			continue
+		}
+
 		containerName := naming.Container(proj.ProjectName, name)
 		output.PrintProgress("Restarting " + name + "...")
 		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
@@ -231,6 +255,21 @@ func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) erro
 		}
 	}
 	return nil
+}
+
+// isYAMLHostService reports whether the named entry in a YAML project runs
+// as a host process — i.e. has a `command:` or `commands:` block, no Docker.
+// Used to pick the right restart path. Returns false for unknown names so
+// the docker fallback can produce its own (admittedly ugly) error.
+func isYAMLHostService(proj *YAMLProject, name string) bool {
+	svc, ok := proj.Deps.Services[name]
+	if !ok {
+		return false
+	}
+	if svc.Docker != nil {
+		return false
+	}
+	return svc.Source.Command != "" || svc.Commands != nil
 }
 
 // ExecYAML runs a command in a container of a YAML orchestrated project.

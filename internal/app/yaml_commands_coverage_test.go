@@ -187,7 +187,7 @@ func TestRestartYAML_WithServices(t *testing.T) {
 		Deps:        &config.Deps{},
 	}
 	// Docker won't be running but the function should not panic
-	err := RestartYAML(context.Background(), proj, []string{"api"})
+	err := (&RestartUseCase{}).RestartYAML(context.Background(), proj, []string{"api"})
 	// Will fail because Docker is not available, but we exercise the code path
 	_ = err
 }

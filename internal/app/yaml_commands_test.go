@@ -80,7 +80,7 @@ func TestRestartYAML_Empty(t *testing.T) {
 		ProjectName: "test",
 		Deps:        &config.Deps{},
 	}
-	if err := RestartYAML(context.Background(), proj, nil); err != nil {
+	if err := (&RestartUseCase{}).RestartYAML(context.Background(), proj, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

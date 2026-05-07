@@ -207,6 +207,13 @@ func StartService(
 	cmd.Stdout = stdoutFile
 	cmd.Stderr = stderrFile
 
+	// Put the child in its own process group so KillProcessTree (used by
+	// restart, down, and tests) can reach grandchildren via Kill(-pid).
+	// Without this the orchestrator's host_runner path got it (it sets it
+	// inline) but this code path didn't, so restart of a host service
+	// silently couldn't kill the previous incarnation. Issue 013.
+	SetNewProcessGroup(cmd)
+
 	// Start process in background (not Run, because we want it to run continuously)
 	if err := cmd.Start(); err != nil {
 		stdoutFile.Close()
