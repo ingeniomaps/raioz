@@ -41,7 +41,7 @@ func TestStatusUseCase_StatusYAML_Basic(t *testing.T) {
 	}
 	// This will fail to reach docker containers (no Docker running), but
 	// should not panic. ContainerStatus/ContainerStats will return defaults.
-	err := uc.StatusYAML(context.Background(), proj)
+	err := uc.StatusYAML(context.Background(), proj, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestStatusUseCase_StatusYAML_WithProxy(t *testing.T) {
 			Infra:    map[string]config.InfraEntry{},
 		},
 	}
-	err := uc.StatusYAML(context.Background(), proj)
+	err := uc.StatusYAML(context.Background(), proj, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestStatusUseCase_StatusYAML_DevOverride(t *testing.T) {
 			Infra: map[string]config.InfraEntry{},
 		},
 	}
-	err := uc.StatusYAML(context.Background(), proj)
+	err := uc.StatusYAML(context.Background(), proj, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

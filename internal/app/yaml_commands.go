@@ -18,15 +18,26 @@ import (
 	"raioz/internal/state"
 )
 
-// StatusYAML shows status for a YAML orchestrated project.
-func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) error {
+// StatusYAML shows status for a YAML orchestrated project. When `filter` is
+// non-empty, only services / dependencies in that list are reported and any
+// unknown name returns an error so the user notices the typo (issue 014).
+func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filter []string) error {
+	if err := validateStatusFilter(proj, filter); err != nil {
+		return err
+	}
+	want := filterSet(filter)
+
 	fmt.Println()
 	output.PrintSectionHeader(proj.ProjectName)
 
 	// Dependencies
-	if len(proj.Deps.Infra) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", len(proj.Deps.Infra)))
+	visibleInfra := countMatching(proj.Deps.Infra, want)
+	if visibleInfra > 0 {
+		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", visibleInfra))
 		for name, entry := range proj.Deps.Infra {
+			if !inFilter(want, name) {
+				continue
+			}
 			status := proj.ContainerStatus(ctx, name)
 			cpu, mem := proj.ContainerStats(ctx, name)
 			image := ""
@@ -41,13 +52,17 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 	}
 
 	// Services
-	if len(proj.Deps.Services) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Services (%d)", len(proj.Deps.Services)))
+	visibleSvc := countMatchingSvc(proj.Deps.Services, want)
+	if visibleSvc > 0 {
+		output.PrintSubsection(fmt.Sprintf("Services (%d)", visibleSvc))
 
 		projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
 		localState, _ := state.LoadLocalState(projectDir)
 
 		for name, svc := range proj.Deps.Services {
+			if !inFilter(want, name) {
+				continue
+			}
 			// Honor yaml overrides (command:, compose:) before scanning disk.
 			result := config.ResolveServiceDetection(svc, svc.Source.Path)
 			runtime := string(result.Runtime)

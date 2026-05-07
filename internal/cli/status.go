@@ -14,10 +14,13 @@ var (
 )
 
 var statusCmd = &cobra.Command{
-	Use:          "status",
-	Short:        "Show project status",
-	SilenceUsage: true, // Don't show usage/help on execution errors
-	Long:         "Show detailed status information for all services.",
+	Use:   "status [service...]",
+	Short: "Show project status",
+	Long: "Show detailed status information for services. Pass service / " +
+		"dependency names to filter the report; without args, everything is " +
+		"shown.",
+	Args:         cobra.ArbitraryArgs,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Recover from panics in critical operation. RecoverPanic logs the
 		// panic internally; we discard the returned error because cobra
@@ -45,6 +48,7 @@ var statusCmd = &cobra.Command{
 			ProjectName: projectName,
 			ConfigPath:  configPath,
 			JSON:        statusJSON,
+			Services:    args,
 		})
 	},
 }
