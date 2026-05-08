@@ -70,7 +70,7 @@ func (uc *DownUseCase) downSelectiveServices(
 		case "service":
 			stopSelectiveService(ctx, deps, projectDir, projectName, t.name, localState)
 		case "dep":
-			stopSelectiveDep(ctx, deps, projectName, t.name)
+			stopSelectiveDep(ctx, deps, projectName, t.name, localState)
 		}
 	}
 
@@ -133,13 +133,40 @@ func stopSelectiveService(
 // reusing the same scope ImageRunner used. Skips when the dep is shared
 // across the workspace AND another project still uses it — same rule as
 // the bulk teardown path.
+//
+// Sibling-mode deps (issue #26) are also skipped: mode A always (the
+// sibling raioz project owns the lifecycle), mode B only when this dep
+// was deferred at up time per LocalState. In both cases we never
+// created a container locally, so there's nothing to tear down — and
+// silently running `compose down` on a non-existent project would
+// falsely report success.
 func stopSelectiveDep(
 	ctx context.Context,
 	deps *config.Deps,
 	projectName, name string,
+	localState *state.LocalState,
 ) {
 	entry, ok := deps.Infra[name]
 	if !ok {
+		return
+	}
+
+	// Mode A: project: ../sibling — sibling is the runtime.
+	if entry.Inline != nil && entry.Inline.Project != "" {
+		output.PrintInfo(fmt.Sprintf(
+			"%s: sibling-owned (project: %s) — leaving it up. "+
+				"Run `cd %s && raioz down` to stop it from its own project.",
+			name, entry.Inline.Project, entry.Inline.Project,
+		))
+		return
+	}
+	// Mode B deferred: image+siblingProject and last `up` deferred
+	// because the sibling was active. The local image was never started.
+	if localState != nil && localState.IsDeferred(name) {
+		output.PrintInfo(fmt.Sprintf(
+			"%s: deferred to sibling at up time — nothing to tear down here",
+			name,
+		))
 		return
 	}
 
