@@ -1,15 +1,45 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 )
+
+// mergeOnlyArgs is the symmetry shim that lets `raioz up api` behave
+// identically to `raioz down api` / `raioz restart api`. The function
+// itself is trivial; pinning the union+dedup behavior here protects the
+// CLI contract against accidental regressions.
+func TestMergeOnlyArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		flag []string
+		want string
+	}{
+		{"both empty", nil, nil, ""},
+		{"args only", []string{"api"}, nil, "api"},
+		{"flag only", nil, []string{"web"}, "web"},
+		{"args first, flag later", []string{"api"}, []string{"web"}, "api,web"},
+		{"dedup across both", []string{"api", "web"}, []string{"web"}, "api,web"},
+		{"dedup within args", []string{"api", "api"}, nil, "api"},
+		{"empty strings dropped", []string{"", "api"}, []string{"", "web"}, "api,web"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := strings.Join(mergeOnlyArgs(tt.args, tt.flag), ",")
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestUpCmd(t *testing.T) {
 	if upCmd == nil {
 		t.Fatal("upCmd should be initialized")
 	}
-	if upCmd.Use != "up" {
-		t.Errorf("Use = %s, want up", upCmd.Use)
+	if upCmd.Use != "up [service...]" {
+		t.Errorf("Use = %s, want up [service...]", upCmd.Use)
 	}
 	if upCmd.Short == "" {
 		t.Error("Short should not be empty")

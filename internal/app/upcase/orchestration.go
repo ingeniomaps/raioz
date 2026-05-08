@@ -27,8 +27,15 @@ func (uc *UseCase) processOrchestration(
 	projectDir string,
 	configPath string,
 ) (*orchestrationResult, error) {
-	// Step 0: Kill stale host processes from previous run
-	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name)
+	// Step 0: Kill stale host processes from previous run, restricted to
+	// the services this `up` touches. For a full up, deps.Services holds
+	// everything declared; for selective up (`--only` or positional args)
+	// it holds only the chosen subset so untouched services keep running.
+	scope := make(map[string]struct{}, len(deps.Services))
+	for name := range deps.Services {
+		scope[name] = struct{}{}
+	}
+	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name, scope)
 
 	// Step 1: Detect runtimes
 	output.PrintProgress(i18n.T("up.detecting_runtimes"))

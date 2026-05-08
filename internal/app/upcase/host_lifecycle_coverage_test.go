@@ -1,6 +1,7 @@
 package upcase
 
 import (
+	"context"
 	"testing"
 
 	"raioz/internal/state"
@@ -79,7 +80,7 @@ func TestCleanStaleHostProcessesWithHighPID(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Dead PID → should just skip, no crash
-	cleanStaleHostProcesses(nil, dir, "p")
+	cleanStaleHostProcesses(context.Background(), dir, "p", map[string]struct{}{"svc": {}})
 }
 
 // --- isProcessAlive with PID 0 -----------------------------------------------

@@ -306,8 +306,9 @@ func TestStopHostServicesContinuesOnError(t *testing.T) {
 func TestCleanStaleHostProcessesNoState(t *testing.T) {
 	// Empty tempdir → no .raioz.state.json
 	dir := t.TempDir()
+	scope := map[string]struct{}{"svc": {}}
 	// Should not panic
-	cleanStaleHostProcesses(context.Background(), dir, "proj")
+	cleanStaleHostProcesses(context.Background(), dir, "proj", scope)
 }
 
 func TestCleanStaleHostProcessesEmpty(t *testing.T) {
@@ -317,7 +318,8 @@ func TestCleanStaleHostProcessesEmpty(t *testing.T) {
 	if err := state.SaveLocalState(dir, ls); err != nil {
 		t.Fatal(err)
 	}
-	cleanStaleHostProcesses(context.Background(), dir, "p")
+	scope := map[string]struct{}{"svc": {}}
+	cleanStaleHostProcesses(context.Background(), dir, "p", scope)
 }
 
 func TestCleanStaleHostProcessesDeadPID(t *testing.T) {
@@ -329,8 +331,38 @@ func TestCleanStaleHostProcessesDeadPID(t *testing.T) {
 	if err := state.SaveLocalState(dir, ls); err != nil {
 		t.Fatal(err)
 	}
+	scope := map[string]struct{}{"svc": {}}
 	// Should silently skip dead PIDs
-	cleanStaleHostProcesses(context.Background(), dir, "p")
+	cleanStaleHostProcesses(context.Background(), dir, "p", scope)
+}
+
+// Out-of-scope PIDs survive cleanStaleHostProcesses — selective up must
+// not stomp on running services it isn't touching.
+func TestCleanStaleHostProcessesPreservesOutOfScopePIDs(t *testing.T) {
+	dir := t.TempDir()
+	ls := &state.LocalState{
+		Project: "p",
+		HostPIDs: map[string]int{
+			"api": 999999991, // dead PID
+			"web": 999999992, // dead PID, out of scope
+		},
+	}
+	if err := state.SaveLocalState(dir, ls); err != nil {
+		t.Fatal(err)
+	}
+	scope := map[string]struct{}{"api": {}}
+	cleanStaleHostProcesses(context.Background(), dir, "p", scope)
+
+	loaded, err := state.LoadLocalState(dir)
+	if err != nil {
+		t.Fatalf("reload state: %v", err)
+	}
+	if _, ok := loaded.HostPIDs["api"]; ok {
+		t.Errorf("in-scope PID should have been cleared, state=%v", loaded.HostPIDs)
+	}
+	if _, ok := loaded.HostPIDs["web"]; !ok {
+		t.Errorf("out-of-scope PID must survive, state=%v", loaded.HostPIDs)
+	}
 }
 
 // --- saveHostPIDs -------------------------------------------------------------

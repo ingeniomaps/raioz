@@ -11,9 +11,24 @@ import (
 	"raioz/internal/state"
 )
 
-// cleanStaleHostProcesses kills host processes left over from a previous run.
-// Reads PIDs from .raioz.state.json, checks if they're alive, and kills them.
-func cleanStaleHostProcesses(ctx context.Context, projectDir, projectName string) {
+// cleanStaleHostProcesses kills host processes left over from a previous
+// run. Reads PIDs from .raioz.state.json, checks if they're alive, and
+// kills them.
+//
+// `inScope` restricts the sweep to services the current `up` actually
+// touches. Pass deps.Services keys: for a full up that's every service;
+// for a selective `up --only api` (or `up api`) it's just the chosen
+// subset, so a healthy `web` running from a previous up survives the
+// invocation. nil/empty scope is a safety check that disables the sweep
+// rather than silently nuking everything.
+func cleanStaleHostProcesses(
+	ctx context.Context,
+	projectDir, projectName string,
+	inScope map[string]struct{},
+) {
+	if len(inScope) == 0 {
+		return
+	}
 	localState, err := state.LoadLocalState(projectDir)
 	if err != nil || localState == nil {
 		return
@@ -24,6 +39,9 @@ func cleanStaleHostProcesses(ctx context.Context, projectDir, projectName string
 	}
 
 	for name, pid := range localState.HostPIDs {
+		if _, ok := inScope[name]; !ok {
+			continue
+		}
 		if pid <= 0 {
 			continue
 		}
@@ -35,9 +53,13 @@ func cleanStaleHostProcesses(ctx context.Context, projectDir, projectName string
 		killProcessGraceful(pid)
 	}
 
-	// Clear PIDs from state. Best-effort: if persist fails, next run's
-	// isProcessAlive check already handles stale entries defensively.
-	localState.HostPIDs = make(map[string]int)
+	// Clear only the in-scope PIDs from state. Out-of-scope entries
+	// (services this up isn't touching) are left intact so a parallel
+	// `up --only` doesn't strand them. Best-effort: if persist fails,
+	// next run's isProcessAlive check handles stale entries defensively.
+	for name := range inScope {
+		delete(localState.HostPIDs, name)
+	}
 	_ = state.SaveLocalState(projectDir, localState)
 }
 
@@ -73,7 +95,15 @@ func saveHostPIDs(
 
 	localState.DeferredToSibling = deferredDeps
 
-	localState.HostPIDs = make(map[string]int)
+	// Merge in-scope host PIDs into the existing map instead of wiping.
+	// Selective ups (`raioz up api`) only carry the chosen services in
+	// serviceNames; wiping would orphan PIDs of services brought up by a
+	// prior full `up` and leave a subsequent full `down` with no way to
+	// kill them. cleanStaleHostProcesses already removed in-scope entries
+	// before this point, so we're filling them back in with fresh PIDs.
+	if localState.HostPIDs == nil {
+		localState.HostPIDs = make(map[string]int)
+	}
 	if dispatcher != nil {
 		for _, name := range serviceNames {
 			det, ok := detections[name]
