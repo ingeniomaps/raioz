@@ -30,8 +30,9 @@ func TestReadSiblingStack_Populated(t *testing.T) {
 
 func TestPushSiblingStack_AppendsToExisting(t *testing.T) {
 	t.Setenv(siblingStackEnv, "/a")
-	got := pushSiblingStack("/b")
-	want := siblingStackEnv + "=/a" + string(os.PathListSeparator) + "/b"
+	got := pushSiblingStack("/b", "/c")
+	sep := string(os.PathListSeparator)
+	want := siblingStackEnv + "=/a" + sep + "/b" + sep + "/c"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -39,9 +40,10 @@ func TestPushSiblingStack_AppendsToExisting(t *testing.T) {
 
 func TestPushSiblingStack_FirstEntry(t *testing.T) {
 	t.Setenv(siblingStackEnv, "")
-	got := pushSiblingStack("/root")
-	if got != siblingStackEnv+"=/root" {
-		t.Errorf("got %q, want %s=/root", got, siblingStackEnv)
+	got := pushSiblingStack("/parent", "/child")
+	want := siblingStackEnv + "=/parent" + string(os.PathListSeparator) + "/child"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

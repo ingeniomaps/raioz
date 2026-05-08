@@ -34,10 +34,14 @@ func readSiblingStack() []string {
 }
 
 // pushSiblingStack returns the env-var line to attach to a spawned
-// child raioz, with consumerDir appended to whatever the current
-// invocation inherited.
-func pushSiblingStack(consumerDir string) string {
-	cur := append(readSiblingStack(), consumerDir)
+// child raioz, appending the consumer's project dir AND the sibling
+// target dir to whatever the current invocation inherited. Pushing
+// both keeps the chain self-describing inside the child: when the
+// child runs its own cycle check, the error message can render the
+// full path (parent → … → child → target) instead of an ambiguous
+// pair.
+func pushSiblingStack(consumerDir, siblingDir string) string {
+	cur := append(readSiblingStack(), consumerDir, siblingDir)
 	return siblingStackEnv + "=" + strings.Join(cur, string(os.PathListSeparator))
 }
 
@@ -91,7 +95,7 @@ func spawnSibling(
 
 	cmd := exec.CommandContext(ctx, bin, "up")
 	cmd.Dir = sib.Dir
-	cmd.Env = append(os.Environ(), pushSiblingStack(consumerDir))
+	cmd.Env = append(os.Environ(), pushSiblingStack(consumerDir, sib.Dir))
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
