@@ -16,18 +16,20 @@ func validateInfra(deps *config.Deps) error {
 			continue
 		}
 		infra := *entry.Inline
-		// Either `image:` or `compose:` is required. `compose:` points at
-		// user-supplied docker-compose fragment(s); in that mode raioz does
-		// NOT need an image field because the user's compose declares the
-		// image itself. Image-only mode keeps the legacy error message so
-		// users migrating from early raioz.yaml see the familiar hint.
-		if infra.Image == "" && len(infra.Compose) == 0 {
+		// One of `image:`, `compose:`, or `project:` is required.
+		// `compose:` points at user-supplied docker-compose fragment(s);
+		// in that mode raioz does NOT need an image field because the
+		// user's compose declares the image itself. `project:` (issue
+		// #26 mode A) makes a sibling raioz project the runtime — no
+		// local image at all.
+		if infra.Image == "" && len(infra.Compose) == 0 && infra.Project == "" {
 			return errors.New(
 				errors.ErrCodeMissingField,
-				fmt.Sprintf("Infra '%s': must declare either 'image:' or 'compose:'", name),
+				fmt.Sprintf("Infra '%s': must declare 'image:', 'compose:', or 'project:'", name),
 			).WithSuggestion(
-				fmt.Sprintf("Add an 'image:' (e.g. postgres:15) or 'compose:' "+
-					"pointing to a docker-compose fragment for infra '%s'.", name),
+				fmt.Sprintf("Add 'image:' (e.g. postgres:15), 'compose:' pointing to a "+
+					"docker-compose fragment, or 'project:' pointing to a sibling raioz "+
+					"project's directory for infra '%s'.", name),
 			).WithContext("infra_name", name)
 		}
 		// Validate profiles (lowercase letters, digits, hyphens only)
@@ -84,15 +86,17 @@ func validateInfra(deps *config.Deps) error {
 			).WithContext("infra_name", name).WithContext("container_name", containerName).WithError(err)
 		}
 
-		// Compose-mode deps don't need `image:` — the user's compose file
-		// declares it. Only require image when neither is present.
-		if entry.Inline.Image == "" && len(entry.Inline.Compose) == 0 {
+		// Compose-mode deps don't need `image:` — the user's compose
+		// file declares it. Sibling-project deps (issue #26 mode A)
+		// don't need either; the sibling raioz.yaml is the runtime.
+		if entry.Inline.Image == "" && len(entry.Inline.Compose) == 0 && entry.Inline.Project == "" {
 			return errors.New(
 				errors.ErrCodeMissingField,
-				fmt.Sprintf("Infrastructure '%s': must declare either 'image:' or 'compose:'", name),
+				fmt.Sprintf("Infrastructure '%s': must declare 'image:', 'compose:', or 'project:'", name),
 			).WithSuggestion(
-				"Use 'image:' for a simple image (e.g. postgres:15) or 'compose:' "+
-					"with the path to an existing docker-compose fragment.",
+				"Use 'image:' for a simple image (e.g. postgres:15), 'compose:' "+
+					"with the path to a docker-compose fragment, or 'project:' "+
+					"pointing to a sibling raioz project's directory.",
 			).WithContext("infra_name", name)
 		}
 	}
