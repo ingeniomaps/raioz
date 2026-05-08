@@ -275,4 +275,3 @@ type YAMLDependency struct {
 	// meaningful with Project or SiblingProject; ignored otherwise.
 	RequiredHostname string `yaml:"requiredHostname,omitempty"`
 }
-
