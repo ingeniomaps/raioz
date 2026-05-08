@@ -190,6 +190,12 @@ func allocExplicitDeps(
 		if entry.Inline == nil || entry.Inline.Publish == nil {
 			continue
 		}
+		// Mode A sibling deps (issue #26) have no local container, so
+		// any host port we'd reserve here would never get bound.
+		// Skipping also frees the port for a regular dep that wants it.
+		if entry.Inline.Project != "" {
+			continue
+		}
 		pub := entry.Inline.Publish
 		if pub.Auto || len(pub.Ports) == 0 {
 			continue
@@ -260,6 +266,10 @@ func allocAutoDeps(
 	for _, name := range depNames {
 		entry := deps.Infra[name]
 		if entry.Inline == nil || entry.Inline.Publish == nil {
+			continue
+		}
+		// Mode A sibling deps own no local container — see allocExplicitDeps.
+		if entry.Inline.Project != "" {
 			continue
 		}
 		if !entry.Inline.Publish.Auto {
