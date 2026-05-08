@@ -102,9 +102,15 @@ func stopSelectiveService(
 		return
 	}
 
+	customStopOK := false
 	if svc.Commands != nil && svc.Commands.Down != "" {
-		runStopCommand(ctx, name, svc.Commands.Down, projectDir, svc.Source.Path)
-	} else if localState != nil {
+		customStopOK = runStopCommand(ctx, name, svc.Commands.Down, projectDir, svc.Source.Path)
+	}
+	// Fall back to PID kill when the custom command never ran OR ran but
+	// failed (non-zero exit, missing binary, etc.). The previous version
+	// logged "falling back to PID kill" without actually doing it, leaving
+	// the service alive after a failed stop:.
+	if !customStopOK && localState != nil {
 		if pid, ok := localState.HostPIDs[name]; ok && pid > 0 {
 			killProcessGroup(pid)
 			logging.InfoWithContext(ctx, "Stopped host process",
@@ -218,16 +224,17 @@ func stopSelectiveDep(
 	output.PrintSuccess(name)
 }
 
-// runStopCommand executes the user-declared `stop:` for a service. It
-// mirrors the executeProjectDownCommand flow but stays self-contained so
-// the selective path doesn't drag in the whole project teardown.
+// runStopCommand executes the user-declared `stop:` for a service.
+// Returns true when the command succeeded; the caller uses the bool to
+// decide whether the PID-kill fallback needs to fire. An empty command
+// returns false so the caller treats it as "stop didn't actually run".
 func runStopCommand(
 	ctx context.Context,
 	serviceName, command, projectDir, servicePath string,
-) {
+) bool {
 	parts := strings.Fields(command)
 	if len(parts) == 0 {
-		return
+		return false
 	}
 	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 	defer cancel()
@@ -241,14 +248,17 @@ func runStopCommand(
 		}
 		cmd.Dir = abs
 	}
-	if out, err := cmd.CombinedOutput(); err != nil {
+	out, err := cmd.CombinedOutput()
+	if err != nil {
 		logging.WarnWithContext(ctx,
 			"Custom stop command failed; falling back to PID kill",
 			"service", serviceName, "command", command,
 			"error", err.Error(),
 			"output", strings.TrimSpace(string(out)),
 		)
+		return false
 	}
+	return true
 }
 
 // hasService / hasInfra / serviceNames / declaredInfraNames are tiny presence

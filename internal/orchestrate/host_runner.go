@@ -12,6 +12,7 @@ import (
 	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/output"
 )
 
 // HostRunner handles services that run directly on the host (npm, go, make, python, rust).
@@ -95,6 +96,23 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				// 010 shape — `make dev-docker`, `./up.sh`). Continue;
 				// the proxy.target / Status priority-0 logic in
 				// status_host.go owns observability from here on.
+				//
+				// When the user has NOT declared `stop:`, raioz won't
+				// be able to tear down whatever the launcher started —
+				// the captured PID is already dead and we have no
+				// label-based handle on the launched processes /
+				// containers. Warn loudly so `raioz down` doesn't
+				// silently leak resources.
+				if svc.StopCommand == "" {
+					output.PrintWarning(fmt.Sprintf(
+						"Service '%s' exited 0 within the settle window — likely a "+
+							"launcher that detached a container or daemon. Without "+
+							"`stop:` declared, `raioz down` cannot clean up. Add a "+
+							"`stop:` command (e.g. `make stop`) to raioz.yaml.",
+						svc.Name))
+					logging.WarnWithContext(ctx, "Launcher pattern without stop: declared",
+						"service", svc.Name, "command", command)
+				}
 				break
 			}
 			logFile.Close()
