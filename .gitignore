@@ -19,6 +19,13 @@ coverage.html
 # State
 .raioz.state.json
 
+# Local bug/plan workspace — only `last-issue` is shared so the next
+# correlative number survives across machines. Everything else here
+# (NNN-*.md, PLAN-*.md) is ephemeral: drafted locally, published as a
+# GitHub issue, then deleted when the bug is fixed.
+docs/issues/*
+!docs/issues/last-issue
+
 # OS
 .DS_Store
 Thumbs.db
