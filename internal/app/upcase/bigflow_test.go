@@ -317,7 +317,7 @@ func TestPrepareDockerResourcesSuccess(t *testing.T) {
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(
-				ctx context.Context, name, subnet string, ask bool,
+				ctx context.Context, name, subnet string, _ map[string]string, ask bool,
 			) error {
 				return nil
 			},
@@ -433,7 +433,7 @@ func TestPrepareDockerResourcesNetworkFails(t *testing.T) {
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(
-				ctx context.Context, name, subnet string, ask bool,
+				ctx context.Context, name, subnet string, _ map[string]string, ask bool,
 			) error {
 				return errors.New("network failed")
 			},

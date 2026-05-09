@@ -154,6 +154,23 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		}
 	}
 
+	// Sweep raioz-labeled networks that survived the named-network removal.
+	// This catches networks raioz spawned beyond the project's main one
+	// (e.g. compose-generated default networks for dep stacks that didn't
+	// match the orchestrator's expected name). Pre-label era networks
+	// won't match — they need one manual cleanup, after which every new
+	// `up` stamps labels and every down sweeps cleanly.
+	sweepLabels := map[string]string{naming.LabelManaged: "true"}
+	if deps.Workspace != "" {
+		sweepLabels[naming.LabelWorkspace] = deps.Workspace
+	}
+	sweepLabels[naming.LabelProject] = projectName
+	if removed, err := docker.RemoveLabeledNetworks(ctx, sweepLabels); err != nil {
+		logging.WarnWithContext(ctx, "Labeled-network sweep failed", "error", err.Error())
+	} else if len(removed) > 0 {
+		logging.InfoWithContext(ctx, "Labeled networks removed", "names", removed)
+	}
+
 	output.PrintSuccess("Project '" + projectName + "' stopped")
 	return nil
 }

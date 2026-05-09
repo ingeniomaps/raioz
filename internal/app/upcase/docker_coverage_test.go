@@ -26,7 +26,7 @@ func TestPrepareDockerResourcesWithVolumes(t *testing.T) {
 				return nil, nil
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
-			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, ask bool) error {
+			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
 			ExtractNamedVolumesFunc: func(v []string) ([]string, error) {
@@ -86,7 +86,7 @@ func TestPrepareDockerResourcesVolumeExtractError(t *testing.T) {
 				return nil, nil
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
-			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, ask bool) error {
+			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
 			ExtractNamedVolumesFunc: func(v []string) ([]string, error) {
@@ -122,7 +122,7 @@ func TestPrepareDockerResourcesVolumeNormalizeError(t *testing.T) {
 				return nil, nil
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
-			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, ask bool) error {
+			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
 			ExtractNamedVolumesFunc: func(v []string) ([]string, error) {
@@ -161,7 +161,7 @@ func TestPrepareDockerResourcesVolumeEnsureError(t *testing.T) {
 				return nil, nil
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
-			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, ask bool) error {
+			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
 			ExtractNamedVolumesFunc: func(v []string) ([]string, error) {
@@ -206,7 +206,7 @@ func TestPrepareDockerResourcesServiceVolumeExtractError(t *testing.T) {
 				return nil, nil
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
-			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, ask bool) error {
+			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
 			ExtractNamedVolumesFunc: func(v []string) ([]string, error) {
@@ -249,7 +249,7 @@ func TestPrepareDockerResourcesLegacySchema(t *testing.T) {
 				return nil, nil
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
-			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, ask bool) error {
+			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				gotAsk = ask
 				return nil
 			},
@@ -285,7 +285,7 @@ func TestPrepareDockerResourcesYAMLSchemaNoAsk(t *testing.T) {
 				return nil, nil
 			},
 			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
-			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, ask bool) error {
+			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				gotAsk = ask
 				return nil
 			},

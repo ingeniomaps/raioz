@@ -133,10 +133,11 @@ func (m *MockDockerRunner) ValidateAllImages(deps *config.Deps) error {
 }
 
 func (m *MockDockerRunner) EnsureNetworkWithConfigAndContext(
-	ctx context.Context, name string, subnet string, askConfirmation bool,
+	ctx context.Context, name string, subnet string,
+	labels map[string]string, askConfirmation bool,
 ) error {
 	if m.EnsureNetworkWithConfigAndContextFunc != nil {
-		return m.EnsureNetworkWithConfigAndContextFunc(ctx, name, subnet, askConfirmation)
+		return m.EnsureNetworkWithConfigAndContextFunc(ctx, name, subnet, labels, askConfirmation)
 	}
 	return nil
 }

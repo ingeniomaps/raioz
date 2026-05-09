@@ -6,7 +6,22 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/naming"
 )
+
+// ciNetworkLabels mirrors networkLabelsFor from upcase but lives here to
+// avoid an import cycle (app → upcase → app). Same intent: stamp managed
+// + workspace + project so down can sweep raioz-owned networks by label.
+func ciNetworkLabels(deps *config.Deps) map[string]string {
+	labels := map[string]string{naming.LabelManaged: "true"}
+	if ws := deps.GetWorkspaceName(); ws != "" {
+		labels[naming.LabelWorkspace] = ws
+	}
+	if deps.Project.Name != "" {
+		labels[naming.LabelProject] = deps.Project.Name
+	}
+	return labels
+}
 
 // validateCIPorts validates ports for CI
 func (uc *CIUseCase) validateCIPorts(
@@ -84,7 +99,9 @@ func (uc *CIUseCase) ensureCINetwork(deps *config.Deps, result *CIResult) error 
 	ctx := context.Background()
 	networkName := deps.Network.GetName()
 	subnet := deps.Network.GetSubnet()
-	if err := uc.deps.DockerRunner.EnsureNetworkWithConfigAndContext(ctx, networkName, subnet, false); err != nil {
+	if err := uc.deps.DockerRunner.EnsureNetworkWithConfigAndContext(
+		ctx, networkName, subnet, ciNetworkLabels(deps), false,
+	); err != nil {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "network",
 			Status:  "failed",

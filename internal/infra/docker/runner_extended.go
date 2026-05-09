@@ -95,13 +95,17 @@ func (r *DockerRunnerImpl) ValidateAllImages(deps *config.Deps) error {
 	return dockerpkg.ValidateAllImages(deps)
 }
 
-// EnsureNetworkWithConfigAndContext ensures a Docker network exists with optional subnet
+// EnsureNetworkWithConfigAndContext ensures a Docker network exists with
+// optional subnet and labels. Labels are stamped at create time so the down
+// path can sweep raioz-managed networks by label.
 func (r *DockerRunnerImpl) EnsureNetworkWithConfigAndContext(
-	ctx context.Context, name string, subnet string, askConfirmation bool,
+	ctx context.Context, name string, subnet string,
+	labels map[string]string, askConfirmation bool,
 ) error {
 	cfg := dockerpkg.NetworkConfig{
 		Name:   name,
 		Subnet: subnet,
+		Labels: labels,
 	}
 	return dockerpkg.EnsureNetworkWithConfigAndContext(ctx, cfg, askConfirmation)
 }

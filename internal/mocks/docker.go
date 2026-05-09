@@ -55,10 +55,13 @@ type MockDockerRunner struct {
 	) ([]interfaces.PortConflict, error)
 	FormatPortConflictsFunc               func(conflicts []interfaces.PortConflict) string
 	ValidateAllImagesFunc                 func(deps *config.Deps) error
-	EnsureNetworkWithConfigAndContextFunc func(ctx context.Context, name string, subnet string, askConfirmation bool) error
-	EnsureVolumeWithContextFunc           func(ctx context.Context, name string) error
-	NormalizeVolumeNameFunc               func(prefix string, name string) (string, error)
-	NormalizeContainerNameFunc            func(
+	EnsureNetworkWithConfigAndContextFunc func(
+		ctx context.Context, name string, subnet string,
+		labels map[string]string, askConfirmation bool,
+	) error
+	EnsureVolumeWithContextFunc func(ctx context.Context, name string) error
+	NormalizeVolumeNameFunc     func(prefix string, name string) (string, error)
+	NormalizeContainerNameFunc  func(
 		workspace string, service string, project string,
 		hasExplicitWorkspace bool,
 	) (string, error)

@@ -308,7 +308,7 @@ func TestDockerRunnerImpl_EnsureNetworkWithConfigAndContext(t *testing.T) {
 		t.Skip("docker not available")
 	}
 	r := NewDockerRunner()
-	_ = r.EnsureNetworkWithConfigAndContext(context.Background(), "raioz-test-net", "", false)
+	_ = r.EnsureNetworkWithConfigAndContext(context.Background(), "raioz-test-net", "", nil, false)
 }
 
 func TestDockerRunnerImpl_EnsureVolumeWithContext(t *testing.T) {
