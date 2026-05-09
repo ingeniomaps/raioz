@@ -58,3 +58,11 @@ func isProcessAlive(pid int) bool {
 	}
 	return strings.Contains(string(out), strconv.Itoa(pid))
 }
+
+// killOrphansByCwd is a no-op on Windows. The Linux implementation walks
+// /proc/<pid>/cwd, which doesn't exist here; replicating it via WMI or
+// NtQueryInformationProcess isn't worth the complexity while raioz's
+// primary host platforms remain Linux/macOS dev machines.
+func killOrphansByCwd(_ string) []int {
+	return nil
+}

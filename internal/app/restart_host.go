@@ -57,6 +57,11 @@ func (uc *RestartUseCase) restartHostService(
 			logging.WarnWithContext(ctx, "Failed to kill process tree",
 				"service", name, "pid", pid, "error", err.Error())
 		}
+		// Same launcher-pattern sweep as down: nx/vite/etc. daemons that
+		// detached via setsid escape KillProcessTree but stay rooted at
+		// the service's cwd. Without this, restart leaves the old daemon
+		// alive and the new launch silently reuses or competes with it.
+		sweepLauncherOrphans(ctx, proj.Deps, projectDir, name)
 	}
 
 	// Start step.

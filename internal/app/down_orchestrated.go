@@ -77,6 +77,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 				logging.InfoWithContext(ctx, "Stopping host process",
 					"service", name, "pid", pid)
 				killProcessGroup(pid)
+				sweepLauncherOrphans(ctx, deps, projectDir, name)
 			}
 		}
 		// Clear PIDs from state. If the state file has no Project name —

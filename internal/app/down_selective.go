@@ -115,6 +115,7 @@ func stopSelectiveService(
 			killProcessGroup(pid)
 			logging.InfoWithContext(ctx, "Stopped host process",
 				"service", name, "pid", pid)
+			sweepLauncherOrphans(ctx, deps, projectDir, name)
 		}
 	}
 
