@@ -68,6 +68,29 @@ func TestYAMLToDeps_DepCannotHaveBothImageAndCompose(t *testing.T) {
 	}
 }
 
+func TestYAMLToDeps_DepWithComposeHasNoSpuriousTag(t *testing.T) {
+	cfg := &RaiozConfig{
+		Project: "p",
+		Deps: map[string]YAMLDependency{
+			"db": {Compose: YAMLStringSlice{"./infra/db.yml"}},
+		},
+	}
+	deps, err := YAMLToDeps(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	inline := deps.Infra["db"].Inline
+	if inline.Image != "" {
+		t.Errorf("expected empty Image for compose-only dep, got %q",
+			inline.Image)
+	}
+	if inline.Tag != "" {
+		t.Errorf("expected empty Tag for compose-only dep, got %q "+
+			"(would surface as ':latest' in status and 'docker pull "+
+			":latest' in error suggestions)", inline.Tag)
+	}
+}
+
 func TestYAMLToDeps_ImageOnlyStillWorks(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "p",

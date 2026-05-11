@@ -313,8 +313,14 @@ func extractImage(imageRef string) string {
 	return parts[0]
 }
 
-// extractTag gets the tag from "image:tag" format, defaulting to "latest".
+// extractTag gets the tag from "image:tag" format. Returns "latest" only when
+// an image was actually supplied — defaulting on an empty string lies about
+// compose-only deps, surfacing elsewhere as ":latest" in status output and
+// "docker pull :latest" in error suggestions.
 func extractTag(imageRef string) string {
+	if imageRef == "" {
+		return ""
+	}
 	parts := strings.SplitN(imageRef, ":", 2)
 	if len(parts) > 1 {
 		return parts[1]

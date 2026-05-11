@@ -222,6 +222,36 @@ func TestDependencyStartFailed(t *testing.T) {
 	if err.Code != ErrCodeDepStartFailed {
 		t.Error("wrong code")
 	}
+	if !strings.Contains(err.Message, "(postgres:16)") {
+		t.Errorf("expected image in title, got %q", err.Message)
+	}
+	if !strings.Contains(err.Suggestion, "docker pull postgres:16") {
+		t.Errorf("expected docker pull hint, got %q", err.Suggestion)
+	}
+	if err.Context["image"] != "postgres:16" {
+		t.Errorf("expected image context, got %v", err.Context["image"])
+	}
+}
+
+func TestDependencyStartFailed_ComposeBackedHasNoImage(t *testing.T) {
+	err := DependencyStartFailed("db", "", stderrors.New("net pool collision"))
+	if err.Code != ErrCodeDepStartFailed {
+		t.Error("wrong code")
+	}
+	if strings.Contains(err.Message, "()") {
+		t.Errorf("title must not contain bare '()', got %q", err.Message)
+	}
+	if strings.Contains(err.Suggestion, "docker pull ") {
+		t.Errorf("compose-backed deps must not get 'docker pull' hint, "+
+			"got %q", err.Suggestion)
+	}
+	if !strings.Contains(err.Suggestion, "compose file") {
+		t.Errorf("expected compose-oriented suggestion, got %q",
+			err.Suggestion)
+	}
+	if _, ok := err.Context["image"]; ok {
+		t.Error("image context must be omitted when empty")
+	}
 }
 
 func TestProxyStartFailed(t *testing.T) {
