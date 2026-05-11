@@ -101,19 +101,31 @@ func (uc *DownUseCase) handlePerProjectProxyDown(ctx context.Context) {
 // project in the same workspace would inherit the previous project's routes
 // until raioz overwrote them. Workspace-shared mode targets WorkspaceProxyDir;
 // legacy per-project mode targets ProxyDir(project).
+//
+// Issue 015 migration: also nuke the pre-XDG legacy `/tmp/<ws>/proxy/`
+// location. Users upgrading from a build that wrote there inherit a stale
+// (and possibly root-owned) tree; one down/up cycle now clears it. The
+// legacy removal is best-effort because the offending tree is exactly the
+// kind that the upgrading user can't os.RemoveAll without sudo — log and
+// move on instead of failing the down.
 func cleanProxyDirOnDisk(ctx context.Context, deps *config.Deps) {
-	var dir string
+	var current, legacy string
 	if deps.Workspace != "" {
-		dir = naming.WorkspaceProxyDir()
+		current = naming.WorkspaceProxyDir()
+		legacy = naming.LegacyWorkspaceProxyDir()
 	} else {
-		dir = naming.ProxyDir(deps.Project.Name)
+		current = naming.ProxyDir(deps.Project.Name)
+		legacy = naming.LegacyProxyDir(deps.Project.Name)
 	}
-	if dir == "" {
-		return
-	}
-	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
-		logging.WarnWithContext(ctx, "Failed to remove proxy dir",
-			"dir", dir, "error", err.Error())
+
+	for _, dir := range []string{current, legacy} {
+		if dir == "" {
+			continue
+		}
+		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			logging.WarnWithContext(ctx, "Failed to remove proxy dir",
+				"dir", dir, "error", err.Error())
+		}
 	}
 }
 

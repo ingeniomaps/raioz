@@ -358,6 +358,8 @@
   "error.preflight_suggestion_detail": "Ensure Docker is installed and running, Git is installed, and you have sufficient disk space. Check the error details above for specific issues.",
   "error.proxy_mkcert_missing": "proxy is enabled with tls: mkcert, but mkcert was not found on PATH and no pre-generated certificates exist in ~/.raioz/certs/. Raioz would silently fall back to HTTP, which breaks services that enforce HTTPS (Keycloak, OIDC, HSTS).",
   "error.proxy_mkcert_missing_suggestion": "Install mkcert from https://github.com/FiloSottile/mkcert and run `mkcert -install`, then re-run `raioz up`.\n  Alternatively set `proxy.tls: letsencrypt` for a real public domain, or remove `proxy:` from raioz.yaml to skip HTTPS entirely.",
+  "error.proxy_dir_corrupted": "proxy state directory %s is not writable or has been replaced by a directory at the Caddyfile path. This is the issue 015 trap: a Caddy container with --restart unless-stopped came back after the dir was wiped (tmpfs reboot, manual cleanup) and Docker re-created the bind-mount source as root-owned. From that point every `raioz up` fails until the tree is removed.",
+  "error.proxy_dir_corrupted_suggestion": "Remove the corrupt tree and re-run `raioz up`:\n    sudo rm -rf %s\n  Recent raioz versions store proxy state under ~/.local/state/raioz/ instead of /tmp to prevent recurrence; legacy /tmp paths are cleaned automatically on the next successful `raioz down`.",
   "error.dependency_conflicts_failed": "Failed to handle dependency conflicts",
   "error.dependency_conflicts_suggestion": "Check your configuration for conflicting service definitions. Resolve conflicts manually or use dependency assist.",
   "error.dependency_conflicts_aborted": "Aborted due to dependency conflicts",

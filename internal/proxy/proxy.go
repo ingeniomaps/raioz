@@ -188,6 +188,16 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		}
 	}
 
+	// Catch the "Docker auto-created our bind-mount source as root" trap
+	// before generateCaddyfile fails with a cryptic "is a directory" or
+	// "permission denied". When the user upgraded from a pre-XDG build,
+	// or when a previous run left a corrupt tree, we want a single
+	// actionable error pointing to the exact `sudo rm -rf` command.
+	// Issue 015.
+	if err := m.assertProxyDirWritable(); err != nil {
+		return err
+	}
+
 	// Generate Caddyfile
 	caddyfilePath, err := m.generateCaddyfile()
 	if err != nil {

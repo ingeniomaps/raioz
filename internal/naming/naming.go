@@ -136,16 +136,25 @@ func DepComposePath(project, dep string) string {
 }
 
 // ProxyDir returns the proxy config directory for a project.
+//
+// Lives under XDG_STATE_HOME (default ~/.local/state/raioz/) instead of
+// /tmp on purpose: tmpfs hosts wipe /tmp on reboot, leaving Caddy
+// containers with --restart unless-stopped to re-create the bind-mount
+// source as a root-owned directory. From that moment every `raioz up`
+// fails with a cryptic "is a directory" until `sudo rm -rf` cleans the
+// trap. See issue 015. Helper LegacyProxyDir lets cleanup find the
+// pre-XDG path so the migration is automatic on next down.
 func ProxyDir(project string) string {
-	return filepath.Join(TempDir(project), "proxy")
+	return filepath.Join(stateBaseDir(), prefix+"-"+project, "proxy")
 }
 
 // WorkspaceProxyDir returns the workspace-shared proxy config directory.
-// Format: /tmp/{workspace}/proxy/. Lives outside any per-project temp tree
-// so the directory survives individual project teardowns and is the single
-// source of truth for the shared Caddyfile.
+// Format: $XDG_STATE_HOME/raioz/{workspace}/proxy/. Lives outside the
+// per-project temp tree so the directory survives individual project
+// teardowns and is the single source of truth for the shared Caddyfile.
+// See ProxyDir for why this is no longer under /tmp.
 func WorkspaceProxyDir() string {
-	return filepath.Join(os.TempDir(), prefix, "proxy")
+	return filepath.Join(stateBaseDir(), prefix, "proxy")
 }
 
 // WorkspaceCaddyfilePath returns the path to the shared Caddyfile for the
@@ -157,6 +166,39 @@ func WorkspaceCaddyfilePath() string {
 // CaddyfilePath returns the Caddyfile path for a project.
 func CaddyfilePath(project string) string {
 	return filepath.Join(ProxyDir(project), "Caddyfile")
+}
+
+// LegacyWorkspaceProxyDir returns the pre-XDG location of the shared proxy
+// dir (`/tmp/{workspace}/proxy/`). Used only by cleanup paths so an old
+// `down` writing root-owned state can still be located and removed.
+// Issue 015.
+func LegacyWorkspaceProxyDir() string {
+	return filepath.Join(os.TempDir(), prefix, "proxy")
+}
+
+// LegacyProxyDir returns the pre-XDG per-project proxy dir
+// (`/tmp/{prefix}-{project}/proxy/`). Same role as
+// LegacyWorkspaceProxyDir for legacy non-workspace mode.
+func LegacyProxyDir(project string) string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s", prefix, project), "proxy")
+}
+
+// stateBaseDir resolves the user-state base directory:
+//  1. $XDG_STATE_HOME if set (Linux convention)
+//  2. ~/.local/state otherwise (XDG default fallback)
+//  3. os.TempDir() if even the home dir can't be resolved (degraded mode)
+//
+// Falling back to TempDir is strictly worse than XDG, but it preserves the
+// pre-issue-015 behavior on systems where home discovery fails — never
+// returns an empty string.
+func stateBaseDir() string {
+	if xdg := os.Getenv("XDG_STATE_HOME"); xdg != "" {
+		return xdg
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return filepath.Join(home, ".local", "state")
+	}
+	return os.TempDir()
 }
 
 // ContainerPrefix returns the prefix used for listing/filtering containers.
