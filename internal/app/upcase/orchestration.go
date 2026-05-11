@@ -106,7 +106,13 @@ func (uc *UseCase) processOrchestration(
 	var dispatchedInfra []string
 
 	if len(infraNames) > 0 {
-		output.PrintProgress(i18n.T("up.starting_infra", len(infraNames)))
+		verdicts, toDispatch, err := resolveSiblingVerdicts(ctx, infraNames, deps)
+		if err != nil {
+			return nil, err
+		}
+		if toDispatch > 0 {
+			output.PrintProgress(i18n.T("up.starting_infra", toDispatch))
+		}
 		infraStart := time.Now()
 
 		for _, name := range infraNames {
@@ -117,12 +123,8 @@ func (uc *UseCase) processOrchestration(
 			// sibling-mode deps from `detections` (so endpoints / proxy /
 			// health auto-skip), spawns recursive raioz up for mode A,
 			// and stamps mode B defers for the matching down.
-			verdict, err := decideSibling(ctx, name, entry.Inline, deps.Workspace)
-			if err != nil {
-				return nil, err
-			}
 			skip, err := applySiblingVerdict(
-				ctx, name, verdict, projectDir, detections, &deferredDeps)
+				ctx, name, verdicts[name], projectDir, detections, &deferredDeps)
 			if err != nil {
 				return nil, err
 			}

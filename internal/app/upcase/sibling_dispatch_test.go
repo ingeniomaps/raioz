@@ -173,6 +173,80 @@ func TestDecideSibling_ModeB_SiblingMissing(t *testing.T) {
 	}
 }
 
+// --- resolveSiblingVerdicts ----------------------------------------------
+
+func TestResolveSiblingVerdicts_DispatchCountSkipsSiblingDeferred(t *testing.T) {
+	siblingDir := writeSiblingYAML(t,
+		"workspace: hypixo\nproject: keycloak\n"+
+			"services:\n  keycloak:\n    path: .\n")
+	writeFakeRuntime(t, "hypixo-keycloak\n") // sibling reported active
+
+	deps := &config.Deps{
+		Workspace: "hypixo",
+		Infra: map[string]config.InfraEntry{
+			"keycloak": {Inline: &config.Infra{
+				Image: "keycloak", Tag: "24", SiblingProject: siblingDir,
+			}},
+			"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
+			"redis":    {Inline: &config.Infra{Image: "redis", Tag: "7"}},
+		},
+	}
+	names := []string{"keycloak", "postgres", "redis"}
+
+	verdicts, toDispatch, err := resolveSiblingVerdicts(
+		context.Background(), names, deps)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if toDispatch != 2 {
+		t.Errorf("expected toDispatch=2 (postgres + redis), got %d", toDispatch)
+	}
+	if verdicts["keycloak"].Kind != siblingSkipDeferred {
+		t.Errorf("keycloak should be deferred, got %d", verdicts["keycloak"].Kind)
+	}
+	if verdicts["postgres"].Kind != siblingProceed {
+		t.Errorf("postgres should proceed, got %d", verdicts["postgres"].Kind)
+	}
+	if verdicts["redis"].Kind != siblingProceed {
+		t.Errorf("redis should proceed, got %d", verdicts["redis"].Kind)
+	}
+}
+
+func TestResolveSiblingVerdicts_AllRegular(t *testing.T) {
+	deps := &config.Deps{
+		Infra: map[string]config.InfraEntry{
+			"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
+			"redis":    {Inline: &config.Infra{Image: "redis", Tag: "7"}},
+		},
+	}
+	_, toDispatch, err := resolveSiblingVerdicts(
+		context.Background(), []string{"postgres", "redis"}, deps)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if toDispatch != 2 {
+		t.Errorf("toDispatch should equal infraNames when no siblings, got %d",
+			toDispatch)
+	}
+}
+
+func TestResolveSiblingVerdicts_PropagatesError(t *testing.T) {
+	deps := &config.Deps{
+		Workspace: "hypixo",
+		Infra: map[string]config.InfraEntry{
+			"keycloak": {Inline: &config.Infra{
+				SiblingProject: "/does/not/exist",
+				Image:          "keycloak",
+			}},
+		},
+	}
+	_, _, err := resolveSiblingVerdicts(
+		context.Background(), []string{"keycloak"}, deps)
+	if err == nil || !strings.Contains(err.Error(), "resolve sibling") {
+		t.Errorf("expected resolve-sibling error, got %v", err)
+	}
+}
+
 // --- applySiblingVerdict --------------------------------------------------
 
 func TestApplySiblingVerdict_RegularDepProceeds(t *testing.T) {

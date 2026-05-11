@@ -176,6 +176,33 @@ func decideModeB(
 	return siblingDecision{Kind: siblingProceed}, nil
 }
 
+// resolveSiblingVerdicts runs decideSibling for every infra dep up front
+// so the orchestrator knows — before printing "Starting infrastructure
+// (N)" — how many deps will actually be dispatched. Without the pre-pass,
+// N includes sibling-deferred deps that never reach a runner. As a side
+// benefit, sibling config errors (workspace mismatch, missing raioz.yaml,
+// cycles) surface before any container starts.
+func resolveSiblingVerdicts(
+	ctx context.Context,
+	infraNames []string,
+	deps *config.Deps,
+) (map[string]siblingDecision, int, error) {
+	verdicts := make(map[string]siblingDecision, len(infraNames))
+	toDispatch := 0
+	for _, name := range infraNames {
+		v, err := decideSibling(
+			ctx, name, deps.Infra[name].Inline, deps.Workspace)
+		if err != nil {
+			return nil, 0, err
+		}
+		verdicts[name] = v
+		if v.Kind == siblingProceed {
+			toDispatch++
+		}
+	}
+	return verdicts, toDispatch, nil
+}
+
 // applySiblingVerdict performs the side effects implied by a verdict:
 // removes the dep from `detections` (sibling-mode deps have no
 // container in this project's namespace, so downstream consumers like
