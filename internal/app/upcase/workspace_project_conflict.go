@@ -139,10 +139,8 @@ func mergeVariables(oldV, newV map[string]string) map[string]string {
 	for k, v := range oldV {
 		out[k] = v
 	}
-	if newV != nil {
-		for k, v := range newV {
-			out[k] = v
-		}
+	for k, v := range newV {
+		out[k] = v
 	}
 	return out
 }

@@ -136,13 +136,14 @@ func (uc *UseCase) processLocalProject(
 				logging.WarnWithContext(ctx, "Failed to check project health", "error", err.Error())
 				// Continue anyway
 			} else {
-				if commandType == "up" {
+				switch commandType {
+				case "up":
 					if isHealthy {
 						logging.InfoWithContext(ctx, "Project is already healthy, skipping up command")
 						output.PrintInfo(i18n.T("up.local.already_healthy"))
 						return nil
 					}
-				} else if commandType == "down" {
+				case "down":
 					if !isHealthy {
 						// Project is not healthy (not running), nothing to stop
 						logging.InfoWithContext(ctx, "Project is not healthy, skipping down command")
@@ -161,7 +162,7 @@ func (uc *UseCase) processLocalProject(
 	if ws != nil {
 		// Create a dummy service config for template generation
 		var dummyEnv *config.EnvValue
-		if deps.Env.Files != nil && len(deps.Env.Files) > 0 {
+		if len(deps.Env.Files) > 0 {
 			dummyEnv = &config.EnvValue{
 				Files:     deps.Env.Files,
 				Variables: nil,

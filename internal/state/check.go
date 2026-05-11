@@ -53,13 +53,14 @@ func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]Alignm
 		suggestion := "Run 'raioz up' to apply changes"
 
 		// Critical changes
-		if change.Field == "docker.ports" || change.Field == "ports" {
+		switch change.Field {
+		case "docker.ports", "ports":
 			severity = "critical"
 			suggestion = "Port changes detected. Run 'raioz down' then 'raioz up' to apply"
-		} else if change.Field == "dependsOn" || change.Field == "docker.dependsOn" || change.Field == "removed" {
+		case "dependsOn", "docker.dependsOn", "removed":
 			severity = "critical"
 			suggestion = "Dependencies changed. Run 'raioz down' then 'raioz up' to apply"
-		} else if change.Field == "added" {
+		case "added":
 			severity = "warning"
 			suggestion = "New service/infra added. Run 'raioz up' to start it"
 		}

@@ -28,9 +28,9 @@ func (m *Manager) checkPortsAvailable() error {
 		return nil
 	}
 	return fmt.Errorf(
-		"proxy cannot start: host port(s) %v already in use. "+
-			"Stop the conflicting process, or configure the proxy to bind to a "+
-			"different address (see proxy.bindHost).", taken,
+		"proxy cannot start: host port(s) %v already in use; "+
+			"stop the conflicting process, or configure the proxy to bind to a "+
+			"different address (see proxy.bindHost)", taken,
 	)
 }
 

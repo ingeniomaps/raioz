@@ -48,20 +48,21 @@ func CreateTestDepsWithService(serviceName string, sourceKind string) *config.De
 	var sourceConfig config.SourceConfig
 	var dockerConfig config.DockerConfig
 
-	if sourceKind == "git" {
+	switch sourceKind {
+	case "git":
 		sourceConfig = config.SourceConfig{
 			Kind:   "git",
 			Repo:   "git@github.com:test/repo.git",
 			Branch: "main",
 			Path:   fmt.Sprintf("services/%s", serviceName),
 		}
-	} else if sourceKind == "image" {
+	case "image":
 		sourceConfig = config.SourceConfig{
 			Kind:  "image",
 			Image: "test/image",
 			Tag:   "latest",
 		}
-	} else {
+	default:
 		sourceConfig = config.SourceConfig{
 			Kind: sourceKind,
 		}

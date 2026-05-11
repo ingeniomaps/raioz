@@ -30,10 +30,7 @@ func isProcessRunning(pid int) bool {
 
 	// Send signal 0 to check if process exists (doesn't actually send a signal)
 	err = process.Signal(syscall.Signal(0))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 // readLockPID reads the PID from an existing lock file

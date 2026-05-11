@@ -77,7 +77,8 @@ func addServiceToCompose(
 		serviceConfig["depends_on"] = deps
 	}
 
-	if svc.Source.Kind == "git" {
+	switch svc.Source.Kind {
+	case "git":
 		dockerfilePath, err := EnsureDockerfile(ws, name, svc)
 		if err != nil {
 			return fmt.Errorf("failed to ensure dockerfile for service %s: %w", name, err)
@@ -88,7 +89,7 @@ func addServiceToCompose(
 			"dockerfile": dockerfilePath,
 		}
 		serviceConfig["build"] = buildConfig
-	} else if svc.Source.Kind == "image" {
+	case "image":
 		image := svc.Source.Image
 		if svc.Source.Tag != "" {
 			image = image + ":" + svc.Source.Tag

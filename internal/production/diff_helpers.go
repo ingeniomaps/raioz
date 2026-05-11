@@ -45,9 +45,7 @@ func normalizeVolume(vol string) string {
 	// Normalize volume format for comparison
 	vol = strings.TrimSpace(vol)
 	// Remove leading ./ if present
-	if strings.HasPrefix(vol, "./") {
-		vol = vol[2:]
-	}
+	vol = strings.TrimPrefix(vol, "./")
 	return vol
 }
 

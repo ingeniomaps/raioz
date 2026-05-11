@@ -174,10 +174,8 @@ func GenerateEnvFromTemplate(
 	}
 
 	// Merge direct service variables (highest precedence - they override everything)
-	if directServiceVars != nil {
-		for key, value := range directServiceVars {
-			envVars[key] = value
-		}
+	for key, value := range directServiceVars {
+		envVars[key] = value
 	}
 
 	// Process template: replace ${VAR} or $VAR with actual values
@@ -229,10 +227,8 @@ func GenerateEnvFromTemplate(
 		}
 
 		// Merge direct service variables (highest precedence)
-		if directServiceVars != nil {
-			for key, value := range directServiceVars {
-				finalVars[key] = value
-			}
+		for key, value := range directServiceVars {
+			finalVars[key] = value
 		}
 
 		// Write merged .env file (preserving existing + adding global + service-specific)

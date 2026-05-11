@@ -75,7 +75,8 @@ func getLocalProjectCommand(deps *config.Deps, commandType string, mode string) 
 	}
 
 	// Get command based on type (up/down/health) and mode
-	if commandType == "up" {
+	switch commandType {
+	case "up":
 		if mode == "prod" && deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != "" {
 			return deps.Project.Commands.Prod.Up
 		}
@@ -85,7 +86,7 @@ func getLocalProjectCommand(deps *config.Deps, commandType string, mode string) 
 		if deps.Project.Commands.Up != "" {
 			return deps.Project.Commands.Up
 		}
-	} else if commandType == "down" {
+	case "down":
 		if mode == "prod" && deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Down != "" {
 			return deps.Project.Commands.Prod.Down
 		}
@@ -95,7 +96,7 @@ func getLocalProjectCommand(deps *config.Deps, commandType string, mode string) 
 		if deps.Project.Commands.Down != "" {
 			return deps.Project.Commands.Down
 		}
-	} else if commandType == "health" {
+	case "health":
 		if mode == "prod" && deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Health != "" {
 			return deps.Project.Commands.Prod.Health
 		}

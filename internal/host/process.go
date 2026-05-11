@@ -51,13 +51,14 @@ func StartService(
 
 	// Get service path
 	var servicePath string
-	if svc.Source.Kind == "git" {
+	switch svc.Source.Kind {
+	case "git":
 		servicePath = workspace.GetServicePath(ws, serviceName, svc)
 		// Verify path exists
 		if _, err := os.Stat(servicePath); os.IsNotExist(err) {
 			return nil, fmt.Errorf("service path does not exist: %s", servicePath)
 		}
-	} else if svc.Source.Kind == "local" {
+	case "local":
 		// For local services, use the path directly (can be absolute or relative)
 		if filepath.IsAbs(svc.Source.Path) {
 			servicePath = svc.Source.Path
@@ -85,7 +86,7 @@ func StartService(
 		if _, err := os.Stat(servicePath); os.IsNotExist(err) {
 			return nil, fmt.Errorf("service path does not exist: %s", servicePath)
 		}
-	} else {
+	default:
 		// For image-based services, we can't run them on host (they need to be Docker)
 		return nil, fmt.Errorf("image-based services cannot run on host: %s", serviceName)
 	}

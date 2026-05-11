@@ -135,9 +135,10 @@ func validateVersionCompatibility(deps *config.Deps) ([]CompatibilityIssue, erro
 
 	// Extract version information from tags/branches
 	getVersion := func(svc config.Service) string {
-		if svc.Source.Kind == "git" {
+		switch svc.Source.Kind {
+		case "git":
 			return svc.Source.Branch // Use branch as version indicator
-		} else if svc.Source.Kind == "image" {
+		case "image":
 			return svc.Source.Tag // Use tag as version indicator
 		}
 		return ""
