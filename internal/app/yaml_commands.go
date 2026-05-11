@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -226,11 +227,23 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 // container", which surprised everyone who declared a `command:` and
 // expected restart to "just work".
 func (uc *RestartUseCase) RestartYAML(
-	ctx context.Context, proj *YAMLProject, services []string,
+	ctx context.Context, proj *YAMLProject, opts RestartOptions,
 ) error {
+	services := opts.Services
 	if len(services) == 0 {
-		output.PrintWarning("No services specified. Use service names or --all")
-		return nil
+		if !opts.All {
+			output.PrintWarning(
+				"No services specified. Use service names or --all")
+			return nil
+		}
+		services = collectYAMLServiceNames(proj)
+		if opts.IncludeInfra {
+			services = append(services, collectYAMLDepNames(proj)...)
+		}
+		if len(services) == 0 {
+			output.PrintWarning("Project has no services to restart")
+			return nil
+		}
 	}
 
 	for _, name := range services {
@@ -253,6 +266,35 @@ func (uc *RestartUseCase) RestartYAML(
 		}
 	}
 	return nil
+}
+
+// collectYAMLServiceNames returns the service names of a YAML project in a
+// deterministic order. Sorted so `restart --all` output (and tests) don't
+// depend on Go's randomized map iteration.
+func collectYAMLServiceNames(proj *YAMLProject) []string {
+	if proj == nil || proj.Deps == nil {
+		return nil
+	}
+	names := make([]string, 0, len(proj.Deps.Services))
+	for name := range proj.Deps.Services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// collectYAMLDepNames mirrors collectYAMLServiceNames for the infra map,
+// used when --include-infra opts dependencies back into restart --all.
+func collectYAMLDepNames(proj *YAMLProject) []string {
+	if proj == nil || proj.Deps == nil {
+		return nil
+	}
+	names := make([]string, 0, len(proj.Deps.Infra))
+	for name := range proj.Deps.Infra {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // isYAMLHostService reports whether the named entry in a YAML project runs
