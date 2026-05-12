@@ -27,6 +27,14 @@ linters:
       excludes:
         - G204
         - G306
+        # G702 (command injection via taint) — raioz orchestrates other
+        # binaries by design (`kind: meta` spawns `raioz`, runners spawn
+        # docker/compose); user-controlled args are the contract.
+        - G702
+        # G703 (path traversal via taint) — config-file paths,
+        # $RAIOZ_HOME overrides, and project cwds are all intentional
+        # user-supplied inputs. Same class as G306.
+        - G703
     revive:
       rules:
         - name: redefines-builtin-id

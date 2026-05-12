@@ -19,7 +19,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.6
+          version: v2.12.2
 
       - name: Check file line count (400 max, excluding schema.go JSON blob)
         run: |
