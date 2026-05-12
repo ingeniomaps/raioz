@@ -35,6 +35,28 @@ The Caddy container itself is torn down only when the **last**
 project in the workspace runs `down` (detected via Docker
 labels: no other `com.raioz.workspace=<ws>` containers remain).
 
+### Atomic route file writes
+
+`SaveProjectRoutes` writes each project file via temp file +
+`os.Rename` in the same directory. A concurrent reader sees
+either the previous version or the new version of the file —
+never a truncated mid-write. Without this, two `raioz up` runs
+in the same workspace could race and the Caddyfile regenerator
+would `continue` past a half-written file, silently dropping
+that project's routes until the next reload.
+
+`loadAllProjectRoutes` still skips files that fail to read or
+parse (a corrupt single file shouldn't block the whole
+workspace), but now it logs at `Warn` level so the failure is
+visible. Atomic writes mean a parse error is now a real
+signal that something external touched the file, not normal
+operation.
+
+Note: this protects against single-machine concurrent reads vs
+writes. A separate proxy-scoped lock for serializing the
+Caddyfile reload step itself is planned in
+`docs/issues/025-proxy-lock.md`.
+
 ## Consequences
 
 ### Positive
@@ -47,9 +69,10 @@ labels: no other `com.raioz.workspace=<ws>` containers remain).
 
 ### Negative
 
-- Concurrent `up` of two projects in the same workspace races
-  on the Caddyfile/routes dir. Mitigated by Wave 0 issue 021
-  (atomic writes) and Wave 1 issue 025 (proxy lock).
+- Concurrent `up` of two projects in the same workspace can
+  still race on the Caddyfile reload step itself (the routes
+  files are now atomic, but the multi-step "regenerate +
+  reload" is not). Wave 1 issue 025 adds a proxy-scoped lock.
 - The routes dir is shared state outside Docker. State location
   has migrated (issue 015) and may migrate again as XDG
   conventions evolve.

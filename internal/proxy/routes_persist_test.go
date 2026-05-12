@@ -1,9 +1,12 @@
 package proxy
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"raioz/internal/domain/interfaces"
@@ -146,6 +149,102 @@ func TestGenerateCaddyfile_SharedMergesAcrossProjects(t *testing.T) {
 	}
 	if !strings.Contains(content, "auto_https off") {
 		t.Errorf("expected auto_https off (mkcert mode):\n%s", content)
+	}
+}
+
+// TestSaveProjectRoutes_AtomicUnderConcurrency stresses the atomic-write
+// invariant in ADR-005: concurrent writers updating per-project files
+// while many readers snapshot the union must never observe a partial or
+// corrupt entry. Without the temp-file + rename used by
+// SaveProjectRoutes, a reader can race a writer and read a half-written
+// file that fails to unmarshal.
+func TestSaveProjectRoutes_AtomicUnderConcurrency(t *testing.T) {
+	if testing.Short() {
+		t.Skip("concurrency stress test")
+	}
+
+	// Setup the workspace dir once via the shared helper so prefix/env
+	// are configured. The seed manager itself isn't used for writes.
+	_ = makeSharedManager(t, "wsConc", "seed")
+	routesDir := filepath.Join(naming.WorkspaceProxyDir(), "routes")
+	if err := os.MkdirAll(routesDir, 0o755); err != nil {
+		t.Fatalf("mkdir routes dir: %v", err)
+	}
+
+	const writers = 10
+	const readers = 10
+	const opsPerGoroutine = 30
+
+	writerManagers := make([]*Manager, writers)
+	for i := range writerManagers {
+		m := NewManager("")
+		m.SetWorkspace("wsConc")
+		m.SetProjectName(fmt.Sprintf("p%02d", i))
+		m.SetDomain("wsConc.local")
+		m.SetTLSMode("mkcert")
+		m.AddRoute(t.Context(), interfaces.ProxyRoute{
+			ServiceName: "svc", Hostname: "svc",
+			Target: fmt.Sprintf("p%02d-svc", i), Port: 3000,
+		})
+		writerManagers[i] = m
+	}
+
+	reader := NewManager("")
+	reader.SetWorkspace("wsConc")
+	reader.SetProjectName("reader")
+	reader.SetDomain("wsConc.local")
+	reader.SetTLSMode("mkcert")
+
+	var wg sync.WaitGroup
+	var corrupted atomic.Int64
+	var saveErrors atomic.Int64
+
+	for _, m := range writerManagers {
+		wg.Go(func() {
+			for range opsPerGoroutine {
+				if err := m.SaveProjectRoutes(); err != nil {
+					saveErrors.Add(1)
+					return
+				}
+			}
+		})
+	}
+
+	for range readers {
+		wg.Go(func() {
+			for range opsPerGoroutine {
+				for _, pp := range reader.loadAllProjectRoutes() {
+					// Atomic writes guarantee every observed file is
+					// either the previous or new full version. Empty
+					// Project or wrong Domain signals a partial read.
+					if pp.Project == "" || pp.Domain != "wsConc.local" {
+						corrupted.Add(1)
+					}
+				}
+			}
+		})
+	}
+
+	wg.Wait()
+
+	if c := saveErrors.Load(); c != 0 {
+		t.Errorf("%d save errors during concurrent writes", c)
+	}
+	if c := corrupted.Load(); c != 0 {
+		t.Errorf("observed %d partial/corrupt loads under concurrent writes", c)
+	}
+
+	// After everything settles, every writer's project must be persisted.
+	// Atomic rename guarantees no writer's last write is lost.
+	seen := make(map[string]bool)
+	for _, pp := range reader.loadAllProjectRoutes() {
+		seen[pp.Project] = true
+	}
+	for i := range writers {
+		want := fmt.Sprintf("p%02d", i)
+		if !seen[want] {
+			t.Errorf("project %s missing from final load (seen: %v)", want, seen)
+		}
 	}
 }
 
