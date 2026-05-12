@@ -91,6 +91,7 @@ func init() {
 	rootCmd.AddCommand(envCmd)
 	rootCmd.AddCommand(cloneCmd)
 	rootCmd.AddCommand(hostsCmd)
+	rootCmd.AddCommand(switchCmd)
 }
 
 // detectLangFlag scans os.Args for --lang <value> or --lang=<value> before

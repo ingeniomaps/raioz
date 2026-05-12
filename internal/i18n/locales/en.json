@@ -742,5 +742,14 @@
   "port.conflict.config_updated": "Updated %s with new port",
   "port.conflict.retry_after_resolve": "Resolve the conflict and run 'raioz up' again",
   "port.conflict.invalid_port": "Invalid port number",
-  "port.conflict.port_also_in_use": "Port %d is also in use, try another"
+  "port.conflict.port_also_in_use": "Port %d is also in use, try another",
+  "error.switch_no_config": "No raioz.yaml found in cwd — cannot decide what ports to switch on.",
+  "error.switch_no_config_suggestion": "Run `raioz switch` from a directory that has a raioz.yaml (or pass --file).",
+  "error.switch_detect_failed": "Could not detect host-port conflicts",
+  "output.switch_no_conflicts": "No active raioz projects collide with this project's host ports — proceeding with up.",
+  "output.switch_conflicts_header": "Conflicting projects to stop",
+  "output.switch_conflict_line": "  - %s (host ports: %s)",
+  "output.switch_confirm": "Stop the projects above and bring up the cwd? (yes/no): ",
+  "output.switch_cancelled": "Switch cancelled — cwd project was NOT brought up.",
+  "output.switch_stopped": "Stopped %d colliding project(s)"
 }

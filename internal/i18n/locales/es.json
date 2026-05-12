@@ -742,5 +742,14 @@
   "port.conflict.config_updated": "Se actualizo %s con el nuevo puerto",
   "port.conflict.retry_after_resolve": "Resuelve el conflicto y ejecuta 'raioz up' de nuevo",
   "port.conflict.invalid_port": "Numero de puerto invalido",
-  "port.conflict.port_also_in_use": "El puerto %d tambien esta en uso, intenta otro"
+  "port.conflict.port_also_in_use": "El puerto %d tambien esta en uso, intenta otro",
+  "error.switch_no_config": "No se encontro raioz.yaml en el cwd — no se puede decidir sobre que puertos hacer switch.",
+  "error.switch_no_config_suggestion": "Ejecuta `raioz switch` desde un directorio con raioz.yaml (o pasa --file).",
+  "error.switch_detect_failed": "No se pudo detectar conflictos de puertos del host",
+  "output.switch_no_conflicts": "Ningun proyecto raioz activo colisiona con los puertos de este proyecto — procediendo con up.",
+  "output.switch_conflicts_header": "Proyectos en conflicto a detener",
+  "output.switch_conflict_line": "  - %s (puertos del host: %s)",
+  "output.switch_confirm": "¿Detener los proyectos arriba y levantar el cwd? (yes/no): ",
+  "output.switch_cancelled": "Switch cancelado — el proyecto del cwd NO se levanto.",
+  "output.switch_stopped": "Detenidos %d proyecto(s) en conflicto"
 }
