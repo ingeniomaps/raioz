@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-12
+
+The headline is multi-project orchestration: a raioz project can now
+declare another raioz project as a dependency (#26), and a top-level
+`kind: meta` config delegates up/down/status to a list of sub-projects.
+The on-ramp for both: `raioz up` now detaches by default, so siblings
+and sub-projects can be brought up in parallel without fighting for
+the workspace lock. Plus a round of selective-command UX (`raioz
+down`/`restart`/`status` accept names), the lint baseline migrated
+from golangci-lint v1 → v2, and a batch of fixes around proxy / status
+/ host-launcher edge cases that surfaced in the keycloak and dropi
+pilots.
+
 ### Added
 
 - Sibling raioz projects as dependencies (#26). A `dependencies.<n>`
@@ -20,6 +33,129 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.raioz.state.json` so down doesn't try to tear down a container
   that was never created. Cycles (A → B → A) fail fast with the chain
   printed via `RAIOZ_SIBLING_STACK`.
+- `kind: meta` at the top of `raioz.yaml` turns the file into a
+  meta-orchestrator: `projects: [path, …]` lists sub-projects that
+  `raioz up`/`down`/`status` walk in order (down in reverse). Each
+  sub runs in its own `raioz` process (`os.Args[0]`) so global state
+  stays isolated. Optional subs survive failures; non-optional aborts
+  abort the whole up. Lets a single `raioz up` bring up an entire
+  multi-repo workspace from one cwd.
+- Selective targeting on three commands:
+  - `raioz down [name…]` stops only the named services/deps, leaving
+    network + proxy + state intact. Unknown names fail loudly with
+    the list of valid targets — no more silently tearing down the
+    whole project when the user thought they were stopping one
+    service.
+  - `raioz status [name…]` filters the report to the named entries.
+    Unknown names error so typos don't silently widen the report.
+  - `raioz restart [name…]` in YAML mode now correctly handles
+    `--all` and `--include-infra`, gathers services and infra in
+    deterministic order, and restarts host services (with `command:`)
+    through the same path `up` uses.
+- `raioz ports --conflicting` — read-only report of host ports
+  currently held by other raioz projects or unrelated processes,
+  with the resolution actions the interactive allocator would have
+  offered. No state changes; useful in CI / dry-run contexts.
+- Host launcher safety nets:
+  - `command:` launchers that exit 0 (foreground process detaches
+    docker / spawns a container) get a structured warning when no
+    `stop:` is declared — without `stop:`, the next `raioz down`
+    has nothing to call.
+  - Immediate post-start death now detected: if the host process
+    exits within a settle window after launch, `raioz up` reports
+    the failure instead of silently claiming the service is up.
+- Status: when the canonical container name misses (compose runtime
+  picks its own naming, user-supplied `name:` override, etc.), status
+  now falls back to `com.raioz.project` + `com.raioz.service` labels.
+  `IdentifyPortOccupant` prefers labels over the prefix heuristic so
+  preflight stops false-flagging the user's own deps as conflicts.
+- Status priority for host services with launcher commands: when the
+  service declares `proxy.target:`, that container becomes the source
+  of truth — the PID-alive heuristic loses, because the user already
+  named the contract.
+
+### Changed
+
+- **`raioz up` now detaches by default.** `--attach` keeps the old
+  foreground/stream-logs behavior; `--watch` keeps following files for
+  hot-reload. The workspace lock is released as soon as bring-up
+  completes instead of being held for the whole foreground session.
+  This unblocks running two projects from the same workspace in
+  parallel and is a prerequisite for the sibling-spawn flow (#26) and
+  `kind: meta` (above). **Breaking** if a script assumed `raioz up`
+  blocked until Ctrl+C — add `--attach` to preserve that behavior.
+- Lint baseline migrated to golangci-lint **v2** schema. CI bumped to
+  `golangci-lint-action@v8`. Functional ruleset (errcheck, gosec,
+  revive, wrapcheck, govet, staticcheck, …) unchanged from v0.2.0.
+- Network creation is now label-stamped (`com.raioz.managed=true`)
+  and `raioz down` sweeps by label rather than by name prefix. Stops
+  leaking networks named by compose-managed sub-projects that don't
+  match the `raioz-` prefix.
+
+### Fixed
+
+- Compose-runtime services now resolve under the proxy (#43). The
+  network overlay publishes `{prefix}-{project}-{service}` as a
+  network alias on the workspace network. Without it, the Caddyfile's
+  `reverse_proxy <canonical>` line hit NXDOMAIN — every compose-
+  backed service returned 502 with no log signal — because docker
+  compose names containers `{compose-project}-{service}-{num}`.
+- Dependencies declared with `compose:` (no `image:`) no longer
+  surface as `:latest` in `raioz status` or trigger a
+  `docker pull :latest` (invalid reference format) in error
+  suggestions when start fails (#44). `extractTag("")` now returns
+  `""` instead of inventing `"latest"`, and `DependencyStartFailed`
+  branches on image presence with a compose-oriented suggestion when
+  the dep is compose-backed.
+- `raioz restart --all` and `raioz restart --all --include-infra` in
+  YAML mode now actually iterate the services / infra instead of
+  printing "No services specified. Use service names or --all" —
+  suggesting the very flag the caller had already passed (#45).
+- `Starting infrastructure (N)` no longer counts deps deferred to
+  sibling raioz projects (#26 polish). The number now reflects only
+  the deps that will actually be dispatched.
+- Workspace state moved out of `/tmp` to `$XDG_STATE_HOME`
+  (default `~/.local/state/raioz/…`). Previously, `/tmp` getting
+  cleared by the OS could leave the Caddy container with a
+  bind-mount source that no longer existed, blocking every
+  subsequent `raioz up` with a cryptic "is a directory" error
+  (issue 015 → GitHub #42). Legacy `/tmp` paths are cleaned by the
+  next `down`.
+- `raioz up <name>` (selective bring-up) no longer wipes all
+  `HostPIDs` from local state — only PIDs for services actually in
+  scope are reconciled, so untouched host services keep running
+  across selective ups.
+- Last project leaving the workspace properly removes the per-project
+  Caddyfile and routes directory; previously, residue accumulated
+  in `~/.local/state/raioz/…/proxy/routes/`.
+- Host launcher cleanup: if process-group kill doesn't reap children
+  (some launchers double-fork to detach), raioz now falls back to a
+  PID-by-PID kill and a final cwd-scoped sweep before declaring the
+  service stopped. Eliminates orphan processes left behind by
+  `make dev-docker`-style launchers.
+- Sibling-deps polish (all carry `(#26)` in the commit log):
+  preflight accepts deps with only `project:` (no image/compose);
+  recursive sibling spawn skips the workspace lock (was deadlocking
+  on parent-still-holding); cycle detection now logs the full chain
+  instead of `A → A`; selective `raioz down <sibling-dep>` is no
+  longer a silent no-op; port allocator skips mode A sibling deps
+  (the sibling allocates its own ports); sibling deps are excluded
+  from health checks, proxy routing, and endpoint reporting because
+  the consumer doesn't own those containers.
+
+### Migration
+
+If you had a script doing `raioz up && do_thing_after_services_are_up`
+counting on `raioz up` to block, add `--attach`:
+
+```diff
+- raioz up
++ raioz up --attach
+```
+
+Or, the idiomatic replacement: drop the `--attach` and let `up`
+return immediately — `raioz status` / `raioz logs` cover the
+follow-up needs that foreground mode was filling.
 
 ## [0.3.0] - 2026-04-17
 

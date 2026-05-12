@@ -3,128 +3,138 @@
 Planned work for upcoming raioz releases. **Not a commitment** —
 priorities shift based on user feedback from the pilot group and
 real-world friction. For shipped history, see
-[CHANGELOG.md](CHANGELOG.md).
+[CHANGELOG.md](CHANGELOG.md); the entries below cross-link there for
+detail.
 
 Work lives here until a release is cut, then the items that actually
 shipped move to `CHANGELOG.md#Unreleased`, then to a versioned entry.
 
+## v0.1.0 — shipped 2026-04-14
+
+First stable release. Complete rewrite from compose generator to
+meta-orchestrator: `raioz.yaml` as primary config, auto-detection
+across 24 runtimes, Caddy HTTPS proxy, workspace networking.
+See [CHANGELOG.md](CHANGELOG.md) for the full surface.
+
 ## v0.1.1 — shipped 2026-04-15
 
-Hotfix release surfacing from the keycloak pilot user (2026-04-14).
-Fixes for `dependencies.<n>.proxy:` being silently dropped (#1),
-the `expose:` fallback (#2), and unknown-field warnings (#4) shipped
-— see [CHANGELOG.md#011---2026-04-15](CHANGELOG.md). The
-`ExposedPorts` lookup (#3) was deliberately deferred to v0.2.0
-because it needs a design pass larger than a patch release should
-carry; see below.
+Hotfix from the keycloak pilot. `dependencies.<n>.proxy:` plumbing
+(#1), `expose:` fallback (#2), and unknown-field warnings (#4)
+shipped. The `ExposedPorts` image-manifest lookup (#3) was deferred
+to v0.2.0 because it needed a design pass larger than a patch
+release should carry.
 
-## v0.2.0 (tentative)
+## v0.2.0 — shipped 2026-04-15
 
-The v0.1.0 release cut corners in three areas to ship on time. v0.2.0
-pays that debt back before adding new surface.
+Paid back the technical debt items v0.1.0 deferred:
 
-### Read `ExposedPorts` from the Docker image manifest
+- **Lint baseline re-tightened.** `errcheck`, `gosec`, `revive`
+  (curated 17-rule set), and `wrapcheck` (scoped to errors from
+  outside `raioz/internal/**`) enabled in four atomic PRs. ~770
+  production hits fixed across the four linters.
+- **Windows binaries** restored via `_unix.go` / `_windows.go` build
+  tags in `internal/host` (process trees) and `internal/validate`
+  (disk space).
+- **`ExposedPorts` lookup** runs `docker image inspect` after deps
+  start to backfill the proxy port for images without explicit
+  `ports:`/`expose:`.
+- **Dependabot** now tracks GitHub Actions versions alongside Go
+  modules.
+- **Coverage** raised from 70 → 73% (mocks/testing excluded from
+  the metric).
 
-_Deferred from v0.1.1._ `detect.ForImage()`
-(`internal/detect/detect.go:363`) returns `Port: 0` for every image.
-Most official images declare `EXPOSE` in their Dockerfile (e.g.
-`redis/redisinsight: 5540`, `dpage/pgadmin4: 80,443`,
-`postgres:16: 5432`), so the proxy route ends up incomplete for
-common deps unless the user adds `expose:` manually (partial
-mitigation already shipping in v0.1.1, but that only covers cases
-where the user opts in).
+## v0.3.0 — shipped 2026-04-17
 
-Fix: run `docker inspect --type=image --format
-'{{json .Config.ExposedPorts}}'` and take the first TCP port. Cache
-by image:tag. Pull on demand with a short timeout; fall back to
-`Port: 0` (current behavior) if pull fails. Larger change — design
-pass, caching layer, and offline-mode fallback — which is why it
-didn't fit the v0.1.1 hotfix window.
+Workspace-shared follow-ups surfaced by pilot users:
 
-### Code quality — re-tighten lint baseline
+- **`hostnameAliases:`** on services and deps — expose the same
+  upstream under extra subdomains (Keycloak admin/user split,
+  domain migrations). Shared Caddy site block; each alias gets
+  its own `--network-alias`.
+- **`dependencies.<n>.hostname`** and **`.proxy.port`** plumbed
+  through the YAML → `Infra` bridge so multi-port images route
+  to the right port.
+- **`cloneInfraEntry` field-drop hardening** with a reflective
+  regression test — any new field on `config.Infra` / `config.Service`
+  that the clone misses now breaks CI with a pointer to the file to
+  update.
+- **`raioz down --conflicting`** / **`--all-projects`** — stop
+  sibling projects holding host ports or every active raioz project
+  except the cwd's.
 
-For v0.1.0, `.golangci.yml` was reduced to a minimal set (govet,
-staticcheck, unused, ineffassign, gofmt, goimports, misspell,
-whitespace, copyloopvar, bodyclose) because the strict config fired
-~2,500 issues across a mature CLI codebase — mostly false positives.
+## v0.4.0 — shipped 2026-05-12
 
-Re-introduce the stricter linters one at a time, with a focused
-cleanup PR per linter. Priority order:
+Multi-project orchestration release. Headlines:
 
-1. **`errcheck`** — catches real error-handling gaps (best signal, ~135 issues in v0.1.0).
-2. **`gosec`** — CLI shells out, so security wins are concrete (~365 issues).
-3. **`revive`** — curate a ruleset that excludes the noisy pedantic ones; the full default fires ~988 issues, most opinionated.
-4. **`wrapcheck`** — purely stylistic, do last (~260 issues).
+- **Sibling raioz projects as deps (#26)** — `project:` (mode A,
+  sibling *is* the dep, raioz spawns `raioz up` recursively) or
+  `siblingProject:` + `image:` (mode B, fallback to local image
+  when the sibling isn't running). `requiredHostname:` validates
+  declared hostnames; cycles fail fast.
+- **`kind: meta`** at the top of `raioz.yaml` delegates `up`/`down`/
+  `status` to a list of sub-projects (each in its own raioz process).
+- **`raioz up` detaches by default.** `--attach` keeps the old
+  foreground/stream-logs behavior; `--watch` keeps following files.
+  Workspace lock released as soon as bring-up completes — unblocks
+  parallel up of siblings and `kind: meta` sub-projects. **Breaking**
+  for scripts that assumed `raioz up` blocked.
+- **Selective targeting** on `raioz down [name…]`, `status [name…]`,
+  and `restart [name…]` (the last now correctly honors `--all` /
+  `--include-infra` in YAML mode).
+- **Lint baseline** migrated to golangci-lint **v2** schema.
 
-Each PR: enable one linter, fix every instance it flags, commit, done.
-Don't re-enable the config and the fixes in separate PRs — CI would
-break between them.
+Plus a batch of fixes for proxy compose-alias resolution (#43),
+status `:latest` spurious tag (#44), host-launcher orphan cleanup,
+workspace state out of `/tmp`, and the #26 sibling-deps polish pass.
+Full detail in [CHANGELOG.md](CHANGELOG.md).
+
+## Tentative next
+
+Items considered for the upcoming release but not yet committed.
+Promotion to a versioned section happens at release-cut time.
 
 ### Testing — coverage back to 80%
 
-v0.1.0 threshold was 70%. v0.2.0 raised it to 73% after a focused
-testing push and excluding `internal/mocks` + `internal/testing` from
-the metric (they're test infrastructure, not production code). Real
-total now sits at ~74%.
+v0.2.0 raised the threshold from 70% to 73% after a focused unit-test
+push and excluding `internal/mocks` + `internal/testing` from the
+metric. Real total sits at ~74% as of v0.4.0. The remaining gap is
+concentrated in packages whose uncovered code needs a live Docker
+daemon to exercise:
 
-Remaining gap to 80% is concentrated in packages whose uncovered code
-needs a live Docker daemon to exercise:
+- `internal/tui` — 41% (bubbletea models)
+- `internal/docker` — ~59% (image / network / clean operations)
+- `internal/app/upcase` — ~61% (full up-flow integration)
+- `internal/tunnel` — ~61% (cloudflared / bore subprocess)
+- `internal/workspace` — ~64%
 
-- `internal/tui` — 41% (bubbletea models; integration-test heavy)
-- `internal/docker` — 58.9% (image / network / clean operations)
-- `internal/app/upcase` — 61.2% (full up flow integration)
-- `internal/tunnel` — 61.1% (cloudflared / bore subprocess)
-- `internal/workspace` — 64.2%
-
-Path forward is integration tests under a real Docker daemon, not more
-unit tests — most pure-function gaps already closed. Bump
+Path forward is integration tests under a real Docker daemon, not
+more unit tests — most pure-function gaps already closed. Bump
 `COVERAGE_THRESHOLD` to 80 once the integration suite lands.
 
-### Platform — Windows binary support
+### Release automation
 
-v0.1.0 ships only Linux + macOS binaries. Windows users must run raioz
-via WSL2. Dropping Windows was a release-day fix because
-`internal/orchestrate/host_runner.go` uses `syscall.SysProcAttr.Setpgid`
-+ `syscall.Kill`, and `internal/validate/preflight.go` uses
-`syscall.Statfs` — all Unix-only.
-
-Split into `*_unix.go` and `*_windows.go` with platform-specific
-implementations:
-
-- Linux/macOS: existing code unchanged.
-- Windows: equivalent via `golang.org/x/sys/windows` (`GetDiskFreeSpaceEx` for disk; `CreateJobObject`/`TerminateJobObject` for process groups) or documented stubs that degrade gracefully.
-
-Then re-add `windows` to `.goreleaser.yml` `goos` list.
-
-### Tooling — dependabot for GitHub Actions
-
-`.github/dependabot.yml` today only covers Go modules. GitHub Actions
-versions (`actions/checkout`, `setup-go`, `golangci-lint-action`,
-`goreleaser/goreleaser-action`) drift silently. Add a second
-`package-ecosystem: "github-actions"` entry so Dependabot opens PRs
-for workflow action bumps too.
-
-### Release discipline — hotfix flow
-
-The v0.1.0 release required four re-tags (Go version, workflow
-consolidation, lint config validation, Windows drop). For any urgent
-fix against a released version:
-
-1. Branch `hotfix/v0.1.x` from `main`.
-2. Fix + test on that branch.
-3. Merge to BOTH `main` AND `develop` (not just main — otherwise develop loses the fix).
-4. Tag `v0.1.1` on main.
-
-Don't keep re-tagging the same version. If the release pipeline is
-already running, bump the patch version instead of deleting/re-pushing
-the same tag.
+The release flow today is manual: PR develop → main, merge, tag,
+goreleaser fires. A `release-please` integration would automate the
+version bump + CHANGELOG promotion + tag creation by opening a PR on
+every merge to `main`, with conventional-commits driving the version
+bump decision. Sized as a single PR; biggest open question is whether
+to keep the `[Unreleased]` block hand-edited or let release-please
+own it end-to-end.
 
 ## Future (unscheduled)
 
 Ideas floated but not committed to any release:
 
-- **`release-please` integration** — automate the version bump + CHANGELOG promotion + tag creation by opening a PR on every merge to `main`.
-- **Native config for Podman/nerdctl** — raioz supports them via the runtime abstraction but hasn't been battle-tested on non-Docker daemons.
-- **Multi-machine workspaces** — one workspace spanning dev laptop + remote build box via cloudflared tunnels.
-- **`raioz migrate compose`** — import an existing `docker-compose.yml` into a `raioz.yaml` (reverse of the current legacy-JSON migration).
-- **Dashboard polish** — the TUI has 41% coverage and limited interaction (view only). Add service restart / exec from the dashboard.
+- **Native config for Podman / nerdctl** — raioz supports them via
+  the runtime abstraction but hasn't been battle-tested on non-Docker
+  daemons.
+- **Multi-machine workspaces** — one workspace spanning dev laptop +
+  remote build box via cloudflared tunnels.
+- **`raioz migrate compose`** — import an existing
+  `docker-compose.yml` into a `raioz.yaml` (reverse of the current
+  legacy-JSON migration).
+- **Dashboard polish** — the TUI has 41% coverage and limited
+  interaction (view only). Add service restart / exec from the
+  dashboard.
+- **`--strict` config validation** — turn the unknown-field warnings
+  (v0.1.1) into hard errors via a flag, useful for CI.
