@@ -6,6 +6,7 @@ import (
 	"raioz/internal/config"
 	dockerpkg "raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/naming"
 	workspacepkg "raioz/internal/workspace"
 )
 
@@ -73,11 +74,11 @@ func (r *DockerRunnerImpl) FindManagedContainerByService(
 		return ""
 	}
 	labels := map[string]string{
-		"com.raioz.managed": "true",
-		"com.raioz.service": service,
+		naming.LabelManaged: "true",
+		naming.LabelService: service,
 	}
 	if project != "" {
-		labels["com.raioz.project"] = project
+		labels[naming.LabelProject] = project
 	}
 	names := dockerpkg.ListContainersByLabels(ctx, labels)
 	if len(names) == 0 {

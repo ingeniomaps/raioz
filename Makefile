@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check ci
+.PHONY: check-lines check-length check-i18n check-labels check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -97,7 +97,11 @@ check-i18n: ## Verify all i18n catalogs have the same keys
 	@go test -run TestCatalogCompleteness -count=1 ./internal/i18n/ \
 		&& echo "All catalogs in sync"
 
-check: format check-lines check-length check-i18n lint test ## Run all checks
+check-labels: ## Verify com.raioz.* labels are not hardcoded outside internal/naming/
+	@echo "Checking for hardcoded com.raioz.* labels..."
+	@./scripts/lint-labels.sh
+
+check: format check-lines check-length check-i18n check-labels lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."
