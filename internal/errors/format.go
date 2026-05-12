@@ -29,10 +29,10 @@ func FormatMultipleErrors(errs []error) string {
 	}
 
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("\033[31m[error]\033[0m Found %d error(s):\n\n", len(errs)))
+	fmt.Fprintf(&result, "\033[31m[error]\033[0m Found %d error(s):\n\n", len(errs))
 
 	for i, err := range errs {
-		result.WriteString(fmt.Sprintf("%d. %s", i+1, FormatError(err)))
+		fmt.Fprintf(&result, "%d. %s", i+1, FormatError(err))
 		if i < len(errs)-1 {
 			result.WriteString("\n")
 		}

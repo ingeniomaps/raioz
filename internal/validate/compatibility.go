@@ -240,7 +240,7 @@ func FormatCompatibilityIssues(issues []CompatibilityIssue) string {
 	}
 
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("⚠️  Found %d compatibility issue(s):\n\n", len(issues)))
+	fmt.Fprintf(&result, "⚠️  Found %d compatibility issue(s):\n\n", len(issues))
 
 	// Group by severity
 	errors := []CompatibilityIssue{}
@@ -258,9 +258,9 @@ func FormatCompatibilityIssues(issues []CompatibilityIssue) string {
 	if len(errors) > 0 {
 		result.WriteString("🔴 Errors:\n")
 		for _, issue := range errors {
-			result.WriteString(fmt.Sprintf("  • [%s] %s\n", issue.Service, issue.Description))
+			fmt.Fprintf(&result, "  • [%s] %s\n", issue.Service, issue.Description)
 			if issue.Suggestion != "" {
-				result.WriteString(fmt.Sprintf("    → %s\n", issue.Suggestion))
+				fmt.Fprintf(&result, "    → %s\n", issue.Suggestion)
 			}
 		}
 		result.WriteString("\n")
@@ -270,9 +270,9 @@ func FormatCompatibilityIssues(issues []CompatibilityIssue) string {
 	if len(warnings) > 0 {
 		result.WriteString("🟡 Warnings:\n")
 		for _, issue := range warnings {
-			result.WriteString(fmt.Sprintf("  • [%s] %s\n", issue.Service, issue.Description))
+			fmt.Fprintf(&result, "  • [%s] %s\n", issue.Service, issue.Description)
 			if issue.Suggestion != "" {
-				result.WriteString(fmt.Sprintf("    → %s\n", issue.Suggestion))
+				fmt.Fprintf(&result, "    → %s\n", issue.Suggestion)
 			}
 		}
 		result.WriteString("\n")

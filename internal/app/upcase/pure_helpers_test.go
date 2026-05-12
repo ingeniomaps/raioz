@@ -676,7 +676,7 @@ func setAllFieldsNonZero(v reflect.Value) {
 		v.Set(reflect.MakeSlice(v.Type(), 1, 1))
 	case reflect.Map:
 		v.Set(reflect.MakeMapWithSize(v.Type(), 0))
-	case reflect.Ptr:
+	case reflect.Pointer:
 		// Non-nil pointer to a fresh element. Recurse so nested structs
 		// also come back non-zero (a pointer to an all-zero struct would
 		// report zero for its fields but the POINTER itself is non-zero,

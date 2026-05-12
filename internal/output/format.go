@@ -121,7 +121,7 @@ func FormatConfigChanges(changes []string) string {
 	}
 	var sb strings.Builder
 	for _, change := range changes {
-		sb.WriteString(fmt.Sprintf("    %s\n", change))
+		fmt.Fprintf(&sb, "    %s\n", change)
 	}
 	return sb.String()
 }
