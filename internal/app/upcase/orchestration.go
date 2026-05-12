@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"raioz/internal/config"
+	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
@@ -226,7 +227,7 @@ func (uc *UseCase) processOrchestration(
 	}
 
 	// Build endpoints map for service discovery
-	endpoints := buildEndpoints(deps, detections, portAllocs)
+	endpoints := buildEndpoints(ctx, docker.NewLookup(), deps, detections, portAllocs)
 
 	// Step 3: Start services in dependency order
 	serviceNames := orderedServiceNames(deps)
@@ -312,12 +313,12 @@ func (uc *UseCase) processOrchestration(
 	}, nil
 }
 
-// buildEndpoints creates the endpoints map from config and detections for
-// service discovery. For published dependencies we populate *both* Port
-// (container-side) and HostPort (host-side) so discovery can hand each caller
-// the right one: container→container goes via Port on the DNS name,
-// host→container goes via HostPort on localhost.
+// buildEndpoints creates the endpoints map for service discovery.
+// Published deps get Port (container-side, DNS-resolvable) AND HostPort
+// (host-side via localhost) so each caller can pick the right one.
 func buildEndpoints(
+	ctx context.Context,
+	lookup naming.ContainerLookup,
 	deps *config.Deps,
 	detections DetectionMap,
 	portAllocs *PortAllocResult,
@@ -339,7 +340,8 @@ func buildEndpoints(
 				if entry.Inline != nil {
 					nameOverride = entry.Inline.Name
 				}
-				ep.Host = naming.DepContainer(deps.Project.Name, name, nameOverride)
+				ep.Host = naming.ContainerTarget(ctx, lookup,
+					deps.Project.Name, name, nameOverride)
 			} else {
 				ep.Host = naming.Container(deps.Project.Name, name)
 			}

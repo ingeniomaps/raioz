@@ -62,7 +62,7 @@ func (uc *UseCase) startProxy(
 			continue
 		}
 		detection := detections[name]
-		route := buildProxyRoute(deps, name, &detection)
+		route := buildProxyRoute(ctx, docker.NewLookup(), deps, name, &detection)
 		if err := uc.deps.ProxyManager.AddRoute(ctx, route); err != nil {
 			logging.WarnWithContext(ctx, "Failed to add proxy route",
 				"service", name, "error", err.Error())
@@ -304,6 +304,8 @@ func proxyTargetOverride(deps *config.Deps, name string) (string, int) {
 // buildProxyRoute turns (service name, detection) into a ProxyRoute, honoring
 // custom hostnames and routing config (ws/sse/grpc) from raioz.yaml.
 func buildProxyRoute(
+	ctx context.Context,
+	lookup naming.ContainerLookup,
 	deps *config.Deps,
 	name string,
 	detection *detect.DetectResult,
@@ -327,7 +329,12 @@ func buildProxyRoute(
 			if entry.Inline != nil {
 				nameOverride = entry.Inline.Name
 			}
-			target = naming.DepContainer(deps.Project.Name, name, nameOverride)
+			// Resolve against live Docker so a user-supplied compose with
+			// container_name: routes to the actual container, not the
+			// canonical raioz name. Falls back to canonical when nothing
+			// is found (test paths pass nil lookup → canonical).
+			target = naming.ContainerTarget(ctx, lookup,
+				deps.Project.Name, name, nameOverride)
 		} else {
 			target = naming.Container(deps.Project.Name, name)
 		}

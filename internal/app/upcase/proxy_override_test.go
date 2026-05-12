@@ -1,6 +1,7 @@
 package upcase
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,7 +29,7 @@ func TestBuildProxyRoute_HostnameAliases_Issue006(t *testing.T) {
 		},
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeMake, Port: 0}
-	route := buildProxyRoute(deps, "keycloak", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "keycloak", det)
 	if route.Hostname != "sso" {
 		t.Errorf("Hostname = %q, want sso", route.Hostname)
 	}
@@ -54,7 +55,7 @@ func TestBuildProxyRoute_OverrideBeatsDetection(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeMake, Port: 0}
 
-	route := buildProxyRoute(deps, "keycloak", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "keycloak", det)
 	if route.Target != "hypixo-keycloak" {
 		t.Errorf("Target = %q, want hypixo-keycloak", route.Target)
 	}
@@ -72,7 +73,7 @@ func TestBuildProxyRoute_NoOverrideFallsBackToDetection(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 3000}
 
-	route := buildProxyRoute(deps, "api", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "api", det)
 	if route.Target == "" || route.Target == "host.docker.internal" {
 		t.Errorf("expected Docker container target, got %q", route.Target)
 	}
@@ -108,7 +109,7 @@ func TestBuildProxyRoute_DepOverrideBeatsDetection(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 0}
 
-	route := buildProxyRoute(deps, "redisinsight", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "redisinsight", det)
 	if route.Target != "hypixo-redisinsight" {
 		t.Errorf("Target = %q, want hypixo-redisinsight", route.Target)
 	}
@@ -132,7 +133,7 @@ func TestBuildProxyRoute_ExposeFallback(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 0}
 
-	route := buildProxyRoute(deps, "pgadmin", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "pgadmin", det)
 	if route.Port != 80 {
 		t.Errorf("Port = %d, want 80 (from Expose[0])", route.Port)
 	}
@@ -155,7 +156,7 @@ func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 8025}
 
-	route := buildProxyRoute(deps, "mailpit", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "mailpit", det)
 	if route.Hostname != "mail" {
 		t.Errorf("Hostname = %q, want mail", route.Hostname)
 	}
@@ -180,7 +181,7 @@ func TestBuildProxyRoute_DepProxyPortOnlyOverridesPort(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
 
-	route := buildProxyRoute(deps, "mailpit", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "mailpit", det)
 	if route.Port != 8025 {
 		t.Errorf("Port = %d, want 8025 (user override)", route.Port)
 	}
@@ -204,7 +205,7 @@ func TestBuildProxyRoute_PortsBeatsExpose(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 0}
 
-	route := buildProxyRoute(deps, "dep", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "dep", det)
 	if route.Port != 9000 {
 		t.Errorf("Port = %d, want 9000 (Ports wins over Expose)", route.Port)
 	}
@@ -258,7 +259,7 @@ dependencies:
 	// Detection picked the SMTP port (1025) — this is the failure mode
 	// from the issue. The override must win.
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
-	route := buildProxyRoute(deps, "mailpit", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "mailpit", det)
 	if route.Hostname != "mail" {
 		t.Errorf("route.Hostname = %q, want mail", route.Hostname)
 	}
@@ -275,7 +276,7 @@ dependencies:
 		t.Errorf("redisinsight.Hostname = %q, want insight", ri.Hostname)
 	}
 	det2 := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 5540}
-	route2 := buildProxyRoute(deps, "redisinsight", det2)
+	route2 := buildProxyRoute(context.Background(), nil, deps, "redisinsight", det2)
 	if route2.Hostname != "insight" {
 		t.Errorf("route2.Hostname = %q, want insight", route2.Hostname)
 	}

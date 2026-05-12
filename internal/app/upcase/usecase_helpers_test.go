@@ -119,7 +119,7 @@ func TestBuildEndpointsDocker(t *testing.T) {
 		"web": {Runtime: detect.RuntimeCompose, Port: 3000},
 	}
 
-	got := buildEndpoints(deps, detections, nil)
+	got := buildEndpoints(context.Background(), nil, deps, detections, nil)
 	ep, ok := got["web"]
 	if !ok {
 		t.Fatal("missing web endpoint")
@@ -143,7 +143,7 @@ func TestBuildEndpointsHost(t *testing.T) {
 	detections := DetectionMap{
 		"api": {Runtime: detect.RuntimeGo, Port: 8080},
 	}
-	got := buildEndpoints(deps, detections, nil)
+	got := buildEndpoints(context.Background(), nil, deps, detections, nil)
 	ep := got["api"]
 	if ep.Host != "localhost" {
 		t.Errorf("Host = %q, want localhost", ep.Host)
@@ -163,7 +163,7 @@ func TestBuildEndpointsInfraPortOverride(t *testing.T) {
 	detections := DetectionMap{
 		"db": {Runtime: detect.RuntimeImage, Port: 5432},
 	}
-	got := buildEndpoints(deps, detections, nil)
+	got := buildEndpoints(context.Background(), nil, deps, detections, nil)
 	ep := got["db"]
 	if ep.Port != 5433 {
 		t.Errorf("Port = %d, want 5433 (config override)", ep.Port)

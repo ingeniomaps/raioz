@@ -1,6 +1,7 @@
 package upcase
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -221,7 +222,7 @@ func TestBuildProxyRoute_DockerService(t *testing.T) {
 		Runtime: detect.RuntimeCompose,
 		Port:    8080,
 	}
-	route := buildProxyRoute(deps, "api", &det)
+	route := buildProxyRoute(context.Background(), nil, deps, "api", &det)
 	if route.ServiceName != "api" {
 		t.Errorf("ServiceName = %s, want api", route.ServiceName)
 	}
@@ -246,7 +247,7 @@ func TestBuildProxyRoute_HostService(t *testing.T) {
 		Runtime: detect.RuntimeNPM,
 		Port:    3000,
 	}
-	route := buildProxyRoute(deps, "web", &det)
+	route := buildProxyRoute(context.Background(), nil, deps, "web", &det)
 	if route.Target != "host.docker.internal" {
 		t.Errorf("Target = %s, want host.docker.internal", route.Target)
 	}
@@ -264,7 +265,7 @@ func TestBuildProxyRoute_CustomHostname(t *testing.T) {
 		Infra: map[string]config.InfraEntry{},
 	}
 	det := detect.DetectResult{Runtime: detect.RuntimeGo, Port: 8080}
-	route := buildProxyRoute(deps, "api", &det)
+	route := buildProxyRoute(context.Background(), nil, deps, "api", &det)
 	if route.Hostname != "backend" {
 		t.Errorf("Hostname = %s, want backend", route.Hostname)
 	}
@@ -285,7 +286,7 @@ func TestBuildProxyRoute_RoutingFlags(t *testing.T) {
 		Infra: map[string]config.InfraEntry{},
 	}
 	det := detect.DetectResult{Runtime: detect.RuntimeNPM, Port: 3000}
-	route := buildProxyRoute(deps, "ws-svc", &det)
+	route := buildProxyRoute(context.Background(), nil, deps, "ws-svc", &det)
 	if !route.WebSocket {
 		t.Error("WebSocket should be true")
 	}
@@ -311,7 +312,7 @@ func TestBuildProxyRoute_FallbackPortFromInfra(t *testing.T) {
 		},
 	}
 	det := detect.DetectResult{Runtime: detect.RuntimeImage, Port: 0}
-	route := buildProxyRoute(deps, "redis", &det)
+	route := buildProxyRoute(context.Background(), nil, deps, "redis", &det)
 	if route.Port != 6379 {
 		t.Errorf("Port = %d, want 6379 (from infra ports)", route.Port)
 	}
