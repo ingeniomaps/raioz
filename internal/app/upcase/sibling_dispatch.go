@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -174,6 +175,52 @@ func decideModeB(
 	// LocalState.DeferredToSibling is overwritten on every up, so a
 	// previously-deferred entry for this dep clears itself.
 	return siblingDecision{Kind: siblingProceed}, nil
+}
+
+// verifySiblingsStillUp re-checks the sibling projects we already decided
+// to defer to (mode A active or mode B skip-deferred). decideSibling runs
+// at the start of up; consumer services start later. Between those two
+// points, a user in another terminal can `raioz down` the sibling and
+// leave us about to wire env vars pointing at containers that no longer
+// exist. This re-probe closes that TOCTOU window with an actionable
+// error rather than a runtime DNS failure inside the consumer service.
+//
+// The check uses IsProjectActive (same probe decideSibling used) — ADR-008
+// requires workspace coherence, so a sibling running in the shared
+// workspace network means it's reachable. We do NOT inspect the network
+// directly; that would not catch any case IsProjectActive misses and
+// would slow the path with an extra docker call per dep.
+//
+// Verdicts that don't defer to a sibling (siblingProceed / siblingSpawnModeA)
+// are skipped: nothing to re-verify.
+func verifySiblingsStillUp(
+	ctx context.Context,
+	verdicts map[string]siblingDecision,
+) error {
+	for depName, v := range verdicts {
+		if v.Kind != siblingSkipModeA && v.Kind != siblingSkipDeferred {
+			continue
+		}
+		if v.SiblingInfo == nil {
+			continue
+		}
+		active, err := docker.IsProjectActive(ctx,
+			v.SiblingInfo.Workspace, v.SiblingInfo.Project)
+		if err != nil {
+			return fmt.Errorf(
+				"re-probe sibling for dep %q: %w", depName, err)
+		}
+		if active {
+			continue
+		}
+		return errors.New(errors.ErrCodeSiblingDown,
+			i18n.T("error.sibling_down", v.SiblingInfo.Project, depName)).
+			WithSuggestion(
+				i18n.T("error.sibling_down_suggestion", v.SiblingInfo.Dir)).
+			WithContext("sibling", v.SiblingInfo.Project).
+			WithContext("dep", depName)
+	}
+	return nil
 }
 
 // resolveSiblingVerdicts runs decideSibling for every infra dep up front

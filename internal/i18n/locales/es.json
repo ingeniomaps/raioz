@@ -460,6 +460,8 @@
   "up.sibling_modea_already_up": "El proyecto hermano para la dep '%s' (%s) ya está activo",
   "up.sibling_spawn_starting": "Levantando proyecto hermano para la dep '%s' en %s",
   "up.sibling_spawn_done": "Proyecto hermano para la dep '%s' está activo",
+  "error.sibling_down": "El proyecto hermano '%s' para la dep '%s' ya no está activo — sus contenedores desaparecieron entre el chequeo de readiness y el dispatch.",
+  "error.sibling_down_suggestion": "Levanta el hermano de nuevo: `cd %s && raioz up`, después re-ejecuta el up de este proyecto.",
   "up.infra_start_error": "Error al iniciar servicios de infraestructura",
   "up.waiting_infra_healthy": "Esperando que la infraestructura esté saludable...",
   "up.infra_not_healthy_warning": "Algunos servicios de infraestructura pueden no estar completamente saludables, procediendo con el despliegue de servicios",

@@ -198,6 +198,28 @@ Behavior:
   hostnames (`hostname:` on services + `hostnameAliases:`), not the
   live Caddyfile. Skipped when mode B falls back to the image.
 
+#### Sibling lifecycle expectations
+
+After raioz decides to defer to a sibling (mode A active or mode B
+with sibling up), the sibling is re-probed once just before consumer
+services start. If the sibling was torn down in another terminal in
+that window, raioz fails fast with `SIBLING_DOWN` and a suggestion to
+bring it back up:
+
+```text
+[error] [SIBLING_DOWN] sibling project 'keycloak' for dep 'keycloak' appears to be down ...
+  Suggestion: Bring the sibling back up: `cd /path/to/keycloak && raioz up`, then re-run this project's up.
+```
+
+raioz does **not** auto-recover by re-spawning the sibling. That would
+violate the "down never touches the sibling" invariant (ADR-008) and
+hide which project owns the lifecycle. The recovery is explicit.
+
+If the sibling dies *after* the consumer is already running, raioz
+won't notice until the next `raioz up` — connections from inside
+consumer services will see DNS failures. Re-run `raioz up` on the
+sibling and the consumer to recover.
+
 When neither `ports`, `expose`, nor `proxy.port` resolve a target port,
 raioz reads the image's manifest via `docker image inspect` and uses
 the lowest TCP port from `Config.ExposedPorts`. Most official images

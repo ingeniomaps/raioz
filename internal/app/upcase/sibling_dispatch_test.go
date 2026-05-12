@@ -2,6 +2,7 @@ package upcase
 
 import (
 	"context"
+	goerrors "errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"raioz/internal/config"
+	errpkg "raioz/internal/errors"
 	rt "raioz/internal/runtime"
 )
 
@@ -421,5 +423,76 @@ func TestDecideSibling_ModeB_WorkspaceMismatch(t *testing.T) {
 	_, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")
 	if err == nil || !strings.Contains(err.Error(), "workspace") {
 		t.Errorf("expected workspace mismatch error, got %v", err)
+	}
+}
+
+// --- verifySiblingsStillUp -----------------------------------------------
+
+func TestVerifySiblingsStillUp_EmptyAndProceedVerdicts(t *testing.T) {
+	// No docker call should happen for proceed/spawn verdicts. We don't
+	// install a fake runtime — if the code probes docker accidentally,
+	// the real binary lookup will surface an error from t.Fatal below.
+	verdicts := map[string]siblingDecision{
+		"empty":  {},                          // SiblingInfo == nil → skip
+		"reg":    {Kind: siblingProceed},      // not a sibling defer → skip
+		"spawn":  {Kind: siblingSpawnModeA},   // spawn handled elsewhere → skip
+	}
+	if err := verifySiblingsStillUp(context.Background(), verdicts); err != nil {
+		t.Errorf("expected nil for non-deferring verdicts, got %v", err)
+	}
+}
+
+func TestVerifySiblingsStillUp_SiblingStillActive(t *testing.T) {
+	// Non-empty stdout from docker ps means "containers found", i.e. sibling
+	// is still up. Both deferred kinds should pass.
+	writeFakeRuntime(t, "acme-keycloak\n")
+	verdicts := map[string]siblingDecision{
+		"keycloak": {
+			Kind:        siblingSkipDeferred,
+			SiblingInfo: &config.SiblingInfo{Project: "keycloak", Workspace: "acme", Dir: "/x"},
+		},
+		"sso": {
+			Kind:        siblingSkipModeA,
+			SiblingInfo: &config.SiblingInfo{Project: "sso", Workspace: "acme", Dir: "/y"},
+		},
+	}
+	if err := verifySiblingsStillUp(context.Background(), verdicts); err != nil {
+		t.Errorf("expected nil when sibling still active, got %v", err)
+	}
+}
+
+func TestVerifySiblingsStillUp_SiblingDownReturnsActionableError(t *testing.T) {
+	// Empty stdout from docker ps means "no containers running" — sibling
+	// died between decideSibling and now. Must surface as ESIBLING_DOWN
+	// with a suggestion that points the user at the sibling's directory.
+	writeFakeRuntime(t, "")
+	verdicts := map[string]siblingDecision{
+		"keycloak": {
+			Kind: siblingSkipDeferred,
+			SiblingInfo: &config.SiblingInfo{
+				Project:   "keycloak",
+				Workspace: "acme",
+				Dir:       "/path/to/keycloak",
+			},
+		},
+	}
+	err := verifySiblingsStillUp(context.Background(), verdicts)
+	if err == nil {
+		t.Fatal("expected ESIBLING_DOWN error, got nil")
+	}
+	// i18n is not initialized in unit tests, so Error() returns the key.
+	// Inspect the structured RaiozError to confirm code + context.
+	var re *errpkg.RaiozError
+	if !goerrors.As(err, &re) {
+		t.Fatalf("expected *errors.RaiozError, got %T: %v", err, err)
+	}
+	if re.Code != errpkg.ErrCodeSiblingDown {
+		t.Errorf("expected code %q, got %q", errpkg.ErrCodeSiblingDown, re.Code)
+	}
+	if re.Context["sibling"] != "keycloak" || re.Context["dep"] != "keycloak" {
+		t.Errorf("context missing expected keys, got: %v", re.Context)
+	}
+	if re.Suggestion == "" {
+		t.Error("error must carry an actionable suggestion")
 	}
 }

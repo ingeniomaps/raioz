@@ -97,17 +97,17 @@ func (uc *UseCase) processOrchestration(
 	// Persisted into LocalState below so `down` can match the skip.
 	var deferredDeps []string
 
-	// dispatchedInfra records the deps that ACTUALLY went through the
-	// runner — the subset of infraNames that has a container in this
-	// project's namespace. Health check / endpoints / proxy iterate
-	// this list (or `detections` after we delete sibling-skipped
-	// entries) so they don't wait on or generate routes for containers
-	// the sibling owns instead.
+	// dispatchedInfra: subset of infraNames whose container lives in this
+	// project's namespace. Health check / endpoints / proxy iterate this
+	// (sibling-skipped entries are removed from detections, not here).
 	var dispatchedInfra []string
 
 	if len(infraNames) > 0 {
 		verdicts, toDispatch, err := resolveSiblingVerdicts(ctx, infraNames, deps)
 		if err != nil {
+			return nil, err
+		}
+		if err := verifySiblingsStillUp(ctx, verdicts); err != nil {
 			return nil, err
 		}
 		if toDispatch > 0 {
