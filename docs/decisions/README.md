@@ -42,6 +42,7 @@ or for adding a `Status:` line at the top.
 | 007 | [`IsNonHTTPImage` matches by bare name, not substring](007-image-classification-bare-name.md) | Accepted |
 | 008 | [Sibling raioz projects as deps (modes A/B)](008-sibling-projects-as-deps.md) | Accepted |
 | 009 | [`domain/models/` holds only leaf-dependency types](009-domain-models-scope.md) | Accepted |
+| 010 | [Workspace-shared proxy lock](010-proxy-workspace-lock.md) | Accepted |
 
 ## When to write an ADR
 

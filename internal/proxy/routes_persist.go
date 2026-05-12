@@ -61,6 +61,12 @@ func (m *Manager) SaveProjectRoutes() error {
 	if path == "" {
 		return nil
 	}
+	release, err := m.acquireWorkspaceLock()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create routes dir: %w", err)
@@ -120,6 +126,12 @@ func (m *Manager) RemoveProjectRoutes() error {
 	if path == "" {
 		return nil
 	}
+	release, err := m.acquireWorkspaceLock()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove routes file: %w", err)
 	}
