@@ -95,8 +95,16 @@ type DockerRunner interface {
 	FormatPortConflicts(conflicts []PortConflict) string
 	// ValidateAllImages validates all images (services and infra) before compose generation
 	ValidateAllImages(deps *models.Deps) error
-	// EnsureNetworkWithConfigAndContext ensures a Docker network exists with optional subnet
-	EnsureNetworkWithConfigAndContext(ctx context.Context, name string, subnet string, askConfirmation bool) error
+	// EnsureNetworkWithConfigAndContext ensures a Docker network exists
+	// with an optional subnet. Labels are stamped at create time so down
+	// can later sweep raioz-managed networks even when the project's
+	// state file has rotated. Docker forbids retro-labeling, so callers
+	// must populate labels before this call. Empty/nil labels keep the
+	// pre-label behavior (no labels stamped).
+	EnsureNetworkWithConfigAndContext(
+		ctx context.Context, name string, subnet string,
+		labels map[string]string, askConfirmation bool,
+	) error
 	// EnsureVolumeWithContext ensures a named volume exists, creating if necessary
 	EnsureVolumeWithContext(ctx context.Context, name string) error
 	// NormalizeVolumeName normalizes a volume name with project prefix
@@ -111,6 +119,13 @@ type DockerRunner interface {
 	// exited, created, ...) looked up by name via docker inspect. Empty string
 	// (no error) means the container does not exist.
 	GetContainerStatusByName(ctx context.Context, containerName string) (string, error)
+	// FindManagedContainerByService returns the actual container name for a
+	// raioz-managed service/dep by matching the com.raioz.project +
+	// com.raioz.service labels, or "" if none exists. Used as a fallback when
+	// the canonical name (naming.DepContainer / naming.Container) does not
+	// match the real container — typically because the user's compose file
+	// dictated a custom container_name. See issue 009.
+	FindManagedContainerByService(ctx context.Context, project, service string) string
 	// ResolveRelativeVolumes converts relative paths in bind mount volumes to absolute paths
 	ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error)
 	// AreServicesRunning checks if services are running in a compose project

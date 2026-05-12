@@ -42,6 +42,13 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	projectDir, _ := filepath.Abs(filepath.Dir(configPath))
 	projectName := deps.Project.Name
 
+	// Issue 012: when the user passed service names, stop only that subset
+	// and leave the network / proxy / state file alone. The rest of the
+	// project keeps running.
+	if len(opts.Services) > 0 {
+		return uc.downSelectiveServices(ctx, deps, projectDir, projectName, opts.Services)
+	}
+
 	output.PrintProgress("Stopping project " + projectName + "...")
 
 	// Run custom per-service stop commands first (declared in raioz.yaml as `stop:`).
@@ -70,6 +77,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 				logging.InfoWithContext(ctx, "Stopping host process",
 					"service", name, "pid", pid)
 				killProcessGroup(pid)
+				sweepLauncherOrphans(ctx, deps, projectDir, name)
 			}
 		}
 		// Clear PIDs from state. If the state file has no Project name —
@@ -111,8 +119,15 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		))
 	}
 
-	// Stop dependency compose projects
-	stopDependencyComposeProjects(ctx, deps, projectName)
+	// Stop dependency compose projects. The deferred list comes from
+	// the matching `up`'s LocalState — deps that were skipped because a
+	// sibling project owned them (issue #26 mode B) must be skipped on
+	// down too.
+	var deferredDeps []string
+	if localState != nil {
+		deferredDeps = localState.DeferredToSibling
+	}
+	stopDependencyComposeProjects(ctx, deps, projectName, deferredDeps)
 
 	// Stop proxy
 	uc.stopProxy(ctx, opts)
@@ -137,6 +152,23 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 			_ = exec.CommandContext(ctx, runtime.Binary(), "network", "rm", networkName).Run()
 			logging.InfoWithContext(ctx, "Network removed", "network", networkName)
 		}
+	}
+
+	// Sweep raioz-labeled networks that survived the named-network removal.
+	// This catches networks raioz spawned beyond the project's main one
+	// (e.g. compose-generated default networks for dep stacks that didn't
+	// match the orchestrator's expected name). Pre-label era networks
+	// won't match — they need one manual cleanup, after which every new
+	// `up` stamps labels and every down sweeps cleanly.
+	sweepLabels := map[string]string{naming.LabelManaged: "true"}
+	if deps.Workspace != "" {
+		sweepLabels[naming.LabelWorkspace] = deps.Workspace
+	}
+	sweepLabels[naming.LabelProject] = projectName
+	if removed, err := docker.RemoveLabeledNetworks(ctx, sweepLabels); err != nil {
+		logging.WarnWithContext(ctx, "Labeled-network sweep failed", "error", err.Error())
+	} else if len(removed) > 0 {
+		logging.InfoWithContext(ctx, "Labeled networks removed", "names", removed)
 	}
 
 	output.PrintSuccess("Project '" + projectName + "' stopped")
@@ -238,10 +270,40 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 // are skipped while OTHER raioz projects in the same workspace still have
 // live containers — the last project out tumba the shared deps. Without
 // this guard, project A's down would rip postgres out from under project B.
-func stopDependencyComposeProjects(ctx context.Context, deps *config.Deps, projectName string) {
+//
+// `deferredDeps` lists dep names whose dispatch was skipped at up time
+// because a sibling raioz project owns them (issue #26 mode B). Those
+// have no container in the consumer's namespace and must not be torn
+// down — running `docker compose down` for them would be a no-op but
+// still spawns a process per dep, so we filter early. Pass nil for
+// legacy projects without sibling deps.
+func stopDependencyComposeProjects(
+	ctx context.Context,
+	deps *config.Deps,
+	projectName string,
+	deferredDeps []string,
+) {
 	others := otherProjectsActiveInWorkspace(ctx, deps.Workspace, projectName)
+	deferred := make(map[string]struct{}, len(deferredDeps))
+	for _, n := range deferredDeps {
+		deferred[n] = struct{}{}
+	}
 
 	for name, entry := range deps.Infra {
+		// Mode A (project:) — sibling-owned dep with its own lifecycle.
+		// We never started a container for it and must never stop one.
+		if entry.Inline != nil && entry.Inline.Project != "" {
+			logging.InfoWithContext(ctx, "Skipping mode A sibling dep on down",
+				"dep", name, "sibling", entry.Inline.Project)
+			continue
+		}
+		// Mode B with deferred-to-sibling stamp from up time.
+		if _, isDeferred := deferred[name]; isDeferred {
+			logging.InfoWithContext(ctx, "Skipping deferred sibling dep on down",
+				"dep", name)
+			continue
+		}
+
 		var override string
 		if entry.Inline != nil {
 			override = entry.Inline.Name

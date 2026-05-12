@@ -19,9 +19,7 @@ func ValidateDependencyCycle(deps *config.Deps) error {
 
 	// Add dependencies to graph (service-level and docker-level)
 	for name, svc := range deps.Services {
-		for _, dep := range svc.GetDependsOn() {
-			graph[name] = append(graph[name], dep)
-		}
+		graph[name] = append(graph[name], svc.GetDependsOn()...)
 	}
 
 	// Check for cycles using DFS

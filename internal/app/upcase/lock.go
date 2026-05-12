@@ -2,6 +2,7 @@ package upcase
 
 import (
 	"context"
+	"os"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
@@ -28,8 +29,20 @@ func (l *LockInstance) Release() error {
 	return nil
 }
 
-// acquireLock acquires a lock on the workspace
+// acquireLock acquires a lock on the workspace.
+//
+// When raioz is running as a recursive sibling spawn (issue #26 mode A),
+// the parent process already holds the workspace lock — re-acquiring
+// would deadlock. We detect that via RAIOZ_SIBLING_STACK and return a
+// no-op LockInstance whose Release() is also a no-op. Trust is bounded
+// by the parent: only the parent's `raioz up` can set the env var.
 func (uc *UseCase) acquireLock(ctx context.Context, ws *interfaces.Workspace) (*LockInstance, error) {
+	if os.Getenv(siblingStackEnv) != "" {
+		logging.DebugWithContext(ctx, "Skipping lock — recursive sibling spawn",
+			"workspace", ws.Root, "stack", os.Getenv(siblingStackEnv))
+		return &LockInstance{lock: nil, ctx: ctx, ws: ws}, nil
+	}
+
 	logging.DebugWithContext(ctx, "Acquiring lock", "workspace", ws.Root)
 	lockInstance, err := uc.deps.LockManager.Acquire(ws)
 	if err != nil {

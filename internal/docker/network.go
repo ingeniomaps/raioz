@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"raioz/internal/config"
@@ -151,6 +152,12 @@ func NetworkExistsWithContext(ctx context.Context, name string) (bool, *NetworkI
 type NetworkConfig struct {
 	Name   string // Network name
 	Subnet string // Optional subnet in CIDR notation (e.g., "150.150.0.0/16")
+	// Labels stamped on the network at create time. Down later sweeps
+	// raioz-managed networks by these labels — without them, anything not
+	// named in the project's state file leaks. Docker doesn't allow
+	// retro-fitting labels onto an existing network, so this MUST be set
+	// before the create call. Nil/empty is allowed (back-compat path).
+	Labels map[string]string
 }
 
 // CreateNetwork creates a new Docker network with bridge driver
@@ -182,6 +189,19 @@ func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig
 	// Add subnet if specified
 	if config.Subnet != "" {
 		args = append(args, "--subnet", config.Subnet)
+	}
+
+	// Stamp labels (sorted for deterministic command lines — easier to
+	// diff in logs and to match in tests).
+	if len(config.Labels) > 0 {
+		keys := make([]string, 0, len(config.Labels))
+		for k := range config.Labels {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			args = append(args, "--label", k+"="+config.Labels[k])
+		}
 	}
 
 	args = append(args, config.Name)
@@ -289,6 +309,55 @@ func GetNetworkProjects(networkName string, baseDir string) ([]string, error) {
 	}
 
 	return projects, nil
+}
+
+// RemoveLabeledNetworks removes every Docker network that matches the given
+// label set AND has zero containers attached. The two filters together are
+// the safe way to garbage-collect raioz-managed networks at down time
+// without ever touching networks the user (or compose, or another tool)
+// owns. Returns the names actually removed and any non-fatal errors.
+//
+// Networks with attached containers are left alone — they're either still
+// in use by sibling raioz projects in the same workspace or by
+// non-raioz workloads that happen to share the daemon. Forcing removal
+// would violate that boundary.
+//
+// Empty/nil labels return immediately: a query without filters would scope
+// to "every network on this daemon", which is exactly the kind of mass
+// action this helper exists to avoid.
+func RemoveLabeledNetworks(ctx context.Context, labels map[string]string) ([]string, error) {
+	if len(labels) == 0 {
+		return nil, nil
+	}
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerNetworkTimeout)
+	defer cancel()
+
+	args := []string{"network", "ls", "--format", "{{.Name}}"}
+	for k, v := range labels {
+		args = append(args, "--filter", "label="+k+"="+v)
+	}
+	out, err := exec.CommandContext(timeoutCtx, runtime.Binary(), args...).Output()
+	if err != nil {
+		return nil, fmt.Errorf("list labeled networks: %w", err)
+	}
+	names := strings.Split(strings.TrimSpace(string(out)), "\n")
+
+	var removed []string
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		inUse, _ := IsNetworkInUseWithContext(ctx, name)
+		if inUse {
+			continue
+		}
+		// Best-effort removal — concurrent teardowns can race here.
+		if err := exec.CommandContext(ctx, runtime.Binary(), "network", "rm", name).Run(); err == nil {
+			removed = append(removed, name)
+		}
+	}
+	return removed, nil
 }
 
 // ConnectContainerToNetwork attaches a running container to a Docker network.

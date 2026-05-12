@@ -24,6 +24,12 @@ func TestPortsCmdFlags(t *testing.T) {
 	if f.Shorthand != "p" {
 		t.Errorf("shorthand = %s, want p", f.Shorthand)
 	}
+
+	for _, name := range []string{"file", "conflicting"} {
+		if portsCmd.Flags().Lookup(name) == nil {
+			t.Errorf("flag %q not registered", name)
+		}
+	}
 }
 
 func TestPortsCmdRegisteredOnRoot(t *testing.T) {

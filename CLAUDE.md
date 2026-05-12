@@ -132,6 +132,13 @@ dependencies:               # what I need running (Docker images)
   adminer:
     image: adminer
     routing: {}             # opt-in HTTP proxy for a DB-heuristic image
+  # Sibling raioz project as a dep (issue #26)
+  keycloak:
+    project: ../../keycloak # mode A — sibling IS the dep
+    requiredHostname: sso   # optional: assert sibling exposes 'sso'
+  kafka:
+    image: bitnami/kafka:3
+    siblingProject: ../../kafka  # mode B — fallback to image if sibling down
 ```
 
 ### Optional fields recently added (all backward compatible)
@@ -142,6 +149,9 @@ dependencies:               # what I need running (Docker images)
 - `proxy.ip` — pin the Caddy container's IP inside the Docker network. Default: `<subnet-base>.1.1` when `network.subnet` is declared, otherwise Docker auto-assigns.
 - `proxy.publish` (default `true`) — when `false`, the proxy does NOT bind host ports 80/443. The proxy is reachable only through its container IP; users map hostnames via `/etc/hosts`. Enables running multiple workspaces in parallel without port contention. Requires a deterministic IP (subnet or explicit `proxy.ip`). Linux-only (macOS/Windows route Docker through a VM whose bridge IPs aren't reachable).
 - `services.<n>.proxy.{target,port}` — bypass runtime detection for proxy routing. Needed when `command:` launches a compose stack raioz can't see.
+- `dependencies.<n>.project` — depend on a sibling raioz project (mode A). Empty image/compose; raioz spawns `raioz up` recursively in the sibling cwd when needed. `down` of the consumer never tumba al hermano.
+- `dependencies.<n>.siblingProject` — fallback variant: pair with `image:`/`compose:` and raioz skips the local declaration only when the sibling is currently active. Useful for CI / contributors without the sibling cloned.
+- `dependencies.<n>.requiredHostname` — assert the sibling's raioz.yaml declares this hostname before deferring to it. Empty = no validation.
 
 ## Key Concepts
 
@@ -210,6 +220,36 @@ Redis. New blocklist entries go in `nonHTTPImageNames`.
 Prints the `/etc/hosts` line for the current project's proxy, ready for
 `sudo tee -a /etc/hosts`. Only useful in practice with `proxy.publish:
 false`, but works in any mode.
+
+### Sibling raioz projects as deps (issue #26)
+Two ways a `dependencies.<n>` entry can point at another raioz project:
+`project: ../sibling` (mode A — the sibling IS the dep, no image) and
+`siblingProject: ../sibling` + `image:` (mode B — image fallback when
+the sibling isn't up). Invariants:
+- **Down never touches the sibling.** Mode A is detected via
+  `entry.Inline.Project != ""` in `stopDependencyComposeProjects` and
+  skipped unconditionally. Mode B is tracked via
+  `LocalState.DeferredToSibling` (overwritten on every up, so stale
+  entries clear themselves) and skipped on the next down.
+- **Workspace coherence is mandatory** — both sides must declare the
+  same `workspace:`. Cross-workspace siblings fail at `decideSibling`
+  time before any spawn or probe.
+- **Cycle detection via `RAIOZ_SIBLING_STACK`** env var with
+  `os.PathListSeparator`. The parent appends its own dir before exec;
+  the child reads it in `checkSiblingCycle` and fails fast on A→B→A.
+- **Mode A spawn uses `os.Executable()`** (overridable via
+  `spawnRaiozBinary` for tests) and streams stdout/stderr line-by-line
+  with a `[sibling: <name>]` prefix. Failure errors include
+  `cd <dir> && raioz up` so the user can diagnose without recalling
+  where the spawn came from.
+- **`requiredHostname:` checks against `SiblingInfo.Hostnames`** (yaml-
+  declared, not live Caddyfile). Validated pre-spawn for mode A and
+  pre-defer for mode B. Skipped when mode B falls back to the image.
+- **`config.Infra` clones must include the new fields**:
+  `Project`, `SiblingProject`, `RequiredHostname`. The
+  `cloneInfraEntry` regression in `workspace_project_conflict.go` is
+  the same class of bug as previous clone-sync issues — `grep -rn
+  "config.Infra{" --include='*.go'` after touching the struct.
 
 ## CLI Commands (30 total)
 

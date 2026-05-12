@@ -325,3 +325,219 @@ func TestStatusUseCase_getHostServiceInfo_ProcessAlive(t *testing.T) {
 		t.Errorf("expected running, got %+v", info)
 	}
 }
+
+// --- Issue 009: dep status fallback by labels --------------------------------
+
+// When the canonical container name lookup misses (typical for compose-mode
+// deps where container_name is dictated by the user's compose), status must
+// fall back to a label-based lookup so `raioz status` doesn't lie.
+func TestQueryDepStatus_FallsBackToLabelsWhenCanonicalNameMissing(t *testing.T) {
+	calls := struct {
+		statusCalls []string
+		findCalls   int
+	}{}
+	uc := NewStatusUseCase(&Dependencies{
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				calls.statusCalls = append(calls.statusCalls, name)
+				switch name {
+				case "raioz-yemdiou-postgres": // canonical, missing
+					return "", nil
+				case "yemdiou-postgres": // real container the user's compose created
+					return "running", nil
+				}
+				return "", nil
+			},
+			FindManagedContainerByServiceFunc: func(ctx context.Context, project, service string) string {
+				calls.findCalls++
+				if project == "yemdiou" && service == "postgres" {
+					return "yemdiou-postgres"
+				}
+				return ""
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "yemdiou"}}
+	entry := config.InfraEntry{Inline: &config.Infra{Image: "postgres:16"}}
+	got := uc.queryDepStatus(context.Background(), "postgres", entry, deps)
+	if got != "running" {
+		t.Errorf("queryDepStatus = %q, want %q", got, "running")
+	}
+	if calls.findCalls != 1 {
+		t.Errorf("FindManagedContainerByService calls = %d, want 1", calls.findCalls)
+	}
+	if len(calls.statusCalls) != 2 {
+		t.Errorf("expected two GetContainerStatusByName calls (canonical + real), got %v", calls.statusCalls)
+	}
+}
+
+// When the canonical lookup already finds the container, no label fallback
+// must run — the heuristic is opt-in only when the cheaper path missed.
+func TestQueryDepStatus_NoFallbackWhenCanonicalHits(t *testing.T) {
+	findCalls := 0
+	uc := NewStatusUseCase(&Dependencies{
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				return "running", nil
+			},
+			FindManagedContainerByServiceFunc: func(ctx context.Context, project, service string) string {
+				findCalls++
+				return "should-not-be-called"
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	entry := config.InfraEntry{Inline: &config.Infra{Image: "redis:7"}}
+	got := uc.queryDepStatus(context.Background(), "redis", entry, deps)
+	if got != "running" {
+		t.Errorf("queryDepStatus = %q, want running", got)
+	}
+	if findCalls != 0 {
+		t.Errorf("label fallback ran when canonical lookup succeeded (calls=%d)", findCalls)
+	}
+}
+
+// If nothing matches the canonical name AND the label search returns "",
+// status remains "stopped" — we must not pretend a missing dep is running.
+func TestQueryDepStatus_StillStoppedWhenNoMatch(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				return "", nil
+			},
+			FindManagedContainerByServiceFunc: func(ctx context.Context, project, service string) string {
+				return ""
+			},
+		},
+	})
+	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	entry := config.InfraEntry{Inline: &config.Infra{Image: "x"}}
+	if got := uc.queryDepStatus(context.Background(), "x", entry, deps); got != "stopped" {
+		t.Errorf("queryDepStatus = %q, want stopped", got)
+	}
+}
+
+// --- Issue 010: proxy.target as source of truth for host status -------------
+
+// When the user declares `services.<name>.proxy.target: <container>` and that
+// container is running, status must report "running" regardless of what the
+// PID-alive / compose-autodetect heuristics say. The classic break is a
+// host launcher (`make dev-docker`) that exits 0 after `compose up -d`:
+// PID is gone, autodetect targets the wrong compose file, but the container
+// is happily up.
+func TestGetHostServiceInfo_ProxyTargetRunningWins(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		Workspace: &mocks.MockWorkspaceManager{
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+				return "/tmp/x"
+			},
+		},
+		HostRunner: &mocks.MockHostRunner{
+			DetectComposePathFunc: func(p, c, e string) string { return "" },
+		},
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				if name == "hypixo-accounts" {
+					return "running", nil
+				}
+				return "", nil
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "accounts"}, Workspace: "hypixo"}
+	svc := config.Service{
+		Source: config.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &config.ServiceProxyOverride{
+			Target: "hypixo-accounts",
+			Port:   4002,
+		},
+	}
+	info := uc.getHostServiceInfo(
+		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,
+		deps, map[string]*host.ProcessInfo{}, // no PID — launcher already exited
+	)
+	if info.Status != "running" {
+		t.Errorf("expected running (proxy.target alive), got %+v", info)
+	}
+}
+
+// Counterpart: when the named container is not running, we surface that
+// directly without falling back to the (lying) PID/compose path.
+func TestGetHostServiceInfo_ProxyTargetExitedWins(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		Workspace: &mocks.MockWorkspaceManager{
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+				return "/tmp/x"
+			},
+		},
+		HostRunner: &mocks.MockHostRunner{
+			DetectComposePathFunc: func(p, c, e string) string { return "" },
+			IsServiceRunningFunc:  func(pid int) (bool, error) { return true, nil },
+		},
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				if name == "hypixo-accounts" {
+					return "exited", nil
+				}
+				return "", nil
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "accounts"}}
+	svc := config.Service{
+		Source:        config.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &config.ServiceProxyOverride{Target: "hypixo-accounts"},
+	}
+	info := uc.getHostServiceInfo(
+		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,
+		deps, map[string]*host.ProcessInfo{
+			// PID is alive, but the *container* is exited — the container wins.
+			"accounts": {PID: 4242},
+		},
+	)
+	if info.Status != "stopped" {
+		t.Errorf("expected stopped (proxy.target exited), got %+v", info)
+	}
+}
+
+// When proxy.target points to a container that does not exist yet (typical
+// before the first `up`), we must NOT short-circuit — the existing
+// PID/compose path still has a chance to decide.
+func TestGetHostServiceInfo_ProxyTargetMissingFallsThrough(t *testing.T) {
+	uc := NewStatusUseCase(&Dependencies{
+		Workspace: &mocks.MockWorkspaceManager{
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+				return "/tmp/x"
+			},
+		},
+		HostRunner: &mocks.MockHostRunner{
+			DetectComposePathFunc: func(p, c, e string) string { return "" },
+			IsServiceRunningFunc:  func(pid int) (bool, error) { return true, nil },
+		},
+		DockerRunner: &mocks.MockDockerRunner{
+			GetContainerStatusByNameFunc: func(ctx context.Context, name string) (string, error) {
+				return "", nil // container does not exist
+			},
+		},
+	})
+
+	deps := &config.Deps{Project: config.Project{Name: "accounts"}}
+	svc := config.Service{
+		Source:        config.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &config.ServiceProxyOverride{Target: "not-yet-built"},
+	}
+	info := uc.getHostServiceInfo(
+		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,
+		deps, map[string]*host.ProcessInfo{
+			"accounts": {PID: 4242},
+		},
+	)
+	// PID-alive fallback should kick in.
+	if info.Status != "running" {
+		t.Errorf("expected fallback PID detection to mark running, got %+v", info)
+	}
+}

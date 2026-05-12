@@ -47,8 +47,8 @@ func TestYAMLToDeps_DepMustHaveImageOrCompose(t *testing.T) {
 		},
 	}
 	_, err := YAMLToDeps(cfg)
-	if err == nil || !strings.Contains(err.Error(), "must declare either") {
-		t.Errorf("expected 'must declare either' error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "must declare one of") {
+		t.Errorf("expected 'must declare one of' error, got %v", err)
 	}
 }
 
@@ -65,6 +65,29 @@ func TestYAMLToDeps_DepCannotHaveBothImageAndCompose(t *testing.T) {
 	_, err := YAMLToDeps(cfg)
 	if err == nil || !strings.Contains(err.Error(), "both `image:` and `compose:`") {
 		t.Errorf("expected conflict error, got %v", err)
+	}
+}
+
+func TestYAMLToDeps_DepWithComposeHasNoSpuriousTag(t *testing.T) {
+	cfg := &RaiozConfig{
+		Project: "p",
+		Deps: map[string]YAMLDependency{
+			"db": {Compose: YAMLStringSlice{"./infra/db.yml"}},
+		},
+	}
+	deps, err := YAMLToDeps(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	inline := deps.Infra["db"].Inline
+	if inline.Image != "" {
+		t.Errorf("expected empty Image for compose-only dep, got %q",
+			inline.Image)
+	}
+	if inline.Tag != "" {
+		t.Errorf("expected empty Tag for compose-only dep, got %q "+
+			"(would surface as ':latest' in status and 'docker pull "+
+			":latest' in error suggestions)", inline.Tag)
 	}
 }
 

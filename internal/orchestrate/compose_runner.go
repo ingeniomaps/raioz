@@ -130,14 +130,26 @@ func (r *ComposeRunner) createNetworkOverlay(svc interfaces.ServiceContext) (str
 	// Add network + raioz labels to each service so raioz can identify and
 	// sweep these containers without matching by name (names come from the
 	// user's compose file and may collide with unrelated projects).
+	//
+	// Also publish the raioz canonical name as a network alias on the shared
+	// workspace network. The proxy writes routes targeting
+	// naming.Container(project, service); without the alias Caddy hits
+	// NXDOMAIN because docker compose names the container
+	// {compose-project}-{service}-{num}, not what raioz expects.
 	labels := naming.Labels(
 		naming.WorkspaceName(), svc.ProjectName, svc.Name, naming.KindService,
 	)
+	canonical := naming.Container(svc.ProjectName, svc.Name)
 	svcOverrides := make(map[string]any)
 	for _, name := range services {
 		svcOverrides[name] = map[string]any{
-			"networks": []string{svc.NetworkName, "default"},
-			"labels":   labels,
+			"networks": map[string]any{
+				svc.NetworkName: map[string]any{
+					"aliases": []string{canonical},
+				},
+				"default": map[string]any{},
+			},
+			"labels": labels,
 		}
 	}
 	overlay["services"] = svcOverrides

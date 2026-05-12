@@ -146,7 +146,7 @@ func TestCIUseCase_ensureCINetwork_Pass(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name string, subnet string, ask bool) error {
+		EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name string, subnet string, _ map[string]string, ask bool) error {
 			return nil
 		},
 	}
@@ -165,7 +165,7 @@ func TestCIUseCase_ensureCINetwork_Error(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name string, subnet string, ask bool) error {
+		EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name string, subnet string, _ map[string]string, ask bool) error {
 			return fmt.Errorf("network fail")
 		},
 	}

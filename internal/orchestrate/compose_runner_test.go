@@ -151,6 +151,68 @@ func TestComposeRunner_CreateNetworkOverlay_WithServices(t *testing.T) {
 	}
 }
 
+func TestComposeRunner_CreateNetworkOverlay_AliasesCanonicalName(t *testing.T) {
+	svc := makeComposeSvc(t)
+	mock := &mocks.MockDockerRunner{
+		GetAvailableServicesWithContextFunc: func(
+			_ context.Context, _ string,
+		) ([]string, error) {
+			return []string{"web", "db"}, nil
+		},
+	}
+	r := &ComposeRunner{docker: mock}
+
+	path, err := r.createNetworkOverlay(svc)
+	if err != nil {
+		t.Fatalf("createNetworkOverlay: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("parse overlay: %v", err)
+	}
+
+	services, ok := parsed["services"].(map[string]any)
+	if !ok {
+		t.Fatal("expected services map in overlay")
+	}
+
+	want := "raioz-" + svc.ProjectName + "-" + svc.Name
+	for _, name := range []string{"web", "db"} {
+		entry, ok := services[name].(map[string]any)
+		if !ok {
+			t.Fatalf("service %q missing or wrong shape in overlay", name)
+		}
+		nets, ok := entry["networks"].(map[string]any)
+		if !ok {
+			t.Fatalf("service %q networks should be a map (long form)", name)
+		}
+		netCfg, ok := nets[svc.NetworkName].(map[string]any)
+		if !ok {
+			t.Fatalf("service %q missing %q in networks", name, svc.NetworkName)
+		}
+		aliases, ok := netCfg["aliases"].([]any)
+		if !ok {
+			t.Fatalf("service %q missing aliases on %q", name, svc.NetworkName)
+		}
+		found := false
+		for _, a := range aliases {
+			if a == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("service %q aliases %v missing canonical %q",
+				name, aliases, want)
+		}
+		if _, ok := nets["default"]; !ok {
+			t.Errorf("service %q missing default network entry", name)
+		}
+	}
+}
+
 func TestComposeRunner_CreateNetworkOverlay_DockerError(t *testing.T) {
 	svc := makeComposeSvc(t)
 	mock := &mocks.MockDockerRunner{

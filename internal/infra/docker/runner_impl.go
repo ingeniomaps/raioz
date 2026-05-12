@@ -64,6 +64,28 @@ func (r *DockerRunnerImpl) GetContainerStatusByName(
 	return dockerpkg.GetContainerStatusByName(ctx, containerName)
 }
 
+// FindManagedContainerByService resolves a raioz-managed container by its
+// project + service labels (issue 009). Returns "" when nothing matches.
+func (r *DockerRunnerImpl) FindManagedContainerByService(
+	ctx context.Context, project, service string,
+) string {
+	if service == "" {
+		return ""
+	}
+	labels := map[string]string{
+		"com.raioz.managed": "true",
+		"com.raioz.service": service,
+	}
+	if project != "" {
+		labels["com.raioz.project"] = project
+	}
+	names := dockerpkg.ListContainersByLabels(ctx, labels)
+	if len(names) == 0 {
+		return ""
+	}
+	return names[0]
+}
+
 // GetServicesInfoWithContext returns detailed information about services
 func (r *DockerRunnerImpl) GetServicesInfoWithContext(
 	ctx context.Context, composePath string, serviceNames []string,

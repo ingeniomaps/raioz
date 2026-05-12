@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 )
 
@@ -21,6 +22,14 @@ type LocalState struct {
 	Ignored      []string               `json:"ignored,omitempty"`
 	HostPIDs     map[string]int         `json:"hostPIDs,omitempty"`
 	NetworkName  string                 `json:"networkName,omitempty"`
+
+	// DeferredToSibling lists the dep names whose dispatch was skipped
+	// at `up` time because a sibling raioz project was already serving
+	// them (issue #26 mode B). `down` consults this list so it doesn't
+	// try to tear down containers the consumer never created. The list
+	// is rewritten on every `up` — entries persist only as long as the
+	// sibling stays active.
+	DeferredToSibling []string `json:"deferredToSibling,omitempty"`
 }
 
 // DevOverride records that a dependency has been promoted to local development.
@@ -106,4 +115,31 @@ func (s *LocalState) IsDevOverridden(name string) bool {
 func (s *LocalState) GetDevOverride(name string) (DevOverride, bool) {
 	o, ok := s.DevOverrides[name]
 	return o, ok
+}
+
+// MarkDeferred records that a dep was skipped at `up` time because a
+// sibling raioz project was already serving it (issue #26 mode B). The
+// matching `down` reads this list to skip the dep too — without it,
+// raioz would try to tear down a container it never created. No-op if
+// the dep is already on the list, so callers can call this without
+// guarding for the second `up` in a row.
+func (s *LocalState) MarkDeferred(name string) {
+	if s.IsDeferred(name) {
+		return
+	}
+	s.DeferredToSibling = append(s.DeferredToSibling, name)
+}
+
+// ClearDeferred removes a dep from the deferred list. Called by `up`
+// when the sibling is no longer active and the local fallback needs to
+// start.
+func (s *LocalState) ClearDeferred(name string) {
+	s.DeferredToSibling = slices.DeleteFunc(
+		s.DeferredToSibling, func(d string) bool { return d == name })
+}
+
+// IsDeferred reports whether the most recent `up` recorded this dep as
+// deferred to a sibling project.
+func (s *LocalState) IsDeferred(name string) bool {
+	return slices.Contains(s.DeferredToSibling, name)
 }

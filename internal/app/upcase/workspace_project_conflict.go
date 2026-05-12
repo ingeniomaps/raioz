@@ -139,10 +139,8 @@ func mergeVariables(oldV, newV map[string]string) map[string]string {
 	for k, v := range oldV {
 		out[k] = v
 	}
-	if newV != nil {
-		for k, v := range newV {
-			out[k] = v
-		}
+	for k, v := range newV {
+		out[k] = v
 	}
 	return out
 }
@@ -219,23 +217,26 @@ func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
 	if entry.Inline != nil {
 		inf := *entry.Inline
 		out.Inline = &config.Infra{
-			Name:            inf.Name,
-			Image:           inf.Image,
-			Tag:             inf.Tag,
-			Compose:         append([]string(nil), inf.Compose...),
-			Ports:           append([]string(nil), inf.Ports...),
-			Volumes:         append([]string(nil), inf.Volumes...),
-			IP:              inf.IP,
-			Env:             inf.Env,
-			Profiles:        append([]string(nil), inf.Profiles...),
-			Seed:            append([]string(nil), inf.Seed...),
-			Healthcheck:     inf.Healthcheck,
-			Expose:          append([]int(nil), inf.Expose...),
-			Publish:         inf.Publish,
-			Routing:         inf.Routing,
-			ProxyOverride:   inf.ProxyOverride,
-			Hostname:        inf.Hostname,
-			HostnameAliases: append([]string(nil), inf.HostnameAliases...),
+			Name:             inf.Name,
+			Image:            inf.Image,
+			Tag:              inf.Tag,
+			Compose:          append([]string(nil), inf.Compose...),
+			Ports:            append([]string(nil), inf.Ports...),
+			Volumes:          append([]string(nil), inf.Volumes...),
+			IP:               inf.IP,
+			Env:              inf.Env,
+			Profiles:         append([]string(nil), inf.Profiles...),
+			Seed:             append([]string(nil), inf.Seed...),
+			Healthcheck:      inf.Healthcheck,
+			Expose:           append([]int(nil), inf.Expose...),
+			Publish:          inf.Publish,
+			Routing:          inf.Routing,
+			ProxyOverride:    inf.ProxyOverride,
+			Hostname:         inf.Hostname,
+			HostnameAliases:  append([]string(nil), inf.HostnameAliases...),
+			Project:          inf.Project,
+			SiblingProject:   inf.SiblingProject,
+			RequiredHostname: inf.RequiredHostname,
 		}
 	}
 	return out

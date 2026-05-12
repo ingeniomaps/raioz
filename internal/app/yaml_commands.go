@@ -6,27 +6,37 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 
-	"raioz/internal/app/upcase"
 	"raioz/internal/config"
-	"raioz/internal/detect"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
 
-// StatusYAML shows status for a YAML orchestrated project.
-func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) error {
+// StatusYAML shows status for a YAML orchestrated project. When `filter` is
+// non-empty, only services / dependencies in that list are reported and any
+// unknown name returns an error so the user notices the typo (issue 014).
+func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filter []string) error {
+	if err := validateStatusFilter(proj, filter); err != nil {
+		return err
+	}
+	want := filterSet(filter)
+
 	fmt.Println()
 	output.PrintSectionHeader(proj.ProjectName)
 
 	// Dependencies
-	if len(proj.Deps.Infra) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", len(proj.Deps.Infra)))
+	visibleInfra := countMatching(proj.Deps.Infra, want)
+	if visibleInfra > 0 {
+		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", visibleInfra))
 		for name, entry := range proj.Deps.Infra {
+			if !inFilter(want, name) {
+				continue
+			}
 			status := proj.ContainerStatus(ctx, name)
 			cpu, mem := proj.ContainerStats(ctx, name)
 			image := ""
@@ -41,13 +51,17 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 	}
 
 	// Services
-	if len(proj.Deps.Services) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Services (%d)", len(proj.Deps.Services)))
+	visibleSvc := countMatchingSvc(proj.Deps.Services, want)
+	if visibleSvc > 0 {
+		output.PrintSubsection(fmt.Sprintf("Services (%d)", visibleSvc))
 
 		projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
 		localState, _ := state.LoadLocalState(projectDir)
 
 		for name, svc := range proj.Deps.Services {
+			if !inFilter(want, name) {
+				continue
+			}
 			// Honor yaml overrides (command:, compose:) before scanning disk.
 			result := config.ResolveServiceDetection(svc, svc.Source.Path)
 			runtime := string(result.Runtime)
@@ -55,9 +69,24 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 				runtime = "unknown"
 			}
 
-			// Check if process is alive via saved PID
+			// Issue 010 priority 0: when the user declared `proxy.target`,
+			// THAT container is the source of truth — bypass the PID/compose
+			// heuristics that go false-negative for launchers that exit 0
+			// after `docker run -d`.
 			status := "stopped"
 			pidInfo := ""
+			if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
+				if state := dockerInspectStatus(ctx, svc.ProxyOverride.Target); state != "" {
+					if state == "running" {
+						status = "running"
+					} else {
+						status = "stopped"
+					}
+					goto print
+				}
+			}
+
+			// Fallback: process alive via saved PID.
 			if localState != nil {
 				if pid, ok := localState.HostPIDs[name]; ok && pid > 0 {
 					if isHostProcessAlive(pid) {
@@ -66,6 +95,7 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject) erro
 					}
 				}
 			}
+		print:
 
 			// Check if it has a dev override
 			devLabel := ""
@@ -183,13 +213,49 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 }
 
 // RestartYAML restarts services in a YAML orchestrated project.
-func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) error {
+//
+// For each service the runtime is detected before invoking docker:
+//   - Host services (declared with `command:` or `commands:`) are stopped
+//     via custom stop command + PID kill, then re-launched through the
+//     HostRunner — same path the up flow uses, including the settle window.
+//   - Docker services delegate to `docker restart <container>` against the
+//     container name resolved from naming.Container. Same legacy behavior
+//     as before for everything that lives in a container.
+//
+// Issue 013. Without this branching, restart of a host service hit
+// `docker restart raioz-<project>-<svc>` and failed with "No such
+// container", which surprised everyone who declared a `command:` and
+// expected restart to "just work".
+func (uc *RestartUseCase) RestartYAML(
+	ctx context.Context, proj *YAMLProject, opts RestartOptions,
+) error {
+	services := opts.Services
 	if len(services) == 0 {
-		output.PrintWarning("No services specified. Use service names or --all")
-		return nil
+		if !opts.All {
+			output.PrintWarning(
+				"No services specified. Use service names or --all")
+			return nil
+		}
+		services = collectYAMLServiceNames(proj)
+		if opts.IncludeInfra {
+			services = append(services, collectYAMLDepNames(proj)...)
+		}
+		if len(services) == 0 {
+			output.PrintWarning("Project has no services to restart")
+			return nil
+		}
 	}
 
 	for _, name := range services {
+		if isYAMLHostService(proj, name) {
+			if err := uc.restartHostService(ctx, proj, name); err != nil {
+				output.PrintProgressError(name + ": " + err.Error())
+			} else {
+				output.PrintProgressDone(name)
+			}
+			continue
+		}
+
 		containerName := naming.Container(proj.ProjectName, name)
 		output.PrintProgress("Restarting " + name + "...")
 		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
@@ -200,6 +266,50 @@ func RestartYAML(ctx context.Context, proj *YAMLProject, services []string) erro
 		}
 	}
 	return nil
+}
+
+// collectYAMLServiceNames returns the service names of a YAML project in a
+// deterministic order. Sorted so `restart --all` output (and tests) don't
+// depend on Go's randomized map iteration.
+func collectYAMLServiceNames(proj *YAMLProject) []string {
+	if proj == nil || proj.Deps == nil {
+		return nil
+	}
+	names := make([]string, 0, len(proj.Deps.Services))
+	for name := range proj.Deps.Services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// collectYAMLDepNames mirrors collectYAMLServiceNames for the infra map,
+// used when --include-infra opts dependencies back into restart --all.
+func collectYAMLDepNames(proj *YAMLProject) []string {
+	if proj == nil || proj.Deps == nil {
+		return nil
+	}
+	names := make([]string, 0, len(proj.Deps.Infra))
+	for name := range proj.Deps.Infra {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// isYAMLHostService reports whether the named entry in a YAML project runs
+// as a host process — i.e. has a `command:` or `commands:` block, no Docker.
+// Used to pick the right restart path. Returns false for unknown names so
+// the docker fallback can produce its own (admittedly ugly) error.
+func isYAMLHostService(proj *YAMLProject, name string) bool {
+	svc, ok := proj.Deps.Services[name]
+	if !ok {
+		return false
+	}
+	if svc.Docker != nil {
+		return false
+	}
+	return svc.Source.Command != "" || svc.Commands != nil
 }
 
 // ExecYAML runs a command in a container of a YAML orchestrated project.
@@ -265,83 +375,3 @@ func isHostProcessAlive(pid int) bool {
 }
 
 // CheckYAML validates a YAML project config.
-func CheckYAML(proj *YAMLProject) error {
-	fmt.Println()
-	output.PrintSectionHeader("Config check: " + proj.ProjectName)
-
-	issues := 0
-
-	// Check service paths exist (honoring yaml `command:`/`compose:` overrides).
-	for name, svc := range proj.Deps.Services {
-		result := config.ResolveServiceDetection(svc, svc.Source.Path)
-		if result.Runtime == detect.RuntimeUnknown {
-			if svc.Source.Path != "" {
-				output.PrintWarning(fmt.Sprintf("%s: no runtime detected at %s", name, svc.Source.Path))
-			} else {
-				output.PrintWarning(fmt.Sprintf("%s: no runtime declared (command/compose/path)", name))
-			}
-			issues++
-		} else {
-			output.PrintSuccess(fmt.Sprintf("%s: %s", name, result.Runtime))
-		}
-	}
-
-	// Check dependency images
-	for name, entry := range proj.Deps.Infra {
-		if entry.Inline != nil && entry.Inline.Image != "" {
-			output.PrintSuccess(fmt.Sprintf("%s: %s", name, entry.Inline.Image))
-		}
-	}
-
-	// Check dependsOn references
-	known := make(map[string]bool)
-	for name := range proj.Deps.Services {
-		known[name] = true
-	}
-	for name := range proj.Deps.Infra {
-		known[name] = true
-	}
-	for name, svc := range proj.Deps.Services {
-		for _, dep := range svc.GetDependsOn() {
-			if !known[dep] {
-				output.PrintError(fmt.Sprintf("%s depends on '%s' which is not defined", name, dep))
-				issues++
-			}
-		}
-	}
-
-	// Proxy requirements (mkcert presence, certs on disk). Matches what
-	// `raioz up` enforces so the user never gets a green check followed by
-	// a red up on the same machine.
-	if err := upcase.CheckProxyRequirements(proj.Deps); err != nil {
-		output.PrintError(err.Error())
-		issues++
-	}
-
-	// Port allocation + host-bind probing. This runs the same allocator the
-	// up flow uses: explicit conflicts fail loud, implicit/auto conflicts
-	// bump deterministically, external binders (other projects, random
-	// containers, local processes) are surfaced as errors pointing at the
-	// offending service or dep.
-	//
-	// `raioz check` runs this read-only — nothing is actually bound, just
-	// a transient net.Listen() per candidate port to probe availability.
-	detections := upcase.BuildDetectionMap(proj.Deps)
-	if _, err := upcase.AllocateHostPorts(proj.Deps, detections); err != nil {
-		output.PrintError(err.Error())
-		issues++
-	}
-
-	fmt.Println()
-	if issues == 0 {
-		output.PrintSuccess("All checks passed")
-		return nil
-	}
-	// Issues found: return a sentinel error so the CLI wrapper (cli/check.go)
-	// can skip the misleading "Configuration is valid" banner, surface a
-	// non-zero exit code, and avoid the "no state found" hint that implies
-	// everything is fine. The actual issue list has already been printed
-	// above — the error here is just the signal.
-	output.PrintWarning(fmt.Sprintf("%d issue(s) found", issues))
-	return fmt.Errorf("%d check issue(s) found", issues)
-}

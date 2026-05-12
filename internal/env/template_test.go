@@ -141,7 +141,7 @@ func TestWriteEnvFile_SortedOutput(t *testing.T) {
 			zIdx = i
 		}
 	}
-	if !(aIdx < mIdx && mIdx < zIdx) {
+	if aIdx >= mIdx || mIdx >= zIdx {
 		t.Errorf("keys not sorted: A=%d M=%d Z=%d", aIdx, mIdx, zIdx)
 	}
 }

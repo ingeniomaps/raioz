@@ -37,3 +37,24 @@ func ForceKillProcessTree(pid int) error {
 func IsProcessAlive(pid int) bool {
 	return isProcessAlive(pid)
 }
+
+// KillOrphansByCwd sends SIGTERM to every running process on the host whose
+// current working directory equals (or is a strict child of) servicePath.
+// Returns the PIDs that were signalled.
+//
+// Used as a follow-up to KillProcessTree to catch the "launcher pattern":
+// tools that double-fork their daemons into a new session (nx, vite,
+// esbuild watchers, certain dev servers) so the daemon's parent re-parents
+// to init and the original process group can no longer reach it via
+// `kill -<pgid>`. The daemon's cwd still points at the project tree it
+// was spawned from, so we sweep by cwd as a secondary signal.
+//
+// servicePath must be absolute, cleaned, and have at least 4 path
+// components — shorter paths (`/`, `/home`, `/home/<user>`) are rejected
+// because they would match thousands of unrelated user processes. Empty
+// or non-absolute input returns nil without scanning.
+//
+// Linux: walks /proc/<pid>/cwd. macOS/Windows: returns nil (no /proc).
+func KillOrphansByCwd(servicePath string) []int {
+	return killOrphansByCwd(servicePath)
+}

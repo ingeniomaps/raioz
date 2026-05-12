@@ -171,8 +171,8 @@ func EnsureDockerfile(
 	// Dockerfile doesn't exist, check if we can generate wrapper
 	if svc.Docker.Command == "" {
 		return "", fmt.Errorf(
-			"Dockerfile.dev not found in %s (path: %s). "+
-				"Add Dockerfile.dev to the repo or specify 'command' in docker config",
+			"dockerfile.dev not found in %s (path: %s); "+
+				"add Dockerfile.dev to the repo or specify 'command' in docker config",
 			serviceName, servicePath,
 		)
 	}

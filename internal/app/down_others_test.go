@@ -19,7 +19,7 @@ func TestUniqueConflictingProjects(t *testing.T) {
 			conflicts: []docker.PortConflict{
 				{Port: "9001:8080", Project: "hypixo-keycloak", Service: "keycloak"},
 				{Port: "5540:5540", Project: "hypixo-keycloak", Service: "redisinsight"},
-				{Port: "8025:8025", Project: "alpha-mail", Service: "mailhog"},
+				{Port: "8025:8025", Project: "alpha-mail", Service: "mailpit"},
 			},
 			current: "gouduet-keycloak",
 			want:    []string{"alpha-mail", "hypixo-keycloak"},

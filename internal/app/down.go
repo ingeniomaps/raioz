@@ -25,6 +25,12 @@ type DownOptions struct {
 	// AllProjects stops every active raioz project except the cwd's.
 	// Same exclusivity rule as Conflicting.
 	AllProjects bool
+	// Services restricts the down to a subset of services / dependencies
+	// declared in raioz.yaml. Empty means "whole project" (legacy
+	// behavior). When non-empty, only these are stopped — network, proxy
+	// and state file are left intact so the rest of the project keeps
+	// running. Issue 012.
+	Services []string
 }
 
 // DownUseCase handles the "down" use case - stopping a project
@@ -294,7 +300,9 @@ func (uc *DownUseCase) stopProjectServices(
 		// Dependencies live in separate per-dep compose files created by
 		// ImageRunner, NOT in the main compose file. Use the same teardown
 		// function that the orchestrated path uses.
-		stopDependencyComposeProjects(ctx, currentDeps, projectName)
+		// Legacy json projects predate sibling deps (issue #26), so the
+		// deferred list is always nil here.
+		stopDependencyComposeProjects(ctx, currentDeps, projectName, nil)
 	}
 
 	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {

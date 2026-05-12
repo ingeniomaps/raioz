@@ -121,7 +121,7 @@ func TestCIUseCase_executeLegacy_EphemeralWorkspace(t *testing.T) {
 			return nil, nil
 		},
 		ValidateAllImagesFunc: func(d *config.Deps) error { return nil },
-		EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name string, subnet string, ask bool) error {
+		EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name string, subnet string, _ map[string]string, ask bool) error {
 			return nil
 		},
 		ExtractNamedVolumesFunc: func(volumes []string) ([]string, error) { return nil, nil },

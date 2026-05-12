@@ -141,7 +141,7 @@ func FormatDrifts(drifts []ServiceDrift) string {
 	}
 
 	var result string
-	result += fmt.Sprintf("\n⚠️  Configuration Drift Detected\n")
+	result += "\n⚠️  Configuration Drift Detected\n"
 	result += strings.Repeat("━", 50) + "\n"
 	result += fmt.Sprintf(
 		"Detected changes in %d service(s) added via "+
@@ -152,7 +152,7 @@ func FormatDrifts(drifts []ServiceDrift) string {
 		result += fmt.Sprintf("┌─ Service: %s\n", drift.ServiceName)
 		result += fmt.Sprintf("│  Config: %s\n", drift.ServicePath)
 		result += fmt.Sprintf("│  Changes: %d difference(s)\n", len(drift.Differences))
-		result += fmt.Sprintf("│\n")
+		result += "│\n"
 
 		for j, change := range drift.Differences {
 			fieldDisplay := change.Field

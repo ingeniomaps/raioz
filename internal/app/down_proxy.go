@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 
 	"raioz/internal/config"
@@ -42,6 +43,7 @@ func (uc *DownUseCase) stopProxy(ctx context.Context, opts DownOptions) {
 	}
 
 	uc.handlePerProjectProxyDown(ctx)
+	cleanProxyDirOnDisk(ctx, deps)
 }
 
 // handleSharedProxyDown implements the workspace-shared lifecycle: drop our
@@ -72,11 +74,13 @@ func (uc *DownUseCase) handleSharedProxyDown(ctx context.Context, deps *config.D
 	}
 
 	uc.handlePerProjectProxyDown(ctx)
+	cleanProxyDirOnDisk(ctx, deps)
 }
 
 // handlePerProjectProxyDown is the legacy "just stop the container" path.
 // Used both for projects without a workspace and for the last project
-// leaving a workspace.
+// leaving a workspace. The on-disk proxy dir cleanup is left to the caller
+// because only it knows which dir applies (workspace-shared vs per-project).
 func (uc *DownUseCase) handlePerProjectProxyDown(ctx context.Context) {
 	running, err := uc.deps.ProxyManager.Status(ctx)
 	if err != nil || !running {
@@ -88,6 +92,40 @@ func (uc *DownUseCase) handlePerProjectProxyDown(ctx context.Context) {
 		output.PrintWarning("Failed to stop proxy: " + err.Error())
 	} else {
 		output.PrintSuccess("Proxy stopped")
+	}
+}
+
+// cleanProxyDirOnDisk removes the on-disk Caddyfile + routes dir that the
+// proxy left behind. The proxy container's bind-mount source becomes garbage
+// once the container is gone — without this the next `up` of an unrelated
+// project in the same workspace would inherit the previous project's routes
+// until raioz overwrote them. Workspace-shared mode targets WorkspaceProxyDir;
+// legacy per-project mode targets ProxyDir(project).
+//
+// Issue 015 migration: also nuke the pre-XDG legacy `/tmp/<ws>/proxy/`
+// location. Users upgrading from a build that wrote there inherit a stale
+// (and possibly root-owned) tree; one down/up cycle now clears it. The
+// legacy removal is best-effort because the offending tree is exactly the
+// kind that the upgrading user can't os.RemoveAll without sudo — log and
+// move on instead of failing the down.
+func cleanProxyDirOnDisk(ctx context.Context, deps *config.Deps) {
+	var current, legacy string
+	if deps.Workspace != "" {
+		current = naming.WorkspaceProxyDir()
+		legacy = naming.LegacyWorkspaceProxyDir()
+	} else {
+		current = naming.ProxyDir(deps.Project.Name)
+		legacy = naming.LegacyProxyDir(deps.Project.Name)
+	}
+
+	for _, dir := range []string{current, legacy} {
+		if dir == "" {
+			continue
+		}
+		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			logging.WarnWithContext(ctx, "Failed to remove proxy dir",
+				"dir", dir, "error", err.Error())
+		}
 	}
 }
 

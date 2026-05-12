@@ -27,8 +27,15 @@ func (uc *UseCase) processOrchestration(
 	projectDir string,
 	configPath string,
 ) (*orchestrationResult, error) {
-	// Step 0: Kill stale host processes from previous run
-	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name)
+	// Step 0: Kill stale host processes from previous run, restricted to
+	// the services this `up` touches. For a full up, deps.Services holds
+	// everything declared; for selective up (`--only` or positional args)
+	// it holds only the chosen subset so untouched services keep running.
+	scope := make(map[string]struct{}, len(deps.Services))
+	for name := range deps.Services {
+		scope[name] = struct{}{}
+	}
+	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name, scope)
 
 	// Step 1: Detect runtimes
 	output.PrintProgress(i18n.T("up.detecting_runtimes"))
@@ -85,13 +92,46 @@ func (uc *UseCase) processOrchestration(
 		infraNames = append(infraNames, name)
 	}
 
+	// deferredDeps records the dep names whose dispatch was skipped
+	// because a sibling raioz project owns them (issue #26 mode B).
+	// Persisted into LocalState below so `down` can match the skip.
+	var deferredDeps []string
+
+	// dispatchedInfra records the deps that ACTUALLY went through the
+	// runner — the subset of infraNames that has a container in this
+	// project's namespace. Health check / endpoints / proxy iterate
+	// this list (or `detections` after we delete sibling-skipped
+	// entries) so they don't wait on or generate routes for containers
+	// the sibling owns instead.
+	var dispatchedInfra []string
+
 	if len(infraNames) > 0 {
-		output.PrintProgress(i18n.T("up.starting_infra", len(infraNames)))
+		verdicts, toDispatch, err := resolveSiblingVerdicts(ctx, infraNames, deps)
+		if err != nil {
+			return nil, err
+		}
+		if toDispatch > 0 {
+			output.PrintProgress(i18n.T("up.starting_infra", toDispatch))
+		}
 		infraStart := time.Now()
 
 		for _, name := range infraNames {
 			detection := detections[name]
 			entry := deps.Infra[name]
+
+			// Sibling-deps gate (issue #26). applySiblingVerdict deletes
+			// sibling-mode deps from `detections` (so endpoints / proxy /
+			// health auto-skip), spawns recursive raioz up for mode A,
+			// and stamps mode B defers for the matching down.
+			skip, err := applySiblingVerdict(
+				ctx, name, verdicts[name], projectDir, detections, &deferredDeps)
+			if err != nil {
+				return nil, err
+			}
+			if skip {
+				continue
+			}
+			dispatchedInfra = append(dispatchedInfra, name)
 
 			// Build image reference for the runner
 			envVars := map[string]string{}
@@ -167,16 +207,22 @@ func (uc *UseCase) processOrchestration(
 		}
 
 		logging.InfoWithContext(ctx, "Dependencies started",
-			"count", len(infraNames),
+			"count", len(dispatchedInfra),
+			"sibling_skipped", len(infraNames)-len(dispatchedInfra),
 			"duration_ms", time.Since(infraStart).Milliseconds())
 
-		// Wait for infra health with diagnostics
-		output.PrintProgress(i18n.T("up.waiting_infra_healthy"))
-		if err := checkInfraHealth(ctx, infraNames, deps.Project.Name, deps.Infra); err != nil {
-			return nil, errors.New(errors.ErrCodeDockerNotRunning, err.Error()).
-				WithSuggestion("Fix the issue above and run 'raioz up' again")
+		// Health check only runs when at least one dep was actually
+		// dispatched. With every dep deferred to siblings, the check
+		// would burn its 10s timeout looking for containers that live
+		// in the sibling's namespace.
+		if len(dispatchedInfra) > 0 {
+			output.PrintProgress(i18n.T("up.waiting_infra_healthy"))
+			if err := checkInfraHealth(ctx, dispatchedInfra, deps.Project.Name, deps.Infra); err != nil {
+				return nil, errors.New(errors.ErrCodeDockerNotRunning, err.Error()).
+					WithSuggestion("Fix the issue above and run 'raioz up' again")
+			}
+			output.PrintProgressDone(i18n.T("up.infra_healthy"))
 		}
-		output.PrintProgressDone(i18n.T("up.infra_healthy"))
 	}
 
 	// Build endpoints map for service discovery
@@ -244,7 +290,7 @@ func (uc *UseCase) processOrchestration(
 	// Persist host PIDs (and project/workspace/network provenance) so
 	// `raioz down` / next `raioz up` / `raioz status` can find them.
 	saveHostPIDs(projectDir, deps.Project.Name, deps.Workspace, networkName,
-		dispatcher, serviceNames, detections)
+		dispatcher, serviceNames, detections, deferredDeps)
 
 	// Step 4: Start proxy if enabled. The proxy block is extracted into its
 	// own file to keep this function under the 400-line cap; see

@@ -55,10 +55,13 @@ type MockDockerRunner struct {
 	) ([]interfaces.PortConflict, error)
 	FormatPortConflictsFunc               func(conflicts []interfaces.PortConflict) string
 	ValidateAllImagesFunc                 func(deps *config.Deps) error
-	EnsureNetworkWithConfigAndContextFunc func(ctx context.Context, name string, subnet string, askConfirmation bool) error
-	EnsureVolumeWithContextFunc           func(ctx context.Context, name string) error
-	NormalizeVolumeNameFunc               func(prefix string, name string) (string, error)
-	NormalizeContainerNameFunc            func(
+	EnsureNetworkWithConfigAndContextFunc func(
+		ctx context.Context, name string, subnet string,
+		labels map[string]string, askConfirmation bool,
+	) error
+	EnsureVolumeWithContextFunc func(ctx context.Context, name string) error
+	NormalizeVolumeNameFunc     func(prefix string, name string) (string, error)
+	NormalizeContainerNameFunc  func(
 		workspace string, service string, project string,
 		hasExplicitWorkspace bool,
 	) (string, error)
@@ -66,16 +69,17 @@ type MockDockerRunner struct {
 		workspace string, infra string, project string,
 		hasExplicitWorkspace bool,
 	) (string, error)
-	GetContainerNameWithContextFunc func(ctx context.Context, composePath string, serviceName string) (string, error)
-	GetContainerStatusByNameFunc    func(ctx context.Context, containerName string) (string, error)
-	ResolveRelativeVolumesFunc      func(volumes []string, projectDir string) ([]string, error)
-	AreServicesRunningFunc          func(composePath string, serviceNames []string) (bool, error)
-	IsNetworkInUseWithContextFunc   func(ctx context.Context, networkName string) (bool, error)
-	StopContainerWithContextFunc    func(ctx context.Context, containerName string) error
-	BuildServiceVolumesMapFunc      func(deps *config.Deps) (map[string]interfaces.ServiceVolumes, error)
-	DetectSharedVolumesFunc         func(services map[string]interfaces.ServiceVolumes) map[string][]string
-	FormatSharedVolumesWarningFunc  func(sharedVolumes map[string][]string) string
-	RemoveVolumeWithContextFunc     func(ctx context.Context, name string) error
+	GetContainerNameWithContextFunc   func(ctx context.Context, composePath string, serviceName string) (string, error)
+	GetContainerStatusByNameFunc      func(ctx context.Context, containerName string) (string, error)
+	FindManagedContainerByServiceFunc func(ctx context.Context, project, service string) string
+	ResolveRelativeVolumesFunc        func(volumes []string, projectDir string) ([]string, error)
+	AreServicesRunningFunc            func(composePath string, serviceNames []string) (bool, error)
+	IsNetworkInUseWithContextFunc     func(ctx context.Context, networkName string) (bool, error)
+	StopContainerWithContextFunc      func(ctx context.Context, containerName string) error
+	BuildServiceVolumesMapFunc        func(deps *config.Deps) (map[string]interfaces.ServiceVolumes, error)
+	DetectSharedVolumesFunc           func(services map[string]interfaces.ServiceVolumes) map[string][]string
+	FormatSharedVolumesWarningFunc    func(sharedVolumes map[string][]string) string
+	RemoveVolumeWithContextFunc       func(ctx context.Context, name string) error
 }
 
 func (m *MockDockerRunner) Up(composePath string) error {

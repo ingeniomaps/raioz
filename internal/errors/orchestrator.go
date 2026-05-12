@@ -84,17 +84,30 @@ func ServiceStartFailed(serviceName, runtime string, err error) *RaiozError {
 }
 
 // DependencyStartFailed creates an error when a dependency fails to start.
+// `image` may be empty for deps backed by an external compose file; the
+// suggestion shifts accordingly because `docker pull ""` is nonsense in that
+// case and the actionable knobs are different (compose file, networks, env).
 func DependencyStartFailed(name, image string, err error) *RaiozError {
-	return New(ErrCodeDepStartFailed,
-		"Failed to start dependency '"+name+"' ("+image+")",
-	).WithContext("dependency", name).
-		WithContext("image", image).
+	title := "Failed to start dependency '" + name + "'"
+	if image != "" {
+		title += " (" + image + ")"
+	}
+	suggestion := "Check the compose file for hardcoded subnets or ports.\n" +
+		"  Verify referenced env files exist and are readable.\n" +
+		"  Check for port conflicts: raioz ports"
+	if image != "" {
+		suggestion = "Check that Docker is running: docker info\n" +
+			"  Check that the image exists: docker pull " + image + "\n" +
+			"  Check for port conflicts: raioz ports"
+	}
+	e := New(ErrCodeDepStartFailed, title).
+		WithContext("dependency", name).
 		WithError(err).
-		WithSuggestion(
-			"Check that Docker is running: docker info\n" +
-				"  Check that the image exists: docker pull " + image + "\n" +
-				"  Check for port conflicts: raioz ports",
-		)
+		WithSuggestion(suggestion)
+	if image != "" {
+		e = e.WithContext("image", image)
+	}
+	return e
 }
 
 // ProxyStartFailed creates an error when Caddy proxy fails to start.

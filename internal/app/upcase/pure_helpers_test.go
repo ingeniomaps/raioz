@@ -760,7 +760,7 @@ func TestCloneInfraEntry(t *testing.T) {
 	t.Run("hostname and aliases round-trip", func(t *testing.T) {
 		orig := config.InfraEntry{
 			Inline: &config.Infra{
-				Image:           "mailhog/mailhog",
+				Image:           "axllent/mailpit",
 				Hostname:        "mail",
 				HostnameAliases: []string{"smtp", "inbox"},
 			},

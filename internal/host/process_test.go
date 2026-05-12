@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -330,6 +331,153 @@ func TestStartServiceLocalInvalidCommand(t *testing.T) {
 	_, err := StartService(context.Background(), ws, deps, "svc", svc, t.TempDir())
 	if err == nil {
 		t.Errorf("expected error when binary does not exist")
+	}
+}
+
+// Issue 008: a background command that fork+exec'd ok but exits immediately
+// (e.g. port already bound) must surface as an error from StartService.
+// Without the settle window the start was reported as "success" and the
+// caller had no way to tell the service was already dead.
+func TestStartServiceEarlyExitDetected(t *testing.T) {
+	skipIfNoBinary(t, "false")
+
+	// Shrink the settle window so the test stays snappy. `false` exits
+	// instantly so 200 ms is plenty for cmd.Wait() to fire first.
+	prev := startSettleWindow
+	startSettleWindow = 200 * time.Millisecond
+	t.Cleanup(func() { startSettleWindow = prev })
+
+	ws := &workspace.Workspace{Root: t.TempDir()}
+	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	svc := config.Service{
+		Source: config.SourceConfig{
+			Kind:    "local",
+			Path:    ".",
+			Command: "false",
+		},
+	}
+
+	_, err := StartService(context.Background(), ws, deps, "svc", svc, t.TempDir())
+	if err == nil {
+		t.Fatal("expected error when process exits immediately, got nil")
+	}
+	if !strings.Contains(err.Error(), "exited within") {
+		t.Errorf("error should mention early exit, got: %v", err)
+	}
+}
+
+// Issue 008 (cont): when the service writes to stderr before crashing,
+// the returned error must include the tail so the user can diagnose
+// without having to grep through log files.
+func TestStartServiceEarlyExitIncludesStderrTail(t *testing.T) {
+	skipIfNoBinary(t, "sh")
+
+	prev := startSettleWindow
+	startSettleWindow = 300 * time.Millisecond
+	t.Cleanup(func() { startSettleWindow = prev })
+
+	// Stage a script on disk so we don't fight parseCommand's space-split
+	// (which doesn't honor quotes). No `.sh` suffix on purpose: that would
+	// route through shouldWaitForCommand's synchronous path and skip the
+	// settle window entirely.
+	dir := t.TempDir()
+	script := dir + "/crash"
+	body := "#!/bin/sh\necho bind:port-already-in-use 1>&2\nexit 1\n"
+	if err := os.WriteFile(script, []byte(body), 0755); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+
+	ws := &workspace.Workspace{Root: t.TempDir()}
+	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	svc := config.Service{
+		Source: config.SourceConfig{
+			Kind:    "local",
+			Path:    ".",
+			Command: script,
+		},
+	}
+
+	_, err := StartService(context.Background(), ws, deps, "svc", svc, dir)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "stderr tail") {
+		t.Errorf("error should include stderr-tail block, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "bind:port-already-in-use") {
+		t.Errorf("error should embed the stderr line, got: %v", err)
+	}
+}
+
+// Issue 008 (cont): a long-running service must NOT be misclassified as
+// early-exit. The settle window is short on purpose; this is the
+// regression test for the obvious false-positive direction.
+func TestStartServiceSurvivesSettleWindow(t *testing.T) {
+	skipIfNoBinary(t, "sleep")
+
+	prev := startSettleWindow
+	startSettleWindow = 100 * time.Millisecond
+	t.Cleanup(func() { startSettleWindow = prev })
+
+	ws := &workspace.Workspace{Root: t.TempDir()}
+	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	svc := config.Service{
+		Source: config.SourceConfig{
+			Kind:    "local",
+			Path:    ".",
+			Command: "sleep 30",
+		},
+	}
+
+	info, err := StartService(context.Background(), ws, deps, "svc", svc, t.TempDir())
+	if err != nil {
+		t.Fatalf("StartService should succeed for surviving process, got %v", err)
+	}
+	t.Cleanup(func() {
+		proc, _ := os.FindProcess(info.PID)
+		if proc != nil {
+			_ = proc.Kill()
+		}
+	})
+
+	if info == nil || info.PID == 0 {
+		t.Fatalf("expected valid PID after settle window, got %+v", info)
+	}
+}
+
+// Issue 010 / 008-coexistence: a launcher that exits cleanly (exit 0)
+// inside the settle window must NOT be flagged as early-exit. The classic
+// shape is `./launch.sh` that does `docker run -d` and returns 0.
+func TestStartServiceCleanExitInSettleWindowIsNotError(t *testing.T) {
+	skipIfNoBinary(t, "true")
+
+	prev := startSettleWindow
+	startSettleWindow = 200 * time.Millisecond
+	t.Cleanup(func() { startSettleWindow = prev })
+
+	dir := t.TempDir()
+	script := dir + "/launcher"
+	body := "#!/bin/sh\nexit 0\n"
+	if err := os.WriteFile(script, []byte(body), 0755); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+
+	ws := &workspace.Workspace{Root: t.TempDir()}
+	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	svc := config.Service{
+		Source: config.SourceConfig{
+			Kind:    "local",
+			Path:    ".",
+			Command: script,
+		},
+	}
+
+	info, err := StartService(context.Background(), ws, deps, "svc", svc, dir)
+	if err != nil {
+		t.Fatalf("clean exit must not error: %v", err)
+	}
+	if info == nil {
+		t.Fatal("expected ProcessInfo on clean detach, got nil")
 	}
 }
 

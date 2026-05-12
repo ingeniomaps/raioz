@@ -77,7 +77,7 @@ func (uc *UseCase) detectServiceConflict(
 				ServiceName:      serviceName,
 				ConflictType:     "cloned_running",
 				CurrentProject:   currentProject,
-				CurrentLocation:  fmt.Sprintf("workspace (cloned service)"),
+				CurrentLocation:  "workspace (cloned service)",
 				CurrentContainer: containerName,
 				CurrentSource:    "git",
 				TargetLocation:   projectDir,
@@ -116,7 +116,7 @@ func (uc *UseCase) detectServiceConflict(
 							CurrentLocation:  projectDir,
 							CurrentContainer: containerName,
 							CurrentSource:    "local",
-							TargetLocation:   fmt.Sprintf("workspace (would clone)"),
+							TargetLocation:   "workspace (would clone)",
 							TargetContainer: func() string {
 								name, _ := uc.deps.DockerRunner.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
 								return name
@@ -141,7 +141,7 @@ func (uc *UseCase) detectServiceConflict(
 				CurrentLocation:  pref.ProjectPath,
 				CurrentContainer: serviceName, // Estimated
 				CurrentSource:    "local",
-				TargetLocation:   fmt.Sprintf("workspace (would clone)"),
+				TargetLocation:   "workspace (would clone)",
 				TargetContainer: func() string {
 					name, _ := uc.deps.DockerRunner.NormalizeContainerName(workspaceName, serviceName, workspaceName, true)
 					return name
@@ -156,7 +156,7 @@ func (uc *UseCase) detectServiceConflict(
 				ServiceName:      serviceName,
 				ConflictType:     "preference",
 				CurrentProject:   pref.Workspace,
-				CurrentLocation:  fmt.Sprintf("workspace"),
+				CurrentLocation:  "workspace",
 				CurrentContainer: containerName,
 				CurrentSource:    "git",
 				TargetLocation:   projectDir,

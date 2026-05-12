@@ -114,6 +114,50 @@ func TestRelease(t *testing.T) {
 			t.Errorf("Expected no error releasing with closed file, got %v", err)
 		}
 	})
+
+	// Issue 007: callers release the lock early to allow other workspace
+	// projects to run `raioz up`, then a deferred Release() runs at process
+	// exit. The second call must be a silent no-op.
+	t.Run("double release is idempotent", func(t *testing.T) {
+		lock, err := Acquire(ws)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if err := lock.Release(); err != nil {
+			t.Fatalf("First Release: %v", err)
+		}
+		if err := lock.Release(); err != nil {
+			t.Errorf("Second Release should be no-op, got %v", err)
+		}
+	})
+
+	// Issue 007: after early release, a new Acquire on the same workspace
+	// must succeed — that's the whole point of the change.
+	t.Run("acquire succeeds after early release", func(t *testing.T) {
+		lock1, err := Acquire(ws)
+		if err != nil {
+			t.Fatalf("First Acquire: %v", err)
+		}
+		if err := lock1.Release(); err != nil {
+			t.Fatalf("Release: %v", err)
+		}
+
+		lock2, err := Acquire(ws)
+		if err != nil {
+			t.Fatalf("Second Acquire after release: %v", err)
+		}
+		if lock2 == nil {
+			t.Fatal("Expected non-nil lock on re-acquire")
+		}
+		_ = lock2.Release()
+	})
+
+	t.Run("release on nil receiver is safe", func(t *testing.T) {
+		var lock *Lock
+		if err := lock.Release(); err != nil {
+			t.Errorf("Release on nil *Lock should be no-op, got %v", err)
+		}
+	})
 }
 
 func TestLockFileContent(t *testing.T) {

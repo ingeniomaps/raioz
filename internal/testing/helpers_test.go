@@ -54,7 +54,8 @@ func TestCreateTestDepsWithService(t *testing.T) {
 				t.Errorf("Expected docker mode 'dev', got %s", svc.Docker.Mode)
 			}
 
-			if tt.sourceKind == "git" {
+			switch tt.sourceKind {
+			case "git":
 				if svc.Source.Repo == "" {
 					t.Error("Expected repo to be set for git service")
 				}
@@ -64,7 +65,7 @@ func TestCreateTestDepsWithService(t *testing.T) {
 				if svc.Source.Path == "" {
 					t.Error("Expected path to be set for git service")
 				}
-			} else if tt.sourceKind == "image" {
+			case "image":
 				if svc.Source.Image == "" {
 					t.Error("Expected image to be set for image service")
 				}

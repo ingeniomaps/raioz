@@ -2,14 +2,10 @@ package upcase
 
 import (
 	"fmt"
-	"os"
-	"sort"
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/docker"
-	"raioz/internal/errors"
-	"raioz/internal/i18n"
 	"raioz/internal/logging"
 )
 
@@ -190,6 +186,12 @@ func allocExplicitDeps(
 		if entry.Inline == nil || entry.Inline.Publish == nil {
 			continue
 		}
+		// Mode A sibling deps (issue #26) have no local container, so
+		// any host port we'd reserve here would never get bound.
+		// Skipping also frees the port for a regular dep that wants it.
+		if entry.Inline.Project != "" {
+			continue
+		}
 		pub := entry.Inline.Publish
 		if pub.Auto || len(pub.Ports) == 0 {
 			continue
@@ -260,6 +262,10 @@ func allocAutoDeps(
 	for _, name := range depNames {
 		entry := deps.Infra[name]
 		if entry.Inline == nil || entry.Inline.Publish == nil {
+			continue
+		}
+		// Mode A sibling deps own no local container — see allocExplicitDeps.
+		if entry.Inline.Project != "" {
 			continue
 		}
 		if !entry.Inline.Publish.Auto {
@@ -345,51 +351,6 @@ func assignAutoDepPorts(
 	return mappings, nil
 }
 
-// findFreePort scans from `wanted` upward until it finds a port that is free
-// both in our intra-project `taken` set AND on the host (not bound by any
-// external process). Returns ErrCodePortConflict if it runs off the end of
-// the port space.
-//
-// Used by implicit/auto passes only. Explicit passes never go through here —
-// they add to `taken` directly and let checkPortBindConflicts surface
-// external conflicts as a hard error. That difference matches the design:
-// implicit is negotiable, explicit is sacred.
-func findFreePort(wanted int, taken map[int]string, owner string) (int, error) {
-	final := wanted
-	// Non-root cannot bind to privileged ports, so iterating through 1..1023
-	// would just burn ~944 doomed net.Listen() calls. Jump to the first
-	// unprivileged port on the first iteration when that's our situation.
-	if final < privilegedPortCeiling && os.Geteuid() != 0 {
-		final = privilegedPortCeiling
-	}
-	for {
-		if _, clash := taken[final]; !clash {
-			inUse, err := portInUseProbe(fmt.Sprintf("%d", final))
-			if err != nil || !inUse {
-				return final, nil
-			}
-			// Externally bound (another raioz project, psql, anything). Bump.
-		}
-		final++
-		if final > 65535 {
-			return 0, errors.New(
-				errors.ErrCodePortConflict,
-				fmt.Sprintf(i18n.T("error.port_allocation_exhausted"), owner),
-			)
-		}
-	}
-}
-
-// sortedKeys returns the keys of a map[string]T sorted alphabetically.
-// Small helper so the allocator's determinism story stays obvious.
-func sortedKeys[T any](m map[string]T) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
-// Error builders (portConflictExplicitError, checkPortBindConflicts,
-// serviceBindError, depBindError) live in port_alloc_errors.go.
+// findFreePort + sortedKeys live in port_alloc_util.go. Error builders
+// (portConflictExplicitError, checkPortBindConflicts, serviceBindError,
+// depBindError) live in port_alloc_errors.go.

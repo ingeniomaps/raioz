@@ -26,12 +26,14 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 				"are shared images you consume", collisions)
 	}
 
-	// Each dependency must declare exactly one of `image:` or `compose:`.
-	// Both is ambiguous (which one wins?); neither leaves raioz with
-	// nothing to start.
+	// Each dependency must declare exactly one of `image:` or `compose:`,
+	// unless it's a sibling-project dep (mode A of issue #26) where the
+	// sibling provides the runtime. Both image+compose is ambiguous;
+	// neither (and no project) leaves raioz with nothing to start.
 	for name, dep := range cfg.Deps {
 		hasImage := dep.Image != ""
 		hasCompose := len(dep.Compose) > 0
+		hasProject := dep.Project != ""
 		if hasImage && hasCompose {
 			return nil, fmt.Errorf(
 				"dependency %q declares both `image:` and `compose:` — pick one. "+
@@ -39,11 +41,12 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 					"(volumes, healthchecks, custom entrypoints); `image:` when you just "+
 					"want a single container from a public image", name)
 		}
-		if !hasImage && !hasCompose {
+		if !hasImage && !hasCompose && !hasProject {
 			return nil, fmt.Errorf(
-				"dependency %q must declare either `image:` (for a single container "+
-					"from a public image) or `compose:` (path to a docker-compose file "+
-					"you already maintain)", name)
+				"dependency %q must declare one of `image:` (single container from a "+
+					"public image), `compose:` (path to a docker-compose file you "+
+					"already maintain), or `project:` (path to a sibling raioz project)",
+				name)
 		}
 	}
 
@@ -261,6 +264,14 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 		infra.HostnameAliases = append([]string(nil), dep.HostnameAliases...)
 	}
 
+	// Sibling-project hooks (issue #26). Strings only at this layer; the
+	// resolver in internal/app/upcase reads the sibling raioz.yaml lazily
+	// at up time. Path is already absolute by the time we get here thanks
+	// to resolveYAMLPaths.
+	infra.Project = dep.Project
+	infra.SiblingProject = dep.SiblingProject
+	infra.RequiredHostname = dep.RequiredHostname
+
 	return InfraEntry{Inline: infra}
 }
 
@@ -302,8 +313,14 @@ func extractImage(imageRef string) string {
 	return parts[0]
 }
 
-// extractTag gets the tag from "image:tag" format, defaulting to "latest".
+// extractTag gets the tag from "image:tag" format. Returns "latest" only when
+// an image was actually supplied — defaulting on an empty string lies about
+// compose-only deps, surfacing elsewhere as ":latest" in status output and
+// "docker pull :latest" in error suggestions.
 func extractTag(imageRef string) string {
+	if imageRef == "" {
+		return ""
+	}
 	parts := strings.SplitN(imageRef, ":", 2)
 	if len(parts) > 1 {
 		return parts[1]

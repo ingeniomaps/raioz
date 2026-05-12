@@ -278,15 +278,15 @@ func TestYAMLBridge_HostnameAliasesOnDependency(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "test",
 		Deps: map[string]YAMLDependency{
-			"mailhog": parseDep(t,
-				"image: mailhog/mailhog:latest\nhostname: mail\nhostnameAliases: [smtp]\n"),
+			"mailpit": parseDep(t,
+				"image: axllent/mailpit:latest\nhostname: mail\nhostnameAliases: [smtp]\n"),
 		},
 	}
 	deps, err := YAMLToDeps(cfg)
 	if err != nil {
 		t.Fatalf("YAMLToDeps: %v", err)
 	}
-	got := deps.Infra["mailhog"].Inline.HostnameAliases
+	got := deps.Infra["mailpit"].Inline.HostnameAliases
 	if len(got) != 1 || got[0] != "smtp" {
 		t.Errorf("HostnameAliases = %v, want [smtp]", got)
 	}
@@ -299,15 +299,15 @@ func TestYAMLBridge_HostnameOnDependency(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "test",
 		Deps: map[string]YAMLDependency{
-			"mailhog": parseDep(t,
-				"image: mailhog/mailhog:latest\nhostname: mail\n"),
+			"mailpit": parseDep(t,
+				"image: axllent/mailpit:latest\nhostname: mail\n"),
 		},
 	}
 	deps, err := YAMLToDeps(cfg)
 	if err != nil {
 		t.Fatalf("YAMLToDeps: %v", err)
 	}
-	if got := deps.Infra["mailhog"].Inline.Hostname; got != "mail" {
+	if got := deps.Infra["mailpit"].Inline.Hostname; got != "mail" {
 		t.Errorf("Hostname = %q, want %q", got, "mail")
 	}
 }
@@ -320,8 +320,8 @@ func TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenProxy(t *testing.T) {
 	path := dir + "/raioz.yaml"
 	yamlText := `project: test
 dependencies:
-  mailhog:
-    image: mailhog/mailhog:latest
+  mailpit:
+    image: axllent/mailpit:latest
     ports: ["8026:8025"]
     proxy:
       port: 8025
@@ -334,7 +334,7 @@ dependencies:
 		t.Fatalf("load: %v", err)
 	}
 	for _, w := range warnings {
-		if containsAll(w, "mailhog", "ports", "publish") {
+		if containsAll(w, "mailpit", "ports", "publish") {
 			t.Errorf("did not expect legacy-ports warning when proxy: is "+
 				"declared, got: %q", w)
 		}
@@ -349,8 +349,8 @@ func TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenHostname(t *testing.T) {
 	path := dir + "/raioz.yaml"
 	yamlText := `project: test
 dependencies:
-  mailhog:
-    image: mailhog/mailhog:latest
+  mailpit:
+    image: axllent/mailpit:latest
     hostname: mail
     ports: ["8026:8025"]
 `
@@ -362,7 +362,7 @@ dependencies:
 		t.Fatalf("load: %v", err)
 	}
 	for _, w := range warnings {
-		if containsAll(w, "mailhog", "ports", "publish") {
+		if containsAll(w, "mailpit", "ports", "publish") {
 			t.Errorf("did not expect legacy-ports warning when hostname: is "+
 				"declared, got: %q", w)
 		}

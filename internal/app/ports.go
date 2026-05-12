@@ -14,6 +14,12 @@ import (
 // PortsOptions contains options for the Ports use case
 type PortsOptions struct {
 	ProjectName string
+	// ConfigPath is honored when Conflicting is set; ignored otherwise.
+	ConfigPath string
+	// Conflicting flips Execute into the read-only "which sibling projects
+	// hold ports declared in my raioz.yaml?" report. No containers are
+	// stopped — this is `raioz down --conflicting` minus the side effects.
+	Conflicting bool
 }
 
 // PortsUseCase handles the "ports" use case
@@ -28,6 +34,10 @@ func NewPortsUseCase(deps *Dependencies) *PortsUseCase {
 
 // Execute executes the ports use case
 func (uc *PortsUseCase) Execute(ctx context.Context, opts PortsOptions) error {
+	if opts.Conflicting {
+		return uc.listConflictingPorts(ctx, opts)
+	}
+
 	var baseDir string
 
 	if opts.ProjectName != "" {

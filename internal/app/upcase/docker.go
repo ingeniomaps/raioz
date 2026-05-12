@@ -8,6 +8,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 )
 
@@ -66,8 +67,13 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps
 	logging.DebugWithContext(ctx, "Ensuring Docker network",
 		"network", networkName, "subnet", networkSubnet, "askConfirmation", askConfirmation)
 
+	// Stamp raioz labels at create time so the down sweep can find this
+	// network (and any siblings raioz spawned for this project) by label
+	// even after the state file has rotated. Docker forbids retro-labeling,
+	// so the only chance we have is here.
+	networkLabels := networkLabelsFor(deps)
 	err = uc.deps.DockerRunner.EnsureNetworkWithConfigAndContext(
-		ctx, networkName, networkSubnet, askConfirmation,
+		ctx, networkName, networkSubnet, networkLabels, askConfirmation,
 	)
 	if err != nil {
 		logging.ErrorWithContext(ctx, "Failed to ensure Docker network",
@@ -145,4 +151,22 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps
 	}
 
 	return nil
+}
+
+// networkLabelsFor builds the label set for a network create. We always
+// stamp `com.raioz.managed=true` so down can sweep raioz-managed networks
+// without colliding with networks the user (or other tools) created. The
+// workspace and project labels narrow the sweep to "this project's
+// networks" — important when several raioz projects coexist on one daemon.
+func networkLabelsFor(deps *config.Deps) map[string]string {
+	labels := map[string]string{
+		naming.LabelManaged: "true",
+	}
+	if ws := deps.GetWorkspaceName(); ws != "" {
+		labels[naming.LabelWorkspace] = ws
+	}
+	if deps.Project.Name != "" {
+		labels[naming.LabelProject] = deps.Project.Name
+	}
+	return labels
 }

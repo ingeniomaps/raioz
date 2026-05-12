@@ -18,7 +18,8 @@ type UpOptions struct {
 	DryRun       bool
 	Only         []string
 	Host         string // Bind address for shared dev server (e.g., "0.0.0.0")
-	Attach       bool   // Stay attached and stream logs without file watching
+	Attach       bool   // Stay foreground streaming logs (no file watching)
+	Watch        bool   // Stay foreground file-watching services with watch: true
 	Exclusive    bool   // Stop other projects before starting this one
 }
 
@@ -62,6 +63,7 @@ func (uc *UpUseCase) Execute(ctx context.Context, opts UpOptions) error {
 		Only:         opts.Only,
 		Host:         opts.Host,
 		Attach:       opts.Attach,
+		Watch:        opts.Watch,
 	}
 	return uc.useCase.Execute(ctx, options)
 }

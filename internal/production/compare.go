@@ -269,7 +269,7 @@ func FormatComparisonResult(result *ComparisonResult) string {
 			}
 
 			if diff.ImageMismatch != nil {
-				sb.WriteString(fmt.Sprintf("    Image mismatch:\n"))
+				sb.WriteString("    Image mismatch:\n")
 				sb.WriteString(fmt.Sprintf("      Local:      %s\n", diff.ImageMismatch.Local))
 				sb.WriteString(fmt.Sprintf("      Production: %s\n", diff.ImageMismatch.Production))
 				if diff.ImageMismatch.LocalTag != diff.ImageMismatch.ProdTag {
@@ -279,19 +279,19 @@ func FormatComparisonResult(result *ComparisonResult) string {
 			}
 
 			if diff.PortMismatch != nil {
-				sb.WriteString(fmt.Sprintf("    Port mismatch:\n"))
+				sb.WriteString("    Port mismatch:\n")
 				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.PortMismatch.Local))
 				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.PortMismatch.Production))
 			}
 
 			if diff.DependsMismatch != nil {
-				sb.WriteString(fmt.Sprintf("    ⚠️  Dependencies mismatch:\n"))
+				sb.WriteString("    ⚠️  Dependencies mismatch:\n")
 				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.DependsMismatch.Local))
 				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.DependsMismatch.Production))
 			}
 
 			if diff.VolumeMismatch != nil {
-				sb.WriteString(fmt.Sprintf("    Volumes mismatch:\n"))
+				sb.WriteString("    Volumes mismatch:\n")
 				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.VolumeMismatch.Local))
 				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.VolumeMismatch.Production))
 			}
@@ -311,13 +311,13 @@ func FormatComparisonResult(result *ComparisonResult) string {
 			}
 
 			if diff.ImageMismatch != nil {
-				sb.WriteString(fmt.Sprintf("    Image mismatch:\n"))
+				sb.WriteString("    Image mismatch:\n")
 				sb.WriteString(fmt.Sprintf("      Local:      %s\n", diff.ImageMismatch.Local))
 				sb.WriteString(fmt.Sprintf("      Production: %s\n", diff.ImageMismatch.Production))
 			}
 
 			if diff.PortMismatch != nil {
-				sb.WriteString(fmt.Sprintf("    Port mismatch:\n"))
+				sb.WriteString("    Port mismatch:\n")
 				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.PortMismatch.Local))
 				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.PortMismatch.Production))
 			}

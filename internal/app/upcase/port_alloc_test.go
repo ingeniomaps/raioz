@@ -279,6 +279,46 @@ func newDepsWithInfra(
 	return deps
 }
 
+func TestAllocateHostPorts_ModeASiblingDepSkipped(t *testing.T) {
+	// A sibling-mode dep (issue #26) has no local container, so any
+	// host port reserved for it would never get bound. Even when the
+	// user accidentally pairs `project:` with explicit publish or
+	// auto-publish, the allocator should leave the port free for a
+	// regular dep that wants it.
+	deps := newDepsWithInfra(
+		nil,
+		map[string]*config.Infra{
+			// Mode A with explicit publish — must be ignored.
+			"keycloak": {
+				Project: "/abs/sibling",
+				Expose:  []int{8080},
+				Publish: &config.PublishSpec{Ports: []int{8080}},
+			},
+			// Regular dep that should still get its allocation.
+			"redis": {
+				Image:   "redis",
+				Expose:  []int{6379},
+				Publish: &config.PublishSpec{Ports: []int{6379}},
+			},
+		},
+	)
+	detections := DetectionMap{
+		"keycloak": dockerDet(),
+		"redis":    dockerDet(),
+	}
+
+	allocs, err := AllocateHostPorts(deps, detections)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := allocs.Deps["keycloak"]; ok {
+		t.Error("Mode A sibling dep must not get a host port allocation")
+	}
+	if _, ok := allocs.Deps["redis"]; !ok {
+		t.Error("regular dep should still receive its allocation")
+	}
+}
+
 func TestAllocateHostPorts_DepInternalOnly(t *testing.T) {
 	// No publish → dep is not in the result at all. Containers still reach
 	// it via DNS; the allocator just has nothing to say.

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	dockerpkg "raioz/internal/docker"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
@@ -101,13 +102,45 @@ func (p *YAMLProject) resolveInfraContainerName(name string) string {
 }
 
 // ContainerStatus returns status of a specific container.
+//
+// Resolution order (issue 009):
+//  1. The canonical name from naming.DepContainer / naming.Container.
+//  2. Fallback: any container labeled com.raioz.project + com.raioz.service
+//     matching this project + service. Needed for deps brought up via
+//     `compose:` whose container_name is dictated by the user's compose,
+//     not by raioz naming rules.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
-	containerName := p.resolveInfraContainerName(name)
+	canonical := p.resolveInfraContainerName(name)
+	if state := dockerInspectStatus(ctx, canonical); state != "" {
+		return state
+	}
+
+	// Fallback: labels.
+	if actual := dockerpkg.ListContainersByLabels(ctx, map[string]string{
+		"com.raioz.managed": "true",
+		"com.raioz.project": p.ProjectName,
+		"com.raioz.service": name,
+	}); len(actual) > 0 && actual[0] != canonical {
+		if state := dockerInspectStatus(ctx, actual[0]); state != "" {
+			return state
+		}
+	}
+	return "stopped"
+}
+
+// dockerInspectStatus returns the State.Status of a container by name, or
+// "" when docker inspect fails (typically because the container does not
+// exist). Pure helper extracted so ContainerStatus can branch cleanly on
+// "miss" vs "found" without re-running shell parsing.
+func dockerInspectStatus(ctx context.Context, name string) string {
+	if name == "" {
+		return ""
+	}
 	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
-		"--format", "{{.State.Status}}", containerName)
+		"--format", "{{.State.Status}}", name)
 	out, err := cmd.Output()
 	if err != nil {
-		return "stopped"
+		return ""
 	}
 	return strings.TrimSpace(string(out))
 }

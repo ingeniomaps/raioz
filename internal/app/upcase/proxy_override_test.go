@@ -146,8 +146,8 @@ func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
 	deps := &config.Deps{
 		Project: config.Project{Name: "demo"},
 		Infra: map[string]config.InfraEntry{
-			"mailhog": {Inline: &config.Infra{
-				Image:    "mailhog/mailhog",
+			"mailpit": {Inline: &config.Infra{
+				Image:    "axllent/mailpit",
 				Hostname: "mail",
 				Expose:   []int{8025},
 			}},
@@ -155,7 +155,7 @@ func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 8025}
 
-	route := buildProxyRoute(deps, "mailhog", det)
+	route := buildProxyRoute(deps, "mailpit", det)
 	if route.Hostname != "mail" {
 		t.Errorf("Hostname = %q, want mail", route.Hostname)
 	}
@@ -164,14 +164,14 @@ func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
 // TestBuildProxyRoute_DepProxyPortOnlyOverridesPort: when the user passes
 // `proxy.port` without `proxy.target`, detection still picks the container
 // name but the port must be the user-declared one. Without this, a multi-port
-// image like mailhog (1025 SMTP / 8025 UI) gets routed to the wrong upstream
+// image like mailpit (1025 SMTP / 8025 UI) gets routed to the wrong upstream
 // port (issue #003).
 func TestBuildProxyRoute_DepProxyPortOnlyOverridesPort(t *testing.T) {
 	deps := &config.Deps{
 		Project: config.Project{Name: "demo"},
 		Infra: map[string]config.InfraEntry{
-			"mailhog": {Inline: &config.Infra{
-				Image: "mailhog/mailhog",
+			"mailpit": {Inline: &config.Infra{
+				Image: "axllent/mailpit",
 				ProxyOverride: &config.ServiceProxyOverride{
 					Port: 8025,
 				},
@@ -180,7 +180,7 @@ func TestBuildProxyRoute_DepProxyPortOnlyOverridesPort(t *testing.T) {
 	}
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
 
-	route := buildProxyRoute(deps, "mailhog", det)
+	route := buildProxyRoute(deps, "mailpit", det)
 	if route.Port != 8025 {
 		t.Errorf("Port = %d, want 8025 (user override)", route.Port)
 	}
@@ -212,10 +212,10 @@ func TestBuildProxyRoute_PortsBeatsExpose(t *testing.T) {
 
 // TestEndToEnd_DepHostnameAndProxyPortFromYAML exercises the full chain
 // disk → LoadDepsFromYAML → buildProxyRoute that issues #001 and #003
-// describe. Reproduces the gouduet/keycloak case verbatim: a mailhog dep
+// describe. Reproduces the gouduet/keycloak case verbatim: a mailpit dep
 // with `hostname: mail` (issue #001) and `proxy.port: 8025` (issue #003)
 // while detection picked the SMTP port 1025. Without both fixes the route
-// emits hostname="mailhog" and port=1025 — the bugs the user filed.
+// emits hostname="mailpit" and port=1025 — the bugs the user filed.
 func TestEndToEnd_DepHostnameAndProxyPortFromYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "raioz.yaml")
@@ -223,8 +223,8 @@ func TestEndToEnd_DepHostnameAndProxyPortFromYAML(t *testing.T) {
 proxy:
   domain: demo.dev
 dependencies:
-  mailhog:
-    image: mailhog/mailhog:latest
+  mailpit:
+    image: axllent/mailpit:latest
     hostname: mail
     ports: ["8026:8025"]
     proxy:
@@ -243,22 +243,22 @@ dependencies:
 		t.Fatalf("LoadDepsFromYAML: %v", err)
 	}
 
-	mh := deps.Infra["mailhog"].Inline
+	mh := deps.Infra["mailpit"].Inline
 	if mh == nil {
-		t.Fatal("mailhog Infra missing")
+		t.Fatal("mailpit Infra missing")
 	}
 	if mh.Hostname != "mail" {
-		t.Errorf("mailhog.Hostname = %q, want mail (issue #001)", mh.Hostname)
+		t.Errorf("mailpit.Hostname = %q, want mail (issue #001)", mh.Hostname)
 	}
 	if mh.ProxyOverride == nil || mh.ProxyOverride.Port != 8025 {
-		t.Errorf("mailhog.ProxyOverride.Port = %+v, want 8025 (issue #003)",
+		t.Errorf("mailpit.ProxyOverride.Port = %+v, want 8025 (issue #003)",
 			mh.ProxyOverride)
 	}
 
 	// Detection picked the SMTP port (1025) — this is the failure mode
 	// from the issue. The override must win.
 	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
-	route := buildProxyRoute(deps, "mailhog", det)
+	route := buildProxyRoute(deps, "mailpit", det)
 	if route.Hostname != "mail" {
 		t.Errorf("route.Hostname = %q, want mail", route.Hostname)
 	}

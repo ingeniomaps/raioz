@@ -55,17 +55,58 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 	}
 
 	for name, dep := range cfg.Deps {
-		// A dep needs either `image:` (raioz generates a minimal compose)
-		// or `compose:` (user supplies existing fragments). YAMLToDeps
-		// re-validates mutual exclusion; here we just check "at least
-		// one" so the simpler error message surfaces first.
-		if dep.Image == "" && len(dep.Compose) == 0 {
+		if err := validateSiblingDependency(name, dep, path); err != nil {
+			return err
+		}
+		// `project:` makes the sibling the runtime; `image:`/`compose:`
+		// would be ignored, so the validator above already rejects them.
+		// Here we only need the "at least one source" check for the
+		// common (no-sibling) case.
+		if dep.Project == "" && dep.Image == "" && len(dep.Compose) == 0 {
 			return fmt.Errorf(
-				"dependency '%s' must have either 'image:' or 'compose:' in %s", name, path)
+				"dependency '%s' must have one of 'image:', 'compose:', or 'project:' in %s",
+				name, path)
 		}
 	}
 
 	return validateDependsOnRefs(cfg)
+}
+
+// validateSiblingDependency enforces the mutual-exclusion rules around the
+// sibling-project fields introduced in issue #26. Returns nil when the dep
+// declares no sibling fields (the common case).
+func validateSiblingDependency(name string, dep YAMLDependency, path string) error {
+	hasProject := dep.Project != ""
+	hasSibling := dep.SiblingProject != ""
+	hasRequired := dep.RequiredHostname != ""
+
+	if hasProject && hasSibling {
+		return fmt.Errorf(
+			"dependency '%s' in %s: 'project:' and 'siblingProject:' are mutually exclusive — "+
+				"use 'project:' when the sibling is the only source, or 'siblingProject:' "+
+				"with 'image:'/'compose:' for a fallback",
+			name, path)
+	}
+	if hasProject && (dep.Image != "" || len(dep.Compose) > 0) {
+		return fmt.Errorf(
+			"dependency '%s' in %s: 'project:' is mutually exclusive with 'image:' and "+
+				"'compose:' — drop the image/compose declaration, or switch to 'siblingProject:' "+
+				"if you want a fallback",
+			name, path)
+	}
+	if hasSibling && dep.Image == "" && len(dep.Compose) == 0 {
+		return fmt.Errorf(
+			"dependency '%s' in %s: 'siblingProject:' requires 'image:' or 'compose:' as the "+
+				"fallback — use 'project:' instead if the sibling is the only source",
+			name, path)
+	}
+	if hasRequired && !hasProject && !hasSibling {
+		return fmt.Errorf(
+			"dependency '%s' in %s: 'requiredHostname:' is only valid alongside 'project:' or "+
+				"'siblingProject:'",
+			name, path)
+	}
+	return nil
 }
 
 // validateDependsOnRefs checks that all dependsOn references point to defined services or dependencies.
@@ -111,6 +152,15 @@ func resolveYAMLPaths(cfg *RaiozConfig, baseDir string) {
 		}
 		if dep.Dev != nil && dep.Dev.Path != "" && !filepath.IsAbs(dep.Dev.Path) {
 			dep.Dev.Path = filepath.Join(baseDir, dep.Dev.Path)
+		}
+		// Sibling project paths (issue #26) point at another raioz.yaml
+		// directory. Normalize to absolute so the resolver doesn't have
+		// to track the consumer's cwd.
+		if dep.Project != "" && !filepath.IsAbs(dep.Project) {
+			dep.Project = filepath.Join(baseDir, dep.Project)
+		}
+		if dep.SiblingProject != "" && !filepath.IsAbs(dep.SiblingProject) {
+			dep.SiblingProject = filepath.Join(baseDir, dep.SiblingProject)
 		}
 		cfg.Deps[name] = dep
 	}

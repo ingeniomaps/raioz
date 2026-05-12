@@ -41,7 +41,7 @@ func TestStatusUseCase_StatusYAML_Basic(t *testing.T) {
 	}
 	// This will fail to reach docker containers (no Docker running), but
 	// should not panic. ContainerStatus/ContainerStats will return defaults.
-	err := uc.StatusYAML(context.Background(), proj)
+	err := uc.StatusYAML(context.Background(), proj, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestStatusUseCase_StatusYAML_WithProxy(t *testing.T) {
 			Infra:    map[string]config.InfraEntry{},
 		},
 	}
-	err := uc.StatusYAML(context.Background(), proj)
+	err := uc.StatusYAML(context.Background(), proj, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestStatusUseCase_StatusYAML_DevOverride(t *testing.T) {
 			Infra: map[string]config.InfraEntry{},
 		},
 	}
-	err := uc.StatusYAML(context.Background(), proj)
+	err := uc.StatusYAML(context.Background(), proj, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -187,9 +187,62 @@ func TestRestartYAML_WithServices(t *testing.T) {
 		Deps:        &config.Deps{},
 	}
 	// Docker won't be running but the function should not panic
-	err := RestartYAML(context.Background(), proj, []string{"api"})
+	err := (&RestartUseCase{}).RestartYAML(
+		context.Background(), proj, RestartOptions{Services: []string{"api"}})
 	// Will fail because Docker is not available, but we exercise the code path
 	_ = err
+}
+
+func TestCollectYAMLServiceNames_SortedAndStable(t *testing.T) {
+	proj := &YAMLProject{Deps: &config.Deps{
+		Services: map[string]config.Service{
+			"web": {}, "api": {}, "worker": {},
+		},
+	}}
+	got := collectYAMLServiceNames(proj)
+	want := []string{"api", "web", "worker"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i, n := range want {
+		if got[i] != n {
+			t.Errorf("index %d: got %q, want %q", i, got[i], n)
+		}
+	}
+}
+
+func TestCollectYAMLDepNames_SortedAndStable(t *testing.T) {
+	proj := &YAMLProject{Deps: &config.Deps{
+		Infra: map[string]config.InfraEntry{
+			"redis": {}, "postgres": {}, "kafka": {},
+		},
+	}}
+	got := collectYAMLDepNames(proj)
+	want := []string{"kafka", "postgres", "redis"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i, n := range want {
+		if got[i] != n {
+			t.Errorf("index %d: got %q, want %q", i, got[i], n)
+		}
+	}
+}
+
+func TestRestartYAML_AllOnEmptyProjectStillReturns(t *testing.T) {
+	initI18nForTest(t)
+	proj := &YAMLProject{
+		ProjectName: "test",
+		Deps:        &config.Deps{},
+	}
+	// --all on an empty project must not be a silent no-op pretending --all
+	// wasn't passed; it must short-circuit with a clear warning and exit
+	// cleanly so scripts don't see a docker error.
+	if err := (&RestartUseCase{}).RestartYAML(
+		context.Background(), proj, RestartOptions{All: true},
+	); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 // --- ExecYAML ---

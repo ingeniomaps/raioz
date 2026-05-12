@@ -56,10 +56,10 @@ func checkInfraHealth(
 			status := statuses[cn]
 			infraName := nameIndex[cn]
 
-			switch {
-			case status == "running":
+			switch status {
+			case "running":
 				continue
-			case status == "restarting" || status == "exited":
+			case "restarting", "exited":
 				output.PrintWarning(fmt.Sprintf("%s is %s — checking logs...", infraName, status))
 				showContainerDiagnostics(ctx, cn, infraName)
 				return fmt.Errorf("dependency '%s' failed to start (status: %s)", infraName, status)
@@ -154,7 +154,7 @@ func diagnoseContainerError(logs, serviceName string) []string {
 		strings.Contains(lower, "superuser password is not specified") {
 		suggestions = append(suggestions,
 			fmt.Sprintf("Add env file to '%s' in raioz.yaml:", serviceName),
-			fmt.Sprintf("  dependencies:"),
+			"  dependencies:",
 			fmt.Sprintf("    %s:", serviceName),
 			fmt.Sprintf("      env: .env.%s", serviceName),
 			fmt.Sprintf("Then create .env.%s with: POSTGRES_PASSWORD=postgres", serviceName),
@@ -182,7 +182,7 @@ func diagnoseContainerError(logs, serviceName string) []string {
 	if strings.Contains(lower, "address already in use") ||
 		strings.Contains(lower, "bind: address already in use") {
 		suggestions = append(suggestions,
-			fmt.Sprintf("Port is already in use by another process"),
+			"Port is already in use by another process",
 			"Run: raioz down && raioz up to restart cleanly",
 		)
 	}
