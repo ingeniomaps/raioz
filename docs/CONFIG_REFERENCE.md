@@ -64,6 +64,7 @@ dependencies:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
+| `version` | string | no | — | Schema version this file targets. Currently `"1"`. A warning is emitted when absent. See [Versioning](#versioning). |
 | `project` | string | yes | — | Project name. Used for Docker resource naming. Lowercase, hyphens, max 63 chars. |
 | `workspace` | string | no | — | Groups projects on same Docker network. When set, resources use `{workspace}-` prefix instead of `raioz-`. |
 | `network` | string or object | no | auto-derived | Pin Docker network name and/or subnet. See [Network config](#network-config). |
@@ -72,6 +73,44 @@ dependencies:
 | `post` | string or list | no | — | Commands to run after `raioz up` (e.g., cleanup). |
 | `services` | map | no | — | Local services to develop. Keys are service names. See [Service config](#service-config). |
 | `dependencies` | map | no | — | Docker images to run. Keys are dependency names. See [Dependency config](#dependency-config). |
+
+---
+
+## Versioning
+
+`version:` declares which raioz.yaml schema your file targets. Today the
+only valid value is `"1"`. Declaring it locks the expected shape so future
+raioz binaries can either accept it or emit an actionable migration error
+instead of silently misinterpreting your config.
+
+```yaml
+version: "1"
+project: my-app
+# ...
+```
+
+### Current behavior
+
+| Field state                                  | Behavior                                  |
+| -------------------------------------------- | ----------------------------------------- |
+| `version: "1"`                               | Loads silently. Recommended.              |
+| Field absent                                 | Loads with a warning. Still works.        |
+| Field set to anything else (e.g. `"2"`)      | Loads (no validation yet). Future-only.   |
+
+`raioz init` and `raioz migrate yaml` both write `version: "1"` into newly
+generated files.
+
+### Evolution policy
+
+- **Adding** a field to the schema does not require bumping the version
+  (optional fields are backward compatible). The field carries its own
+  `since:` marker in raioz's source.
+- **Removing or changing semantics** of a field requires a version bump
+  AND one minor release of grace where the change emits a deprecation
+  warning.
+- A future major release may **require** `version:` and refuse to load
+  configs that don't declare it. The current warning gives the field
+  time to land in real-world configs.
 
 ---
 

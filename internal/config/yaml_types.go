@@ -1,8 +1,18 @@
 package config
 
+// CurrentSchemaVersion is the version stamp raioz writes into newly
+// generated raioz.yaml files (init, migrate). Existing configs without
+// a version: field still load — a warning is surfaced via
+// LoadDepsFromYAML. See ADR / docs/CONFIG_REFERENCE.md#versioning.
+const CurrentSchemaVersion = "1"
+
 // RaiozConfig represents the new minimal raioz.yaml configuration format.
 // This is the user-facing config that gets converted to Deps via the bridge layer.
 type RaiozConfig struct {
+	// Version declares which raioz.yaml schema this file targets. Optional
+	// today; the loader emits a warning when absent. Future releases may
+	// require it. Currently the only valid value is "1".
+	Version   string                    `yaml:"version,omitempty"`
 	Workspace string                    `yaml:"workspace,omitempty"`
 	Project   string                    `yaml:"project"`
 	Network   *YAMLNetwork              `yaml:"network,omitempty"`

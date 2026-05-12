@@ -48,6 +48,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	fmt.Println()
 
 	cfg := config.RaiozConfig{
+		Version:  config.CurrentSchemaVersion,
 		Project:  projectName,
 		Services: make(map[string]config.YAMLService),
 		Deps:     make(map[string]config.YAMLDependency),

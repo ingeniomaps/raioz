@@ -64,6 +64,7 @@ func init() {
 // depsToYAMLConfig converts an old Deps struct to the new RaiozConfig format.
 func depsToYAMLConfig(deps *config.Deps) config.RaiozConfig {
 	cfg := config.RaiozConfig{
+		Version:   config.CurrentSchemaVersion,
 		Project:   deps.Project.Name,
 		Workspace: deps.Workspace,
 		Services:  make(map[string]config.YAMLService),
