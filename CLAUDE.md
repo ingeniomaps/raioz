@@ -251,13 +251,13 @@ the sibling isn't up). Invariants:
   the same class of bug as previous clone-sync issues — `grep -rn
   "config.Infra{" --include='*.go'` after touching the struct.
 
-## CLI Commands (30 total)
+## CLI Commands (31 total)
 
 ### Core
 `up`, `down`, `status`, `logs`, `restart`, `exec`, `check`, `clean`, `init`, `doctor`, `clone`
 
 ### Development
-`dev` (hot-swap dep→local), `env` (show service env vars), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy), `dashboard` (interactive TUI), `hosts` (print `/etc/hosts` line for `proxy.publish:false` setups)
+`dev` (hot-swap dep→local), `env` (show service env vars), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy), `dashboard` (interactive TUI), `hosts` (print `/etc/hosts` line for `proxy.publish:false` setups), `switch` (stop colliding sibling projects + up cwd, with confirmation; `--yes` skips prompt, `--keep` excludes projects)
 
 ### Management
 `list`, `version`, `lang`, `ignore`, `volumes`, `compare`, `ci`, `health`, `migrate`, `ports`, `yaml` (migrate config)

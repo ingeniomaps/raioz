@@ -6,6 +6,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `raioz switch` — closes the remaining gap from #24 (camino B). Detects
+  active raioz projects (cross-workspace) holding host ports declared in
+  the cwd's `raioz.yaml`, prompts with the list of offenders + the ports
+  they hold, stops them on confirmation, then runs `raioz up`. `--yes`
+  skips the prompt for scripting; `--keep proj1,proj2` spares specific
+  projects from teardown. Detection shares `docker.ValidatePorts` with
+  `down --conflicting` and `ports --conflicting` so the three commands
+  stay aligned.
+
+### Changed
+
+- Toolchain minimum raised to **Go 1.26**. CI workflows (`ci.yml`,
+  `release.yml`) and the project's go.mod now require 1.26; previously
+  pinned at 1.24, which fell out of the Go team's support window
+  (current is 1.25/1.26). golangci-lint pinned to **v2.12.2** (built
+  with Go 1.26.2); v2.1.6 refused to lint a Go 1.26 project.
+- `golang.org/x/sys` bumped 0.38.0 → 0.44.0 — includes a windows
+  uint16-overflow fix in `NewNTUnicodeString` that directly affects
+  raioz's proctree code path.
+
+### Fixed
+
+- gosec G702 (command injection via taint) and G703 (path traversal via
+  taint) now excluded by design — same class as G204 + G306, raioz
+  orchestrates other binaries and reads user-configurable paths as its
+  contract.
+
 ## [0.4.0] - 2026-05-12
 
 The headline is multi-project orchestration: a raioz project can now
