@@ -1,6 +1,6 @@
 module raioz
 
-go 1.24.2
+go 1.26
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10

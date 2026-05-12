@@ -269,7 +269,7 @@ the sibling isn't up). Invariants:
 - **JSON Schema**: xeipuuv/gojsonschema
 - **YAML**: gopkg.in/yaml.v3
 - **File watching**: fsnotify/fsnotify
-- **Go version**: 1.24
+- **Go version**: 1.26
 
 ## Patterns
 
