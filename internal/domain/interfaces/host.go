@@ -3,7 +3,8 @@ package interfaces
 import (
 	"context"
 
-	models "raioz/internal/domain/models"
+	"raioz/internal/config"
+	"raioz/internal/host"
 )
 
 // HostRunner defines operations for running services directly on the host
@@ -11,15 +12,15 @@ type HostRunner interface {
 	// StartService starts a service directly on the host
 	StartService(
 		ctx context.Context, ws *Workspace,
-		deps *models.Deps, serviceName string,
-		svc models.Service, projectDir string,
-	) (*models.ProcessInfo, error)
+		deps *config.Deps, serviceName string,
+		svc config.Service, projectDir string,
+	) (*host.ProcessInfo, error)
 	// StopServiceWithCommand stops a host service by PID with an optional stop command
 	StopServiceWithCommand(ctx context.Context, pid int, stopCommand string) error
 	// LoadProcessesState loads the host processes state for a workspace
-	LoadProcessesState(ws *Workspace) (map[string]*models.ProcessInfo, error)
+	LoadProcessesState(ws *Workspace) (map[string]*host.ProcessInfo, error)
 	// SaveProcessesState saves the host processes state for a workspace
-	SaveProcessesState(ws *Workspace, processes map[string]*models.ProcessInfo) error
+	SaveProcessesState(ws *Workspace, processes map[string]*host.ProcessInfo) error
 	// RemoveProcessesState removes the host processes state file
 	RemoveProcessesState(ws *Workspace) error
 	// DetectComposePath detects the compose path for a host service

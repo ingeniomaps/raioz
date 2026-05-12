@@ -3,14 +3,14 @@ package interfaces
 import (
 	"context"
 
-	"raioz/internal/detect"
+	models "raioz/internal/domain/models"
 )
 
 // ServiceContext holds all information needed to start/stop a service.
 type ServiceContext struct {
 	Name          string
 	Path          string
-	Detection     detect.DetectResult
+	Detection     models.DetectResult
 	NetworkName   string
 	EnvVars       map[string]string
 	Ports         []string

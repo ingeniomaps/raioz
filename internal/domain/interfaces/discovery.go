@@ -1,13 +1,13 @@
 package interfaces
 
 import (
-	"raioz/internal/detect"
+	models "raioz/internal/domain/models"
 )
 
 // ServiceEndpoint represents a reachable service for discovery purposes.
 type ServiceEndpoint struct {
 	Name    string
-	Runtime detect.Runtime
+	Runtime models.Runtime
 	Host    string // container name, "host.docker.internal", or "localhost"
 	Port    int    // Port the container/process listens on internally.
 
@@ -27,7 +27,7 @@ type DiscoveryManager interface {
 	// Returns a map of VAR_NAME=value for the given service.
 	GenerateEnvVars(
 		serviceName string,
-		serviceRuntime detect.Runtime,
+		serviceRuntime models.Runtime,
 		endpoints map[string]ServiceEndpoint,
 		proxyEnabled bool,
 	) map[string]string

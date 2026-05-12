@@ -1,57 +1,43 @@
 package detect
 
-// Runtime represents the detected runtime/tool type of a service.
-type Runtime string
+import "raioz/internal/domain/models"
 
-const (
-	RuntimeCompose    Runtime = "compose"
-	RuntimeDockerfile Runtime = "dockerfile"
-	RuntimeNPM        Runtime = "npm"
-	RuntimeGo         Runtime = "go"
-	RuntimeMake       Runtime = "make"
-	RuntimePython     Runtime = "python"
-	RuntimeRust       Runtime = "rust"
-	RuntimeJust       Runtime = "just"
-	RuntimeTask       Runtime = "task"
-	RuntimePHP        Runtime = "php"
-	RuntimeJava       Runtime = "java"
-	RuntimeDotnet     Runtime = "dotnet"
-	RuntimeRuby       Runtime = "ruby"
-	RuntimeElixir     Runtime = "elixir"
-	RuntimeDart       Runtime = "dart"
-	RuntimeSwift      Runtime = "swift"
-	RuntimeScala      Runtime = "scala"
-	RuntimeClojure    Runtime = "clojure"
-	RuntimeZig        Runtime = "zig"
-	RuntimeGleam      Runtime = "gleam"
-	RuntimeHaskell    Runtime = "haskell"
-	RuntimeDeno       Runtime = "deno"
-	RuntimeBun        Runtime = "bun"
-	RuntimeImage      Runtime = "image"
-	RuntimeUnknown    Runtime = "unknown"
+// Runtime and DetectResult are type aliases for the canonical definitions
+// in internal/domain/models. Detect remains the package that produces these
+// values from disk scans; the domain owns the types so port interfaces can
+// reference them without importing infrastructure. See ADR-009.
+type (
+	Runtime      = models.Runtime
+	DetectResult = models.DetectResult
 )
 
-// DetectResult holds everything Raioz learned about a service's directory.
-type DetectResult struct {
-	Runtime     Runtime // Primary detected runtime
-	ComposeFile string  // First compose file path (backwards compat). Mirrors ComposeFiles[0].
-	// All compose files to pass to `docker compose -f <a> -f <b>`.
-	// Len>=1 when Runtime==RuntimeCompose.
-	ComposeFiles []string
-	Dockerfile   string   // Path to Dockerfile if found
-	StartCommand string   // Inferred start command (e.g., "npm run dev", "go run .")
-	DevCommand   string   // Inferred dev command if different from start
-	HasHotReload bool     // True if the runtime has built-in hot-reload
-	Port         int      // Inferred port (0 if unknown)
-	Files        []string // Notable files found during detection
-}
-
-// IsDocker returns true if the service runs in a Docker container.
-func (r *DetectResult) IsDocker() bool {
-	return r.Runtime == RuntimeCompose || r.Runtime == RuntimeDockerfile || r.Runtime == RuntimeImage
-}
-
-// IsHost returns true if the service runs directly on the host.
-func (r *DetectResult) IsHost() bool {
-	return !r.IsDocker() && r.Runtime != RuntimeUnknown
-}
+// Runtime constants re-exported from internal/domain/models so the existing
+// `detect.RuntimeXxx` call sites keep compiling. New code may use either
+// form; they refer to the same value.
+const (
+	RuntimeCompose    = models.RuntimeCompose
+	RuntimeDockerfile = models.RuntimeDockerfile
+	RuntimeNPM        = models.RuntimeNPM
+	RuntimeGo         = models.RuntimeGo
+	RuntimeMake       = models.RuntimeMake
+	RuntimePython     = models.RuntimePython
+	RuntimeRust       = models.RuntimeRust
+	RuntimeJust       = models.RuntimeJust
+	RuntimeTask       = models.RuntimeTask
+	RuntimePHP        = models.RuntimePHP
+	RuntimeJava       = models.RuntimeJava
+	RuntimeDotnet     = models.RuntimeDotnet
+	RuntimeRuby       = models.RuntimeRuby
+	RuntimeElixir     = models.RuntimeElixir
+	RuntimeDart       = models.RuntimeDart
+	RuntimeSwift      = models.RuntimeSwift
+	RuntimeScala      = models.RuntimeScala
+	RuntimeClojure    = models.RuntimeClojure
+	RuntimeZig        = models.RuntimeZig
+	RuntimeGleam      = models.RuntimeGleam
+	RuntimeHaskell    = models.RuntimeHaskell
+	RuntimeDeno       = models.RuntimeDeno
+	RuntimeBun        = models.RuntimeBun
+	RuntimeImage      = models.RuntimeImage
+	RuntimeUnknown    = models.RuntimeUnknown
+)
