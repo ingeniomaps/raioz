@@ -163,93 +163,26 @@ dependencies:               # what I need running (Docker images)
 - **State** = `.raioz.state.json` in project dir (gitignored). Only stores what Docker can't tell us (dev overrides, host PIDs, ignored services).
 - **Networking** = one Docker network per workspace. `host.docker.internal` for container→host. Caddy eliminates port conflicts.
 
-### Container labels (BUG-2 fix — do not remove)
-Every container raioz creates is stamped with:
-- `com.raioz.managed=true`
-- `com.raioz.kind=service|dependency|proxy`
-- `com.raioz.workspace=<ws>` (when workspace is set)
-- `com.raioz.project=<proj>` (**omitted on shared deps** — that's the signal)
-- `com.raioz.service=<name>` (service / dep / "proxy")
+## Architectural invariants
 
-`raioz down` sweeps by labels, not by name prefix. Any new runner MUST stamp
-these labels or its containers will leak. See `internal/naming/labels.go`
-and `orchestrate/image_runner.go`.
+These rules are load-bearing — breaking one tends to create a class of
+bug. Each links to its ADR for the full rationale (problem, decision,
+alternatives). See [docs/decisions/](docs/decisions/) for the format
+and how to add new ADRs.
 
-### Shared deps (workspace-scoped)
-When `workspace:` is set OR the user writes `dependencies.<n>.name:`:
-- Container name comes from `naming.DepContainer(project, dep, override)`.
-- Without override: `{workspace}-{dep}` (e.g. `acme-postgres`), NOT per-project.
-- Shared deps omit `com.raioz.project` so `raioz down` of any one project
-  does NOT tumba them. Last project out tears them down via
-  `otherProjectsActiveInWorkspace` — no ref-count state file.
-- `ImageRunner.Start` is idempotent: if the container is already running
-  (sibling project brought it up), it returns without re-creating.
-
-### Proxy certs (per-domain namespace)
-Certificates live in `~/.raioz/certs/<domain>/`. `EnsureCerts(domain)`
-validates SAN includes both `<domain>` and `*.<domain>` before reusing —
-prevents the "acme.localhost cert reused for hypixo.dev" class of bug.
-
-### Caddyfile global options
-`auto_https off` for `tls: mkcert` (ACME would hang on custom domains with
-no public DNS). Do not revert to `disable_redirects` alone — that only
-silences the HTTP→HTTPS redirect, not the ACME pipeline.
-
-### Workspace-shared proxy lifecycle
-When `workspace:` is set, a single `{workspace}-proxy` Caddy fronts every
-project in the workspace. Routes are persisted per project at
-`/tmp/<workspace>/proxy/routes/<project>.json`; the shared Caddyfile is the
-union. `raioz down` removes only the current project's routes and reloads
-Caddy; only the last project leaving the workspace tumba the proxy.
-
-### Clone functions must stay in sync with config structs
-`internal/app/upcase/workspace_project_conflict.go` has two clone functions
-(`cloneService`, `cloneInfraEntry`) used by the workspace-merge path. When
-adding a field to `config.Service` or `config.Infra` that affects
-orchestration, you MUST also list it in the clone or it will silently vanish
-on re-up after any workspace conflict. Every past regression in this area
-traced to a missing field.
-
-### Image classification shared via `internal/proxy/filter.go`
-`proxy.IsNonHTTPImage(image)` is the source of truth for "does this dep
-speak HTTP?". Bare-name match (last path segment before tag/digest), NOT
-substring — substring matching falsely tagged `redis/redisinsight` as
-Redis. New blocklist entries go in `nonHTTPImageNames`.
+- **[ADR-001](docs/decisions/001-container-identity-labels.md)** — Containers identified by `com.raioz.*` labels, never by name prefix. New runners MUST stamp the labels via `naming.Labels()`; `make check-labels` enforces literal-free call sites. Files: `internal/naming/labels.go`, `internal/orchestrate/image_runner.go`.
+- **[ADR-002](docs/decisions/002-shared-deps-workspace-scoped.md)** — Workspace-shared deps omit `com.raioz.project`; lifecycle uses `otherProjectsActiveInWorkspace`, no refcount file. `ImageRunner.Start` is idempotent.
+- **[ADR-003](docs/decisions/003-cert-namespacing.md)** — TLS certs live in `~/.raioz/certs/<domain>/`; `EnsureCerts` validates SANs include both `<domain>` and `*.<domain>` before reuse.
+- **[ADR-004](docs/decisions/004-caddy-auto-https-off.md)** — Caddyfile uses `auto_https off` in mkcert mode (ACME would hang on custom domains without public DNS). Do **not** revert to `disable_redirects` alone — that only silences the redirect, not ACME.
+- **[ADR-005](docs/decisions/005-workspace-shared-proxy.md)** — One `{workspace}-proxy` Caddy per workspace. Routes persist per project under `${WorkspaceProxyDir()}/<ws>/routes/<project>.json`; Caddyfile is the union. Only the last project to leave the workspace tumba the proxy.
+- **[ADR-006](docs/decisions/006-clone-functions-sync.md)** — `cloneService` / `cloneInfraEntry` in `internal/app/upcase/workspace_project_conflict.go` must list every new field on `config.Service` / `config.Infra` or it silently vanishes on re-up. Grep `config.Infra{` / `config.Service{` after struct changes.
+- **[ADR-007](docs/decisions/007-image-classification-bare-name.md)** — `proxy.IsNonHTTPImage` matches by **bare image name** (last path segment minus tag/digest), NOT substring (substring tagged `redis/redisinsight` as Redis). New entries go in `nonHTTPImageNames`.
+- **[ADR-008](docs/decisions/008-sibling-projects-as-deps.md)** — Sibling raioz projects as deps via `project:` (mode A) or `siblingProject:` + `image:` (mode B). `raioz down` never touches the sibling. Cycle detection via `RAIOZ_SIBLING_STACK`. Mode A spawn uses `os.Executable()`. Workspace coherence required.
 
 ### `raioz hosts`
 Prints the `/etc/hosts` line for the current project's proxy, ready for
 `sudo tee -a /etc/hosts`. Only useful in practice with `proxy.publish:
 false`, but works in any mode.
-
-### Sibling raioz projects as deps (issue #26)
-Two ways a `dependencies.<n>` entry can point at another raioz project:
-`project: ../sibling` (mode A — the sibling IS the dep, no image) and
-`siblingProject: ../sibling` + `image:` (mode B — image fallback when
-the sibling isn't up). Invariants:
-- **Down never touches the sibling.** Mode A is detected via
-  `entry.Inline.Project != ""` in `stopDependencyComposeProjects` and
-  skipped unconditionally. Mode B is tracked via
-  `LocalState.DeferredToSibling` (overwritten on every up, so stale
-  entries clear themselves) and skipped on the next down.
-- **Workspace coherence is mandatory** — both sides must declare the
-  same `workspace:`. Cross-workspace siblings fail at `decideSibling`
-  time before any spawn or probe.
-- **Cycle detection via `RAIOZ_SIBLING_STACK`** env var with
-  `os.PathListSeparator`. The parent appends its own dir before exec;
-  the child reads it in `checkSiblingCycle` and fails fast on A→B→A.
-- **Mode A spawn uses `os.Executable()`** (overridable via
-  `spawnRaiozBinary` for tests) and streams stdout/stderr line-by-line
-  with a `[sibling: <name>]` prefix. Failure errors include
-  `cd <dir> && raioz up` so the user can diagnose without recalling
-  where the spawn came from.
-- **`requiredHostname:` checks against `SiblingInfo.Hostnames`** (yaml-
-  declared, not live Caddyfile). Validated pre-spawn for mode A and
-  pre-defer for mode B. Skipped when mode B falls back to the image.
-- **`config.Infra` clones must include the new fields**:
-  `Project`, `SiblingProject`, `RequiredHostname`. The
-  `cloneInfraEntry` regression in `workspace_project_conflict.go` is
-  the same class of bug as previous clone-sync issues — `grep -rn
-  "config.Infra{" --include='*.go'` after touching the struct.
 
 ## CLI Commands (31 total)
 
