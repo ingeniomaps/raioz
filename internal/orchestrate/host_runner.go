@@ -9,11 +9,32 @@ import (
 	"time"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 )
+
+// register routes every script/native-runtime dispatch (npm, go, make,
+// python, …) to HostRunner. Each runtime here corresponds to one
+// runner-on-the-host execution path; adding a new host language means
+// adding it to this list AND to models.AllRuntimes().
+func init() {
+	hostRuntimes := []models.Runtime{
+		models.RuntimeNPM, models.RuntimeGo, models.RuntimeMake,
+		models.RuntimeJust, models.RuntimeTask,
+		models.RuntimePython, models.RuntimeRust, models.RuntimePHP,
+		models.RuntimeJava, models.RuntimeDotnet, models.RuntimeRuby,
+		models.RuntimeElixir, models.RuntimeDart, models.RuntimeSwift,
+		models.RuntimeScala, models.RuntimeClojure, models.RuntimeZig,
+		models.RuntimeGleam, models.RuntimeHaskell, models.RuntimeDeno,
+		models.RuntimeBun,
+	}
+	for _, rt := range hostRuntimes {
+		register(rt, func(d *Dispatcher) runner { return d.host })
+	}
+}
 
 // HostRunner handles services that run directly on the host (npm, go, make, python, rust).
 type HostRunner struct {

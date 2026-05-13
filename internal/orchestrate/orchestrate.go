@@ -87,24 +87,15 @@ func (d *Dispatcher) GetHostPID(serviceName string) int {
 	return d.host.GetPID(serviceName)
 }
 
-func (d *Dispatcher) selectRunner(runtime models.Runtime) (runner, error) {
-	switch runtime {
-	case models.RuntimeCompose:
-		return d.compose, nil
-	case models.RuntimeDockerfile:
-		return d.dockerfile, nil
-	case models.RuntimeNPM, models.RuntimeGo, models.RuntimeMake,
-		models.RuntimeJust, models.RuntimeTask,
-		models.RuntimePython, models.RuntimeRust, models.RuntimePHP,
-		models.RuntimeJava, models.RuntimeDotnet, models.RuntimeRuby,
-		models.RuntimeElixir, models.RuntimeDart, models.RuntimeSwift,
-		models.RuntimeScala, models.RuntimeClojure, models.RuntimeZig,
-		models.RuntimeGleam, models.RuntimeHaskell, models.RuntimeDeno,
-		models.RuntimeBun:
-		return d.host, nil
-	case models.RuntimeImage:
-		return d.image, nil
-	default:
-		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
+// selectRunner resolves the runner for a runtime via the package-init
+// registry (ADR-019 / issue 039). Each runner-file registers in its
+// init(); the registry is exhaustive-checked by
+// TestAllRuntimesHaveRunner. A runtime missing here is a programming
+// error — return a typed error so callers can present it.
+func (d *Dispatcher) selectRunner(rt models.Runtime) (runner, error) {
+	sel, ok := runnerRegistry[rt]
+	if !ok {
+		return nil, fmt.Errorf("unsupported runtime: %s", rt)
 	}
+	return sel(d), nil
 }

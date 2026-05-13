@@ -7,9 +7,15 @@ import (
 	"strings"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/runtime"
 )
+
+// register routes RuntimeDockerfile dispatches to DockerfileRunner.
+func init() {
+	register(models.RuntimeDockerfile, func(d *Dispatcher) runner { return d.dockerfile })
+}
 
 // DockerfileRunner handles services that have a Dockerfile but no compose file.
 // It builds the image and runs it as a standalone container on the Raioz network.

@@ -8,11 +8,17 @@ import (
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 
 	"gopkg.in/yaml.v3"
 )
+
+// register routes RuntimeCompose dispatches to ComposeRunner.
+func init() {
+	register(models.RuntimeCompose, func(d *Dispatcher) runner { return d.compose })
+}
 
 // ComposeRunner handles services that have their own docker-compose.yml.
 // It does NOT modify the user's compose file. Instead, it creates a thin

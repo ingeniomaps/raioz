@@ -36,6 +36,25 @@ const (
 	RuntimeUnknown    Runtime = "unknown"
 )
 
+// AllRuntimes returns every declared runtime EXCEPT RuntimeUnknown
+// (which is the "we didn't find anything" sentinel, not a real
+// runtime callers ever dispatch to).
+//
+// Used by the orchestrate registry's exhaustiveness test (issue 039 /
+// ADR-019) to verify every runtime has a runner. Adding a new Runtime
+// constant above must come with adding it here AND registering a
+// runner; the test catches the missing-runner case.
+func AllRuntimes() []Runtime {
+	return []Runtime{
+		RuntimeCompose, RuntimeDockerfile, RuntimeNPM, RuntimeGo,
+		RuntimeMake, RuntimePython, RuntimeRust, RuntimeJust,
+		RuntimeTask, RuntimePHP, RuntimeJava, RuntimeDotnet,
+		RuntimeRuby, RuntimeElixir, RuntimeDart, RuntimeSwift,
+		RuntimeScala, RuntimeClojure, RuntimeZig, RuntimeGleam,
+		RuntimeHaskell, RuntimeDeno, RuntimeBun, RuntimeImage,
+	}
+}
+
 // DetectResult holds everything raioz learned about a service's directory.
 type DetectResult struct {
 	Runtime      Runtime // Primary detected runtime
