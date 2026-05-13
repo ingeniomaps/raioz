@@ -9,6 +9,7 @@ import (
 	"raioz/internal/infra/git"
 	"raioz/internal/infra/host"
 	"raioz/internal/infra/lock"
+	infrasnapshot "raioz/internal/infra/snapshot"
 	"raioz/internal/infra/state"
 	"raioz/internal/infra/validate"
 	"raioz/internal/infra/workspace"
@@ -28,6 +29,7 @@ type Dependencies struct {
 	EnvManager       interfaces.EnvManager
 	ProxyManager     interfaces.ProxyManager     // Optional: nil if proxy not needed
 	DiscoveryManager interfaces.DiscoveryManager // Optional: nil if discovery not needed
+	SnapshotManager  interfaces.SnapshotManager  // Volume backup/restore (ADR-014)
 }
 
 // NewDependencies creates a new Dependencies instance with default implementations
@@ -44,6 +46,7 @@ func NewDependencies() *Dependencies {
 		EnvManager:       env.NewEnvManager(),
 		ProxyManager:     proxy.NewManager(proxy.CertsDir()),
 		DiscoveryManager: discovery.NewManager(),
+		SnapshotManager:  infrasnapshot.NewManager(""),
 	}
 }
 

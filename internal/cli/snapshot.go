@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"raioz/internal/app"
+	"raioz/internal/app/snapshotcase"
 	"raioz/internal/output"
-	"raioz/internal/snapshot"
 
 	"github.com/spf13/cobra"
 )
@@ -24,37 +24,25 @@ var snapshotCreateCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name := args[0]
 		deps := app.NewDependencies()
-		configPath := ResolveConfigPath(snapshotConfigPath)
-
-		cfgDeps, _, err := deps.ConfigLoader.LoadDeps(configPath)
+		uc := snapshotcase.CreateUseCase{Deps: &snapshotcase.Dependencies{
+			ConfigLoader:    deps.ConfigLoader,
+			SnapshotManager: deps.SnapshotManager,
+		}}
+		res, err := uc.Execute(cmd.Context(), snapshotcase.CreateOptions{
+			ConfigPath: ResolveConfigPath(snapshotConfigPath),
+			Name:       args[0],
+		})
 		if err != nil {
 			return err
 		}
-
-		// Collect volumes from infra
-		volumes := make(map[string]string)
-		for svcName, entry := range cfgDeps.Infra {
-			if entry.Inline != nil {
-				for _, vol := range entry.Inline.Volumes {
-					volumes[vol] = svcName
-				}
-			}
-		}
-
-		if len(volumes) == 0 {
+		if res.NoVolumes {
 			output.PrintInfo("No volumes found to snapshot")
 			return nil
 		}
-
-		mgr := snapshot.NewManager("")
-		snap, err := mgr.Create(cfgDeps.Project.Name, name, volumes)
-		if err != nil {
-			return err
-		}
-
-		output.PrintSuccess(fmt.Sprintf("Snapshot '%s' created with %d volumes", snap.Name, len(snap.Volumes)))
+		output.PrintSuccess(fmt.Sprintf(
+			"Snapshot '%s' created with %d volumes",
+			res.Snapshot.Name, len(res.Snapshot.Volumes)))
 		return nil
 	},
 }
@@ -65,21 +53,18 @@ var snapshotRestoreCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name := args[0]
 		deps := app.NewDependencies()
-		configPath := ResolveConfigPath(snapshotConfigPath)
-
-		cfgDeps, _, err := deps.ConfigLoader.LoadDeps(configPath)
-		if err != nil {
+		uc := snapshotcase.RestoreUseCase{Deps: &snapshotcase.Dependencies{
+			ConfigLoader:    deps.ConfigLoader,
+			SnapshotManager: deps.SnapshotManager,
+		}}
+		if err := uc.Execute(cmd.Context(), snapshotcase.RestoreOptions{
+			ConfigPath: ResolveConfigPath(snapshotConfigPath),
+			Name:       args[0],
+		}); err != nil {
 			return err
 		}
-
-		mgr := snapshot.NewManager("")
-		if err := mgr.Restore(cfgDeps.Project.Name, name); err != nil {
-			return err
-		}
-
-		output.PrintSuccess(fmt.Sprintf("Snapshot '%s' restored", name))
+		output.PrintSuccess(fmt.Sprintf("Snapshot '%s' restored", args[0]))
 		return nil
 	},
 }
@@ -90,25 +75,21 @@ var snapshotListCmd = &cobra.Command{
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := app.NewDependencies()
-		configPath := ResolveConfigPath(snapshotConfigPath)
-
-		cfgDeps, _, err := deps.ConfigLoader.LoadDeps(configPath)
+		uc := snapshotcase.ListUseCase{Deps: &snapshotcase.Dependencies{
+			ConfigLoader:    deps.ConfigLoader,
+			SnapshotManager: deps.SnapshotManager,
+		}}
+		snaps, err := uc.Execute(cmd.Context(), snapshotcase.ListOptions{
+			ConfigPath: ResolveConfigPath(snapshotConfigPath),
+		})
 		if err != nil {
 			return err
 		}
-
-		mgr := snapshot.NewManager("")
-		snapshots, err := mgr.List(cfgDeps.Project.Name)
-		if err != nil {
-			return err
-		}
-
-		if len(snapshots) == 0 {
+		if len(snaps) == 0 {
 			output.PrintInfo("No snapshots found")
 			return nil
 		}
-
-		for _, snap := range snapshots {
+		for _, snap := range snaps {
 			var totalSize int64
 			for _, vol := range snap.Volumes {
 				totalSize += vol.SizeBytes
@@ -130,21 +111,18 @@ var snapshotDeleteCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name := args[0]
 		deps := app.NewDependencies()
-		configPath := ResolveConfigPath(snapshotConfigPath)
-
-		cfgDeps, _, err := deps.ConfigLoader.LoadDeps(configPath)
-		if err != nil {
+		uc := snapshotcase.DeleteUseCase{Deps: &snapshotcase.Dependencies{
+			ConfigLoader:    deps.ConfigLoader,
+			SnapshotManager: deps.SnapshotManager,
+		}}
+		if err := uc.Execute(cmd.Context(), snapshotcase.DeleteOptions{
+			ConfigPath: ResolveConfigPath(snapshotConfigPath),
+			Name:       args[0],
+		}); err != nil {
 			return err
 		}
-
-		mgr := snapshot.NewManager("")
-		if err := mgr.Delete(cfgDeps.Project.Name, name); err != nil {
-			return err
-		}
-
-		output.PrintSuccess(fmt.Sprintf("Snapshot '%s' deleted", name))
+		output.PrintSuccess(fmt.Sprintf("Snapshot '%s' deleted", args[0]))
 		return nil
 	},
 }
