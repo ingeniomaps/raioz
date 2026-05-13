@@ -1,11 +1,5 @@
 package interfaces
 
-import (
-	"context"
-
-	"raioz/internal/domain/models"
-)
-
 // ServiceInfo represents information about a Docker service
 type ServiceInfo struct {
 	Status   string
@@ -27,126 +21,58 @@ type LogsOptions struct {
 	Services []string
 }
 
-// DockerRunner defines operations for running Docker Compose commands
+// DockerRunner is the aggregate port covering every Docker-shaped
+// operation raioz performs. ADR-012 (issue 032) splits the surface
+// into six segregated interfaces — ContainerManager, ComposeRunner,
+// NetworkManager, VolumeManager, ImageValidator, PortValidator — that
+// this interface embeds. Aggregating callers stay on this type; new
+// callers should reference the smallest segregated interface they
+// actually use so tests can mock narrowly.
+//
+// A handful of methods that don't fit a single segregated interface
+// (presenters that pre-date the split, naming helpers) remain on
+// DockerRunner for now. They are slated for migration to
+// internal/output/ and internal/naming/ in follow-up work; see
+// ADR-012's "Implementation status" section.
 type DockerRunner interface {
-	// Up starts Docker Compose services
-	Up(composePath string) error
-	// UpWithContext starts Docker Compose services with context support
-	UpWithContext(ctx context.Context, composePath string) error
-	// Down stops Docker Compose services
-	Down(composePath string) error
-	// DownWithContext stops Docker Compose services with context support
-	DownWithContext(ctx context.Context, composePath string) error
-	// StopServiceWithContext stops and removes only one service from the compose project (for conflict resolution)
-	StopServiceWithContext(ctx context.Context, composePath string, serviceName string) error
-	// GetServicesStatus returns the status of services
-	GetServicesStatus(composePath string) (map[string]string, error)
-	// GetServicesStatusWithContext returns the status of services with context support
-	GetServicesStatusWithContext(ctx context.Context, composePath string) (map[string]string, error)
-	// GetServicesInfoWithContext returns detailed info about services
-	GetServicesInfoWithContext(
-		ctx context.Context, composePath string,
-		serviceNames []string, projectName string,
-		services map[string]models.Service, ws *Workspace,
-	) (map[string]*ServiceInfo, error)
-	// GetNetworkProjects returns list of projects using a network
-	GetNetworkProjects(networkName string, baseDir string) ([]string, error)
-	// GetVolumeProjects returns list of projects using a volume
-	GetVolumeProjects(volumeName string, baseDir string) ([]string, error)
-	// ExtractNamedVolumes extracts named volume names from volume strings
-	ExtractNamedVolumes(volumes []string) ([]string, error)
-	// FormatStatusTable formats service information as a table
+	ContainerManager
+	ComposeRunner
+	NetworkManager
+	VolumeManager
+	ImageValidator
+	PortValidator
+
+	// FormatStatusTable formats service information as a table.
+	//
+	// Deprecated: presentation belongs in internal/output/. Use
+	// `output.PrintStatusTable` directly — this method delegates to it
+	// and will be removed once every caller migrates.
 	FormatStatusTable(services map[string]*ServiceInfo, jsonOutput bool) error
-	// GetAvailableServicesWithContext returns the list of services defined in a compose file
-	GetAvailableServicesWithContext(ctx context.Context, composePath string) ([]string, error)
-	// ViewLogsWithContext displays logs for services
-	ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptions) error
-	// CleanProjectWithContext cleans a specific project's stopped containers
-	CleanProjectWithContext(ctx context.Context, composePath string, dryRun bool) ([]string, error)
-	// CleanAllProjectsWithContext cleans all projects' stopped containers
-	CleanAllProjectsWithContext(ctx context.Context, baseDir string, dryRun bool) ([]string, error)
-	// CleanUnusedImagesWithContext removes unused Docker images
-	CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, error)
-	// CleanUnusedVolumesWithContext removes unused Docker volumes
-	CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool) ([]string, error)
-	// CleanUnusedNetworksWithContext removes unused Docker networks
-	CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string, error)
-	// GetAllActivePorts returns all active ports across projects
-	GetAllActivePorts(baseDir string) ([]PortInfo, error)
-	// GenerateCompose generates a docker-compose file from dependencies
-	GenerateCompose(deps *models.Deps, ws *Workspace, projectDir string) (string, []string, error)
-	// UpServicesWithContext starts specific Docker Compose services with context support
-	UpServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error
-	// RestartServicesWithContext restarts specific Docker Compose services
-	RestartServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error
-	// ForceRecreateServicesWithContext recreates and starts services
-	ForceRecreateServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error
-	// ExecInService runs a command inside a running container
-	ExecInService(ctx context.Context, composePath string, serviceName string, command []string, interactive bool) error
-	// WaitForServicesHealthy waits for services to become healthy
-	WaitForServicesHealthy(
-		ctx context.Context, composePath string,
-		serviceNames []string, infraNames []string,
-		projectName string,
-	) error
-	// ValidatePorts checks if all ports in a project are available
-	ValidatePorts(deps *models.Deps, baseDir string, projectName string) ([]PortConflict, error)
-	// FormatPortConflicts formats port conflicts for display
+	// FormatPortConflicts formats port conflicts for display.
+	//
+	// Deprecated: use `output.FormatPortConflicts`.
 	FormatPortConflicts(conflicts []PortConflict) string
-	// ValidateAllImages validates all images (services and infra) before compose generation
-	ValidateAllImages(deps *models.Deps) error
-	// EnsureNetworkWithConfigAndContext ensures a Docker network exists
-	// with an optional subnet. Labels are stamped at create time so down
-	// can later sweep raioz-managed networks even when the project's
-	// state file has rotated. Docker forbids retro-labeling, so callers
-	// must populate labels before this call. Empty/nil labels keep the
-	// pre-label behavior (no labels stamped).
-	EnsureNetworkWithConfigAndContext(
-		ctx context.Context, name string, subnet string,
-		labels map[string]string, askConfirmation bool,
-	) error
-	// EnsureVolumeWithContext ensures a named volume exists, creating if necessary
-	EnsureVolumeWithContext(ctx context.Context, name string) error
-	// NormalizeVolumeName normalizes a volume name with project prefix
-	NormalizeVolumeName(prefix string, name string) (string, error)
-	// NormalizeContainerName normalizes a container name
-	NormalizeContainerName(workspace string, service string, project string, hasExplicitWorkspace bool) (string, error)
-	// NormalizeInfraName normalizes an infra container name
-	NormalizeInfraName(workspace string, infra string, project string, hasExplicitWorkspace bool) (string, error)
-	// GetContainerNameWithContext returns the container name for a service in a compose file
-	GetContainerNameWithContext(ctx context.Context, composePath string, serviceName string) (string, error)
-	// GetContainerStatusByName returns the Docker state of a container (running,
-	// exited, created, ...) looked up by name via docker inspect. Empty string
-	// (no error) means the container does not exist.
-	GetContainerStatusByName(ctx context.Context, containerName string) (string, error)
-	// FindManagedContainerByService returns the actual container name for a
-	// raioz-managed service/dep by matching the com.raioz.project +
-	// com.raioz.service labels, or "" if none exists. Used as a fallback when
-	// the canonical name (naming.DepContainer / naming.Container) does not
-	// match the real container — typically because the user's compose file
-	// dictated a custom container_name. See issue 009.
-	FindManagedContainerByService(ctx context.Context, project, service string) string
-	// ResolveRelativeVolumes converts relative paths in bind mount volumes to absolute paths
-	ResolveRelativeVolumes(volumes []string, projectDir string) ([]string, error)
-	// AreServicesRunning checks if services are running in a compose project
-	AreServicesRunning(composePath string, serviceNames []string) (bool, error)
-	// IsNetworkInUseWithContext checks if a Docker network is in use
-	IsNetworkInUseWithContext(ctx context.Context, networkName string) (bool, error)
-	// IsProjectActive reports whether (workspace, project) has at least
-	// one running raioz-managed container. Used by inspection commands
-	// (status, logs, exec, restart) to gate work without consulting the
-	// legacy state snapshot — see ADR-011.
-	IsProjectActive(ctx context.Context, workspace, project string) (bool, error)
-	// StopContainerWithContext stops a container by name
-	StopContainerWithContext(ctx context.Context, containerName string) error
-	// BuildServiceVolumesMap builds a map of service volumes from Deps configuration
-	BuildServiceVolumesMap(deps *models.Deps) (map[string]ServiceVolumes, error)
-	// DetectSharedVolumes detects volumes shared between multiple services
-	DetectSharedVolumes(services map[string]ServiceVolumes) map[string][]string
-	// FormatSharedVolumesWarning formats a warning message for shared volumes
+	// FormatSharedVolumesWarning formats a warning when multiple
+	// services share a named volume (raioz's heuristic spots this and
+	// surfaces the risk before they collide at runtime).
+	//
+	// Deprecated: use `output.FormatSharedVolumesWarning`.
 	FormatSharedVolumesWarning(sharedVolumes map[string][]string) string
-	// RemoveVolumeWithContext removes a named volume
-	RemoveVolumeWithContext(ctx context.Context, name string) error
+
+	// NormalizeVolumeName, NormalizeContainerName, NormalizeInfraName
+	// are naming-policy helpers, not Docker operations. They live here
+	// for compatibility; see internal/naming/ for the canonical home.
+	//
+	// Deprecated: use `naming.NormalizeVolumeName` etc.
+	NormalizeVolumeName(prefix, name string) (string, error)
+	// Deprecated: use `naming.NormalizeContainerName`.
+	NormalizeContainerName(
+		workspace, service, project string, hasExplicitWorkspace bool,
+	) (string, error)
+	// Deprecated: use `naming.NormalizeInfraName`.
+	NormalizeInfraName(
+		workspace, infra, project string, hasExplicitWorkspace bool,
+	) (string, error)
 }
 
 // PortInfo represents information about an active port
