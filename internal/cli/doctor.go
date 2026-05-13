@@ -18,6 +18,7 @@ var doctorCmd = &cobra.Command{
 		}
 
 		useCase := app.NewDoctorUseCase()
+		useCase.DevBuild = IsDevBuild()
 		return useCase.Execute(ctx)
 	},
 }

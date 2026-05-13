@@ -61,6 +61,12 @@ func init() {
 					"lang", langFlag, "error", err)
 			}
 		}
+		// ADR-021: warn (once) when the binary has no version stamps.
+		// Skip for `raioz version`, which already prints "(Development
+		// build)" — duplicating the warning there is noise.
+		if cmd.Name() != "version" {
+			MaybePrintDevBuildWarning()
+		}
 	}
 
 	rootCmd.AddCommand(upCmd)
