@@ -25,7 +25,7 @@ set -euo pipefail
 # Files listed here are allowed to reference state.Save/Load/Exists or
 # StateManager.{Save,Load,Exists}. New callers must NOT be added —
 # extend LocalState (internal/state/project_state.go) instead.
-ALLOWED_RE='^(internal/state/.*|internal/infra/state/.*|internal/mocks/.*|internal/domain/interfaces/state\.go|internal/app/checkcase/usecase\.go|internal/app/ci_legacy\.go|internal/app/down\.go|internal/app/exec\.go|internal/app/list\.go|internal/app/logs\.go|internal/app/restart\.go|internal/app/status\.go|internal/app/up\.go|internal/app/volumes\.go|internal/app/upcase/dependency_projects\.go|internal/app/upcase/duplicate_project\.go|internal/app/upcase/local_project\.go|internal/app/upcase/service_conflict\.go|internal/app/upcase/state\.go|internal/app/upcase/workspace_project_conflict\.go)$'
+ALLOWED_RE='^(internal/state/.*|internal/infra/state/.*|internal/mocks/.*|internal/domain/interfaces/state\.go|internal/app/checkcase/usecase\.go|internal/app/down\.go|internal/app/exec\.go|internal/app/list\.go|internal/app/logs\.go|internal/app/restart\.go|internal/app/status\.go|internal/app/volumes\.go|internal/app/upcase/duplicate_project\.go|internal/app/upcase/state\.go|internal/app/upcase/workspace_project_conflict\.go)$'
 
 # Match the deprecated entry points (both the package-level functions and
 # the interface methods). The `[^a-zA-Z0-9_]` boundary prevents matching

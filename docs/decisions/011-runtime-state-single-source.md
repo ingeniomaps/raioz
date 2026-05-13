@@ -1,6 +1,6 @@
 # ADR-011: LocalState is the single source of truth for runtime state
 
-- **Status:** Accepted
+- **Status:** Accepted — Phase 1 implemented 2026-05-13
 - **Date:** 2026-05-13
 
 ## Context
@@ -133,3 +133,30 @@ The `Exists` ports are removed in 031 in favor of
 - Originated from: architecture review CRITICAL #3 ("dual state
   systems") and issue 029.
 - Successor work: issues 030 and 031 perform the migration.
+
+## Implementation status
+
+- **Phase 1 (2026-05-13, issue 031).** Three writer call sites
+  neutralized (`internal/app/upcase/state.go`,
+  `internal/app/upcase/local_project.go`,
+  `internal/app/ci_legacy.go`). `raioz up` removes any stale legacy
+  `.state.json` at startup. The legacy file is no longer regenerated.
+  Reader call sites (10 files; see whitelist in
+  `scripts/lint-state-legacy.sh`) still call `StateManager.Load /
+  Exists`; today they receive the file's last contents until it is
+  swept by an `up`, then they fall through to "project not running"
+  paths. This is a known degradation for users who run inspection
+  commands (`raioz status`, `logs`, `exec`, etc.) on projects
+  brought up by a newer binary without re-running `up`. Acceptable
+  trade-off because the file's drift problem outweighs the
+  inspection-without-yaml convenience.
+- **Phase 2 (sub-issue 031a, pending).** Migrate readers to derive
+  what they need from Docker labels + the live `raioz.yaml` + a
+  small `LocalState` for runtime-only fields (`ProjectComposePath`,
+  `ProjectRoot`). Requires real Docker integration tests in CI
+  before merge.
+- **Phase 3 (sub-issue 031b, pending).** Delete
+  `state.{Save,Load,Exists}` and the corresponding `StateManager`
+  interface methods. Remove `scripts/lint-state-legacy.sh` (no
+  longer guarding anything). Remove the `check-state-legacy` target
+  from the Makefile.

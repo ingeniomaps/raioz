@@ -95,6 +95,22 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		).WithError(err)
 	}
 
+	// ADR-011 Phase 1: sweep any legacy .state.json left behind by an
+	// older binary. The new world writes only LocalState (in projectDir)
+	// and reads from Docker + raioz.yaml. Best-effort: a non-existent
+	// file is the common case and a permissions error is logged but not
+	// fatal.
+	legacyStatePath := filepath.Join(ws.Root, ".state.json")
+	if err := os.Remove(legacyStatePath); err == nil {
+		logging.InfoWithContext(ctx,
+			"removed legacy .state.json snapshot (ADR-011)",
+			"path", legacyStatePath)
+	} else if !os.IsNotExist(err) {
+		logging.WarnWithContext(ctx,
+			"failed to remove legacy .state.json",
+			"path", legacyStatePath, "error", err.Error())
+	}
+
 	// Resolve project.env (if project.env is ["."], uses .env in project directory as primary)
 	projectEnvPath, err := uc.deps.EnvManager.ResolveProjectEnv(ws, deps, projectDir)
 	if err != nil {

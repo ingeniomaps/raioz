@@ -261,14 +261,12 @@ func (uc *CIUseCase) executeSetup(
 			Status: "passed",
 		})
 
-		if err := uc.deps.StateManager.Save(ws, deps); err != nil {
-			result.Warnings = append(
-				result.Warnings,
-				fmt.Sprintf("Failed to save state: %v", err),
-			)
-		} else {
-			result.StateFile = uc.deps.Workspace.GetStatePath(ws)
-		}
+		// ADR-011 Phase 1: legacy state snapshot no longer written.
+		// result.StateFile is left empty; CI consumers should rely on
+		// Docker label sweeps instead. Sub-issue 031a tracks the
+		// follow-up where result.StateFile may be removed entirely.
+		_ = ws
+		_ = deps
 	} else {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "start_services",

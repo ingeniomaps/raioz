@@ -606,26 +606,10 @@ func TestSaveStateWritesRoot(t *testing.T) {
 	}
 }
 
-func TestSaveStateManagerError(t *testing.T) {
-	initI18nUp(t)
-	wsDir := t.TempDir()
-	ws := &workspace.Workspace{Root: wsDir}
-
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			SaveFunc: func(ws *workspace.Workspace, d *models.Deps) error {
-				return stderrors.New("save failed")
-			},
-		},
-	})
-	deps := &models.Deps{Project: models.Project{Name: "p"}}
-	err := uc.saveState(
-		context.Background(), deps, ws, "", nil, nil, nil, nil,
-	)
-	if err == nil {
-		t.Error("expected error")
-	}
-}
+// TestSaveStateManagerError removed: ADR-011 Phase 1 eliminated the
+// StateManager.Save call from saveState. The error-propagation path the
+// test exercised no longer exists. The remaining saveState behavior
+// (root config generation) is covered by TestSaveStateWritesRoot above.
 
 // --- checkDependencyProjects with matching but no services state -------------
 

@@ -69,18 +69,14 @@ func (uc *UseCase) saveState(
 	assistedServicesMap map[string]string,
 	appliedOverrides []string,
 ) error {
-	// Save state
-	if err := uc.deps.StateManager.Save(ws, deps); err != nil {
-		return errors.New(
-			errors.ErrCodeStateSaveError,
-			i18n.T("error.state_save_failed"),
-		).WithSuggestion(
-			i18n.T("error.state_save_suggestion"),
-		).WithContext("workspace", ws.Root).WithError(err)
-	}
-
-	// Only log at debug level - technical detail not useful for end users
-	logging.DebugWithContext(ctx, "State saved successfully", "workspace", ws.Root)
+	// ADR-011 Phase 1: the legacy whole-Deps snapshot at .state.json is no
+	// longer written. The auto-cleanup at the top of Execute deletes any
+	// stale file left from older binaries. Reader migration is tracked in
+	// sub-issue 031a; deleting StateManager.Save/Load/Exists altogether is
+	// 031b.
+	_ = ws
+	_ = deps
+	logging.DebugWithContext(ctx, "Legacy state snapshot intentionally skipped (ADR-011)")
 
 	// Generate or update root config with applied overrides
 	if root.Exists(ws) {

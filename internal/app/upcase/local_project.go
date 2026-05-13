@@ -208,25 +208,18 @@ func (uc *UseCase) processLocalProject(
 		return err
 	}
 
-	// If command was "up" and executed successfully, detect and save project docker-compose.yml
+	// If command was "up" and executed successfully, detect project
+	// docker-compose.yml. We keep the path on the in-memory deps so
+	// callers in the same run can consume it; ADR-011 Phase 1 no longer
+	// persists it to .state.json (sub-issue 031a will move it to
+	// LocalState for cross-command access).
 	if commandType == "up" {
-		// Detect project docker-compose.yml
 		projectComposePath := uc.deps.HostRunner.DetectComposePath(projectDir, command, "")
 		if projectComposePath != "" {
-			// Save project compose path to state
 			deps.ProjectComposePath = projectComposePath
-			// Save updated state
-			if ws != nil {
-				if wsTyped, ok := ws.(*interfaces.Workspace); ok {
-					if err := uc.deps.StateManager.Save(wsTyped, deps); err != nil {
-						logging.WarnWithContext(ctx, "Failed to save project compose path to state", "error", err.Error())
-					} else {
-						logging.DebugWithContext(ctx, "Project docker-compose.yml detected and saved",
-							"compose_path", projectComposePath,
-						)
-					}
-				}
-			}
+			logging.DebugWithContext(ctx, "Project docker-compose.yml detected",
+				"compose_path", projectComposePath,
+			)
 		}
 		if err := uc.saveProjectCommandState(ctx, deps, projectDir); err != nil {
 			// Log but don't fail - state saving is optional
