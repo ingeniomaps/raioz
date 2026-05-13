@@ -76,22 +76,25 @@ func (uc *ExecUseCase) Execute(ctx context.Context, opts ExecOptions) error {
 		).WithContext("project", projectName).WithError(err)
 	}
 
-	if !uc.deps.StateManager.Exists(ws) {
-		return errors.New(
-			errors.ErrCodeWorkspaceError,
-			i18n.T("error.exec_not_running"),
-		).WithContext("project", projectName)
-	}
-
-	// Load state to get ProjectComposePath
-	stateDeps, err := uc.deps.StateManager.Load(ws)
+	// ADR-011 Phase 2: replace StateManager.Exists/Load with
+	// docker.IsProjectActive + LocalState. Liveness comes from Docker
+	// labels (source of truth) and the optional ProjectComposePath comes
+	// from LocalState (persisted by `raioz up`).
+	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeStateLoadError,
 			i18n.T("error.state_load_previous"),
 		).WithError(err)
 	}
+	if !active {
+		return errors.New(
+			errors.ErrCodeWorkspaceError,
+			i18n.T("error.exec_not_running"),
+		).WithContext("project", projectName)
+	}
 
+	projectComposePath := loadProjectComposePathFromLocalState(opts.ConfigPath)
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 
 	// Check if service is a host service (source.command)
@@ -119,10 +122,10 @@ func (uc *ExecUseCase) Execute(ctx context.Context, opts ExecOptions) error {
 	}
 
 	// Search service in project compose
-	if stateDeps != nil && stateDeps.ProjectComposePath != "" {
-		projectAvailable, err := uc.deps.DockerRunner.GetAvailableServicesWithContext(ctx, stateDeps.ProjectComposePath)
+	if projectComposePath != "" {
+		projectAvailable, err := uc.deps.DockerRunner.GetAvailableServicesWithContext(ctx, projectComposePath)
 		if err == nil && slices.Contains(projectAvailable, opts.Service) {
-			return uc.execInCompose(ctx, stateDeps.ProjectComposePath, opts)
+			return uc.execInCompose(ctx, projectComposePath, opts)
 		}
 	}
 

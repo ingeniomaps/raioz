@@ -75,6 +75,7 @@ type MockDockerRunner struct {
 	ResolveRelativeVolumesFunc        func(volumes []string, projectDir string) ([]string, error)
 	AreServicesRunningFunc            func(composePath string, serviceNames []string) (bool, error)
 	IsNetworkInUseWithContextFunc     func(ctx context.Context, networkName string) (bool, error)
+	IsProjectActiveFunc               func(ctx context.Context, workspace, project string) (bool, error)
 	StopContainerWithContextFunc      func(ctx context.Context, containerName string) error
 	BuildServiceVolumesMapFunc        func(deps *models.Deps) (map[string]interfaces.ServiceVolumes, error)
 	DetectSharedVolumesFunc           func(services map[string]interfaces.ServiceVolumes) map[string][]string
@@ -186,4 +187,11 @@ func (m *MockDockerRunner) ViewLogsWithContext(
 		return m.ViewLogsWithContextFunc(ctx, composePath, opts)
 	}
 	return nil
+}
+
+func (m *MockDockerRunner) IsProjectActive(ctx context.Context, workspace, project string) (bool, error) {
+	if m.IsProjectActiveFunc != nil {
+		return m.IsProjectActiveFunc(ctx, workspace, project)
+	}
+	return false, nil
 }

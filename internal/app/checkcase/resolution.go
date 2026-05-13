@@ -7,8 +7,10 @@ import (
 	"raioz/internal/i18n"
 )
 
-// resolveWorkspace resolves the workspace and determines the project name
-func (uc *UseCase) resolveWorkspace(opts Options) (string, *interfaces.Workspace, error) {
+// resolveWorkspace resolves the workspace and determines the project
+// and workspace names. The workspace name is needed by ADR-011 Phase 2
+// liveness probes (docker.IsProjectActive needs both).
+func (uc *UseCase) resolveWorkspace(opts Options) (string, string, *interfaces.Workspace, error) {
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
@@ -17,7 +19,7 @@ func (uc *UseCase) resolveWorkspace(opts Options) (string, *interfaces.Workspace
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
 		} else {
-			return "", nil, errors.New(
+			return "", "", nil, errors.New(
 				errors.ErrCodeInvalidConfig,
 				i18n.T("error.check_could_not_determine_project"),
 			).WithSuggestion(
@@ -35,7 +37,7 @@ func (uc *UseCase) resolveWorkspace(opts Options) (string, *interfaces.Workspace
 
 	ws, err := uc.deps.Workspace.Resolve(workspaceName)
 	if err != nil {
-		return "", nil, errors.New(
+		return "", "", nil, errors.New(
 			errors.ErrCodeWorkspaceError,
 			i18n.T("error.check_workspace_resolve"),
 		).WithSuggestion(
@@ -43,7 +45,7 @@ func (uc *UseCase) resolveWorkspace(opts Options) (string, *interfaces.Workspace
 		).WithContext("project", projectName).WithError(err)
 	}
 
-	return projectName, ws, nil
+	return projectName, workspaceName, ws, nil
 }
 
 // loadConfig loads the current configuration

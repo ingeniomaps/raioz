@@ -221,6 +221,19 @@ func (uc *UseCase) processLocalProject(
 				"compose_path", projectComposePath,
 			)
 		}
+		// ADR-011 Phase 2: persist ProjectComposePath + ProjectRoot to
+		// LocalState so inspection commands (logs, exec, restart, status)
+		// can find the compose file without consulting the legacy
+		// snapshot. Best-effort: a write error logs and continues — the
+		// up itself has already succeeded.
+		if err := persistProjectPathsToLocalState(
+			projectDir, deps.Project.Name, deps.GetWorkspaceName(),
+			projectComposePath,
+		); err != nil {
+			logging.WarnWithContext(ctx,
+				"Failed to persist project paths to LocalState",
+				"error", err.Error())
+		}
 		if err := uc.saveProjectCommandState(ctx, deps, projectDir); err != nil {
 			// Log but don't fail - state saving is optional
 			logging.WarnWithContext(ctx, "Failed to save project command state", "error", err.Error())

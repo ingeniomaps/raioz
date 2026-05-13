@@ -62,7 +62,7 @@ func TestResolveWorkspaceFromConfig(t *testing.T) {
 		},
 	})
 
-	name, resolved, err := uc.resolveWorkspace(Options{ConfigPath: ".raioz.json"})
+	name, _, resolved, err := uc.resolveWorkspace(Options{ConfigPath: ".raioz.json"})
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestResolveWorkspaceNoConfig(t *testing.T) {
 		},
 	})
 
-	_, _, err := uc.resolveWorkspace(Options{ConfigPath: "nonexistent.json"})
+	_, _, _, err := uc.resolveWorkspace(Options{ConfigPath: "nonexistent.json"})
 	if err == nil {
 		t.Error("expected error when config cannot be loaded")
 	}
@@ -109,7 +109,7 @@ func TestResolveWorkspaceWithProjectName(t *testing.T) {
 		},
 	})
 
-	name, _, err := uc.resolveWorkspace(Options{ProjectName: "my-proj", ConfigPath: ".raioz.json"})
+	name, _, _, err := uc.resolveWorkspace(Options{ProjectName: "my-proj", ConfigPath: ".raioz.json"})
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -219,9 +219,12 @@ func TestExecuteNoState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			// ADR-011 Phase 2: NoState now means "project not active in
+			// Docker" rather than "state file absent".
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -274,9 +277,10 @@ func TestExecuteWithAlignedState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return true, nil
 			},
 		},
 	})
@@ -313,9 +317,10 @@ func TestExecuteWithInvalidConfig(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})

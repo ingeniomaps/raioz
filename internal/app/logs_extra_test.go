@@ -28,12 +28,15 @@ func TestLogsUseCase_Execute_WorkspaceResolveFails(t *testing.T) {
 
 func TestLogsUseCase_Execute_StateLoadFails(t *testing.T) {
 	initI18nForTest(t)
-	deps, configLoader, _, stateMgr, _ := newTestDepsForLogs(t)
+	deps, configLoader, _, _, dockerRunner := newTestDepsForLogs(t)
 	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
-		return nil, fmt.Errorf("corrupt")
+	// ADR-011 Phase 2: there's no StateManager.Load anymore. The
+	// equivalent failure path is now docker.IsProjectActive returning
+	// an error (e.g. docker daemon unreachable).
+	dockerRunner.IsProjectActiveFunc = func(ctx context.Context, ws, p string) (bool, error) {
+		return false, fmt.Errorf("docker unreachable")
 	}
 	uc := NewLogsUseCase(deps)
 	err := uc.Execute(context.Background(), LogsOptions{})

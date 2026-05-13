@@ -32,7 +32,11 @@ func newTestDepsForRestart(t *testing.T) (*Dependencies, *mocks.MockConfigLoader
 			return &models.Deps{Project: models.Project{Name: "test-project"}}, nil
 		},
 	}
-	dockerRunner := &mocks.MockDockerRunner{}
+	dockerRunner := &mocks.MockDockerRunner{
+		IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+			return true, nil
+		},
+	}
 	hostRunner := &mocks.MockHostRunner{}
 
 	deps := &Dependencies{

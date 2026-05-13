@@ -31,7 +31,14 @@ func newTestDepsForExec(t *testing.T) (*Dependencies, *mocks.MockConfigLoader, *
 			return &models.Deps{Project: models.Project{Name: "test-project"}}, nil
 		},
 	}
-	dockerRunner := &mocks.MockDockerRunner{}
+	// ADR-011 Phase 2: liveness probe replaced StateManager.Exists. Default
+	// the mock to "active" so existing tests keep their semantics; specific
+	// tests can override per-case.
+	dockerRunner := &mocks.MockDockerRunner{
+		IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+			return true, nil
+		},
+	}
 	hostRunner := &mocks.MockHostRunner{}
 
 	deps := &Dependencies{
@@ -323,18 +330,20 @@ func TestExecUseCase_Execute_WithProjectName(t *testing.T) {
 }
 
 func TestExecUseCase_Execute_ServiceInProjectCompose(t *testing.T) {
-	deps, configLoader, _, stateMgr, dockerRunner, _ := newTestDepsForExec(t)
+	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
 	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 
+	// ADR-011 Phase 2: ProjectComposePath now lives in LocalState. Write
+	// a fake LocalState in a tempdir and point opts.ConfigPath at it so
+	// loadProjectComposePathFromLocalState picks it up.
 	projectComposePath := "/path/to/project/docker-compose.yml"
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
-		return &models.Deps{
-			Project:            models.Project{Name: "test-project"},
-			ProjectComposePath: projectComposePath,
-		}, nil
+	projectDir := t.TempDir()
+	configPath := projectDir + "/raioz.yaml"
+	if err := writeFakeLocalStateForTest(projectDir, projectComposePath); err != nil {
+		t.Fatalf("write fake LocalState: %v", err)
 	}
 
 	// Service NOT in generated compose
@@ -357,8 +366,9 @@ func TestExecUseCase_Execute_ServiceInProjectCompose(t *testing.T) {
 
 	uc := NewExecUseCase(deps)
 	err := uc.Execute(context.Background(), ExecOptions{
-		Service: "frontend",
-		Command: []string{"sh"},
+		Service:    "frontend",
+		Command:    []string{"sh"},
+		ConfigPath: configPath,
 	})
 
 	if err != nil {

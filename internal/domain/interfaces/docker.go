@@ -132,6 +132,11 @@ type DockerRunner interface {
 	AreServicesRunning(composePath string, serviceNames []string) (bool, error)
 	// IsNetworkInUseWithContext checks if a Docker network is in use
 	IsNetworkInUseWithContext(ctx context.Context, networkName string) (bool, error)
+	// IsProjectActive reports whether (workspace, project) has at least
+	// one running raioz-managed container. Used by inspection commands
+	// (status, logs, exec, restart) to gate work without consulting the
+	// legacy state snapshot — see ADR-011.
+	IsProjectActive(ctx context.Context, workspace, project string) (bool, error)
 	// StopContainerWithContext stops a container by name
 	StopContainerWithContext(ctx context.Context, containerName string) error
 	// BuildServiceVolumesMap builds a map of service volumes from Deps configuration

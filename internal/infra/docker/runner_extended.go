@@ -156,6 +156,13 @@ func (r *DockerRunnerImpl) IsNetworkInUseWithContext(ctx context.Context, networ
 	return dockerpkg.IsNetworkInUseWithContext(ctx, networkName)
 }
 
+// IsProjectActive reports whether (workspace, project) has running
+// raioz-managed containers. Delegates to internal/docker — kept as a
+// port method so use cases can mock it (see ADR-011).
+func (r *DockerRunnerImpl) IsProjectActive(ctx context.Context, workspace, project string) (bool, error) {
+	return dockerpkg.IsProjectActive(ctx, workspace, project)
+}
+
 // StopContainerWithContext stops a container by name
 func (r *DockerRunnerImpl) StopContainerWithContext(ctx context.Context, containerName string) error {
 	return dockerpkg.StopContainerWithContext(ctx, containerName)

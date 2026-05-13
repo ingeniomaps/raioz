@@ -979,15 +979,15 @@ func TestLogsUseCase_Execute_ViewLogsError(t *testing.T) {
 
 func TestLogsUseCase_Execute_ProjectComposeLogsError(t *testing.T) {
 	initI18nForTest(t)
-	deps, configLoader, _, stateMgr, dockerRunner := newTestDepsForLogs(t)
+	deps, configLoader, _, _, dockerRunner := newTestDepsForLogs(t)
 	configLoader.LoadDepsFunc = func(p string) (*models.Deps, []string, error) {
 		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(w *workspace.Workspace) (*models.Deps, error) {
-		return &models.Deps{
-			Project:            models.Project{Name: "proj"},
-			ProjectComposePath: "/tmp/project-compose.yml",
-		}, nil
+	// ADR-011 Phase 2: ProjectComposePath comes from LocalState now.
+	projectDir := t.TempDir()
+	configPath := projectDir + "/raioz.yaml"
+	if err := writeFakeLocalStateForTest(projectDir, "/tmp/project-compose.yml"); err != nil {
+		t.Fatalf("write fake LocalState: %v", err)
 	}
 	callCount := 0
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, cp string) ([]string, error) {
@@ -1006,7 +1006,7 @@ func TestLogsUseCase_Execute_ProjectComposeLogsError(t *testing.T) {
 		return nil
 	}
 	uc := NewLogsUseCase(deps)
-	err := uc.Execute(context.Background(), LogsOptions{All: true})
+	err := uc.Execute(context.Background(), LogsOptions{All: true, ConfigPath: configPath})
 	if err == nil {
 		t.Fatal("expected error for project compose logs failure")
 	}

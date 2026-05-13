@@ -34,7 +34,11 @@ func newTestDepsForLogs(t *testing.T) (*Dependencies, *mocks.MockConfigLoader, *
 			return &models.Deps{Project: models.Project{Name: "test-project"}}, nil
 		},
 	}
-	dockerRunner := &mocks.MockDockerRunner{}
+	dockerRunner := &mocks.MockDockerRunner{
+		IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+			return true, nil
+		},
+	}
 
 	deps := &Dependencies{
 		ConfigLoader:  configLoader,
@@ -71,14 +75,17 @@ func TestLogsUseCase_Execute_NoProject(t *testing.T) {
 }
 
 func TestLogsUseCase_Execute_NotRunning(t *testing.T) {
-	deps, configLoader, _, stateMgr, _ := newTestDepsForLogs(t)
+	deps, configLoader, _, _, dockerRunner := newTestDepsForLogs(t)
 
 	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 
-	// State does not exist (project not running)
-	stateMgr.ExistsFunc = func(ws *workspace.Workspace) bool { return false }
+	// ADR-011 Phase 2: liveness now comes from Docker, not the state
+	// file. "Not running" means IsProjectActive returns false.
+	dockerRunner.IsProjectActiveFunc = func(ctx context.Context, ws, p string) (bool, error) {
+		return false, nil
+	}
 
 	uc := NewLogsUseCase(deps)
 	err := uc.Execute(context.Background(), LogsOptions{})

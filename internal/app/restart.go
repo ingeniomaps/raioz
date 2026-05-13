@@ -46,33 +46,29 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 
 	w := uc.Out
 
-	// Legacy: resolve project
+	// Legacy: resolve project. Keep the loaded deps in scope so the
+	// later restart logic can read services/infra from it (post-ADR-011
+	// the legacy snapshot is gone — current deps is the source of
+	// truth).
+	deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+	for _, w := range warnings {
+		output.PrintWarning(w)
+	}
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
-		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
-		for _, w := range warnings {
-			output.PrintWarning(w)
-		}
-		if deps != nil {
-			projectName = deps.Project.Name
-			workspaceName = deps.GetWorkspaceName()
-		} else {
+		if deps == nil {
 			return errors.New(
 				errors.ErrCodeInvalidConfig,
 				i18n.T("error.no_project"),
 			).WithSuggestion(i18n.T("error.no_project_suggestion"))
 		}
+		projectName = deps.Project.Name
+		workspaceName = deps.GetWorkspaceName()
+	} else if deps != nil && deps.Project.Name == projectName {
+		workspaceName = deps.GetWorkspaceName()
 	} else {
-		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
-		for _, w := range warnings {
-			output.PrintWarning(w)
-		}
-		if deps != nil && deps.Project.Name == projectName {
-			workspaceName = deps.GetWorkspaceName()
-		} else {
-			workspaceName = projectName
-		}
+		workspaceName = projectName
 	}
 
 	ws, err := uc.deps.Workspace.Resolve(workspaceName)
@@ -83,21 +79,24 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 		).WithContext("project", projectName).WithError(err)
 	}
 
-	if !uc.deps.StateManager.Exists(ws) {
-		return errors.New(
-			errors.ErrCodeWorkspaceError,
-			i18n.T("error.restart_not_running"),
-		).WithContext("project", projectName)
-	}
-
-	stateDeps, err := uc.deps.StateManager.Load(ws)
+	// ADR-011 Phase 2: docker labels for liveness, LocalState for the
+	// project-level compose path. The current deps (above) replaces the
+	// legacy snapshot for the services / infra map.
+	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeStateLoadError,
 			i18n.T("error.state_load_previous"),
 		).WithError(err)
 	}
+	if !active {
+		return errors.New(
+			errors.ErrCodeWorkspaceError,
+			i18n.T("error.restart_not_running"),
+		).WithContext("project", projectName)
+	}
 
+	projectComposePath := loadProjectComposePathFromLocalState(opts.ConfigPath)
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 
 	// Check for host services in specific service requests
@@ -115,19 +114,19 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 		}
 	}
 
-	servicesToRestart, err := uc.resolveRestartServices(ctx, opts, stateDeps, composePath)
+	servicesToRestart, err := uc.resolveRestartServices(ctx, opts, deps, composePath)
 	if err != nil {
 		return err
 	}
 
 	// Also check ProjectComposePath for services not found in generated compose
-	if len(servicesToRestart) == 0 && len(opts.Services) > 0 && stateDeps != nil && stateDeps.ProjectComposePath != "" {
-		servicesToRestart, err = uc.resolveProjectComposeServices(ctx, opts, stateDeps.ProjectComposePath)
+	if len(servicesToRestart) == 0 && len(opts.Services) > 0 && projectComposePath != "" {
+		servicesToRestart, err = uc.resolveProjectComposeServices(ctx, opts, projectComposePath)
 		if err != nil {
 			return err
 		}
 		if len(servicesToRestart) > 0 {
-			return uc.doRestart(ctx, w, stateDeps.ProjectComposePath, servicesToRestart, opts.ForceRecreate)
+			return uc.doRestart(ctx, w, projectComposePath, servicesToRestart, opts.ForceRecreate)
 		}
 	}
 

@@ -33,17 +33,16 @@ func TestRestartUseCase_Execute_HostServiceBlocked(t *testing.T) {
 
 func TestRestartUseCase_Execute_AllExcludeInfra(t *testing.T) {
 	initI18nForTest(t)
-	deps, configLoader, _, stateMgr, dockerRunner, _ := newTestDepsForRestart(t)
+	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
+	// ADR-011 Phase 2: services/infra map comes from the live config
+	// (deps loaded by ConfigLoader), not the legacy snapshot.
 	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
-		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
-	}
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
 		return &models.Deps{
 			Project: models.Project{Name: "proj"},
 			Infra: map[string]models.InfraEntry{
 				"redis": {Inline: &models.Infra{Image: "redis:7"}},
 			},
-		}, nil
+		}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api", "redis"}, nil
@@ -190,15 +189,15 @@ func TestRestartUseCase_resolveProjectComposeServices_Error(t *testing.T) {
 
 func TestRestartUseCase_Execute_FallbackToProjectCompose(t *testing.T) {
 	initI18nForTest(t)
-	deps, configLoader, _, stateMgr, dockerRunner, _ := newTestDepsForRestart(t)
+	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
 	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
-		return &models.Deps{
-			Project:            models.Project{Name: "proj"},
-			ProjectComposePath: "/tmp/project-compose.yml",
-		}, nil
+	// ADR-011 Phase 2: ProjectComposePath in LocalState.
+	projectDir := t.TempDir()
+	configPath := projectDir + "/raioz.yaml"
+	if err := writeFakeLocalStateForTest(projectDir, "/tmp/project-compose.yml"); err != nil {
+		t.Fatalf("write fake LocalState: %v", err)
 	}
 	callCount := 0
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
@@ -215,7 +214,8 @@ func TestRestartUseCase_Execute_FallbackToProjectCompose(t *testing.T) {
 	}
 	uc := NewRestartUseCase(deps)
 	err := uc.Execute(context.Background(), RestartOptions{
-		Services: []string{"custom-svc"},
+		Services:   []string{"custom-svc"},
+		ConfigPath: configPath,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
