@@ -229,68 +229,27 @@ func TestCheckServicesRunningWithChanges(t *testing.T) {
 }
 
 // --- processState --------------------------------------------------------------
+//
+// ADR-011 Phase 2 collapsed processState into a no-op. The drift detection it
+// performed against the legacy snapshot is gone; raioz `up` is convergent so
+// the loss is informational. Tests for the old branches (load error, compare
+// error, success-with-changes) are removed; the new contract is "always
+// returns nil oldDeps, nil changes, empty addedServices, empty assisted map".
 
-func TestProcessStateLoadError(t *testing.T) {
+func TestProcessStateNoOp(t *testing.T) {
 	initI18nUp(t)
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return nil, errors.New("load failed")
-			},
-		},
-	})
-	deps := &models.Deps{}
-	ws := &workspace.Workspace{Root: "/tmp"}
-	_, _, _, _, err := uc.processState(context.Background(), deps, ws, "cfg.json")
-	if err == nil {
-		t.Error("expected error when state load fails")
-	}
-}
-
-func TestProcessStateCompareError(t *testing.T) {
-	initI18nUp(t)
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return &models.Deps{}, nil
-			},
-			CompareDepsFunc: func(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error) {
-				return nil, errors.New("compare failed")
-			},
-		},
-	})
-	deps := &models.Deps{}
-	ws := &workspace.Workspace{Root: "/tmp"}
-	_, _, _, _, err := uc.processState(context.Background(), deps, ws, "cfg.json")
-	if err == nil {
-		t.Error("expected error when compare fails")
-	}
-}
-
-func TestProcessStateSuccess(t *testing.T) {
-	initI18nUp(t)
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return &models.Deps{Project: models.Project{Name: "p"}}, nil
-			},
-			CompareDepsFunc: func(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error) {
-				return []models.ConfigChange{{Field: "x", OldValue: "a", NewValue: "b"}}, nil
-			},
-			FormatChangesFunc: func(changes []models.ConfigChange) string { return "diff" },
-		},
-	})
+	uc := NewUseCase(&Dependencies{})
 	deps := &models.Deps{}
 	ws := &workspace.Workspace{Root: "/tmp"}
 	oldDeps, changes, added, assisted, err := uc.processState(context.Background(), deps, ws, "cfg.json")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if oldDeps == nil {
-		t.Error("expected non-nil oldDeps")
+	if oldDeps != nil {
+		t.Error("expected nil oldDeps after ADR-011 Phase 2")
 	}
-	if len(changes) != 1 {
-		t.Errorf("expected 1 change, got %d", len(changes))
+	if len(changes) != 0 {
+		t.Errorf("expected zero changes, got %d", len(changes))
 	}
 	if added == nil {
 		t.Error("addedServices should be non-nil (even if empty)")

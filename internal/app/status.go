@@ -95,8 +95,18 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 		).WithContext("project", projectName).WithError(err)
 	}
 
-	// Check if state exists
-	if !uc.deps.StateManager.Exists(ws) {
+	// ADR-011 Phase 2: liveness from Docker labels, not the legacy
+	// snapshot.
+	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
+	if err != nil {
+		return errors.New(
+			errors.ErrCodeStateLoadError,
+			i18n.T("error.state_load"),
+		).WithSuggestion(
+			i18n.T("error.state_load_suggestion_recreate"),
+		).WithContext("workspace", uc.deps.Workspace.GetRoot(ws)).WithError(err)
+	}
+	if !active {
 		if opts.JSON {
 			fmt.Println("{}")
 		} else {
@@ -105,7 +115,8 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 		return nil
 	}
 
-	// Load original .raioz.json to check for disabled services
+	// Load current raioz.yaml / .raioz.json — replaces the legacy state
+	// snapshot as the source of services/infra/project name.
 	originalDeps, _, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	if err != nil {
 		return errors.New(
@@ -115,16 +126,10 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 			i18n.T("error.config_load_suggestion"),
 		).WithError(err)
 	}
-
-	// Load state
-	stateDeps, err := uc.deps.StateManager.Load(ws)
-	if err != nil {
-		return errors.New(
-			errors.ErrCodeStateLoadError,
-			i18n.T("error.state_load"),
-		).WithSuggestion(
-			i18n.T("error.state_load_suggestion_recreate"),
-		).WithContext("workspace", uc.deps.Workspace.GetRoot(ws)).WithError(err)
+	stateDeps := originalDeps
+	projectComposePathOverride := loadProjectComposePathFromLocalState(opts.ConfigPath)
+	if projectComposePathOverride != "" {
+		stateDeps.ProjectComposePath = projectComposePathOverride
 	}
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)

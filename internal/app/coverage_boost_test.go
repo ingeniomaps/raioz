@@ -231,6 +231,9 @@ func TestStatusUseCase_Execute_StateLoadError(t *testing.T) {
 	tmpDir := t.TempDir()
 	ws := &workspace.Workspace{Root: tmpDir}
 	deps := newFullMockDeps()
+	// ADR-011 Phase 2: state-load errors no longer exist as a discrete
+	// failure mode — the equivalent path is now IsProjectActive
+	// returning an error (e.g. docker daemon unreachable).
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
 			return &models.Deps{
@@ -244,16 +247,15 @@ func TestStatusUseCase_Execute_StateLoadError(t *testing.T) {
 			return ws, nil
 		},
 	}
-	deps.StateManager = &mocks.MockStateManager{
-		ExistsFunc: func(w *workspace.Workspace) bool { return true },
-		LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
-			return nil, fmt.Errorf("corrupt state")
+	deps.DockerRunner = &mocks.MockDockerRunner{
+		IsProjectActiveFunc: func(ctx context.Context, w, p string) (bool, error) {
+			return false, fmt.Errorf("docker unreachable")
 		},
 	}
 	uc := NewStatusUseCase(deps)
 	err := uc.Execute(context.Background(), StatusOptions{ConfigPath: "ok.json"})
 	if err == nil {
-		t.Fatal("expected error for state load failure")
+		t.Fatal("expected error for liveness probe failure")
 	}
 }
 
@@ -281,17 +283,10 @@ func TestStatusUseCase_Execute_GetServicesInfoError(t *testing.T) {
 			return filepath.Join(tmpDir, "compose.yml")
 		},
 	}
-	deps.StateManager = &mocks.MockStateManager{
-		ExistsFunc: func(w *workspace.Workspace) bool { return true },
-		LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
-			return &models.Deps{
-				Project:  models.Project{Name: "proj"},
-				Services: map[string]models.Service{},
-				Infra:    map[string]models.InfraEntry{},
-			}, nil
-		},
-	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
+		IsProjectActiveFunc: func(ctx context.Context, w, p string) (bool, error) {
+			return true, nil
+		},
 		GetServicesInfoWithContextFunc: func(
 			ctx context.Context, cp string, names []string,
 			pn string, svcs map[string]models.Service, w *interfaces.Workspace,

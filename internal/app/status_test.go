@@ -62,9 +62,10 @@ func TestStatusNoState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -95,9 +96,10 @@ func TestStatusNoStateJSON(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -124,9 +126,10 @@ func TestStatusWithProjectName(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})

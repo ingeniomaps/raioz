@@ -150,13 +150,21 @@ The `Exists` ports are removed in 031 in favor of
   brought up by a newer binary without re-running `up`. Acceptable
   trade-off because the file's drift problem outweighs the
   inspection-without-yaml convenience.
-- **Phase 2 (sub-issue 031a, pending).** Migrate readers to derive
-  what they need from Docker labels + the live `raioz.yaml` + a
-  small `LocalState` for runtime-only fields (`ProjectComposePath`,
-  `ProjectRoot`). Requires real Docker integration tests in CI
-  before merge.
-- **Phase 3 (sub-issue 031b, pending).** Delete
+- **Phase 2 (sub-issue 031a, mostly landed 2026-05-13).** Migrated
+  10 of the 11 reader call sites to derive what they need from
+  Docker labels (new `DockerRunner.IsProjectActive` port) + the
+  live `raioz.yaml` + `LocalState` for the two runtime-only fields
+  (`ProjectComposePath`, `ProjectRoot`). Whitelist in
+  `scripts/lint-state-legacy.sh` shrinks to just
+  `internal/app/upcase/workspace_project_conflict.go`, which still
+  needs the legacy snapshot to detect which OTHER project is
+  occupying a shared workspace. Resolving that last reader needs
+  either `GlobalState.ProjectState.ProjectRoot` (so we can re-load
+  the active project's raioz.yaml) or accepting the loss of the
+  conflict prompt — design call deferred to 031b.
+- **Phase 3 (sub-issue 031b, pending).** Resolve the
+  workspace-project-conflict reader, delete
   `state.{Save,Load,Exists}` and the corresponding `StateManager`
-  interface methods. Remove `scripts/lint-state-legacy.sh` (no
-  longer guarding anything). Remove the `check-state-legacy` target
-  from the Makefile.
+  interface methods, remove `scripts/lint-state-legacy.sh` (no
+  longer guarding anything), and remove the `check-state-legacy`
+  target from the Makefile.

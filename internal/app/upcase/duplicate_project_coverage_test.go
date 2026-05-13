@@ -70,9 +70,10 @@ func TestCheckAndHandleDuplicateProjectNoState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -107,14 +108,15 @@ func TestCheckAndHandleDuplicateProjectDifferentProject(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
-			},
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return &models.Deps{
-					Project: models.Project{Name: "other-project"},
-				}, nil
+		StateManager: &mocks.MockStateManager{},
+		// ADR-011 Phase 2: IsProjectActive(p) filters by both project
+		// and workspace labels, so "different project running in this
+		// workspace" collapses to "p is not active". The dedicated
+		// "different project" branch this test used to cover is now
+		// folded into the no-state branch.
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -174,12 +176,12 @@ func TestCheckAndHandleDuplicateProjectStateLoadError(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
-			},
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return nil, stderrors.New("state load error")
+		StateManager: &mocks.MockStateManager{},
+		// ADR-011 Phase 2: the "state load failed" path is now the
+		// "Docker liveness probe failed" path.
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, stderrors.New("docker probe error")
 			},
 		},
 	})
@@ -214,12 +216,13 @@ func TestCheckAndHandleDuplicateProjectNilStateDeps(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
-			},
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return nil, nil // nil state deps
+		StateManager: &mocks.MockStateManager{},
+		// ADR-011 Phase 2: "nil state deps" is no longer a distinct case
+		// since there's no state to load. Equivalent: project is not
+		// active in Docker.
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})

@@ -208,22 +208,16 @@ func (uc *VolumesUseCase) collectVolumes(
 	var infraVolumes []string
 	workspaceName := projectName
 
-	// Try state first, then config
-	if uc.deps.StateManager.Exists(ws) {
-		stateDeps, err := uc.deps.StateManager.Load(ws)
-		if err == nil {
-			workspaceName = stateDeps.GetWorkspaceName()
-			serviceVolumes, infraVolumes = extractVolumesFromDeps(stateDeps)
-		}
+	// ADR-011 Phase 2: the state-first/config-fallback was a vestige of
+	// when state could store volumes that diverged from raioz.yaml. With
+	// the snapshot gone, raioz.yaml is the only source of truth for
+	// declared volumes.
+	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
+	if deps != nil {
+		workspaceName = deps.GetWorkspaceName()
+		serviceVolumes, infraVolumes = extractVolumesFromDeps(deps)
 	}
-
-	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
-		if deps != nil {
-			workspaceName = deps.GetWorkspaceName()
-			serviceVolumes, infraVolumes = extractVolumesFromDeps(deps)
-		}
-	}
+	_ = ws
 
 	if len(serviceVolumes) == 0 && len(infraVolumes) == 0 {
 		return nil, nil

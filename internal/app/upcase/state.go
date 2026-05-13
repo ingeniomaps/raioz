@@ -20,42 +20,18 @@ func (uc *UseCase) processState(
 	ws *interfaces.Workspace,
 	configPath string,
 ) (*models.Deps, []models.ConfigChange, []string, map[string]string, error) {
-	// Load previous state
-	oldDeps, err := uc.deps.StateManager.Load(ws)
-	if err != nil {
-		return nil, nil, nil, nil, errors.New(
-			errors.ErrCodeStateLoadError,
-			i18n.T("error.state_load_previous"),
-		).WithSuggestion(
-			i18n.T("error.state_load_previous_suggestion"),
-		).WithContext("workspace", ws.Root).WithError(err)
-	}
-
-	// Compare deps to detect changes
-	changes, err := uc.deps.StateManager.CompareDeps(oldDeps, deps)
-	if err != nil {
-		return nil, nil, nil, nil, errors.New(
-			errors.ErrCodeStateLoadError,
-			i18n.T("error.state_compare_failed"),
-		).WithSuggestion(
-			i18n.T("error.state_compare_suggestion"),
-		).WithError(err)
-	}
-
-	// Log changes if any
-	if len(changes) > 0 {
-		changeSummary := uc.deps.StateManager.FormatChanges(changes)
-		logging.InfoWithContext(ctx, "Configuration changes detected", "changes_count", len(changes))
-		logging.DebugWithContext(ctx, "Changes", "changes", changeSummary)
-	}
-
-	// Calculate addedServices and assistedServicesMap from dependency assist
-	// Note: addedServices and assistedServicesMap should be calculated in validateUp,
-	// but for now we return empty values here
+	// ADR-011 Phase 2: drift detection between the previous snapshot
+	// and the current raioz.yaml is gone. raioz `up` is convergent and
+	// idempotent, so logging "configuration changes detected" carried
+	// information but not correctness. If users miss the log line,
+	// reintroduce drift via a hashed snapshot in LocalState — see
+	// 031b's notes on LocalState.LastUpConfigHash.
+	_ = ctx
+	_ = ws
+	_ = configPath
 	addedServices := []string{}
 	assistedServicesMap := make(map[string]string)
-
-	return oldDeps, changes, addedServices, assistedServicesMap, nil
+	return nil, nil, addedServices, assistedServicesMap, nil
 }
 
 // saveState saves state, generates/updates root config, detects drift, and logs audit events

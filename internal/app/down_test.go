@@ -57,6 +57,10 @@ func newTestDownDeps(tmpDir string) (*Dependencies, *testDownMocks) {
 		},
 		validator: &mocks.MockValidator{},
 		dockerRunner: &mocks.MockDockerRunner{
+			// ADR-011 Phase 2: down now uses IsProjectActive for liveness.
+			IsProjectActiveFunc: func(ctx context.Context, w, p string) (bool, error) {
+				return true, nil
+			},
 			DownWithContextFunc: func(ctx context.Context, cp string) error {
 				return nil
 			},
