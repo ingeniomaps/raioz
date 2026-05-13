@@ -54,6 +54,42 @@ raioz up
   └─ Stream multiplexed logs (foreground mode)
 ```
 
+## CLI thin-viz exception
+
+Most CLI commands wire `cli/ → app/<usecase>/ → domain/interfaces/`.
+Some files in `internal/cli/` legitimately skip the use-case layer:
+they're either pure visualization (read state, format, print) or
+non-command scaffolding (root, subcommand parents, i18n descriptors).
+
+A CLI file may bypass `internal/app/` when ALL of these hold:
+
+1. **No side effects** beyond stdout/stderr (no docker calls, no
+   file writes beyond user config like `raioz lang`, no network
+   work).
+2. **Reads state via existing ports or pure helpers**; no new port
+   is introduced specifically for this command.
+3. **Behavior is a pure function** of CLI inputs plus already-port-
+   reachable state.
+
+Today's exempt list, with the reason each entry is exempt:
+
+| File | Reason |
+|---|---|
+| `root.go` | Root cobra setup; registers subcommands, no business logic. |
+| `config_path.go` | Path resolution utility shared across files. |
+| `zzz_i18n_descriptions.go` | i18n bootstrap; sets command Short strings. |
+| `version.go` | Prints the version string baked in via ldflags. |
+| `lang.go` | Reads/writes the user-level language preference. |
+| `migrate.go`, `yaml.go` | Parent commands; subcommands carry the logic. |
+| `migrate_yaml.go` | Legacy `.raioz.json → raioz.yaml` conversion. **Tech debt**: should grow a use case when next feature lands. |
+| `yaml_lint.go` | `raioz yaml lint`; analyzes YAML and prints. Pure viz. |
+
+`scripts/lint-cli-layering.sh` (wired into `make check-cli-layering`)
+enforces this list. Adding a new exempt file requires editing the
+script AND this section AND ADR-017.
+
+ADR-017 is the canonical reference for this policy.
+
 ## Layer map
 
 ```

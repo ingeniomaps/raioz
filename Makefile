@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check-labels check-configs check-since check ci
+.PHONY: check-lines check-length check-i18n check-labels check-configs check-since check-cli-layering check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -112,7 +112,11 @@ check-since: ## Verify every public raioz.yaml field has a since marker
 	@go test -run "TestSchemaSince" -count=1 ./internal/config/ \
 		&& echo "All public fields have since markers"
 
-check: format check-lines check-length check-i18n check-labels check-configs check-since lint test ## Run all checks
+check-cli-layering: ## Enforce that CLI files route through internal/app/
+	@echo "Checking CLI layering policy..."
+	@./scripts/lint-cli-layering.sh
+
+check: format check-lines check-length check-i18n check-labels check-configs check-since check-cli-layering lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."
