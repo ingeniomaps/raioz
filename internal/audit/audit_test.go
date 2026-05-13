@@ -2,6 +2,7 @@ package audit
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -226,4 +227,68 @@ func TestLog_InvalidBaseDir(t *testing.T) {
 	err := Log(EventTypeConfigChanged, nil, "")
 	// Likely error — but some environments may succeed
 	_ = err
+}
+
+func TestRotation_NoOpUnderCap(t *testing.T) {
+	path := setupAuditHome(t)
+	if err := os.WriteFile(path, []byte("seed-event\n"), 0644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	rotateIfOverCap(path, maxAuditSize)
+
+	if _, err := os.Stat(path + ".1"); !os.IsNotExist(err) {
+		t.Errorf("expected no rotation when file is under cap, but .1 exists (err=%v)", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat path: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Error("expected original file to remain untouched")
+	}
+}
+
+func TestRotation_TriggersWhenOverCap(t *testing.T) {
+	path := setupAuditHome(t)
+	// Write maxAuditSize + 1 bytes to push the file past the cap.
+	if err := os.WriteFile(path, bytes.Repeat([]byte{'x'}, int(maxAuditSize)+1), 0644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	rotateIfOverCap(path, maxAuditSize)
+
+	// Original path must now be absent (it was renamed to .1).
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected original path to be gone after rotation, err=%v", err)
+	}
+	rotated := path + ".1"
+	info, err := os.Stat(rotated)
+	if err != nil {
+		t.Fatalf("expected rotated file at %s, got %v", rotated, err)
+	}
+	if info.Size() == 0 {
+		t.Errorf("rotated file should carry the original contents")
+	}
+}
+
+func TestLogAppendsAfterRotation(t *testing.T) {
+	path := setupAuditHome(t)
+	if err := os.WriteFile(path, bytes.Repeat([]byte{'x'}, int(maxAuditSize)+1), 0644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	if err := Log(EventTypeDependencyAdded, map[string]interface{}{"k": "v"}, "msg"); err != nil {
+		t.Fatalf("Log: %v", err)
+	}
+
+	// Pre-existing content moved to .1
+	if _, err := os.Stat(path + ".1"); err != nil {
+		t.Errorf("expected rotated file at %s.1: %v", path, err)
+	}
+	// New event lives in a fresh file at the original path
+	events := readEvents(t, path)
+	if len(events) != 1 || events[0].Type != EventTypeDependencyAdded {
+		t.Errorf("expected exactly one new event of type DependencyAdded, got %+v", events)
+	}
 }

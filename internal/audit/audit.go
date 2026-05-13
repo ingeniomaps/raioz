@@ -10,7 +10,15 @@ import (
 	"time"
 )
 
-const auditLogFileName = "audit.log"
+const (
+	auditLogFileName = "audit.log"
+
+	// maxAuditSize is the soft cap on the audit log. Past this size,
+	// the next Log call rotates the current file to .1 (overwriting
+	// the previous .1) before writing. Picked at ~one month of heavy
+	// raioz use; ADR-020 documents the trade-off.
+	maxAuditSize = 10 * 1024 * 1024 // 10 MiB
+)
 
 // EventType represents the type of audit event
 type EventType string
@@ -95,6 +103,11 @@ func Log(eventType EventType, details map[string]interface{}, message string) er
 		return fmt.Errorf("failed to create directory for audit log: %w", err)
 	}
 
+	// Rotate before append when the file has crossed the size cap.
+	// Best-effort: rotation failures fall through and the event is
+	// still appended (better to lose one rotation than one event).
+	rotateIfOverCap(path, maxAuditSize)
+
 	// Create event
 	event := Event{
 		Timestamp: time.Now().UTC(),
@@ -122,6 +135,27 @@ func Log(eventType EventType, details map[string]interface{}, message string) er
 	}
 
 	return nil
+}
+
+// rotateIfOverCap renames `path` → `path + ".1"` (overwriting an older
+// .1 if present) when the file is larger than `cap`. Any other state
+// — missing file, file under cap, permission error — is a no-op. The
+// next Log call will create the file fresh.
+//
+// We pre-check the size with a Stat rather than reading-then-writing
+// to avoid the round-trip on every event. The 10 MiB threshold is
+// large enough that this stat is the dominant cost only in
+// rotation-pressure scenarios — fine.
+func rotateIfOverCap(path string, capBytes int64) {
+	info, err := os.Stat(path)
+	if err != nil || info.Size() <= capBytes {
+		return
+	}
+	rotated := path + ".1"
+	// Best-effort. os.Rename overwrites the destination on Linux.
+	// Errors here only mean "the .1 from a previous rotation
+	// persists" — acceptable; the next rotation tries again.
+	_ = os.Rename(path, rotated)
 }
 
 // LogDependencyAdded logs when a dependency is added via dependency assist

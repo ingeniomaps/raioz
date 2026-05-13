@@ -92,6 +92,21 @@ script AND this section AND ADR-017.
 
 ADR-017 is the canonical reference for this policy.
 
+## Audit log rotation
+
+raioz appends every user-facing event (dep promotion, dev override,
+drift, …) to `audit.log` under `$RAIOZ_HOME` (or its fallback,
+`~/.raioz/`). The file is JSONL, one event per line.
+
+`internal/audit/audit.go` rotates at a 10 MiB soft cap: the next
+`Log()` call after the file crosses 10 MiB renames it to
+`audit.log.1` (overwriting any prior `.1`) and starts the file
+fresh. Only one rotated file is kept — older history is dropped
+intentionally to bound disk usage on long-running developer
+machines. The cap is a constant (`audit.maxAuditSize`); making it
+user-configurable is a deliberate follow-up if the policy ever
+bites. See ADR-020.
+
 ## Layer map
 
 ```
