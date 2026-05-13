@@ -3,20 +3,20 @@ package docker
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestAddServiceToCompose_ImageService(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
 	services := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind: "image", Image: "nginx", Tag: "alpine",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Ports:   []string{"80:80"},
 			Volumes: []string{"data:/data"},
 		},
@@ -48,14 +48,14 @@ func TestAddServiceToCompose_ImageService(t *testing.T) {
 func TestAddServiceToCompose_SkipDisabled(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
 	disabled := false
 	services := map[string]any{}
-	svc := config.Service{
+	svc := models.Service{
 		Enabled: &disabled,
-		Source:  config.SourceConfig{Kind: "image", Image: "nginx"},
-		Docker:  &config.DockerConfig{},
+		Source:  models.SourceConfig{Kind: "image", Image: "nginx"},
+		Docker:  &models.DockerConfig{},
 	}
 
 	err := addServiceToCompose(
@@ -73,11 +73,11 @@ func TestAddServiceToCompose_SkipDisabled(t *testing.T) {
 func TestAddServiceToCompose_SkipHostCommand(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
 	services := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git", Command: "npm start",
 		},
 	}
@@ -97,12 +97,12 @@ func TestAddServiceToCompose_SkipHostCommand(t *testing.T) {
 func TestAddServiceToCompose_ImageWithStaticIP(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
 	services := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "image", Image: "nginx"},
-		Docker: &config.DockerConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "image", Image: "nginx"},
+		Docker: &models.DockerConfig{
 			IP:    "150.150.0.10",
 			Ports: []string{"80:80"},
 		},
@@ -129,13 +129,13 @@ func TestAddServiceToCompose_ImageWithStaticIP(t *testing.T) {
 func TestAddServiceToCompose_WithDependsOn(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
 	services := map[string]any{}
-	svc := config.Service{
-		Source:    config.SourceConfig{Kind: "image", Image: "nginx"},
+	svc := models.Service{
+		Source:    models.SourceConfig{Kind: "image", Image: "nginx"},
 		DependsOn: []string{"db", "cache"},
-		Docker:    &config.DockerConfig{},
+		Docker:    &models.DockerConfig{},
 	}
 
 	err := addServiceToCompose(

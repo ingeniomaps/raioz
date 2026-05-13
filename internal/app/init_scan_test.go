@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 func TestNewInitScanUseCase(t *testing.T) {
@@ -47,8 +47,8 @@ func TestIsIgnoredDir(t *testing.T) {
 }
 
 func TestBuildServiceFromDetection(t *testing.T) {
-	result := detect.DetectResult{
-		Runtime:      detect.RuntimeNPM,
+	result := models.DetectResult{
+		Runtime:      models.RuntimeNPM,
 		Port:         3000,
 		HasHotReload: true,
 		StartCommand: "npm run dev",
@@ -66,8 +66,8 @@ func TestBuildServiceFromDetection(t *testing.T) {
 }
 
 func TestBuildServiceFromDetection_NoHotReload(t *testing.T) {
-	result := detect.DetectResult{
-		Runtime: detect.RuntimeGo,
+	result := models.DetectResult{
+		Runtime: models.RuntimeGo,
 	}
 	svc := buildServiceFromDetection("svc", "./svc", result)
 	if svc.Watch.Enabled {

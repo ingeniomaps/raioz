@@ -1,9 +1,7 @@
 // Package graph builds and renders dependency graphs from raioz config.
 package graph
 
-import (
-	"raioz/internal/config"
-)
+import "raioz/internal/domain/models"
 
 // Node represents a service or dependency in the graph.
 type Node struct {
@@ -19,7 +17,7 @@ type Graph struct {
 }
 
 // Build creates a Graph from a Deps config.
-func Build(deps *config.Deps) *Graph {
+func Build(deps *models.Deps) *Graph {
 	g := &Graph{
 		Project: deps.Project.Name,
 		Nodes:   make(map[string]*Node),

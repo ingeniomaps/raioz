@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"raioz/internal/domain/models"
 )
 
 func TestDetect_ComposeProject(t *testing.T) {
@@ -12,8 +14,8 @@ func TestDetect_ComposeProject(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeCompose {
-		t.Errorf("expected RuntimeCompose, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeCompose {
+		t.Errorf("expected models.RuntimeCompose, got %s", result.Runtime)
 	}
 	if result.ComposeFile == "" {
 		t.Error("expected ComposeFile to be set")
@@ -29,8 +31,8 @@ func TestDetect_Dockerfile(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeDockerfile {
-		t.Errorf("expected RuntimeDockerfile, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeDockerfile {
+		t.Errorf("expected models.RuntimeDockerfile, got %s", result.Runtime)
 	}
 	if result.Dockerfile == "" {
 		t.Error("expected Dockerfile path to be set")
@@ -43,8 +45,8 @@ func TestDetect_NPM(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeNPM {
-		t.Errorf("expected RuntimeNPM, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeNPM {
+		t.Errorf("expected models.RuntimeNPM, got %s", result.Runtime)
 	}
 	if result.StartCommand != "npm run dev" {
 		t.Errorf("expected 'npm run dev', got '%s'", result.StartCommand)
@@ -63,8 +65,8 @@ func TestDetect_Go(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeGo {
-		t.Errorf("expected RuntimeGo, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeGo {
+		t.Errorf("expected models.RuntimeGo, got %s", result.Runtime)
 	}
 	if result.StartCommand != "go run ." {
 		t.Errorf("expected 'go run .', got '%s'", result.StartCommand)
@@ -77,8 +79,8 @@ func TestDetect_Makefile(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeMake {
-		t.Errorf("expected RuntimeMake, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeMake {
+		t.Errorf("expected models.RuntimeMake, got %s", result.Runtime)
 	}
 	if result.StartCommand != "make dev" {
 		t.Errorf("expected 'make dev', got '%s'", result.StartCommand)
@@ -91,8 +93,8 @@ func TestDetect_Python(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimePython {
-		t.Errorf("expected RuntimePython, got %s", result.Runtime)
+	if result.Runtime != models.RuntimePython {
+		t.Errorf("expected models.RuntimePython, got %s", result.Runtime)
 	}
 }
 
@@ -102,8 +104,8 @@ func TestDetect_Rust(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeRust {
-		t.Errorf("expected RuntimeRust, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeRust {
+		t.Errorf("expected models.RuntimeRust, got %s", result.Runtime)
 	}
 	if result.StartCommand != "cargo run" {
 		t.Errorf("expected 'cargo run', got '%s'", result.StartCommand)
@@ -115,16 +117,16 @@ func TestDetect_EmptyDir(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeUnknown {
-		t.Errorf("expected RuntimeUnknown, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeUnknown {
+		t.Errorf("expected models.RuntimeUnknown, got %s", result.Runtime)
 	}
 }
 
 func TestDetect_NonexistentDir(t *testing.T) {
 	result := Detect("/nonexistent/path/that/does/not/exist")
 
-	if result.Runtime != RuntimeUnknown {
-		t.Errorf("expected RuntimeUnknown, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeUnknown {
+		t.Errorf("expected models.RuntimeUnknown, got %s", result.Runtime)
 	}
 }
 
@@ -136,7 +138,7 @@ func TestDetect_Priority_ComposeOverDockerfile(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeCompose {
+	if result.Runtime != models.RuntimeCompose {
 		t.Errorf("compose should take priority, got %s", result.Runtime)
 	}
 }
@@ -148,7 +150,7 @@ func TestDetect_Priority_DockerfileOverNPM(t *testing.T) {
 
 	result := Detect(dir)
 
-	if result.Runtime != RuntimeDockerfile {
+	if result.Runtime != models.RuntimeDockerfile {
 		t.Errorf("dockerfile should take priority over npm, got %s", result.Runtime)
 	}
 }
@@ -178,8 +180,8 @@ func TestDetect_NPMViteDefaultPort(t *testing.T) {
 func TestForImage(t *testing.T) {
 	result := ForImage("postgres:16")
 
-	if result.Runtime != RuntimeImage {
-		t.Errorf("expected RuntimeImage, got %s", result.Runtime)
+	if result.Runtime != models.RuntimeImage {
+		t.Errorf("expected models.RuntimeImage, got %s", result.Runtime)
 	}
 	if result.IsHost() {
 		t.Error("image should not be host")

@@ -1,6 +1,9 @@
 package config
 
-import "raioz/internal/detect"
+import (
+	"raioz/internal/detect"
+	"raioz/internal/domain/models"
+)
 
 // ResolveServiceDetection returns a DetectResult for a service, honoring
 // explicit overrides declared in raioz.yaml before falling back to directory
@@ -16,13 +19,13 @@ import "raioz/internal/detect"
 //
 // Shared between `raioz up`, `raioz check`, `raioz status`, and `raioz down`
 // so the runtime classification is consistent across commands.
-func ResolveServiceDetection(svc Service, path string) detect.DetectResult {
+func ResolveServiceDetection(svc Service, path string) models.DetectResult {
 	// Compose override wins first — user is asking for a specific docker compose setup.
 	if len(svc.Source.ComposeFiles) > 0 {
 		files := make([]string, len(svc.Source.ComposeFiles))
 		copy(files, svc.Source.ComposeFiles)
-		return detect.DetectResult{
-			Runtime:      detect.RuntimeCompose,
+		return models.DetectResult{
+			Runtime:      models.RuntimeCompose,
 			ComposeFile:  files[0],
 			ComposeFiles: files,
 			StartCommand: "docker compose up -d",
@@ -33,15 +36,15 @@ func ResolveServiceDetection(svc Service, path string) detect.DetectResult {
 	// Custom command override — route through HostRunner (RuntimeMake is the
 	// generic "invoke something on the host" bucket used by the dispatcher).
 	if svc.Source.Command != "" {
-		return detect.DetectResult{
-			Runtime:      detect.RuntimeMake,
+		return models.DetectResult{
+			Runtime:      models.RuntimeMake,
 			StartCommand: svc.Source.Command,
 			DevCommand:   svc.Source.Command,
 		}
 	}
 
 	if path == "" {
-		return detect.DetectResult{Runtime: detect.RuntimeUnknown}
+		return models.DetectResult{Runtime: models.RuntimeUnknown}
 	}
 	return detect.Detect(path)
 }

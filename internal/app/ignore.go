@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/ignore"
@@ -62,7 +62,7 @@ func (uc *IgnoreUseCase) Add(serviceName string, configPath string) error {
 }
 
 // findDependents returns services that depend on the given service
-func findDependents(deps *config.Deps, serviceName string) []string {
+func findDependents(deps *models.Deps, serviceName string) []string {
 	var dependents []string
 	for name, svc := range deps.Services {
 		for _, dep := range svc.GetDependsOn() {

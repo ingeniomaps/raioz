@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/state"
 	"raioz/internal/workspace"
@@ -75,7 +75,7 @@ func TestListUseCase_LoadHostPIDs_ResolveError(t *testing.T) {
 func TestListUseCase_LoadHostPIDs_FromProjectRoot(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Save local state with PIDs
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		HostPIDs: map[string]int{"api": os.Getpid()},
 	}
 	_ = state.SaveLocalState(tmpDir, ls)
@@ -88,8 +88,8 @@ func TestListUseCase_LoadHostPIDs_FromProjectRoot(t *testing.T) {
 		GetRootFunc: func(ws *workspace.Workspace) string { return tmpDir },
 	}
 	deps.StateManager = &mocks.MockStateManager{
-		LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{
+		LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{
 				ProjectRoot: tmpDir,
 			}, nil
 		},
@@ -107,7 +107,7 @@ func TestListUseCase_LoadHostPIDs_FromProjectRoot(t *testing.T) {
 func TestListUseCase_LoadHostPIDs_FallbackToWsRoot(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Save local state at workspace root
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		HostPIDs: map[string]int{"worker": 12345},
 	}
 	_ = state.SaveLocalState(tmpDir, ls)
@@ -120,7 +120,7 @@ func TestListUseCase_LoadHostPIDs_FallbackToWsRoot(t *testing.T) {
 		GetRootFunc: func(ws *workspace.Workspace) string { return tmpDir },
 	}
 	deps.StateManager = &mocks.MockStateManager{
-		LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
+		LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
 			return nil, fmt.Errorf("no state")
 		},
 	}
@@ -134,7 +134,7 @@ func TestListUseCase_LoadHostPIDs_FallbackToWsRoot(t *testing.T) {
 func TestListUseCase_Execute_LoadError(t *testing.T) {
 	initI18nForTest(t)
 	deps, stateMgr := newTestDepsForList(t)
-	stateMgr.LoadGlobalStateFunc = func() (*state.GlobalState, error) {
+	stateMgr.LoadGlobalStateFunc = func() (*models.GlobalState, error) {
 		return nil, fmt.Errorf("load fail")
 	}
 	uc := NewListUseCase(deps)
@@ -147,12 +147,12 @@ func TestListUseCase_Execute_LoadError(t *testing.T) {
 func TestListUseCase_Execute_FilterByStatus(t *testing.T) {
 	initI18nForTest(t)
 	deps, stateMgr := newTestDepsForList(t)
-	stateMgr.LoadGlobalStateFunc = func() (*state.GlobalState, error) {
-		return &state.GlobalState{
+	stateMgr.LoadGlobalStateFunc = func() (*models.GlobalState, error) {
+		return &models.GlobalState{
 			ActiveProjects: []string{"a", "b"},
-			Projects: map[string]state.ProjectState{
-				"a": {Name: "a", Services: []state.ServiceState{{Name: "s1", Status: "running"}}},
-				"b": {Name: "b", Services: []state.ServiceState{{Name: "s2", Status: "stopped"}}},
+			Projects: map[string]models.ProjectState{
+				"a": {Name: "a", Services: []models.ServiceState{{Name: "s1", Status: "running"}}},
+				"b": {Name: "b", Services: []models.ServiceState{{Name: "s2", Status: "stopped"}}},
 			},
 		}, nil
 	}

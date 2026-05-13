@@ -5,11 +5,11 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // CompareConfigs compares local .raioz.json with production docker-compose.yml
-func CompareConfigs(local *config.Deps, prod *ProductionConfig) *ComparisonResult {
+func CompareConfigs(local *models.Deps, prod *ProductionConfig) *ComparisonResult {
 	result := &ComparisonResult{
 		ServiceDifferences: []ServiceDifference{},
 		InfraDifferences:   []InfraDifference{},
@@ -76,7 +76,7 @@ func CompareConfigs(local *config.Deps, prod *ProductionConfig) *ComparisonResul
 }
 
 // compareService compares a single service between local and production
-func compareService(name string, local *config.Service, prod *ProductionService) *ServiceDifference {
+func compareService(name string, local *models.Service, prod *ProductionService) *ServiceDifference {
 	diff := &ServiceDifference{
 		ServiceName: name,
 		Severity:    "info",
@@ -158,7 +158,7 @@ func compareService(name string, local *config.Service, prod *ProductionService)
 }
 
 // compareInfra compares infrastructure services
-func compareInfra(local *config.Deps, prod *ProductionConfig, result *ComparisonResult) {
+func compareInfra(local *models.Deps, prod *ProductionConfig, result *ComparisonResult) {
 	localInfra := make(map[string]bool)
 	for name := range local.Infra {
 		localInfra[name] = true

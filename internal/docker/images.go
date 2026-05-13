@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 	"raioz/internal/resilience"
@@ -111,12 +111,12 @@ func BuildImageName(image string, tag string) string {
 }
 
 // ValidateServiceImages validates all images for services with source.kind == "image"
-func ValidateServiceImages(deps *config.Deps) error {
+func ValidateServiceImages(deps *models.Deps) error {
 	return ValidateServiceImagesWithContext(context.Background(), deps)
 }
 
 // ValidateServiceImagesWithContext validates all images for services with source.kind == "image" with context support
-func ValidateServiceImagesWithContext(ctx context.Context, deps *config.Deps) error {
+func ValidateServiceImagesWithContext(ctx context.Context, deps *models.Deps) error {
 	for name, svc := range deps.Services {
 		if svc.Source.Kind == "image" {
 			image := BuildImageName(svc.Source.Image, svc.Source.Tag)
@@ -129,12 +129,12 @@ func ValidateServiceImagesWithContext(ctx context.Context, deps *config.Deps) er
 }
 
 // ValidateInfraImages validates all images for infra
-func ValidateInfraImages(deps *config.Deps) error {
+func ValidateInfraImages(deps *models.Deps) error {
 	return ValidateInfraImagesWithContext(context.Background(), deps)
 }
 
 // ValidateInfraImagesWithContext validates all images for infra with context support
-func ValidateInfraImagesWithContext(ctx context.Context, deps *config.Deps) error {
+func ValidateInfraImagesWithContext(ctx context.Context, deps *models.Deps) error {
 	for name, entry := range deps.Infra {
 		if entry.Inline == nil {
 			continue
@@ -162,12 +162,12 @@ func ValidateInfraImagesWithContext(ctx context.Context, deps *config.Deps) erro
 }
 
 // ValidateAllImages validates all images (services and infra) before compose generation
-func ValidateAllImages(deps *config.Deps) error {
+func ValidateAllImages(deps *models.Deps) error {
 	return ValidateAllImagesWithContext(context.Background(), deps)
 }
 
 // ValidateAllImagesWithContext validates all images (services and infra) before compose generation with context support
-func ValidateAllImagesWithContext(ctx context.Context, deps *config.Deps) error {
+func ValidateAllImagesWithContext(ctx context.Context, deps *models.Deps) error {
 	// Validate service images
 	if err := ValidateServiceImagesWithContext(ctx, deps); err != nil {
 		return fmt.Errorf("service image validation failed: %w", err)

@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"raioz/internal/config"
 	dockerpkg "raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
@@ -24,7 +24,7 @@ func findConfigFile() string {
 
 // YAMLProject holds resolved info for a YAML-mode project.
 type YAMLProject struct {
-	Deps        *config.Deps
+	Deps        *models.Deps
 	ProjectName string
 	NetworkName string
 	ConfigPath  string

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
@@ -279,7 +279,7 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 // legacy projects without sibling deps.
 func stopDependencyComposeProjects(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	projectName string,
 	deferredDeps []string,
 ) {

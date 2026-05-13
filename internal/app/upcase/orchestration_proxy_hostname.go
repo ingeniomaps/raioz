@@ -1,12 +1,12 @@
 package upcase
 
-import "raioz/internal/config"
+import "raioz/internal/domain/models"
 
 // resolveHostnameAndAliases returns the proxy hostname override and the
 // alias list for name, honoring the "service first, dep (infra) last"
 // precedence both share. Returns ("", nil) when nothing is declared — the
 // caller keeps its own default (the entry name).
-func resolveHostnameAndAliases(deps *config.Deps, name string) (string, []string) {
+func resolveHostnameAndAliases(deps *models.Deps, name string) (string, []string) {
 	var hostname string
 	var aliases []string
 	if svc, ok := deps.Services[name]; ok {

@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // Options contains options for the Init use case
@@ -53,7 +53,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	var infra map[string]config.InfraEntry
+	var infra map[string]models.InfraEntry
 	infra, err = uc.promptInfra()
 	if err != nil {
 		return err

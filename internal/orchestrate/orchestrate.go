@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // Dispatcher routes service operations to the correct runner.
@@ -87,22 +87,22 @@ func (d *Dispatcher) GetHostPID(serviceName string) int {
 	return d.host.GetPID(serviceName)
 }
 
-func (d *Dispatcher) selectRunner(runtime detect.Runtime) (runner, error) {
+func (d *Dispatcher) selectRunner(runtime models.Runtime) (runner, error) {
 	switch runtime {
-	case detect.RuntimeCompose:
+	case models.RuntimeCompose:
 		return d.compose, nil
-	case detect.RuntimeDockerfile:
+	case models.RuntimeDockerfile:
 		return d.dockerfile, nil
-	case detect.RuntimeNPM, detect.RuntimeGo, detect.RuntimeMake,
-		detect.RuntimeJust, detect.RuntimeTask,
-		detect.RuntimePython, detect.RuntimeRust, detect.RuntimePHP,
-		detect.RuntimeJava, detect.RuntimeDotnet, detect.RuntimeRuby,
-		detect.RuntimeElixir, detect.RuntimeDart, detect.RuntimeSwift,
-		detect.RuntimeScala, detect.RuntimeClojure, detect.RuntimeZig,
-		detect.RuntimeGleam, detect.RuntimeHaskell, detect.RuntimeDeno,
-		detect.RuntimeBun:
+	case models.RuntimeNPM, models.RuntimeGo, models.RuntimeMake,
+		models.RuntimeJust, models.RuntimeTask,
+		models.RuntimePython, models.RuntimeRust, models.RuntimePHP,
+		models.RuntimeJava, models.RuntimeDotnet, models.RuntimeRuby,
+		models.RuntimeElixir, models.RuntimeDart, models.RuntimeSwift,
+		models.RuntimeScala, models.RuntimeClojure, models.RuntimeZig,
+		models.RuntimeGleam, models.RuntimeHaskell, models.RuntimeDeno,
+		models.RuntimeBun:
 		return d.host, nil
-	case detect.RuntimeImage:
+	case models.RuntimeImage:
 		return d.image, nil
 	default:
 		return nil, fmt.Errorf("unsupported runtime: %s", runtime)

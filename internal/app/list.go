@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
@@ -119,14 +120,14 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 }
 
 // applyFilters applies name and status filters to the global state
-func (uc *ListUseCase) applyFilters(globalState *state.GlobalState, opts ListOptions) *state.GlobalState {
+func (uc *ListUseCase) applyFilters(globalState *models.GlobalState, opts ListOptions) *models.GlobalState {
 	if opts.Filter == "" && opts.Status == "" {
 		return globalState
 	}
 
-	filtered := &state.GlobalState{
+	filtered := &models.GlobalState{
 		ActiveProjects: []string{},
-		Projects:       make(map[string]state.ProjectState),
+		Projects:       make(map[string]models.ProjectState),
 	}
 
 	for _, projectName := range globalState.ActiveProjects {

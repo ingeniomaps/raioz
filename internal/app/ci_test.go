@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -57,12 +57,12 @@ func TestCIUseCase_Execute_LegacyValidateOnly(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:       config.Project{Name: "test"},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "test"},
 				SchemaVersion: "1.0",
-				Services:      map[string]config.Service{},
-				Infra:         map[string]config.InfraEntry{},
+				Services:      map[string]models.Service{},
+				Infra:         map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
@@ -84,7 +84,7 @@ func TestCIUseCase_Execute_LegacyLoadConfigFails(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return nil, nil, fmt.Errorf("cannot load")
 		},
 	}
@@ -103,14 +103,14 @@ func TestCIUseCase_Execute_YAMLValidateOnly(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:       config.Project{Name: "yaml-proj"},
-				Network:       config.NetworkConfig{Name: "net"},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "yaml-proj"},
+				Network:       models.NetworkConfig{Name: "net"},
 				SchemaVersion: "2.0",
-				Services:      map[string]config.Service{},
-				Infra: map[string]config.InfraEntry{
-					"redis": {Inline: &config.Infra{Image: "redis:7"}},
+				Services:      map[string]models.Service{},
+				Infra: map[string]models.InfraEntry{
+					"redis": {Inline: &models.Infra{Image: "redis:7"}},
 				},
 			}, nil, nil
 		},
@@ -133,14 +133,14 @@ func TestCIUseCase_Execute_YAMLMissingImage(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:       config.Project{Name: "yaml-proj"},
-				Network:       config.NetworkConfig{Name: "net"},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "yaml-proj"},
+				Network:       models.NetworkConfig{Name: "net"},
 				SchemaVersion: "2.0",
-				Services:      map[string]config.Service{},
-				Infra: map[string]config.InfraEntry{
-					"redis": {Inline: &config.Infra{Image: ""}},
+				Services:      map[string]models.Service{},
+				Infra: map[string]models.InfraEntry{
+					"redis": {Inline: &models.Infra{Image: ""}},
 				},
 			}, nil, nil
 		},
@@ -162,8 +162,8 @@ func TestCIUseCase_validateFast(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	uc := NewCIUseCase(deps)
-	cfgDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
+	cfgDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
 	}
 	if err := uc.validateFast(cfgDeps); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -174,10 +174,10 @@ func TestCIUseCase_validateFast_SchemaError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{
-		ValidateSchemaFunc: func(d *config.Deps) error { return fmt.Errorf("bad schema") },
+		ValidateSchemaFunc: func(d *models.Deps) error { return fmt.Errorf("bad schema") },
 	}
 	uc := NewCIUseCase(deps)
-	if err := uc.validateFast(&config.Deps{}); err == nil {
+	if err := uc.validateFast(&models.Deps{}); err == nil {
 		t.Error("expected error for bad schema")
 	}
 }

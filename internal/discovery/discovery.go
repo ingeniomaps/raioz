@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // Manager implements interfaces.DiscoveryManager.
@@ -30,7 +30,7 @@ func NewManager() *Manager {
 //	With proxy enabled: also set _URL=https://<name>.localhost
 func (m *Manager) GenerateEnvVars(
 	serviceName string,
-	serviceRuntime detect.Runtime,
+	serviceRuntime models.Runtime,
 	endpoints map[string]interfaces.ServiceEndpoint,
 	proxyEnabled bool,
 ) map[string]string {
@@ -94,9 +94,9 @@ func resolveHost(callerIsDocker, targetIsDocker bool, target interfaces.ServiceE
 }
 
 // isDockerRuntime returns true for runtimes that run inside Docker containers.
-func isDockerRuntime(rt detect.Runtime) bool {
+func isDockerRuntime(rt models.Runtime) bool {
 	switch rt {
-	case detect.RuntimeCompose, detect.RuntimeDockerfile, detect.RuntimeImage:
+	case models.RuntimeCompose, models.RuntimeDockerfile, models.RuntimeImage:
 		return true
 	default:
 		return false

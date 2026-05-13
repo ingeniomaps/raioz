@@ -3,8 +3,8 @@ package host
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	hostpkg "raioz/internal/host"
 	workspacepkg "raioz/internal/workspace"
 )
@@ -24,9 +24,9 @@ func NewHostRunner() interfaces.HostRunner {
 func (r *HostRunnerImpl) StartService(
 	ctx context.Context,
 	ws *interfaces.Workspace,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName string,
-	svc config.Service,
+	svc models.Service,
 	projectDir string,
 ) (*hostpkg.ProcessInfo, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)

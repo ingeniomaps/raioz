@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 
 	"gopkg.in/yaml.v3"
@@ -27,8 +27,8 @@ func makeComposeSvc(t *testing.T) interfaces.ServiceContext {
 		ProjectName:   "proj",
 		ContainerName: "raioz-proj-api",
 		NetworkName:   "proj-net",
-		Detection: detect.DetectResult{
-			Runtime:     detect.RuntimeCompose,
+		Detection: models.DetectResult{
+			Runtime:     models.RuntimeCompose,
 			ComposeFile: composePath,
 		},
 	}
@@ -96,7 +96,7 @@ func TestComposeRunner_WriteOverlay_CreatesDir(t *testing.T) {
 	svc := interfaces.ServiceContext{
 		Name:        "api",
 		NetworkName: "proj-net",
-		Detection:   detect.DetectResult{ComposeFile: composePath},
+		Detection:   models.DetectResult{ComposeFile: composePath},
 	}
 
 	overlay := map[string]any{"networks": map[string]any{}}

@@ -3,8 +3,8 @@ package validate
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/validate"
 	"raioz/internal/workspace"
 )
@@ -21,7 +21,7 @@ func NewValidator() interfaces.Validator {
 }
 
 // ValidateBeforeUp validates configuration before running up command
-func (v *ValidatorImpl) ValidateBeforeUp(ctx interface{}, deps *config.Deps, ws interface{}) error {
+func (v *ValidatorImpl) ValidateBeforeUp(ctx interface{}, deps *models.Deps, ws interface{}) error {
 	ctxTyped, ok := ctx.(context.Context)
 	if !ok {
 		ctxTyped = context.Background()
@@ -47,7 +47,7 @@ func (v *ValidatorImpl) ValidateBeforeDown(ctx interface{}, ws interface{}) erro
 }
 
 // All validates the entire configuration
-func (v *ValidatorImpl) All(deps *config.Deps) error {
+func (v *ValidatorImpl) All(deps *models.Deps) error {
 	return validate.All(deps)
 }
 
@@ -62,27 +62,27 @@ func (v *ValidatorImpl) CheckDockerRunning() error {
 }
 
 // ValidateSchema validates the configuration schema
-func (v *ValidatorImpl) ValidateSchema(deps *config.Deps) error {
+func (v *ValidatorImpl) ValidateSchema(deps *models.Deps) error {
 	return validate.ValidateSchema(deps)
 }
 
 // ValidateProject validates the project configuration
-func (v *ValidatorImpl) ValidateProject(deps *config.Deps) error {
+func (v *ValidatorImpl) ValidateProject(deps *models.Deps) error {
 	return validate.ValidateProject(deps)
 }
 
 // ValidateServices validates services configuration
-func (v *ValidatorImpl) ValidateServices(deps *config.Deps) error {
+func (v *ValidatorImpl) ValidateServices(deps *models.Deps) error {
 	return validate.ValidateServices(deps)
 }
 
 // ValidateInfra validates infra configuration
-func (v *ValidatorImpl) ValidateInfra(deps *config.Deps) error {
+func (v *ValidatorImpl) ValidateInfra(deps *models.Deps) error {
 	return validate.ValidateInfra(deps)
 }
 
 // ValidateDependencies validates dependencies configuration
-func (v *ValidatorImpl) ValidateDependencies(deps *config.Deps) error {
+func (v *ValidatorImpl) ValidateDependencies(deps *models.Deps) error {
 	return validate.ValidateDependencies(deps)
 }
 

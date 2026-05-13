@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
@@ -14,7 +15,7 @@ import (
 // ServiceDrift represents detected differences between service .raioz.json and root config
 type ServiceDrift struct {
 	ServiceName string
-	Differences []state.ConfigChange
+	Differences []models.ConfigChange
 	ServicePath string // Path to service directory
 }
 
@@ -36,7 +37,7 @@ func DetectAssistedServiceDrift(rootConfig *RootConfig, ws *workspace.Workspace)
 			continue // Skip services not added via assist
 		}
 
-		// Get service path - rootConfig.Services is already config.Service
+		// Get service path - rootConfig.Services is already models.Service
 		servicePath := workspace.GetServicePath(ws, serviceName, svc)
 
 		// Look for .raioz.json in service directory
@@ -62,13 +63,13 @@ func DetectAssistedServiceDrift(rootConfig *RootConfig, ws *workspace.Workspace)
 		rootServiceConfig := rootConfig.Services[serviceName]
 
 		// Create temporary deps for comparison
-		rootDeps := &config.Deps{
-			Services: map[string]config.Service{
+		rootDeps := &models.Deps{
+			Services: map[string]models.Service{
 				serviceName: rootServiceConfig,
 			},
 		}
-		serviceDepsForCompare := &config.Deps{
-			Services: map[string]config.Service{
+		serviceDepsForCompare := &models.Deps{
+			Services: map[string]models.Service{
 				serviceName: serviceConfig,
 			},
 		}
@@ -81,7 +82,7 @@ func DetectAssistedServiceDrift(rootConfig *RootConfig, ws *workspace.Workspace)
 		}
 
 		// Filter out changes where old and new values are the same (shouldn't happen, but safety)
-		var realChanges []state.ConfigChange
+		var realChanges []models.ConfigChange
 		for _, change := range changes {
 			if change.OldValue != change.NewValue {
 				realChanges = append(realChanges, change)

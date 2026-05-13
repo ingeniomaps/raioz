@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestIsLocalProject_Local(t *testing.T) {
@@ -53,24 +53,24 @@ func TestIsLocalProject_InServicesDir(t *testing.T) {
 func TestGetLocalProjectCommand(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		cmdType string
 		mode    string
 		want    string
 	}{
 		{
 			name:    "no commands returns empty",
-			deps:    &config.Deps{Project: config.Project{Name: "test"}},
+			deps:    &models.Deps{Project: models.Project{Name: "test"}},
 			cmdType: "up",
 			mode:    "dev",
 			want:    "",
 		},
 		{
 			name: "generic up",
-			deps: &config.Deps{
-				Project: config.Project{
+			deps: &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Up: "make up",
 					},
 				},
@@ -81,12 +81,12 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "dev up overrides generic",
-			deps: &config.Deps{
-				Project: config.Project{
+			deps: &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Up: "make up",
-						Dev: &config.EnvironmentCommands{
+						Dev: &models.EnvironmentCommands{
 							Up: "make dev",
 						},
 					},
@@ -98,12 +98,12 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "prod down",
-			deps: &config.Deps{
-				Project: config.Project{
+			deps: &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Down: "make down",
-						Prod: &config.EnvironmentCommands{
+						Prod: &models.EnvironmentCommands{
 							Down: "make prod-down",
 						},
 					},
@@ -115,10 +115,10 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "health generic",
-			deps: &config.Deps{
-				Project: config.Project{
+			deps: &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Health: "curl ok",
 					},
 				},
@@ -129,10 +129,10 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "unknown command type",
-			deps: &config.Deps{
-				Project: config.Project{
+			deps: &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Up: "make up",
 					},
 				},
@@ -143,12 +143,12 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "empty mode defaults to dev",
-			deps: &config.Deps{
-				Project: config.Project{
+			deps: &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Up: "generic",
-						Dev: &config.EnvironmentCommands{
+						Dev: &models.EnvironmentCommands{
 							Up: "dev-up",
 						},
 					},

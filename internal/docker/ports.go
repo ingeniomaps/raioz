@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
@@ -220,7 +220,7 @@ func FindAlternativePort(port string, maxAttempts int) (int, error) {
 }
 
 // ValidatePorts checks if all ports in a project are available
-func ValidatePorts(deps *config.Deps, baseDir string, projectName string) ([]PortConflict, error) {
+func ValidatePorts(deps *models.Deps, baseDir string, projectName string) ([]PortConflict, error) {
 	var conflicts []PortConflict
 	var allPorts []string
 

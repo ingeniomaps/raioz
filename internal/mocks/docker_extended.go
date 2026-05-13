@@ -3,8 +3,8 @@ package mocks
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 func (m *MockDockerRunner) CleanProjectWithContext(
@@ -56,7 +56,7 @@ func (m *MockDockerRunner) GetAllActivePorts(baseDir string) ([]interfaces.PortI
 }
 
 func (m *MockDockerRunner) GenerateCompose(
-	deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+	deps *models.Deps, ws *interfaces.Workspace, projectDir string,
 ) (string, []string, error) {
 	if m.GenerateComposeFunc != nil {
 		return m.GenerateComposeFunc(deps, ws, projectDir)
@@ -110,7 +110,7 @@ func (m *MockDockerRunner) WaitForServicesHealthy(
 }
 
 func (m *MockDockerRunner) ValidatePorts(
-	deps *config.Deps, baseDir string, projectName string,
+	deps *models.Deps, baseDir string, projectName string,
 ) ([]interfaces.PortConflict, error) {
 	if m.ValidatePortsFunc != nil {
 		return m.ValidatePortsFunc(deps, baseDir, projectName)
@@ -125,7 +125,7 @@ func (m *MockDockerRunner) FormatPortConflicts(conflicts []interfaces.PortConfli
 	return ""
 }
 
-func (m *MockDockerRunner) ValidateAllImages(deps *config.Deps) error {
+func (m *MockDockerRunner) ValidateAllImages(deps *models.Deps) error {
 	if m.ValidateAllImagesFunc != nil {
 		return m.ValidateAllImagesFunc(deps)
 	}
@@ -229,7 +229,7 @@ func (m *MockDockerRunner) StopContainerWithContext(ctx context.Context, contain
 	return nil
 }
 
-func (m *MockDockerRunner) BuildServiceVolumesMap(deps *config.Deps) (map[string]interfaces.ServiceVolumes, error) {
+func (m *MockDockerRunner) BuildServiceVolumesMap(deps *models.Deps) (map[string]interfaces.ServiceVolumes, error) {
 	if m.BuildServiceVolumesMapFunc != nil {
 		return m.BuildServiceVolumesMapFunc(deps)
 	}

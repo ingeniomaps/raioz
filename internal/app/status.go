@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
@@ -195,7 +195,7 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 				stateDeps.ProjectComposePath,
 				projectComposeServices,
 				stateDeps.Project.Name,
-				make(map[string]config.Service), // No service configs for project compose services
+				make(map[string]models.Service), // No service configs for project compose services
 				ws,
 			)
 			if err == nil {

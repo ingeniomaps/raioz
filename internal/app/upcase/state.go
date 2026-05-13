@@ -5,22 +5,21 @@ import (
 	"fmt"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/root"
-	"raioz/internal/state"
 )
 
 // processState loads state, detects changes, and returns old deps, changes, added services, and assisted services map
 func (uc *UseCase) processState(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	configPath string,
-) (*config.Deps, []state.ConfigChange, []string, map[string]string, error) {
+) (*models.Deps, []models.ConfigChange, []string, map[string]string, error) {
 	// Load previous state
 	oldDeps, err := uc.deps.StateManager.Load(ws)
 	if err != nil {
@@ -62,7 +61,7 @@ func (uc *UseCase) processState(
 // saveState saves state, generates/updates root config, detects drift, and logs audit events
 func (uc *UseCase) saveState(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	composePath string,
 	serviceNames []string,
@@ -166,13 +165,13 @@ func (uc *UseCase) saveState(
 // updateGlobalState updates the global state with project information
 func (uc *UseCase) updateGlobalState(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	composePath string,
 	serviceNames []string,
 ) error {
 	// Get service info
-	services := make(map[string]config.Service)
+	services := make(map[string]models.Service)
 	for _, name := range serviceNames {
 		if svc, exists := deps.Services[name]; exists {
 			services[name] = svc
@@ -194,10 +193,10 @@ func (uc *UseCase) updateGlobalState(
 		serviceInfos = nil
 	}
 
-	// Convert interfaces.ServiceInfo to state.ServiceInfo
-	stateServiceInfos := make(map[string]*state.ServiceInfo)
+	// Convert interfaces.ServiceInfo to models.ServiceInfo
+	stateServiceInfos := make(map[string]*models.ServiceInfo)
 	for name, info := range serviceInfos {
-		stateServiceInfos[name] = &state.ServiceInfo{
+		stateServiceInfos[name] = &models.ServiceInfo{
 			Status:  info.Status,
 			Version: info.Commit,
 			Image:   info.Image,
@@ -208,7 +207,7 @@ func (uc *UseCase) updateGlobalState(
 	serviceStates := uc.deps.StateManager.BuildServiceStates(deps, stateServiceInfos)
 
 	// Create project state
-	projectState := &state.ProjectState{
+	projectState := &models.ProjectState{
 		Name:          deps.Project.Name,
 		Workspace:     deps.GetWorkspaceName(),
 		LastExecution: time.Now(),

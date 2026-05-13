@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -26,9 +26,9 @@ func TestCheckAndHandleDuplicateProjectWorkspaceResolveError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "p"},
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "p"},
 				}, nil, nil
 			},
 		},
@@ -61,8 +61,8 @@ func TestCheckAndHandleDuplicateProjectNoState(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -98,8 +98,8 @@ func TestCheckAndHandleDuplicateProjectDifferentProject(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -111,9 +111,9 @@ func TestCheckAndHandleDuplicateProjectDifferentProject(t *testing.T) {
 			ExistsFunc: func(ws *workspace.Workspace) bool {
 				return true
 			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "other-project"},
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "other-project"},
 				}, nil
 			},
 		},
@@ -138,7 +138,7 @@ func TestCheckAndHandleDuplicateProjectConfigLoadError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, stderrors.New("config load error")
 			},
 		},
@@ -165,8 +165,8 @@ func TestCheckAndHandleDuplicateProjectStateLoadError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -178,7 +178,7 @@ func TestCheckAndHandleDuplicateProjectStateLoadError(t *testing.T) {
 			ExistsFunc: func(ws *workspace.Workspace) bool {
 				return true
 			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
 				return nil, stderrors.New("state load error")
 			},
 		},
@@ -205,8 +205,8 @@ func TestCheckAndHandleDuplicateProjectNilStateDeps(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -218,7 +218,7 @@ func TestCheckAndHandleDuplicateProjectNilStateDeps(t *testing.T) {
 			ExistsFunc: func(ws *workspace.Workspace) bool {
 				return true
 			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
 				return nil, nil // nil state deps
 			},
 		},
@@ -271,8 +271,8 @@ func TestCheckAndHandleDuplicateProjectWithHostProcessesLoadError(t *testing.T) 
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -293,9 +293,9 @@ func TestCheckAndHandleDuplicateProjectWithHostProcessesLoadError(t *testing.T) 
 			ExistsFunc: func(ws *workspace.Workspace) bool {
 				return true
 			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "p"},
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "p"},
 				}, nil
 			},
 			RemoveProjectFunc: func(name string) error {

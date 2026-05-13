@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 )
 
 // serviceResult holds the data collected from the service prompt
 type serviceResult struct {
 	Name   string
-	Source config.SourceConfig
-	Docker *config.DockerConfig
+	Source models.SourceConfig
+	Docker *models.DockerConfig
 }
 
 // infraPreset defines a common infrastructure template
@@ -98,7 +98,7 @@ func (uc *UseCase) promptOneService() (*serviceResult, error) {
 		return nil, err
 	}
 
-	result.Docker = &config.DockerConfig{
+	result.Docker = &models.DockerConfig{
 		Mode:  mode,
 		Ports: []string{port},
 	}
@@ -119,7 +119,7 @@ func (uc *UseCase) promptServiceGit(result *serviceResult, name string) error {
 	if err != nil {
 		return err
 	}
-	result.Source = config.SourceConfig{Kind: "git", Repo: repo, Branch: branch, Path: path}
+	result.Source = models.SourceConfig{Kind: "git", Repo: repo, Branch: branch, Path: path}
 	return nil
 }
 
@@ -132,12 +132,12 @@ func (uc *UseCase) promptServiceImage(result *serviceResult) error {
 	if err != nil {
 		return err
 	}
-	result.Source = config.SourceConfig{Kind: "image", Image: image, Tag: tag}
+	result.Source = models.SourceConfig{Kind: "image", Image: image, Tag: tag}
 	return nil
 }
 
 // promptInfra asks the user to select infrastructure components
-func (uc *UseCase) promptInfra() (map[string]config.InfraEntry, error) {
+func (uc *UseCase) promptInfra() (map[string]models.InfraEntry, error) {
 	if !uc.promptConfirmation(i18n.T("init.add_infra")) {
 		return nil, nil
 	}
@@ -149,7 +149,7 @@ func (uc *UseCase) promptInfra() (map[string]config.InfraEntry, error) {
 		return nil, fmt.Errorf("failed to read selection: %w", err)
 	}
 
-	infra := make(map[string]config.InfraEntry)
+	infra := make(map[string]models.InfraEntry)
 	selections := strings.Split(strings.TrimSpace(response), ",")
 
 	for _, sel := range selections {
@@ -170,7 +170,7 @@ func (uc *UseCase) promptInfra() (map[string]config.InfraEntry, error) {
 				return nil, err
 			}
 			if entry != nil {
-				infra[entry.Name] = config.InfraEntry{Inline: &config.Infra{
+				infra[entry.Name] = models.InfraEntry{Inline: &models.Infra{
 					Image: entry.Image,
 					Tag:   entry.Tag,
 					Ports: []string{entry.Port},
@@ -183,11 +183,11 @@ func (uc *UseCase) promptInfra() (map[string]config.InfraEntry, error) {
 
 		if idx >= 0 && idx < len(infraPresets) {
 			p := infraPresets[idx]
-			inf := &config.Infra{Image: p.Image, Tag: p.Tag, Ports: []string{p.Port}}
+			inf := &models.Infra{Image: p.Image, Tag: p.Tag, Ports: []string{p.Port}}
 			if p.Volume != "" {
 				inf.Volumes = []string{p.Volume}
 			}
-			infra[p.Name] = config.InfraEntry{Inline: inf}
+			infra[p.Name] = models.InfraEntry{Inline: inf}
 		}
 	}
 

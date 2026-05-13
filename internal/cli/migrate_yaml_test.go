@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestMigrateYAMLCmd(t *testing.T) {
@@ -56,23 +56,23 @@ func TestMigrateYAMLRegisteredUnderMigrate(t *testing.T) {
 
 func TestDepsToYAMLConfig(t *testing.T) {
 	enabled := true
-	deps := &config.Deps{
+	deps := &models.Deps{
 		Workspace: "acme",
-		Project:   config.Project{Name: "ecom"},
-		Services: map[string]config.Service{
+		Project:   models.Project{Name: "ecom"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "local",
 					Path: "./api",
 				},
 				DependsOn: []string{"postgres"},
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Ports: []string{"3000:3000"},
 				},
 				Enabled: &enabled,
 			},
 			"web": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Repo:   "git@github.com:acme/web.git",
 					Branch: "main",
@@ -80,9 +80,9 @@ func TestDepsToYAMLConfig(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
+		Infra: map[string]models.InfraEntry{
 			"postgres": {
-				Inline: &config.Infra{
+				Inline: &models.Infra{
 					Image:   "postgres",
 					Tag:     "16",
 					Ports:   []string{"5432:5432"},
@@ -152,10 +152,10 @@ func TestDepsToYAMLConfig(t *testing.T) {
 }
 
 func TestDepsToYAMLConfigImageWithoutTag(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Infra: map[string]config.InfraEntry{
-			"redis": {Inline: &config.Infra{Image: "redis"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Infra: map[string]models.InfraEntry{
+			"redis": {Inline: &models.Infra{Image: "redis"}},
 		},
 	}
 	cfg := depsToYAMLConfig(deps)

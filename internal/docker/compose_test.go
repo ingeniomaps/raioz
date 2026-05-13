@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -36,17 +36,17 @@ func TestBuildInfraVolumeMap(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		deps      *config.Deps
+		deps      *models.Deps
 		workspace string
 		wantKeys  []string
 		wantErr   bool
 	}{
 		{
 			name: "inline infra with named volume",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra: map[string]config.InfraEntry{
-					"pg": {Inline: &config.Infra{
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra: map[string]models.InfraEntry{
+					"pg": {Inline: &models.Infra{
 						Image:   "postgres",
 						Volumes: []string{"pgdata:/var/lib/postgresql/data"},
 					}},
@@ -57,9 +57,9 @@ func TestBuildInfraVolumeMap(t *testing.T) {
 		},
 		{
 			name: "external path entry skipped",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra: map[string]config.InfraEntry{
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra: map[string]models.InfraEntry{
 					"ext": {Path: "infra.yml"},
 				},
 			},
@@ -68,10 +68,10 @@ func TestBuildInfraVolumeMap(t *testing.T) {
 		},
 		{
 			name: "bind mount skipped",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra: map[string]config.InfraEntry{
-					"a": {Inline: &config.Infra{
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra: map[string]models.InfraEntry{
+					"a": {Inline: &models.Infra{
 						Image:   "nginx",
 						Volumes: []string{"./data:/data"},
 					}},
@@ -82,8 +82,8 @@ func TestBuildInfraVolumeMap(t *testing.T) {
 		},
 		{
 			name: "no infra",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
 			},
 			workspace: "ws",
 			wantKeys:  []string{},
@@ -114,17 +114,17 @@ func TestBuildInfraVolumeMap(t *testing.T) {
 func TestBuildServiceVolumeMap(t *testing.T) {
 	projectDir := t.TempDir()
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "image", Image: "nginx"},
-				Docker: &config.DockerConfig{
+				Source: models.SourceConfig{Kind: "image", Image: "nginx"},
+				Docker: &models.DockerConfig{
 					Volumes: []string{"api-data:/data", "./src:/app"},
 				},
 			},
 			"host-svc": {
-				Source: config.SourceConfig{Kind: "git", Command: "npm start"},
+				Source: models.SourceConfig{Kind: "git", Command: "npm start"},
 			},
 		},
 	}
@@ -177,39 +177,39 @@ func TestCollectNormalizedVolumes(t *testing.T) {
 func TestBuildComposeBase(t *testing.T) {
 	tests := []struct {
 		name             string
-		deps             *config.Deps
+		deps             *models.Deps
 		normalizedVols   []string
 		wantHasVolumes   bool
 		wantStaticIPIpam bool
 	}{
 		{
 			name: "no services, no volumes",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Network: config.NetworkConfig{Name: "raioz-net"},
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Network: models.NetworkConfig{Name: "raioz-net"},
 			},
 			wantHasVolumes:   false,
 			wantStaticIPIpam: false,
 		},
 		{
 			name: "with normalized volumes",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Network: config.NetworkConfig{Name: "raioz-net"},
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Network: models.NetworkConfig{Name: "raioz-net"},
 			},
 			normalizedVols: []string{"proj_data"},
 			wantHasVolumes: true,
 		},
 		{
 			name: "service with static IP",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Network: config.NetworkConfig{
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Network: models.NetworkConfig{
 					Name: "raioz-net", Subnet: "150.150.0.0/16", IsObject: true,
 				},
-				Services: map[string]config.Service{
+				Services: map[string]models.Service{
 					"api": {
-						Docker: &config.DockerConfig{IP: "150.150.0.10"},
+						Docker: &models.DockerConfig{IP: "150.150.0.10"},
 					},
 				},
 			},
@@ -217,13 +217,13 @@ func TestBuildComposeBase(t *testing.T) {
 		},
 		{
 			name: "infra with static IP",
-			deps: &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Network: config.NetworkConfig{
+			deps: &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Network: models.NetworkConfig{
 					Name: "raioz-net", Subnet: "150.150.0.0/16", IsObject: true,
 				},
-				Infra: map[string]config.InfraEntry{
-					"pg": {Inline: &config.Infra{
+				Infra: map[string]models.InfraEntry{
+					"pg": {Inline: &models.Infra{
 						Image: "postgres", IP: "150.150.0.11",
 					}},
 				},

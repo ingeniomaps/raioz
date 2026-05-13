@@ -7,11 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -27,7 +26,7 @@ func TestUpUseCase_stopOtherProjects_NoGlobalState(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.StateManager = &mocks.MockStateManager{
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
 			return nil, fmt.Errorf("no state")
 		},
 	}
@@ -40,8 +39,8 @@ func TestUpUseCase_stopOtherProjects_EmptyProjects(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.StateManager = &mocks.MockStateManager{
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-			return &state.GlobalState{ActiveProjects: []string{}}, nil
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+			return &models.GlobalState{ActiveProjects: []string{}}, nil
 		},
 	}
 	uc := NewUpUseCase(deps)
@@ -52,16 +51,16 @@ func TestUpUseCase_stopOtherProjects_SkipsCurrent(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.StateManager = &mocks.MockStateManager{
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-			return &state.GlobalState{
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+			return &models.GlobalState{
 				ActiveProjects: []string{"my-proj"},
 			}, nil
 		},
 	}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "my-proj"},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "my-proj"},
 			}, nil, nil
 		},
 	}
@@ -74,16 +73,16 @@ func TestUpUseCase_stopOtherProjects_StopsOthers(t *testing.T) {
 	stoppedProjects := []string{}
 	deps := newFullMockDeps()
 	deps.StateManager = &mocks.MockStateManager{
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-			return &state.GlobalState{
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+			return &models.GlobalState{
 				ActiveProjects: []string{"other-proj", "my-proj"},
 			}, nil
 		},
 	}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "my-proj"},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "my-proj"},
 			}, nil, nil
 		},
 	}
@@ -107,12 +106,12 @@ func TestUpUseCase_Execute_WithExclusive(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.StateManager = &mocks.MockStateManager{
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-			return &state.GlobalState{ActiveProjects: []string{}}, nil
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+			return &models.GlobalState{ActiveProjects: []string{}}, nil
 		},
 	}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
 			return nil, nil, fmt.Errorf("no config")
 		},
 	}
@@ -133,7 +132,7 @@ func TestStatusUseCase_Execute_NilContext(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
 			return nil, nil, nil
 		},
 	}
@@ -149,10 +148,10 @@ func TestStatusUseCase_Execute_WorkspaceResolveError_Boost(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
 	}
@@ -174,13 +173,13 @@ func TestStatusUseCase_Execute_ConfigLoadAfterStateExists(t *testing.T) {
 	ws := &workspace.Workspace{Root: tmpDir}
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
 			}, []string{"warning1"}, nil
 		},
-		IsServiceEnabledFunc: func(svc config.Service, profile string, env map[string]string) bool {
+		IsServiceEnabledFunc: func(svc models.Service, profile string, env map[string]string) bool {
 			return true
 		},
 	}
@@ -197,18 +196,18 @@ func TestStatusUseCase_Execute_ConfigLoadAfterStateExists(t *testing.T) {
 	}
 	deps.StateManager = &mocks.MockStateManager{
 		ExistsFunc: func(w *workspace.Workspace) bool { return true },
-		LoadFunc: func(w *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{"api": {}},
-				Infra:    map[string]config.InfraEntry{"redis": {}},
+		LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{"api": {}},
+				Infra:    map[string]models.InfraEntry{"redis": {}},
 			}, nil
 		},
 	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
 		GetServicesInfoWithContextFunc: func(
 			ctx context.Context, cp string, names []string,
-			pn string, svcs map[string]config.Service, w *interfaces.Workspace,
+			pn string, svcs map[string]models.Service, w *interfaces.Workspace,
 		) (map[string]*interfaces.ServiceInfo, error) {
 			return map[string]*interfaces.ServiceInfo{
 				"api": {Status: "running"},
@@ -233,10 +232,10 @@ func TestStatusUseCase_Execute_StateLoadError(t *testing.T) {
 	ws := &workspace.Workspace{Root: tmpDir}
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
 	}
@@ -247,7 +246,7 @@ func TestStatusUseCase_Execute_StateLoadError(t *testing.T) {
 	}
 	deps.StateManager = &mocks.MockStateManager{
 		ExistsFunc: func(w *workspace.Workspace) bool { return true },
-		LoadFunc: func(w *workspace.Workspace) (*config.Deps, error) {
+		LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
 			return nil, fmt.Errorf("corrupt state")
 		},
 	}
@@ -264,13 +263,13 @@ func TestStatusUseCase_Execute_GetServicesInfoError(t *testing.T) {
 	ws := &workspace.Workspace{Root: tmpDir}
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
-		IsServiceEnabledFunc: func(svc config.Service, profile string, env map[string]string) bool {
+		IsServiceEnabledFunc: func(svc models.Service, profile string, env map[string]string) bool {
 			return true
 		},
 	}
@@ -284,18 +283,18 @@ func TestStatusUseCase_Execute_GetServicesInfoError(t *testing.T) {
 	}
 	deps.StateManager = &mocks.MockStateManager{
 		ExistsFunc: func(w *workspace.Workspace) bool { return true },
-		LoadFunc: func(w *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil
 		},
 	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
 		GetServicesInfoWithContextFunc: func(
 			ctx context.Context, cp string, names []string,
-			pn string, svcs map[string]config.Service, w *interfaces.Workspace,
+			pn string, svcs map[string]models.Service, w *interfaces.Workspace,
 		) (map[string]*interfaces.ServiceInfo, error) {
 			return nil, fmt.Errorf("docker not running")
 		},
@@ -318,13 +317,13 @@ func TestStatusUseCase_Execute_JSONOutput(t *testing.T) {
 	ws := &workspace.Workspace{Root: tmpDir}
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
-		IsServiceEnabledFunc: func(svc config.Service, profile string, env map[string]string) bool {
+		IsServiceEnabledFunc: func(svc models.Service, profile string, env map[string]string) bool {
 			return true
 		},
 	}
@@ -341,18 +340,18 @@ func TestStatusUseCase_Execute_JSONOutput(t *testing.T) {
 	}
 	deps.StateManager = &mocks.MockStateManager{
 		ExistsFunc: func(w *workspace.Workspace) bool { return true },
-		LoadFunc: func(w *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil
 		},
 	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
 		GetServicesInfoWithContextFunc: func(
 			ctx context.Context, cp string, names []string,
-			pn string, svcs map[string]config.Service, w *interfaces.Workspace,
+			pn string, svcs map[string]models.Service, w *interfaces.Workspace,
 		) (map[string]*interfaces.ServiceInfo, error) {
 			return map[string]*interfaces.ServiceInfo{}, nil
 		},
@@ -378,13 +377,13 @@ func TestStatusUseCase_Execute_ProjectComposePath(t *testing.T) {
 	ws := &workspace.Workspace{Root: tmpDir}
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
-		IsServiceEnabledFunc: func(svc config.Service, profile string, env map[string]string) bool {
+		IsServiceEnabledFunc: func(svc models.Service, profile string, env map[string]string) bool {
 			return true
 		},
 	}
@@ -401,11 +400,11 @@ func TestStatusUseCase_Execute_ProjectComposePath(t *testing.T) {
 	}
 	deps.StateManager = &mocks.MockStateManager{
 		ExistsFunc: func(w *workspace.Workspace) bool { return true },
-		LoadFunc: func(w *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{
-				Project:            config.Project{Name: "proj"},
-				Services:           map[string]config.Service{},
-				Infra:              map[string]config.InfraEntry{},
+		LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{
+				Project:            models.Project{Name: "proj"},
+				Services:           map[string]models.Service{},
+				Infra:              map[string]models.InfraEntry{},
 				ProjectComposePath: "/tmp/project-compose.yml",
 			}, nil
 		},
@@ -414,7 +413,7 @@ func TestStatusUseCase_Execute_ProjectComposePath(t *testing.T) {
 	deps.DockerRunner = &mocks.MockDockerRunner{
 		GetServicesInfoWithContextFunc: func(
 			ctx context.Context, cp string, names []string,
-			pn string, svcs map[string]config.Service, w *interfaces.Workspace,
+			pn string, svcs map[string]models.Service, w *interfaces.Workspace,
 		) (map[string]*interfaces.ServiceInfo, error) {
 			return map[string]*interfaces.ServiceInfo{}, nil
 		},
@@ -449,15 +448,15 @@ func TestHealthUseCase_Execute_LocalWithHealthCommand(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Health: "true",
 					},
 				},
-				Services: map[string]config.Service{},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
 	}
@@ -484,15 +483,15 @@ func TestHealthUseCase_Execute_LocalNotHealthy(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Health: "false",
 					},
 				},
-				Services: map[string]config.Service{},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
 	}
@@ -519,10 +518,10 @@ func TestHealthUseCase_Execute_LocalNoHealthCommand(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
 	}
@@ -549,17 +548,17 @@ func TestHealthUseCase_Execute_WithMode(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{
 					Name: "test",
-					Commands: &config.ProjectCommands{
+					Commands: &models.ProjectCommands{
 						Health: "true",
 					},
 				},
-				Services: map[string]config.Service{
+				Services: map[string]models.Service{
 					"api": {
-						Docker: &config.DockerConfig{Mode: "prod"},
+						Docker: &models.DockerConfig{Mode: "prod"},
 					},
 				},
 			}, nil, nil
@@ -754,8 +753,8 @@ func TestCleanUseCase_Execute_ImagesError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 		},
 	}
 	deps.Workspace = &mocks.MockWorkspaceManager{
@@ -787,8 +786,8 @@ func TestCleanUseCase_Execute_NetworksError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 		},
 	}
 	deps.Workspace = &mocks.MockWorkspaceManager{
@@ -830,10 +829,10 @@ func TestCompareUseCase_Execute_InvalidProductionFile(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "proj"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "proj"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
 	}
@@ -962,8 +961,8 @@ func TestLogsUseCase_resolveServices_AllError(t *testing.T) {
 func TestLogsUseCase_Execute_ViewLogsError(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner := newTestDepsForLogs(t)
-	configLoader.LoadDepsFunc = func(p string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(p string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, cp string) ([]string, error) {
 		return []string{"api"}, nil
@@ -981,12 +980,12 @@ func TestLogsUseCase_Execute_ViewLogsError(t *testing.T) {
 func TestLogsUseCase_Execute_ProjectComposeLogsError(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, stateMgr, dockerRunner := newTestDepsForLogs(t)
-	configLoader.LoadDepsFunc = func(p string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(p string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(w *workspace.Workspace) (*config.Deps, error) {
-		return &config.Deps{
-			Project:            config.Project{Name: "proj"},
+	stateMgr.LoadFunc = func(w *workspace.Workspace) (*models.Deps, error) {
+		return &models.Deps{
+			Project:            models.Project{Name: "proj"},
 			ProjectComposePath: "/tmp/project-compose.yml",
 		}, nil
 	}
@@ -1023,14 +1022,14 @@ func TestCIUseCase_executeYAML_ServicePathNotFound(t *testing.T) {
 	deps.Validator = &mocks.MockValidator{}
 	uc := NewCIUseCase(deps)
 	proj := &YAMLProject{
-		Deps: &config.Deps{
+		Deps: &models.Deps{
 			SchemaVersion: "2.0",
-			Project:       config.Project{Name: "proj"},
-			Network:       config.NetworkConfig{Name: "net"},
-			Services: map[string]config.Service{
-				"api": {Source: config.SourceConfig{Path: "/nonexistent/path/xyz"}},
+			Project:       models.Project{Name: "proj"},
+			Network:       models.NetworkConfig{Name: "net"},
+			Services: map[string]models.Service{
+				"api": {Source: models.SourceConfig{Path: "/nonexistent/path/xyz"}},
 			},
-			Infra: map[string]config.InfraEntry{},
+			Infra: map[string]models.InfraEntry{},
 		},
 		ProjectName: "proj",
 		NetworkName: "net",
@@ -1053,17 +1052,17 @@ func TestCIUseCase_executeYAML_PullSuccess(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{}
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidateAllImagesFunc: func(d *config.Deps) error { return nil },
+		ValidateAllImagesFunc: func(d *models.Deps) error { return nil },
 	}
 	uc := NewCIUseCase(deps)
 	proj := &YAMLProject{
-		Deps: &config.Deps{
+		Deps: &models.Deps{
 			SchemaVersion: "2.0",
-			Project:       config.Project{Name: "proj"},
-			Network:       config.NetworkConfig{Name: "net"},
-			Services:      map[string]config.Service{},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Image: "redis:7"}},
+			Project:       models.Project{Name: "proj"},
+			Network:       models.NetworkConfig{Name: "net"},
+			Services:      map[string]models.Service{},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Image: "redis:7"}},
 			},
 		},
 		ProjectName: "proj",
@@ -1087,19 +1086,19 @@ func TestCIUseCase_executeYAML_PullFailure(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{}
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidateAllImagesFunc: func(d *config.Deps) error {
+		ValidateAllImagesFunc: func(d *models.Deps) error {
 			return fmt.Errorf("pull failed")
 		},
 	}
 	uc := NewCIUseCase(deps)
 	proj := &YAMLProject{
-		Deps: &config.Deps{
+		Deps: &models.Deps{
 			SchemaVersion: "2.0",
-			Project:       config.Project{Name: "proj"},
-			Network:       config.NetworkConfig{Name: "net"},
-			Services:      map[string]config.Service{},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Image: "redis:7"}},
+			Project:       models.Project{Name: "proj"},
+			Network:       models.NetworkConfig{Name: "net"},
+			Services:      map[string]models.Service{},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Image: "redis:7"}},
 			},
 		},
 		ProjectName: "proj",
@@ -1124,13 +1123,13 @@ func TestCIUseCase_executeYAML_SkipPull(t *testing.T) {
 	deps.Validator = &mocks.MockValidator{}
 	uc := NewCIUseCase(deps)
 	proj := &YAMLProject{
-		Deps: &config.Deps{
+		Deps: &models.Deps{
 			SchemaVersion: "2.0",
-			Project:       config.Project{Name: "proj"},
-			Network:       config.NetworkConfig{Name: "net"},
-			Services:      map[string]config.Service{},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Image: "redis:7"}},
+			Project:       models.Project{Name: "proj"},
+			Network:       models.NetworkConfig{Name: "net"},
+			Services:      map[string]models.Service{},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Image: "redis:7"}},
 			},
 		},
 		ProjectName: "proj",

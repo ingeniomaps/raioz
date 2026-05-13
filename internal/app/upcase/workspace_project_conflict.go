@@ -7,11 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
-	"raioz/internal/state"
 )
 
 // WorkspaceProjectConflictResult is the result of resolving a workspace-vs-project conflict
@@ -27,22 +26,22 @@ const (
 // current project (deps). Volumes are resolved with the correct project dir each: old volumes
 // with oldDeps.ProjectRoot, new volumes with currentProjectDir, so each project's relative paths
 // become the right absolute paths (no single projectDir applied to all).
-func (uc *UseCase) mergeDeps(oldDeps, deps *config.Deps, currentProjectDir string) *config.Deps {
+func (uc *UseCase) mergeDeps(oldDeps, deps *models.Deps, currentProjectDir string) *models.Deps {
 	oldProjectDir := oldDeps.ProjectRoot
 	if oldProjectDir == "" {
 		oldProjectDir = currentProjectDir
 	}
 
-	merged := &config.Deps{
+	merged := &models.Deps{
 		SchemaVersion: deps.SchemaVersion,
 		Workspace:     deps.Workspace,
 		Network:       deps.Network,
 		Project:       deps.Project,
 		Profiles:      deps.Profiles,
 		ProjectRoot:   currentProjectDir,
-		Services:      make(map[string]config.Service),
-		Infra:         make(map[string]config.InfraEntry),
-		Env: config.EnvConfig{
+		Services:      make(map[string]models.Service),
+		Infra:         make(map[string]models.InfraEntry),
+		Env: models.EnvConfig{
 			UseGlobal: deps.Env.UseGlobal,
 			Files:     mergeSliceUnique(oldDeps.Env.Files, deps.Env.Files),
 			Variables: mergeVariables(oldDeps.Env.Variables, deps.Env.Variables),
@@ -145,8 +144,8 @@ func mergeVariables(oldV, newV map[string]string) map[string]string {
 	return out
 }
 
-func cloneService(s config.Service) config.Service {
-	out := config.Service{
+func cloneService(s models.Service) models.Service {
+	out := models.Service{
 		Source:          s.Source,
 		DependsOn:       append([]string(nil), s.DependsOn...),
 		Env:             s.Env,
@@ -165,7 +164,7 @@ func cloneService(s config.Service) config.Service {
 		HealthEndpoint:  s.HealthEndpoint,
 	}
 	if s.Docker != nil {
-		out.Docker = &config.DockerConfig{
+		out.Docker = &models.DockerConfig{
 			Mode:       s.Docker.Mode,
 			Ports:      append([]string(nil), s.Docker.Ports...),
 			Volumes:    append([]string(nil), s.Docker.Volumes...),
@@ -212,11 +211,11 @@ func mergeVolumesOnlyNew(base, add []string) []string {
 	return out
 }
 
-func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
-	out := config.InfraEntry{Path: entry.Path}
+func cloneInfraEntry(entry models.InfraEntry) models.InfraEntry {
+	out := models.InfraEntry{Path: entry.Path}
 	if entry.Inline != nil {
 		inf := *entry.Inline
-		out.Inline = &config.Infra{
+		out.Inline = &models.Infra{
 			Name:             inf.Name,
 			Image:            inf.Image,
 			Tag:              inf.Tag,
@@ -250,10 +249,10 @@ func cloneInfraEntry(entry config.InfraEntry) config.InfraEntry {
 // used to resolve relative volumes per project when merging.
 func (uc *UseCase) checkWorkspaceProjectConflict(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	currentProjectDir string,
-) (WorkspaceProjectConflictResult, *config.Deps, error) {
+) (WorkspaceProjectConflictResult, *models.Deps, error) {
 	workspaceName := deps.GetWorkspaceName()
 
 	oldDeps, err := uc.deps.StateManager.Load(ws)
@@ -343,7 +342,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		output.PrintInfo(i18n.T("up.conflict.keeping_current_project"))
 		return WorkspaceConflictSkip, nil, nil
 	case 4:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
 			PreferredProject:   deps.Project.Name,
 			AlwaysAsk:          false,
 			MergeWhenPreferred: true,
@@ -354,7 +353,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		}
 		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
 	case 5:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
 			PreferredProject:   deps.Project.Name,
 			AlwaysAsk:          false,
 			MergeWhenPreferred: false,
@@ -365,7 +364,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		}
 		return WorkspaceConflictProceed, nil, nil
 	case 6:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
 			PreferredProject: oldDeps.Project.Name,
 			AlwaysAsk:        false,
 		}); err != nil {
@@ -376,7 +375,7 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 		output.PrintInfo(i18n.T("up.conflict.keeping_current_project"))
 		return WorkspaceConflictSkip, nil, nil
 	case 7:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, state.WorkspaceProjectPreference{
+		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
 			AlwaysAsk: true,
 		}); err != nil {
 			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))

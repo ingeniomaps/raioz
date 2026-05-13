@@ -3,12 +3,12 @@ package docker
 import (
 	"fmt"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // ValidateDependencyCycle checks for circular dependencies in services
 // Returns an error if a cycle is detected, with a clear message
-func ValidateDependencyCycle(deps *config.Deps) error {
+func ValidateDependencyCycle(deps *models.Deps) error {
 	// Build adjacency list: service -> list of dependencies
 	graph := make(map[string][]string)
 
@@ -115,7 +115,7 @@ func formatCycle(cycle []string) string {
 }
 
 // GetAllServiceNames returns all service and infra names that can be dependencies
-func GetAllServiceNames(deps *config.Deps) map[string]bool {
+func GetAllServiceNames(deps *models.Deps) map[string]bool {
 	names := make(map[string]bool)
 
 	for name := range deps.Services {

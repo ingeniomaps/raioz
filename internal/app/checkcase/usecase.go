@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/state"
 )
 
@@ -25,7 +26,7 @@ type Dependencies struct {
 type CheckResult struct {
 	ConfigValid      bool
 	ValidationErrors []string
-	AlignmentIssues  []state.AlignmentIssue
+	AlignmentIssues  []models.AlignmentIssue
 	NoState          bool
 	Output           string
 	HasIssues        bool

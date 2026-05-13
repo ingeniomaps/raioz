@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -34,7 +35,7 @@ func IsLocalProject(configPath string, baseDir string) (bool, string, error) {
 }
 
 // GetLocalProjectCommand gets the command to execute for a local project based on type and mode
-func GetLocalProjectCommand(deps *config.Deps, commandType string, mode string) string {
+func GetLocalProjectCommand(deps *models.Deps, commandType string, mode string) string {
 	if deps.Project.Commands == nil {
 		return ""
 	}

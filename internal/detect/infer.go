@@ -6,10 +6,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"raioz/internal/domain/models"
 )
 
 // inferFromCompose extracts useful info from a compose project directory.
-func inferFromCompose(result *DetectResult, path string) {
+func inferFromCompose(result *models.DetectResult, path string) {
 	// Also check if there's a Dockerfile alongside (for builds)
 	dockerfile := filepath.Join(path, "Dockerfile")
 	if fileExists(dockerfile) {
@@ -23,7 +25,7 @@ func inferFromCompose(result *DetectResult, path string) {
 }
 
 // inferFromDockerfile extracts useful info when only a Dockerfile is present.
-func inferFromDockerfile(result *DetectResult, path string) {
+func inferFromDockerfile(result *models.DetectResult, path string) {
 	result.StartCommand = "docker build -t service . && docker run service"
 
 	// Check if there's also a package.json or go.mod for better port inference
@@ -42,7 +44,7 @@ type packageJSON struct {
 }
 
 // inferFromPackageJSON parses package.json to find dev command and port.
-func inferFromPackageJSON(result *DetectResult, path string) {
+func inferFromPackageJSON(result *models.DetectResult, path string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		result.StartCommand = "npm start"
@@ -101,7 +103,7 @@ func hasHotReload(cmd string) bool {
 var portRegex = regexp.MustCompile(`(?:--port|PORT=|-p\s+)\s*(\d{4,5})`)
 
 // inferPortFromScript tries to extract a port from a script command.
-func inferPortFromScript(result *DetectResult, cmd string) {
+func inferPortFromScript(result *models.DetectResult, cmd string) {
 	if result.Port > 0 {
 		return
 	}
@@ -118,7 +120,7 @@ func inferPortFromScript(result *DetectResult, cmd string) {
 }
 
 // inferPortFromPackageJSON tries to find port in package.json scripts.
-func inferPortFromPackageJSON(result *DetectResult, path string) {
+func inferPortFromPackageJSON(result *models.DetectResult, path string) {
 	if result.Port > 0 {
 		return
 	}
@@ -165,7 +167,7 @@ func inferPortFromPackageJSON(result *DetectResult, path string) {
 }
 
 // inferFromMakefile checks for common targets in a Makefile.
-func inferFromMakefile(result *DetectResult, path string) {
+func inferFromMakefile(result *models.DetectResult, path string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		result.StartCommand = "make"

@@ -1,8 +1,8 @@
 package mocks
 
 import (
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -11,17 +11,17 @@ var _ interfaces.EnvManager = (*MockEnvManager)(nil)
 
 // MockEnvManager is a mock implementation of interfaces.EnvManager
 type MockEnvManager struct {
-	ResolveProjectEnvFunc       func(ws *workspace.Workspace, deps *config.Deps, projectDir string) (string, error)
+	ResolveProjectEnvFunc       func(ws *workspace.Workspace, deps *models.Deps, projectDir string) (string, error)
 	GenerateEnvFromTemplateFunc func(
-		ws *workspace.Workspace, deps *config.Deps,
-		serviceName string, servicePath string, svc config.Service,
+		ws *workspace.Workspace, deps *models.Deps,
+		serviceName string, servicePath string, svc models.Service,
 		projectEnvPath string, projectDir string,
 	) error
 	WriteGlobalEnvVariablesFunc func(
-		ws *workspace.Workspace, deps *config.Deps, projectDir string,
+		ws *workspace.Workspace, deps *models.Deps, projectDir string,
 	) error
 	ResolveEnvFilesFunc func(
-		ws *workspace.Workspace, deps *config.Deps,
+		ws *workspace.Workspace, deps *models.Deps,
 		serviceName string, envFiles []string,
 		projectEnvPath string, includeProjectLevel bool,
 		projectDir string,
@@ -29,7 +29,7 @@ type MockEnvManager struct {
 }
 
 func (m *MockEnvManager) ResolveProjectEnv(
-	ws *workspace.Workspace, deps *config.Deps, projectDir string,
+	ws *workspace.Workspace, deps *models.Deps, projectDir string,
 ) (string, error) {
 	if m.ResolveProjectEnvFunc != nil {
 		return m.ResolveProjectEnvFunc(ws, deps, projectDir)
@@ -38,8 +38,8 @@ func (m *MockEnvManager) ResolveProjectEnv(
 }
 
 func (m *MockEnvManager) GenerateEnvFromTemplate(
-	ws *workspace.Workspace, deps *config.Deps,
-	serviceName string, servicePath string, svc config.Service,
+	ws *workspace.Workspace, deps *models.Deps,
+	serviceName string, servicePath string, svc models.Service,
 	projectEnvPath string, projectDir string,
 ) error {
 	if m.GenerateEnvFromTemplateFunc != nil {
@@ -48,7 +48,7 @@ func (m *MockEnvManager) GenerateEnvFromTemplate(
 	return nil
 }
 
-func (m *MockEnvManager) WriteGlobalEnvVariables(ws *workspace.Workspace, deps *config.Deps, projectDir string) error {
+func (m *MockEnvManager) WriteGlobalEnvVariables(ws *workspace.Workspace, deps *models.Deps, projectDir string) error {
 	if m.WriteGlobalEnvVariablesFunc != nil {
 		return m.WriteGlobalEnvVariablesFunc(ws, deps, projectDir)
 	}
@@ -56,7 +56,7 @@ func (m *MockEnvManager) WriteGlobalEnvVariables(ws *workspace.Workspace, deps *
 }
 
 func (m *MockEnvManager) ResolveEnvFiles(
-	ws *workspace.Workspace, deps *config.Deps,
+	ws *workspace.Workspace, deps *models.Deps,
 	serviceName string, envFiles []string,
 	projectEnvPath string, includeProjectLevel bool,
 	projectDir string,

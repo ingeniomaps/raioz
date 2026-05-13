@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/state"
 )
@@ -17,11 +17,11 @@ func TestDevUseCase_Execute_PromoteMissingPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra: map[string]config.InfraEntry{
-					"redis": {Inline: &config.Infra{Image: "redis", Tag: "7"}},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra: map[string]models.InfraEntry{
+					"redis": {Inline: &models.Infra{Image: "redis", Tag: "7"}},
 				},
 			}, nil, nil
 		},
@@ -43,10 +43,10 @@ func TestDevUseCase_Execute_PromoteNotADependency(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra:   map[string]config.InfraEntry{},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra:   map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
@@ -67,11 +67,11 @@ func TestDevUseCase_Execute_PromoteNoLocalPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra: map[string]config.InfraEntry{
-					"redis": {Inline: &config.Infra{Image: "redis"}},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra: map[string]models.InfraEntry{
+					"redis": {Inline: &models.Infra{Image: "redis"}},
 				},
 			}, nil, nil
 		},
@@ -98,11 +98,11 @@ func TestDevUseCase_Execute_PromoteRuntimeUnknown(t *testing.T) {
 	}
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra: map[string]config.InfraEntry{
-					"redis": {Inline: &config.Infra{Image: "redis"}},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra: map[string]models.InfraEntry{
+					"redis": {Inline: &models.Infra{Image: "redis"}},
 				},
 			}, nil, nil
 		},
@@ -124,11 +124,11 @@ func TestDevUseCase_Execute_ResetNotInDevMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(p string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "proj"},
-				Infra: map[string]config.InfraEntry{
-					"redis": {Inline: &config.Infra{Image: "redis"}},
+		LoadDepsFunc: func(p string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "proj"},
+				Infra: map[string]models.InfraEntry{
+					"redis": {Inline: &models.Infra{Image: "redis"}},
 				},
 			}, nil, nil
 		},
@@ -149,9 +149,9 @@ func TestDevUseCase_Execute_ListWithState(t *testing.T) {
 	initI18nForTest(t)
 	tmpDir := t.TempDir()
 	// Seed a state file with a dev override
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		Project: "proj",
-		DevOverrides: map[string]state.DevOverride{
+		DevOverrides: map[string]models.DevOverride{
 			"pg": {OriginalImage: "postgres:16", LocalPath: "/tmp/pg"},
 		},
 	}

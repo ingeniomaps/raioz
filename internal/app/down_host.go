@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -31,7 +31,7 @@ func (uc *DownUseCase) stopHostProcesses(
 	}
 
 	// Load current config to get stopCommand if not in state
-	var currentDeps *config.Deps
+	var currentDeps *models.Deps
 	if opts.ConfigPath != "" {
 		currentDeps, _, _ = uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	}
@@ -73,7 +73,7 @@ func (uc *DownUseCase) resolveHostStopCommand(
 	ctx context.Context,
 	name string,
 	processInfo host.ProcessInfo,
-	currentDeps *config.Deps,
+	currentDeps *models.Deps,
 	ws *interfaces.Workspace,
 ) (string, string) {
 	stopCommand := processInfo.StopCommand
@@ -132,7 +132,7 @@ func (uc *DownUseCase) detectHostComposePath(
 	ctx context.Context,
 	name string,
 	processInfo host.ProcessInfo,
-	currentDeps *config.Deps,
+	currentDeps *models.Deps,
 	ws *interfaces.Workspace,
 	servicePath string,
 ) string {

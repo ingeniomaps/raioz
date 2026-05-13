@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/validate"
 )
@@ -15,30 +15,30 @@ func (uc *UseCase) createConfig(
 	projectName string,
 	networkName string,
 	services []serviceResult,
-	infra map[string]config.InfraEntry,
-) (*config.Deps, error) {
-	svcMap := make(map[string]config.Service)
+	infra map[string]models.InfraEntry,
+) (*models.Deps, error) {
+	svcMap := make(map[string]models.Service)
 	for _, svc := range services {
-		svcMap[svc.Name] = config.Service{
+		svcMap[svc.Name] = models.Service{
 			Source: svc.Source,
 			Docker: svc.Docker,
 		}
 	}
 
-	infraMap := make(map[string]config.InfraEntry)
+	infraMap := make(map[string]models.InfraEntry)
 	if infra != nil {
 		infraMap = infra
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: networkName, IsObject: false},
-		Project: config.Project{
+		Network:       models.NetworkConfig{Name: networkName, IsObject: false},
+		Project: models.Project{
 			Name: projectName,
 		},
 		Services: svcMap,
 		Infra:    infraMap,
-		Env: config.EnvConfig{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Files:     []string{"global", fmt.Sprintf("projects/%s", projectName)},
 		},
@@ -61,7 +61,7 @@ func (uc *UseCase) createConfig(
 }
 
 // writeConfigFile writes the configuration to a file
-func (uc *UseCase) writeConfigFile(outputPath string, deps *config.Deps) error {
+func (uc *UseCase) writeConfigFile(outputPath string, deps *models.Deps) error {
 	data, err := json.MarshalIndent(deps, "", "  ")
 	if err != nil {
 		return errors.New(

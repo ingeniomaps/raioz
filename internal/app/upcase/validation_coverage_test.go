@@ -4,26 +4,25 @@ import (
 	"context"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
 // --- CheckProxyRequirements --------------------------------------------------
 
 func TestCheckProxyRequirements_ProxyDisabled(t *testing.T) {
-	deps := &config.Deps{Proxy: false}
+	deps := &models.Deps{Proxy: false}
 	if err := CheckProxyRequirements(deps); err != nil {
 		t.Errorf("proxy disabled should not error: %v", err)
 	}
 }
 
 func TestCheckProxyRequirements_NonMkcertTLS(t *testing.T) {
-	deps := &config.Deps{
+	deps := &models.Deps{
 		Proxy: true,
-		ProxyConfig: &config.ProxyConfig{
+		ProxyConfig: &models.ProxyConfig{
 			TLS: "letsencrypt",
 		},
 	}
@@ -35,32 +34,32 @@ func TestCheckProxyRequirements_NonMkcertTLS(t *testing.T) {
 // --- checkWorkspaceProjectConflict additional branches -----------------------
 
 func TestCheckWorkspaceProjectConflict_PreferredProjectMatchNoMerge(t *testing.T) {
-	oldDeps := &config.Deps{
-		Project:  config.Project{Name: "old-proj"},
-		Services: map[string]config.Service{"api": {}},
-		Infra:    map[string]config.InfraEntry{},
+	oldDeps := &models.Deps{
+		Project:  models.Project{Name: "old-proj"},
+		Services: map[string]models.Service{"api": {}},
+		Infra:    map[string]models.InfraEntry{},
 	}
-	currentDeps := &config.Deps{
-		Project:  config.Project{Name: "new-proj"},
-		Services: map[string]config.Service{"api": {}}, // overlap
-		Infra:    map[string]config.InfraEntry{},
+	currentDeps := &models.Deps{
+		Project:  models.Project{Name: "new-proj"},
+		Services: map[string]models.Service{"api": {}}, // overlap
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	sm := &mocks.MockStateManager{
-		LoadFunc: func(ws *interfaces.Workspace) (*config.Deps, error) {
+		LoadFunc: func(ws *interfaces.Workspace) (*models.Deps, error) {
 			return oldDeps, nil
 		},
-		GetWorkspaceProjectPreferenceFunc: func(ws string) (*state.WorkspaceProjectPreference, error) {
-			return &state.WorkspaceProjectPreference{
+		GetWorkspaceProjectPreferenceFunc: func(ws string) (*models.WorkspaceProjectPreference, error) {
+			return &models.WorkspaceProjectPreference{
 				PreferredProject:   "new-proj",
 				AlwaysAsk:          false,
 				MergeWhenPreferred: false,
 			}, nil
 		},
-		CompareDepsFunc: func(old, new *config.Deps) ([]state.ConfigChange, error) {
+		CompareDepsFunc: func(old, new *models.Deps) ([]models.ConfigChange, error) {
 			return nil, nil
 		},
-		FormatChangesFunc: func(changes []state.ConfigChange) string {
+		FormatChangesFunc: func(changes []models.ConfigChange) string {
 			return ""
 		},
 	}
@@ -85,23 +84,23 @@ func TestCheckWorkspaceProjectConflict_PreferredProjectMatchNoMerge(t *testing.T
 }
 
 func TestCheckWorkspaceProjectConflict_PreferredProjectMatchWithMerge(t *testing.T) {
-	oldDeps := &config.Deps{
-		Project:  config.Project{Name: "old-proj"},
-		Services: map[string]config.Service{"api": {}},
-		Infra:    map[string]config.InfraEntry{},
+	oldDeps := &models.Deps{
+		Project:  models.Project{Name: "old-proj"},
+		Services: map[string]models.Service{"api": {}},
+		Infra:    map[string]models.InfraEntry{},
 	}
-	currentDeps := &config.Deps{
-		Project:  config.Project{Name: "new-proj"},
-		Services: map[string]config.Service{"api": {}},
-		Infra:    map[string]config.InfraEntry{},
+	currentDeps := &models.Deps{
+		Project:  models.Project{Name: "new-proj"},
+		Services: map[string]models.Service{"api": {}},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	sm := &mocks.MockStateManager{
-		LoadFunc: func(ws *interfaces.Workspace) (*config.Deps, error) {
+		LoadFunc: func(ws *interfaces.Workspace) (*models.Deps, error) {
 			return oldDeps, nil
 		},
-		GetWorkspaceProjectPreferenceFunc: func(ws string) (*state.WorkspaceProjectPreference, error) {
-			return &state.WorkspaceProjectPreference{
+		GetWorkspaceProjectPreferenceFunc: func(ws string) (*models.WorkspaceProjectPreference, error) {
+			return &models.WorkspaceProjectPreference{
 				PreferredProject:   "new-proj",
 				AlwaysAsk:          false,
 				MergeWhenPreferred: true,
@@ -129,19 +128,19 @@ func TestCheckWorkspaceProjectConflict_PreferredProjectMatchWithMerge(t *testing
 }
 
 func TestCheckWorkspaceProjectConflict_NoOverlapInfra(t *testing.T) {
-	oldDeps := &config.Deps{
-		Project:  config.Project{Name: "old-proj"},
-		Services: map[string]config.Service{"web": {}},
-		Infra:    map[string]config.InfraEntry{"postgres": {}},
+	oldDeps := &models.Deps{
+		Project:  models.Project{Name: "old-proj"},
+		Services: map[string]models.Service{"web": {}},
+		Infra:    map[string]models.InfraEntry{"postgres": {}},
 	}
-	currentDeps := &config.Deps{
-		Project:  config.Project{Name: "new-proj"},
-		Services: map[string]config.Service{"api": {}},      // no overlap
-		Infra:    map[string]config.InfraEntry{"redis": {}}, // no overlap
+	currentDeps := &models.Deps{
+		Project:  models.Project{Name: "new-proj"},
+		Services: map[string]models.Service{"api": {}},      // no overlap
+		Infra:    map[string]models.InfraEntry{"redis": {}}, // no overlap
 	}
 
 	sm := &mocks.MockStateManager{
-		LoadFunc: func(ws *interfaces.Workspace) (*config.Deps, error) {
+		LoadFunc: func(ws *interfaces.Workspace) (*models.Deps, error) {
 			return oldDeps, nil
 		},
 	}
@@ -166,23 +165,23 @@ func TestCheckWorkspaceProjectConflict_NoOverlapInfra(t *testing.T) {
 }
 
 func TestCheckWorkspaceProjectConflict_InfraOverlap(t *testing.T) {
-	oldDeps := &config.Deps{
-		Project:  config.Project{Name: "old-proj"},
-		Services: map[string]config.Service{"web": {}},
-		Infra:    map[string]config.InfraEntry{"postgres": {}},
+	oldDeps := &models.Deps{
+		Project:  models.Project{Name: "old-proj"},
+		Services: map[string]models.Service{"web": {}},
+		Infra:    map[string]models.InfraEntry{"postgres": {}},
 	}
-	currentDeps := &config.Deps{
-		Project:  config.Project{Name: "new-proj"},
-		Services: map[string]config.Service{"api": {}},
-		Infra:    map[string]config.InfraEntry{"postgres": {}}, // overlap
+	currentDeps := &models.Deps{
+		Project:  models.Project{Name: "new-proj"},
+		Services: map[string]models.Service{"api": {}},
+		Infra:    map[string]models.InfraEntry{"postgres": {}}, // overlap
 	}
 
 	sm := &mocks.MockStateManager{
-		LoadFunc: func(ws *interfaces.Workspace) (*config.Deps, error) {
+		LoadFunc: func(ws *interfaces.Workspace) (*models.Deps, error) {
 			return oldDeps, nil
 		},
-		GetWorkspaceProjectPreferenceFunc: func(ws string) (*state.WorkspaceProjectPreference, error) {
-			return &state.WorkspaceProjectPreference{
+		GetWorkspaceProjectPreferenceFunc: func(ws string) (*models.WorkspaceProjectPreference, error) {
+			return &models.WorkspaceProjectPreference{
 				PreferredProject: "new-proj",
 				AlwaysAsk:        false,
 			}, nil

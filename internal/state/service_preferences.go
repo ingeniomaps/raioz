@@ -7,26 +7,19 @@ import (
 	"path/filepath"
 	"time"
 
+	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
 	"raioz/internal/workspace"
 )
 
 const servicePreferencesFileName = "service-preferences.json"
 
-// ServicePreference represents a user's preference for handling service conflicts
-type ServicePreference struct {
-	ServiceName string    `json:"serviceName"`           // Name of the service (e.g., "nginx")
-	Preference  string    `json:"preference"`            // "local" | "cloned" | "ask"
-	ProjectPath string    `json:"projectPath,omitempty"` // Path to local project (if preference is "local")
-	Workspace   string    `json:"workspace,omitempty"`   // Workspace name (if preference is "cloned")
-	Reason      string    `json:"reason,omitempty"`      // Reason for the preference
-	Timestamp   time.Time `json:"timestamp"`
-}
-
-// ServicePreferences represents all service preferences
-type ServicePreferences struct {
-	Preferences map[string]ServicePreference `json:"preferences"` // Key: serviceName
-}
+// ServicePreference / ServicePreferences live in internal/domain/models;
+// aliases kept for callers (ADR-009 / issue 023).
+type (
+	ServicePreference  = models.ServicePreference
+	ServicePreferences = models.ServicePreferences
+)
 
 // GetServicePreferencesPath returns the path to the service preferences file for a workspace.
 // Preferences are stored per workspace (e.g. workspaces/roax/service-preferences.json).

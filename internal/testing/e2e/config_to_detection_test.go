@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 // TestFullFlow_YAMLToDetection verifies the complete chain:
@@ -98,12 +99,12 @@ dependencies:
 
 	// Step 3: Detect runtimes for each service
 	apiDetect := detect.Detect(deps.Services["api"].Source.Path)
-	if apiDetect.Runtime != detect.RuntimeDockerfile {
+	if apiDetect.Runtime != models.RuntimeDockerfile {
 		t.Errorf("api runtime = %s, want dockerfile (Dockerfile takes priority over go.mod)", apiDetect.Runtime)
 	}
 
 	frontDetect := detect.Detect(deps.Services["frontend"].Source.Path)
-	if frontDetect.Runtime != detect.RuntimeNPM {
+	if frontDetect.Runtime != models.RuntimeNPM {
 		t.Errorf("frontend runtime = %s, want npm", frontDetect.Runtime)
 	}
 	if !frontDetect.HasHotReload {
@@ -111,7 +112,7 @@ dependencies:
 	}
 
 	workerDetect := detect.Detect(deps.Services["worker"].Source.Path)
-	if workerDetect.Runtime != detect.RuntimeCompose {
+	if workerDetect.Runtime != models.RuntimeCompose {
 		t.Errorf("worker runtime = %s, want compose", workerDetect.Runtime)
 	}
 

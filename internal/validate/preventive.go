@@ -8,13 +8,14 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/workspace"
 )
 
 // ValidateBeforeUp performs all validations needed before running 'raioz up'
 // This includes preflight checks, configuration validation, and preventive checks
-func ValidateBeforeUp(ctx context.Context, deps *config.Deps, ws *workspace.Workspace) error {
+func ValidateBeforeUp(ctx context.Context, deps *models.Deps, ws *workspace.Workspace) error {
 	// Step 1: Preflight checks (Docker, Git, disk space, network)
 	if err := PreflightCheckWithContext(ctx); err != nil {
 		return errors.New(
@@ -132,7 +133,7 @@ func ValidateBeforeDown(ctx context.Context, ws *workspace.Workspace) error {
 }
 
 // ValidateGitRepositories validates Git repository configurations before cloning
-func ValidateGitRepositories(ctx context.Context, deps *config.Deps) error {
+func ValidateGitRepositories(ctx context.Context, deps *models.Deps) error {
 	for name, svc := range deps.Services {
 		if svc.Source.Kind == "git" {
 			// Validate repository URL format
@@ -237,7 +238,7 @@ func ValidateGitRepositories(ctx context.Context, deps *config.Deps) error {
 }
 
 // ValidateDockerImages validates Docker image configurations before pulling
-func ValidateDockerImages(ctx context.Context, deps *config.Deps) error {
+func ValidateDockerImages(ctx context.Context, deps *models.Deps) error {
 	// Validate service images
 	for name, svc := range deps.Services {
 		if svc.Source.Kind == "image" {

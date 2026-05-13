@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
@@ -169,7 +169,7 @@ func (uc *RestartUseCase) doRestart(
 func (uc *RestartUseCase) resolveRestartServices(
 	ctx context.Context,
 	opts RestartOptions,
-	stateDeps *config.Deps,
+	stateDeps *models.Deps,
 	composePath string,
 ) ([]string, error) {
 	available, err := uc.deps.DockerRunner.GetAvailableServicesWithContext(ctx, composePath)

@@ -5,8 +5,8 @@ import (
 	stderrors "errors"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -22,10 +22,10 @@ func TestPrepareDockerResourcesWithVolumes(t *testing.T) {
 			GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/base" },
 		},
 		DockerRunner: &mocks.MockDockerRunner{
-			ValidatePortsFunc: func(d *config.Deps, b string, p string) ([]interfaces.PortConflict, error) {
+			ValidatePortsFunc: func(d *models.Deps, b string, p string) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
@@ -53,15 +53,15 @@ func TestPrepareDockerResourcesWithVolumes(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "2.0",
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "net"},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres", Volumes: []string{"pgdata:/var/lib/postgresql"}}},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "net"},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres", Volumes: []string{"pgdata:/var/lib/postgresql"}}},
 		},
-		Services: map[string]config.Service{
-			"api": {Docker: &config.DockerConfig{Volumes: []string{"uploads:/uploads"}}},
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Volumes: []string{"uploads:/uploads"}}},
 		},
 	}
 
@@ -82,10 +82,10 @@ func TestPrepareDockerResourcesVolumeExtractError(t *testing.T) {
 			GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/base" },
 		},
 		DockerRunner: &mocks.MockDockerRunner{
-			ValidatePortsFunc: func(d *config.Deps, b string, p string) ([]interfaces.PortConflict, error) {
+			ValidatePortsFunc: func(d *models.Deps, b string, p string) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
@@ -95,12 +95,12 @@ func TestPrepareDockerResourcesVolumeExtractError(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "2.0",
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "net"},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "net"},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
 		},
 	}
 
@@ -118,10 +118,10 @@ func TestPrepareDockerResourcesVolumeNormalizeError(t *testing.T) {
 			GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/base" },
 		},
 		DockerRunner: &mocks.MockDockerRunner{
-			ValidatePortsFunc: func(d *config.Deps, b string, p string) ([]interfaces.PortConflict, error) {
+			ValidatePortsFunc: func(d *models.Deps, b string, p string) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
@@ -134,12 +134,12 @@ func TestPrepareDockerResourcesVolumeNormalizeError(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "2.0",
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "net"},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "net"},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
 		},
 	}
 
@@ -157,10 +157,10 @@ func TestPrepareDockerResourcesVolumeEnsureError(t *testing.T) {
 			GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/base" },
 		},
 		DockerRunner: &mocks.MockDockerRunner{
-			ValidatePortsFunc: func(d *config.Deps, b string, p string) ([]interfaces.PortConflict, error) {
+			ValidatePortsFunc: func(d *models.Deps, b string, p string) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
@@ -176,12 +176,12 @@ func TestPrepareDockerResourcesVolumeEnsureError(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "2.0",
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "net"},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "net"},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
 		},
 	}
 
@@ -202,10 +202,10 @@ func TestPrepareDockerResourcesServiceVolumeExtractError(t *testing.T) {
 			GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/base" },
 		},
 		DockerRunner: &mocks.MockDockerRunner{
-			ValidatePortsFunc: func(d *config.Deps, b string, p string) ([]interfaces.PortConflict, error) {
+			ValidatePortsFunc: func(d *models.Deps, b string, p string) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				return nil
 			},
@@ -219,12 +219,12 @@ func TestPrepareDockerResourcesServiceVolumeExtractError(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "2.0",
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "net"},
-		Services: map[string]config.Service{
-			"api": {Docker: &config.DockerConfig{Volumes: []string{"data:/data"}}},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "net"},
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Volumes: []string{"data:/data"}}},
 		},
 	}
 
@@ -245,10 +245,10 @@ func TestPrepareDockerResourcesLegacySchema(t *testing.T) {
 			GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/base" },
 		},
 		DockerRunner: &mocks.MockDockerRunner{
-			ValidatePortsFunc: func(d *config.Deps, b string, p string) ([]interfaces.PortConflict, error) {
+			ValidatePortsFunc: func(d *models.Deps, b string, p string) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				gotAsk = ask
 				return nil
@@ -257,10 +257,10 @@ func TestPrepareDockerResourcesLegacySchema(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0", // Legacy
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "net"},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "net"},
 	}
 
 	err := uc.prepareDockerResources(context.Background(), deps, &workspace.Workspace{Root: "/t"})
@@ -281,10 +281,10 @@ func TestPrepareDockerResourcesYAMLSchemaNoAsk(t *testing.T) {
 			GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/base" },
 		},
 		DockerRunner: &mocks.MockDockerRunner{
-			ValidatePortsFunc: func(d *config.Deps, b string, p string) ([]interfaces.PortConflict, error) {
+			ValidatePortsFunc: func(d *models.Deps, b string, p string) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name, subnet string, _ map[string]string, ask bool) error {
 				gotAsk = ask
 				return nil
@@ -293,10 +293,10 @@ func TestPrepareDockerResourcesYAMLSchemaNoAsk(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "2.0", // YAML
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "net"},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "net"},
 	}
 
 	err := uc.prepareDockerResources(context.Background(), deps, &workspace.Workspace{Root: "/t"})

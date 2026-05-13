@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // executeLegacy runs CI for legacy JSON config.
@@ -95,7 +95,7 @@ func (uc *CIUseCase) executeLegacy(
 
 // executeSetup performs the setup phase of CI command (legacy mode).
 func (uc *CIUseCase) executeSetup(
-	deps *config.Deps,
+	deps *models.Deps,
 	opts CIOptions,
 	result *CIResult,
 ) error {

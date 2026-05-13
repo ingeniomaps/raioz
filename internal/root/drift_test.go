@@ -5,8 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/state"
+	"raioz/internal/domain/models"
 	testhelpers "raioz/internal/testing"
 	"raioz/internal/workspace"
 )
@@ -38,18 +37,18 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 	// Create root config with assisted service
 	rootConfig := &RootConfig{
 		SchemaVersion: "1.0",
-		Project: config.Project{
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			serviceName: {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Repo:   "git@github.com:test/repo.git",
 					Branch: "main",
 					Path:   filepath.Join("services", serviceName),
 				},
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Mode:  "dev",
 					Ports: []string{"3000:3000"},
 				},
@@ -67,27 +66,27 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 	// Test case 1: No drift (service .raioz.json matches root config)
 	t.Run("no_drift", func(t *testing.T) {
 		// Create service .raioz.json matching root config
-		serviceDeps := &config.Deps{
+		serviceDeps := &models.Deps{
 			SchemaVersion: "1.0",
-			Project: config.Project{
+			Project: models.Project{
 				Name: "test-project",
 			},
-			Services: map[string]config.Service{
+			Services: map[string]models.Service{
 				serviceName: {
-					Source: config.SourceConfig{
+					Source: models.SourceConfig{
 						Kind:   "git",
 						Repo:   "git@github.com:test/repo.git",
 						Branch: "main",
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: &config.DockerConfig{
+					Docker: &models.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"3000:3000"},
 					},
 				},
 			},
-			Infra: map[string]config.InfraEntry{},
-			Env: config.EnvConfig{
+			Infra: map[string]models.InfraEntry{},
+			Env: models.EnvConfig{
 				UseGlobal: true,
 				Files:     []string{},
 			},
@@ -116,27 +115,27 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 	// Test case 2: Drift detected (branch changed)
 	t.Run("drift_branch_changed", func(t *testing.T) {
 		// Create service .raioz.json with different branch
-		serviceDeps := &config.Deps{
+		serviceDeps := &models.Deps{
 			SchemaVersion: "1.0",
-			Project: config.Project{
+			Project: models.Project{
 				Name: "test-project",
 			},
-			Services: map[string]config.Service{
+			Services: map[string]models.Service{
 				serviceName: {
-					Source: config.SourceConfig{
+					Source: models.SourceConfig{
 						Kind:   "git",
 						Repo:   "git@github.com:test/repo.git",
 						Branch: "develop", // Different branch
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: &config.DockerConfig{
+					Docker: &models.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"3000:3000"},
 					},
 				},
 			},
-			Infra: map[string]config.InfraEntry{},
-			Env: config.EnvConfig{
+			Infra: map[string]models.InfraEntry{},
+			Env: models.EnvConfig{
 				UseGlobal: true,
 				Files:     []string{},
 			},
@@ -192,27 +191,27 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 	// Test case 3: Drift detected (ports changed)
 	t.Run("drift_ports_changed", func(t *testing.T) {
 		// Create service .raioz.json with different ports
-		serviceDeps := &config.Deps{
+		serviceDeps := &models.Deps{
 			SchemaVersion: "1.0",
-			Project: config.Project{
+			Project: models.Project{
 				Name: "test-project",
 			},
-			Services: map[string]config.Service{
+			Services: map[string]models.Service{
 				serviceName: {
-					Source: config.SourceConfig{
+					Source: models.SourceConfig{
 						Kind:   "git",
 						Repo:   "git@github.com:test/repo.git",
 						Branch: "main",
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: &config.DockerConfig{
+					Docker: &models.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"8080:8080"}, // Different ports
 					},
 				},
 			},
-			Infra: map[string]config.InfraEntry{},
-			Env: config.EnvConfig{
+			Infra: map[string]models.InfraEntry{},
+			Env: models.EnvConfig{
 				UseGlobal: true,
 				Files:     []string{},
 			},
@@ -255,18 +254,18 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 	t.Run("skip_non_assisted", func(t *testing.T) {
 		rootConfigWithRootService := &RootConfig{
 			SchemaVersion: "1.0",
-			Project: config.Project{
+			Project: models.Project{
 				Name: "test-project",
 			},
-			Services: map[string]config.Service{
+			Services: map[string]models.Service{
 				serviceName: {
-					Source: config.SourceConfig{
+					Source: models.SourceConfig{
 						Kind:   "git",
 						Repo:   "git@github.com:test/repo.git",
 						Branch: "main",
 						Path:   filepath.Join("services", serviceName),
 					},
-					Docker: &config.DockerConfig{
+					Docker: &models.DockerConfig{
 						Mode:  "dev",
 						Ports: []string{"3000:3000"},
 					},
@@ -311,7 +310,7 @@ func TestFormatDrift(t *testing.T) {
 	drift := ServiceDrift{
 		ServiceName: "test-service",
 		ServicePath: "/path/to/service/.raioz.json",
-		Differences: []state.ConfigChange{
+		Differences: []models.ConfigChange{
 			{
 				Type:     "service",
 				Name:     "test-service",
@@ -353,7 +352,7 @@ func TestFormatDrifts(t *testing.T) {
 		{
 			ServiceName: "service1",
 			ServicePath: "/path/to/service1/.raioz.json",
-			Differences: []state.ConfigChange{
+			Differences: []models.ConfigChange{
 				{
 					Type:     "service",
 					Name:     "service1",
@@ -366,7 +365,7 @@ func TestFormatDrifts(t *testing.T) {
 		{
 			ServiceName: "service2",
 			ServicePath: "/path/to/service2/.raioz.json",
-			Differences: []state.ConfigChange{
+			Differences: []models.ConfigChange{
 				{
 					Type:     "service",
 					Name:     "service2",

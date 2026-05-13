@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/output"
 )
 
@@ -39,7 +40,7 @@ func AutoDetect(dir string) (*Deps, error) {
 
 		subPath := filepath.Join(absDir, entry.Name())
 		result := detect.Detect(subPath)
-		if result.Runtime == detect.RuntimeUnknown {
+		if result.Runtime == models.RuntimeUnknown {
 			continue
 		}
 
@@ -61,7 +62,7 @@ func AutoDetect(dir string) (*Deps, error) {
 	// If no subdirectory services, check root
 	if len(services) == 0 {
 		rootResult := detect.Detect(absDir)
-		if rootResult.Runtime != detect.RuntimeUnknown {
+		if rootResult.Runtime != models.RuntimeUnknown {
 			services[projectName] = Service{
 				Source: SourceConfig{
 					Kind: "local",

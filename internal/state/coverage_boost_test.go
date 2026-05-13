@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -39,110 +39,110 @@ func TestFormatSlice(t *testing.T) {
 func TestCompareServiceFields_AllPaths(t *testing.T) {
 	tests := []struct {
 		name       string
-		oldSvc     config.Service
-		newSvc     config.Service
+		oldSvc     models.Service
+		newSvc     models.Service
 		wantFields []string
 	}{
 		{
 			name:       "identical",
-			oldSvc:     config.Service{Source: config.SourceConfig{Branch: "main"}},
-			newSvc:     config.Service{Source: config.SourceConfig{Branch: "main"}},
+			oldSvc:     models.Service{Source: models.SourceConfig{Branch: "main"}},
+			newSvc:     models.Service{Source: models.SourceConfig{Branch: "main"}},
 			wantFields: nil,
 		},
 		{
 			name:       "branch change",
-			oldSvc:     config.Service{Source: config.SourceConfig{Branch: "main"}},
-			newSvc:     config.Service{Source: config.SourceConfig{Branch: "dev"}},
+			oldSvc:     models.Service{Source: models.SourceConfig{Branch: "main"}},
+			newSvc:     models.Service{Source: models.SourceConfig{Branch: "dev"}},
 			wantFields: []string{"source.branch"},
 		},
 		{
 			name:       "tag change",
-			oldSvc:     config.Service{Source: config.SourceConfig{Tag: "v1"}},
-			newSvc:     config.Service{Source: config.SourceConfig{Tag: "v2"}},
+			oldSvc:     models.Service{Source: models.SourceConfig{Tag: "v1"}},
+			newSvc:     models.Service{Source: models.SourceConfig{Tag: "v2"}},
 			wantFields: []string{"source.tag"},
 		},
 		{
 			name:       "image change",
-			oldSvc:     config.Service{Source: config.SourceConfig{Image: "a"}},
-			newSvc:     config.Service{Source: config.SourceConfig{Image: "b"}},
+			oldSvc:     models.Service{Source: models.SourceConfig{Image: "a"}},
+			newSvc:     models.Service{Source: models.SourceConfig{Image: "b"}},
 			wantFields: []string{"source.image"},
 		},
 		{
 			name:       "dependsOn change",
-			oldSvc:     config.Service{DependsOn: []string{"a"}},
-			newSvc:     config.Service{DependsOn: []string{"a", "b"}},
+			oldSvc:     models.Service{DependsOn: []string{"a"}},
+			newSvc:     models.Service{DependsOn: []string{"a", "b"}},
 			wantFields: []string{"dependsOn"},
 		},
 		{
 			name: "docker ports change",
-			oldSvc: config.Service{Docker: &config.DockerConfig{
+			oldSvc: models.Service{Docker: &models.DockerConfig{
 				Ports: []string{"8080:8080"},
 			}},
-			newSvc: config.Service{Docker: &config.DockerConfig{
+			newSvc: models.Service{Docker: &models.DockerConfig{
 				Ports: []string{"9090:9090"},
 			}},
 			wantFields: []string{"docker.ports"},
 		},
 		{
 			name: "docker dependsOn change",
-			oldSvc: config.Service{Docker: &config.DockerConfig{
+			oldSvc: models.Service{Docker: &models.DockerConfig{
 				DependsOn: []string{"db"},
 			}},
-			newSvc: config.Service{Docker: &config.DockerConfig{
+			newSvc: models.Service{Docker: &models.DockerConfig{
 				DependsOn: []string{"db", "cache"},
 			}},
 			wantFields: []string{"docker.dependsOn"},
 		},
 		{
 			name: "dockerfile change",
-			oldSvc: config.Service{Docker: &config.DockerConfig{
+			oldSvc: models.Service{Docker: &models.DockerConfig{
 				Dockerfile: "Dockerfile",
 			}},
-			newSvc: config.Service{Docker: &config.DockerConfig{
+			newSvc: models.Service{Docker: &models.DockerConfig{
 				Dockerfile: "Dockerfile.dev",
 			}},
 			wantFields: []string{"docker.dockerfile"},
 		},
 		{
 			name: "command change",
-			oldSvc: config.Service{Docker: &config.DockerConfig{
+			oldSvc: models.Service{Docker: &models.DockerConfig{
 				Command: "npm start",
 			}},
-			newSvc: config.Service{Docker: &config.DockerConfig{
+			newSvc: models.Service{Docker: &models.DockerConfig{
 				Command: "npm run dev",
 			}},
 			wantFields: []string{"docker.command"},
 		},
 		{
 			name: "docker removed (was docker, now host)",
-			oldSvc: config.Service{Docker: &config.DockerConfig{
+			oldSvc: models.Service{Docker: &models.DockerConfig{
 				Command: "x",
 			}},
-			newSvc:     config.Service{Docker: nil},
+			newSvc:     models.Service{Docker: nil},
 			wantFields: []string{"docker"},
 		},
 		{
 			name:   "docker added (was host, now docker)",
-			oldSvc: config.Service{Docker: nil},
-			newSvc: config.Service{Docker: &config.DockerConfig{
+			oldSvc: models.Service{Docker: nil},
+			newSvc: models.Service{Docker: &models.DockerConfig{
 				Command: "x",
 			}},
 			wantFields: []string{"docker"},
 		},
 		{
 			name: "multiple changes at once",
-			oldSvc: config.Service{
-				Source:    config.SourceConfig{Branch: "main", Tag: "v1"},
+			oldSvc: models.Service{
+				Source:    models.SourceConfig{Branch: "main", Tag: "v1"},
 				DependsOn: []string{"a"},
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Ports:     []string{"80:80"},
 					DependsOn: []string{"db"},
 				},
 			},
-			newSvc: config.Service{
-				Source:    config.SourceConfig{Branch: "dev", Tag: "v2"},
+			newSvc: models.Service{
+				Source:    models.SourceConfig{Branch: "dev", Tag: "v2"},
 				DependsOn: []string{"a", "b"},
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Ports:     []string{"81:81"},
 					DependsOn: []string{"db", "cache"},
 				},
@@ -174,8 +174,8 @@ func TestCompareServiceFields_AllPaths(t *testing.T) {
 func TestCompareInfra_AllPaths(t *testing.T) {
 	tests := []struct {
 		name       string
-		oldInfra   map[string]config.InfraEntry
-		newInfra   map[string]config.InfraEntry
+		oldInfra   map[string]models.InfraEntry
+		newInfra   map[string]models.InfraEntry
 		wantFields []string
 	}{
 		{
@@ -186,107 +186,107 @@ func TestCompareInfra_AllPaths(t *testing.T) {
 		},
 		{
 			name:     "infra added",
-			oldInfra: map[string]config.InfraEntry{},
-			newInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
+			oldInfra: map[string]models.InfraEntry{},
+			newInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
 			},
 			wantFields: []string{"added"},
 		},
 		{
 			name: "infra removed",
-			oldInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres"}},
+			oldInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres"}},
 			},
-			newInfra:   map[string]config.InfraEntry{},
+			newInfra:   map[string]models.InfraEntry{},
 			wantFields: []string{"removed"},
 		},
 		{
 			name: "definition change (path→inline)",
-			oldInfra: map[string]config.InfraEntry{
+			oldInfra: map[string]models.InfraEntry{
 				"pg": {Path: "./pg.yml"},
 			},
-			newInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres"}},
+			newInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres"}},
 			},
 			wantFields: []string{"definition"},
 		},
 		{
 			name: "definition change (inline→path)",
-			oldInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres"}},
+			oldInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres"}},
 			},
-			newInfra: map[string]config.InfraEntry{
+			newInfra: map[string]models.InfraEntry{
 				"pg": {Path: "./pg.yml"},
 			},
 			wantFields: []string{"definition"},
 		},
 		{
 			name: "path change",
-			oldInfra: map[string]config.InfraEntry{
+			oldInfra: map[string]models.InfraEntry{
 				"pg": {Path: "./a.yml"},
 			},
-			newInfra: map[string]config.InfraEntry{
+			newInfra: map[string]models.InfraEntry{
 				"pg": {Path: "./b.yml"},
 			},
 			wantFields: []string{"path"},
 		},
 		{
 			name: "path unchanged",
-			oldInfra: map[string]config.InfraEntry{
+			oldInfra: map[string]models.InfraEntry{
 				"pg": {Path: "./a.yml"},
 			},
-			newInfra: map[string]config.InfraEntry{
+			newInfra: map[string]models.InfraEntry{
 				"pg": {Path: "./a.yml"},
 			},
 			wantFields: nil,
 		},
 		{
 			name: "inline image change",
-			oldInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
+			oldInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres", Tag: "15"}},
 			},
-			newInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "mariadb", Tag: "15"}},
+			newInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "mariadb", Tag: "15"}},
 			},
 			wantFields: []string{"image"},
 		},
 		{
 			name: "inline tag change",
-			oldInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
+			oldInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres", Tag: "15"}},
 			},
-			newInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
+			newInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
 			},
 			wantFields: []string{"tag"},
 		},
 		{
 			name: "inline ports change",
-			oldInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres", Ports: []string{"5432"}}},
+			oldInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres", Ports: []string{"5432"}}},
 			},
-			newInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "postgres", Ports: []string{"5433"}}},
+			newInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "postgres", Ports: []string{"5433"}}},
 			},
 			wantFields: []string{"ports"},
 		},
 		{
 			name: "inline nil skips",
-			oldInfra: map[string]config.InfraEntry{
+			oldInfra: map[string]models.InfraEntry{
 				"pg": {},
 			},
-			newInfra: map[string]config.InfraEntry{
+			newInfra: map[string]models.InfraEntry{
 				"pg": {},
 			},
 			wantFields: nil,
 		},
 		{
 			name: "inline all changed",
-			oldInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "a", Tag: "1", Ports: []string{"1"}}},
+			oldInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "a", Tag: "1", Ports: []string{"1"}}},
 			},
-			newInfra: map[string]config.InfraEntry{
-				"pg": {Inline: &config.Infra{Image: "b", Tag: "2", Ports: []string{"2"}}},
+			newInfra: map[string]models.InfraEntry{
+				"pg": {Inline: &models.Infra{Image: "b", Tag: "2", Ports: []string{"2"}}},
 			},
 			wantFields: []string{"image", "tag", "ports"},
 		},
@@ -311,10 +311,10 @@ func TestCompareInfra_AllPaths(t *testing.T) {
 
 func TestCheckAlignment_NoSavedState(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	issues, err := CheckAlignment(ws, deps)
 	if err != nil {
@@ -332,7 +332,7 @@ func TestCheckAlignment_CorruptedSavedState(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".state.json"), []byte("{not json"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	deps := &config.Deps{Services: map[string]config.Service{}}
+	deps := &models.Deps{Services: map[string]models.Service{}}
 	_, err := CheckAlignment(ws, deps)
 	if err == nil {
 		t.Error("expected error on corrupted state")
@@ -341,12 +341,12 @@ func TestCheckAlignment_CorruptedSavedState(t *testing.T) {
 
 func TestCheckAlignment_DetectsPortChange(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	oldDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
+	oldDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "local"},
-				Docker: &config.DockerConfig{Ports: []string{"80:80"}},
+				Source: models.SourceConfig{Kind: "local"},
+				Docker: &models.DockerConfig{Ports: []string{"80:80"}},
 			},
 		},
 	}
@@ -354,12 +354,12 @@ func TestCheckAlignment_DetectsPortChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
+	newDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "local"},
-				Docker: &config.DockerConfig{Ports: []string{"81:80"}},
+				Source: models.SourceConfig{Kind: "local"},
+				Docker: &models.DockerConfig{Ports: []string{"81:80"}},
 			},
 		},
 	}
@@ -382,18 +382,18 @@ func TestCheckAlignment_DetectsPortChange(t *testing.T) {
 
 func TestCheckAlignment_DetectsServiceAdded(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	oldDeps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
+	oldDeps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
 	}
 	if err := Save(ws, oldDeps); err != nil {
 		t.Fatal(err)
 	}
 
-	newDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "local"}},
+	newDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "local"}},
 		},
 	}
 
@@ -415,19 +415,19 @@ func TestCheckAlignment_DetectsServiceAdded(t *testing.T) {
 
 func TestCheckAlignment_DetectsServiceRemoved(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	oldDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "local"}},
+	oldDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "local"}},
 		},
 	}
 	if err := Save(ws, oldDeps); err != nil {
 		t.Fatal(err)
 	}
 
-	newDeps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
+	newDeps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
 	}
 
 	issues, err := CheckAlignment(ws, newDeps)
@@ -451,20 +451,20 @@ func TestCheckAlignment_SkipsBranchAndTagChangesHere(t *testing.T) {
 	// source.branch, source.tag, image, tag are handled in drift detection
 	// and should be skipped in the main loop.
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	oldDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "1.0"}},
+	oldDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "1.0"}},
 		},
 	}
 	if err := Save(ws, oldDeps); err != nil {
 		t.Fatal(err)
 	}
 
-	newDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "1.1"}},
+	newDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "1.1"}},
 		},
 	}
 
@@ -487,20 +487,20 @@ func TestCheckAlignment_SkipsBranchAndTagChangesHere(t *testing.T) {
 
 func TestCheckAlignment_InfraTagChange(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	oldDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Infra: map[string]config.InfraEntry{
-			"pg": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
+	oldDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Infra: map[string]models.InfraEntry{
+			"pg": {Inline: &models.Infra{Image: "postgres", Tag: "15"}},
 		},
 	}
 	if err := Save(ws, oldDeps); err != nil {
 		t.Fatal(err)
 	}
 
-	newDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Infra: map[string]config.InfraEntry{
-			"pg": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
+	newDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Infra: map[string]models.InfraEntry{
+			"pg": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
 		},
 	}
 
@@ -522,11 +522,11 @@ func TestCheckAlignment_InfraTagChange(t *testing.T) {
 
 func TestCheckAlignment_GitServiceWithoutRepo(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	oldDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
+	oldDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git", Branch: "main", Repo: "https://example.com/a.git",
 					Path: "./api",
 				},

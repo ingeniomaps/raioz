@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -18,8 +17,8 @@ import (
 func localProjectDeps(extras *Dependencies) *Dependencies {
 	base := &Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "myproj"}}, nil, nil
+			LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "myproj"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -61,17 +60,17 @@ func TestProcessLocalProjectLocalWithUpCommand(t *testing.T) {
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			UpdateProjectStateFunc: func(name string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(name string, ps *models.ProjectState) error {
 				return nil
 			},
 		},
 	}))
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
-				Dev: &config.EnvironmentCommands{Up: "true"},
+			Commands: &models.ProjectCommands{
+				Dev: &models.EnvironmentCommands{Up: "true"},
 			},
 		},
 	}
@@ -93,11 +92,11 @@ func TestProcessLocalProjectLocalWithDownCommand(t *testing.T) {
 
 	uc := NewUseCase(localProjectDeps(nil))
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
-				Dev: &config.EnvironmentCommands{Down: "true"},
+			Commands: &models.ProjectCommands{
+				Dev: &models.EnvironmentCommands{Down: "true"},
 			},
 		},
 	}
@@ -119,8 +118,8 @@ func TestProcessLocalProjectLocalNoCommand(t *testing.T) {
 
 	uc := NewUseCase(localProjectDeps(nil))
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "myproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "myproj"},
 	}
 
 	// No commands defined → no-op
@@ -150,17 +149,17 @@ func TestProcessLocalProjectNotLocalWithUpCommand(t *testing.T) {
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			UpdateProjectStateFunc: func(name string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(name string, ps *models.ProjectState) error {
 				return nil
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
-				Dev: &config.EnvironmentCommands{Up: "true"},
+			Commands: &models.ProjectCommands{
+				Dev: &models.EnvironmentCommands{Up: "true"},
 			},
 		},
 	}
@@ -182,11 +181,11 @@ func TestProcessLocalProjectFailingCommand(t *testing.T) {
 
 	uc := NewUseCase(localProjectDeps(nil))
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
-				Dev: &config.EnvironmentCommands{Up: "false"},
+			Commands: &models.ProjectCommands{
+				Dev: &models.EnvironmentCommands{Up: "false"},
 			},
 		},
 	}
@@ -208,12 +207,12 @@ func TestProcessLocalProjectWithHealthCheckAlreadyHealthy(t *testing.T) {
 
 	uc := NewUseCase(localProjectDeps(nil))
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
+			Commands: &models.ProjectCommands{
 				Health: "true",
-				Dev:    &config.EnvironmentCommands{Up: "echo should-not-run"},
+				Dev:    &models.EnvironmentCommands{Up: "echo should-not-run"},
 			},
 		},
 	}
@@ -236,12 +235,12 @@ func TestProcessLocalProjectDownNotHealthy(t *testing.T) {
 
 	uc := NewUseCase(localProjectDeps(nil))
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
+			Commands: &models.ProjectCommands{
 				Health: "false", // Not healthy
-				Dev:    &config.EnvironmentCommands{Down: "echo should-not-run"},
+				Dev:    &models.EnvironmentCommands{Down: "echo should-not-run"},
 			},
 		},
 	}
@@ -269,21 +268,21 @@ func TestProcessLocalProjectWithProdMode(t *testing.T) {
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			UpdateProjectStateFunc: func(name string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(name string, ps *models.ProjectState) error {
 				return nil
 			},
 		},
 	}))
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
-				Prod: &config.EnvironmentCommands{Up: "true"},
+			Commands: &models.ProjectCommands{
+				Prod: &models.EnvironmentCommands{Up: "true"},
 			},
 		},
-		Services: map[string]config.Service{
-			"api": {Docker: &config.DockerConfig{Mode: "prod"}},
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Mode: "prod"}},
 		},
 	}
 
@@ -311,31 +310,31 @@ func TestProcessLocalProjectWithWorkspace(t *testing.T) {
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			UpdateProjectStateFunc: func(name string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(name string, ps *models.ProjectState) error {
 				return nil
 			},
-			SaveFunc: func(ws2 *workspace.Workspace, deps *config.Deps) error {
+			SaveFunc: func(ws2 *workspace.Workspace, deps *models.Deps) error {
 				return nil
 			},
 		},
 		EnvManager: &mocks.MockEnvManager{
-			ResolveProjectEnvFunc: func(ws2 *workspace.Workspace, deps *config.Deps, projectDir string) (string, error) {
+			ResolveProjectEnvFunc: func(ws2 *workspace.Workspace, deps *models.Deps, projectDir string) (string, error) {
 				return "", nil
 			},
 			GenerateEnvFromTemplateFunc: func(
-				ws2 *workspace.Workspace, d *config.Deps, name, path string,
-				svc config.Service, projEnv, projDir string,
+				ws2 *workspace.Workspace, d *models.Deps, name, path string,
+				svc models.Service, projEnv, projDir string,
 			) error {
 				return nil
 			},
 		},
 	}))
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "myproj",
-			Commands: &config.ProjectCommands{
-				Dev: &config.EnvironmentCommands{Up: "true"},
+			Commands: &models.ProjectCommands{
+				Dev: &models.EnvironmentCommands{Up: "true"},
 			},
 		},
 	}

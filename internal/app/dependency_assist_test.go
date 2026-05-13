@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -14,13 +14,13 @@ func TestHandleDependencyAssist_NoMissing(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		DetectMissingDependenciesFunc: func(
-			d *config.Deps,
-			pr func(string, config.Service) string,
-		) ([]config.MissingDependency, error) {
+			d *models.Deps,
+			pr func(string, models.Service) string,
+		) ([]models.MissingDependency, error) {
 			return nil, nil
 		},
 	}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 	ws := &interfaces.Workspace{}
 
 	ok, added, err := HandleDependencyAssist(deps, cfgDeps, ws, false)
@@ -40,13 +40,13 @@ func TestHandleDependencyAssist_DetectError(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		DetectMissingDependenciesFunc: func(
-			d *config.Deps,
-			pr func(string, config.Service) string,
-		) ([]config.MissingDependency, error) {
+			d *models.Deps,
+			pr func(string, models.Service) string,
+		) ([]models.MissingDependency, error) {
 			return nil, fmt.Errorf("detect failure")
 		},
 	}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 	ws := &interfaces.Workspace{}
 
 	_, _, err := HandleDependencyAssist(deps, cfgDeps, ws, false)
@@ -60,15 +60,15 @@ func TestHandleDependencyAssist_DryRun(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		DetectMissingDependenciesFunc: func(
-			d *config.Deps,
-			pr func(string, config.Service) string,
-		) ([]config.MissingDependency, error) {
-			return []config.MissingDependency{
+			d *models.Deps,
+			pr func(string, models.Service) string,
+		) ([]models.MissingDependency, error) {
+			return []models.MissingDependency{
 				{ServiceName: "db", RequiredBy: "api"},
 			}, nil
 		},
 	}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 	ws := &interfaces.Workspace{}
 
 	ok, _, err := HandleDependencyAssist(deps, cfgDeps, ws, true)
@@ -85,13 +85,13 @@ func TestHandleDependencyConflicts_None(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		DetectDependencyConflictsFunc: func(
-			d *config.Deps,
-			pr func(string, config.Service) string,
-		) ([]config.DependencyConflict, error) {
+			d *models.Deps,
+			pr func(string, models.Service) string,
+		) ([]models.DependencyConflict, error) {
 			return nil, nil
 		},
 	}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 	ws := &interfaces.Workspace{}
 
 	ok, res, err := HandleDependencyConflicts(deps, cfgDeps, ws, false)
@@ -111,13 +111,13 @@ func TestHandleDependencyConflicts_DetectError(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		DetectDependencyConflictsFunc: func(
-			d *config.Deps,
-			pr func(string, config.Service) string,
-		) ([]config.DependencyConflict, error) {
+			d *models.Deps,
+			pr func(string, models.Service) string,
+		) ([]models.DependencyConflict, error) {
 			return nil, fmt.Errorf("fail")
 		},
 	}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 	ws := &interfaces.Workspace{}
 
 	_, _, err := HandleDependencyConflicts(deps, cfgDeps, ws, false)
@@ -131,15 +131,15 @@ func TestHandleDependencyConflicts_DryRun(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		DetectDependencyConflictsFunc: func(
-			d *config.Deps,
-			pr func(string, config.Service) string,
-		) ([]config.DependencyConflict, error) {
-			return []config.DependencyConflict{
+			d *models.Deps,
+			pr func(string, models.Service) string,
+		) ([]models.DependencyConflict, error) {
+			return []models.DependencyConflict{
 				{ServiceName: "api", Differences: []string{"image differs"}},
 			}, nil
 		},
 	}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 	ws := &interfaces.Workspace{}
 
 	ok, _, err := HandleDependencyConflicts(deps, cfgDeps, ws, true)

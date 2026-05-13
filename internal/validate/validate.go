@@ -8,6 +8,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/logging"
 
@@ -16,7 +17,7 @@ import (
 
 var profileNameRegex = regexp.MustCompile(`^[a-z0-9-]+$`)
 
-func All(deps *config.Deps) error {
+func All(deps *models.Deps) error {
 	// JSON Schema validation — only for legacy .raioz.json (schemaVersion "1.0")
 	// YAML configs (schemaVersion "2.0") are validated at load time by yaml_loader.go
 	if deps.SchemaVersion != "2.0" {
@@ -73,7 +74,7 @@ func All(deps *config.Deps) error {
 	return nil
 }
 
-func validateSchema(deps *config.Deps) error {
+func validateSchema(deps *models.Deps) error {
 	// Convert deps to JSON for schema validation
 	data, err := json.Marshal(deps)
 	if err != nil {
@@ -118,7 +119,7 @@ func validateSchema(deps *config.Deps) error {
 	return nil
 }
 
-func validateProject(deps *config.Deps) error {
+func validateProject(deps *models.Deps) error {
 	if deps.Project.Name == "" {
 		return errors.New(
 			errors.ErrCodeMissingField,

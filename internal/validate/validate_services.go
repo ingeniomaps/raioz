@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/logging"
 )
 
-func validateServices(deps *config.Deps) error {
+func validateServices(deps *models.Deps) error {
 	// Allow 0 services if project.commands is defined or if there's infrastructure
 	hasProjectCommands := deps.Project.Commands != nil && (deps.Project.Commands.Up != "" ||
 		(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -40,8 +40,8 @@ func TestResolveEnvFiles(t *testing.T) {
 		t.Fatalf("Failed to create service.env: %v", err)
 	}
 
-	deps := &config.Deps{
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Files:     []string{"projects/test-project"},
 		},
@@ -196,15 +196,15 @@ func TestResolveEnvFileForService(t *testing.T) {
 		t.Fatalf("Failed to create service.env: %v", err)
 	}
 
-	deps := &config.Deps{
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Files:     []string{},
 		},
 	}
 
 	// Test with empty env: returns "" (caller e.g. compose creates file from global only)
-	envPath, err := ResolveEnvFileForService(ws, deps, "my-service", &config.EnvValue{Files: []string{}}, "", "")
+	envPath, err := ResolveEnvFileForService(ws, deps, "my-service", &models.EnvValue{Files: []string{}}, "", "")
 	if err != nil {
 		t.Fatalf("ResolveEnvFileForService() error = %v", err)
 	}
@@ -213,7 +213,7 @@ func TestResolveEnvFileForService(t *testing.T) {
 	}
 
 	// Test with service file: returns combined path (global + service)
-	envPath2, err := ResolveEnvFileForService(ws, deps, "my-service", &config.EnvValue{Files: []string{"services/my-service"}}, "", "")
+	envPath2, err := ResolveEnvFileForService(ws, deps, "my-service", &models.EnvValue{Files: []string{"services/my-service"}}, "", "")
 	if err != nil {
 		t.Fatalf("ResolveEnvFileForService() error = %v", err)
 	}

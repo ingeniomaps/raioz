@@ -5,22 +5,22 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestShowDryRunSummary(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-net"},
-		Project:       config.Project{Name: "my-project"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image", Image: "nginx"}},
-			"web": {Source: config.SourceConfig{Kind: "git", Repo: "repo", Branch: "main", Path: "services/web"}},
+		Network:       models.NetworkConfig{Name: "test-net"},
+		Project:       models.Project{Name: "my-project"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image", Image: "nginx"}},
+			"web": {Source: models.SourceConfig{Kind: "git", Repo: "repo", Branch: "main", Path: "services/web"}},
 		},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres", Tag: "15"}},
 		},
 	}
 
@@ -55,14 +55,14 @@ func TestShowDryRunSummary(t *testing.T) {
 func TestShowDryRunSummaryNoOptionals(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "net"},
-		Project:       config.Project{Name: "minimal"},
-		Services: map[string]config.Service{
-			"svc": {Source: config.SourceConfig{Kind: "image", Image: "img"}},
+		Network:       models.NetworkConfig{Name: "net"},
+		Project:       models.Project{Name: "minimal"},
+		Services: map[string]models.Service{
+			"svc": {Source: models.SourceConfig{Kind: "image", Image: "img"}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	var buf bytes.Buffer

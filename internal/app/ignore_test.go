@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/mocks"
 )
@@ -37,7 +37,7 @@ func TestIgnoreAddNew(t *testing.T) {
 
 	uc := NewIgnoreUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -59,7 +59,7 @@ func TestIgnoreAddDuplicate(t *testing.T) {
 
 	uc := NewIgnoreUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -79,9 +79,9 @@ func TestIgnoreAddDuplicate(t *testing.T) {
 func TestIgnoreAddWithDependents(t *testing.T) {
 	initI18nIgnore(t)
 
-	cfgDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
+	cfgDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
 			"db": {},
 			"api": {
 				DependsOn: []string{"db"},
@@ -91,7 +91,7 @@ func TestIgnoreAddWithDependents(t *testing.T) {
 
 	uc := NewIgnoreUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -146,7 +146,7 @@ func TestIgnoreFullCycle(t *testing.T) {
 
 	uc := NewIgnoreUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},

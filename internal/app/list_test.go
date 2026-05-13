@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 )
 
 func newTestDepsForList(t *testing.T) (*Dependencies, *mocks.MockStateManager) {
@@ -31,10 +31,10 @@ func newTestDepsForList(t *testing.T) (*Dependencies, *mocks.MockStateManager) {
 func TestListUseCase_Execute_NoState(t *testing.T) {
 	deps, stateMgr := newTestDepsForList(t)
 
-	stateMgr.LoadGlobalStateFunc = func() (*state.GlobalState, error) {
-		return &state.GlobalState{
+	stateMgr.LoadGlobalStateFunc = func() (*models.GlobalState, error) {
+		return &models.GlobalState{
 			ActiveProjects: []string{},
-			Projects:       map[string]state.ProjectState{},
+			Projects:       map[string]models.ProjectState{},
 		}, nil
 	}
 
@@ -49,15 +49,15 @@ func TestListUseCase_Execute_NoState(t *testing.T) {
 func TestListUseCase_Execute_WithProjects(t *testing.T) {
 	deps, stateMgr := newTestDepsForList(t)
 
-	stateMgr.LoadGlobalStateFunc = func() (*state.GlobalState, error) {
-		return &state.GlobalState{
+	stateMgr.LoadGlobalStateFunc = func() (*models.GlobalState, error) {
+		return &models.GlobalState{
 			ActiveProjects: []string{"project-a", "project-b"},
-			Projects: map[string]state.ProjectState{
+			Projects: map[string]models.ProjectState{
 				"project-a": {
 					Name:          "project-a",
 					Workspace:     "project-a",
 					LastExecution: time.Now().Add(-5 * time.Minute),
-					Services: []state.ServiceState{
+					Services: []models.ServiceState{
 						{Name: "api", Mode: "dev", Status: "running"},
 						{Name: "web", Mode: "dev", Status: "running"},
 					},
@@ -66,7 +66,7 @@ func TestListUseCase_Execute_WithProjects(t *testing.T) {
 					Name:          "project-b",
 					Workspace:     "project-b",
 					LastExecution: time.Now().Add(-1 * time.Hour),
-					Services: []state.ServiceState{
+					Services: []models.ServiceState{
 						{Name: "worker", Mode: "prod", Status: "stopped"},
 					},
 				},
@@ -85,14 +85,14 @@ func TestListUseCase_Execute_WithProjects(t *testing.T) {
 func TestListUseCase_Execute_JSONOutput(t *testing.T) {
 	deps, stateMgr := newTestDepsForList(t)
 
-	stateMgr.LoadGlobalStateFunc = func() (*state.GlobalState, error) {
-		return &state.GlobalState{
+	stateMgr.LoadGlobalStateFunc = func() (*models.GlobalState, error) {
+		return &models.GlobalState{
 			ActiveProjects: []string{"project-a"},
-			Projects: map[string]state.ProjectState{
+			Projects: map[string]models.ProjectState{
 				"project-a": {
 					Name:      "project-a",
 					Workspace: "project-a",
-					Services: []state.ServiceState{
+					Services: []models.ServiceState{
 						{Name: "api", Mode: "dev", Status: "running"},
 					},
 				},
@@ -112,24 +112,24 @@ func TestListUseCase_ApplyFilters(t *testing.T) {
 	deps, _ := newTestDepsForList(t)
 	uc := NewListUseCase(deps)
 
-	globalState := &state.GlobalState{
+	globalState := &models.GlobalState{
 		ActiveProjects: []string{"my-api", "my-web", "other"},
-		Projects: map[string]state.ProjectState{
+		Projects: map[string]models.ProjectState{
 			"my-api": {
 				Name: "my-api",
-				Services: []state.ServiceState{
+				Services: []models.ServiceState{
 					{Name: "api", Status: "running"},
 				},
 			},
 			"my-web": {
 				Name: "my-web",
-				Services: []state.ServiceState{
+				Services: []models.ServiceState{
 					{Name: "web", Status: "stopped"},
 				},
 			},
 			"other": {
 				Name: "other",
-				Services: []state.ServiceState{
+				Services: []models.ServiceState{
 					{Name: "worker", Status: "running"},
 				},
 			},

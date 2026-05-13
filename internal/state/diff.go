@@ -5,20 +5,14 @@ import (
 	"reflect"
 	"sort"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
-// ConfigChange represents a detected change in configuration
-type ConfigChange struct {
-	Type     string // "service", "infra", "project"
-	Name     string // Service/infra name
-	Field    string // Field that changed
-	OldValue string
-	NewValue string
-}
+// ConfigChange lives in internal/domain/models; alias kept for callers (ADR-009).
+type ConfigChange = models.ConfigChange
 
 // CompareDeps compares two Deps configurations and returns detected changes
-func CompareDeps(oldDeps *config.Deps, newDeps *config.Deps) ([]ConfigChange, error) {
+func CompareDeps(oldDeps *models.Deps, newDeps *models.Deps) ([]ConfigChange, error) {
 	var changes []ConfigChange
 
 	if oldDeps == nil {
@@ -58,7 +52,7 @@ func CompareDeps(oldDeps *config.Deps, newDeps *config.Deps) ([]ConfigChange, er
 }
 
 // compareServices compares two service maps and returns changes
-func compareServices(oldServices map[string]config.Service, newServices map[string]config.Service) []ConfigChange {
+func compareServices(oldServices map[string]models.Service, newServices map[string]models.Service) []ConfigChange {
 	var changes []ConfigChange
 
 	// Collect all service names
@@ -115,7 +109,7 @@ func compareServices(oldServices map[string]config.Service, newServices map[stri
 }
 
 // compareServiceFields compares individual fields of a service
-func compareServiceFields(name string, oldSvc config.Service, newSvc config.Service) []ConfigChange {
+func compareServiceFields(name string, oldSvc models.Service, newSvc models.Service) []ConfigChange {
 	var changes []ConfigChange
 
 	// Compare source (git branches, image tags, etc.)
@@ -226,7 +220,7 @@ func compareServiceFields(name string, oldSvc config.Service, newSvc config.Serv
 }
 
 // compareInfra compares two infra maps and returns changes
-func compareInfra(oldInfra map[string]config.InfraEntry, newInfra map[string]config.InfraEntry) []ConfigChange {
+func compareInfra(oldInfra map[string]models.InfraEntry, newInfra map[string]models.InfraEntry) []ConfigChange {
 	var changes []ConfigChange
 
 	allNames := make(map[string]bool)

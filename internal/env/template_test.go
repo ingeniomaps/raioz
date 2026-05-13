@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -195,10 +195,10 @@ func TestGenerateEnvFromTemplate_NoTemplate(t *testing.T) {
 	servicePath := filepath.Join(tmpDir, "svc")
 	os.MkdirAll(servicePath, 0o755)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
-	svc := config.Service{}
+	svc := models.Service{}
 
 	// No template file — should return nil
 	err := GenerateEnvFromTemplate(ws, deps, "api", servicePath, svc, "", tmpDir)
@@ -223,10 +223,10 @@ func TestGenerateEnvFromTemplate_WithTemplate(t *testing.T) {
 	tplPath := filepath.Join(servicePath, ".env.example")
 	os.WriteFile(tplPath, []byte("FOO=bar\nDB_URL=localhost\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
-	svc := config.Service{}
+	svc := models.Service{}
 
 	err := GenerateEnvFromTemplate(ws, deps, "api", servicePath, svc, "", tmpDir)
 	if err != nil {

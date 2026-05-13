@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"raioz/internal/domain/models"
 	"raioz/internal/state"
 )
 
@@ -72,7 +73,7 @@ func TestSaveHostPIDsCreatesNewState(t *testing.T) {
 
 func TestCleanStaleHostProcessesWithHighPID(t *testing.T) {
 	dir := t.TempDir()
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		Project:  "p",
 		HostPIDs: map[string]int{"svc": 999999999},
 	}

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 func setupWS(t *testing.T) (*interfaces.Workspace, string) {
@@ -41,8 +41,8 @@ func TestEnvManagerImpl_ResolveProjectEnv(t *testing.T) {
 	m := NewEnvManager()
 	ws, projectDir := setupWS(t)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "testproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "testproj"},
 	}
 
 	// With no env configured — should not panic
@@ -53,10 +53,10 @@ func TestEnvManagerImpl_GenerateEnvFromTemplate_NoTemplate(t *testing.T) {
 	m := NewEnvManager()
 	ws, projectDir := setupWS(t)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "testproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "testproj"},
 	}
-	svc := config.Service{}
+	svc := models.Service{}
 
 	servicePath := filepath.Join(projectDir, "api")
 	if err := os.MkdirAll(servicePath, 0o755); err != nil {
@@ -76,8 +76,8 @@ func TestEnvManagerImpl_WriteGlobalEnvVariables(t *testing.T) {
 	m := NewEnvManager()
 	ws, projectDir := setupWS(t)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "testproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "testproj"},
 	}
 
 	// May or may not produce an env file depending on config.
@@ -89,8 +89,8 @@ func TestEnvManagerImpl_ResolveEnvFiles(t *testing.T) {
 	m := NewEnvManager()
 	ws, projectDir := setupWS(t)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "testproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "testproj"},
 	}
 
 	// Create an env file

@@ -6,10 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -18,31 +17,31 @@ import (
 func newValidateUC(
 	preflightErr, allErr, permErr error,
 	detectMissingFunc func(
-		*config.Deps, func(string, config.Service) string,
-	) ([]config.MissingDependency, error),
+		*models.Deps, func(string, models.Service) string,
+	) ([]models.MissingDependency, error),
 	detectConflictsFunc func(
-		*config.Deps, func(string, config.Service) string,
-	) ([]config.DependencyConflict, error),
+		*models.Deps, func(string, models.Service) string,
+	) ([]models.DependencyConflict, error),
 ) *UseCase {
 	return NewUseCase(&Dependencies{
 		Validator: &mocks.MockValidator{
 			PreflightCheckWithContextFunc: func(ctx context.Context) error { return preflightErr },
-			AllFunc:                       func(deps *config.Deps) error { return allErr },
+			AllFunc:                       func(deps *models.Deps) error { return allErr },
 			CheckWorkspacePermissionsFunc: func(p string) error { return permErr },
 		},
 		Workspace: &mocks.MockWorkspaceManager{
-			MigrateLegacyServicesFunc: func(ws *workspace.Workspace, deps *config.Deps) error {
+			MigrateLegacyServicesFunc: func(ws *workspace.Workspace, deps *models.Deps) error {
 				return nil
 			},
 			GetServicePathFunc: func(
-				ws *workspace.Workspace, n string, svc config.Service,
+				ws *workspace.Workspace, n string, svc models.Service,
 			) string {
 				return "/" + n
 			},
 		},
 		DockerRunner: &mocks.MockDockerRunner{
 			BuildServiceVolumesMapFunc: func(
-				deps *config.Deps,
+				deps *models.Deps,
 			) (map[string]interfaces.ServiceVolumes, error) {
 				return nil, nil
 			},
@@ -66,7 +65,7 @@ func TestValidatePreflightFails(t *testing.T) {
 	initI18nUp(t)
 	uc := newValidateUC(errors.New("docker off"), nil, nil, nil, nil)
 	err := uc.validate(
-		context.Background(), &config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		context.Background(), &models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err == nil {
 		t.Error("expected preflight error to propagate")
@@ -77,7 +76,7 @@ func TestValidateAllFails(t *testing.T) {
 	initI18nUp(t)
 	uc := newValidateUC(nil, errors.New("bad config"), nil, nil, nil)
 	err := uc.validate(
-		context.Background(), &config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		context.Background(), &models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err == nil {
 		t.Error("expected validate.All error to propagate")
@@ -87,15 +86,15 @@ func TestValidateAllFails(t *testing.T) {
 func TestValidateSuccess(t *testing.T) {
 	initI18nUp(t)
 	uc := newValidateUC(nil, nil, nil,
-		func(*config.Deps, func(string, config.Service) string) ([]config.MissingDependency, error) {
+		func(*models.Deps, func(string, models.Service) string) ([]models.MissingDependency, error) {
 			return nil, nil
 		},
-		func(*config.Deps, func(string, config.Service) string) ([]config.DependencyConflict, error) {
+		func(*models.Deps, func(string, models.Service) string) ([]models.DependencyConflict, error) {
 			return nil, nil
 		},
 	)
 	err := uc.validate(
-		context.Background(), &config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		context.Background(), &models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err != nil {
 		t.Errorf("expected success, got %v", err)
@@ -105,15 +104,15 @@ func TestValidateSuccess(t *testing.T) {
 func TestValidateWorkspacePermissionFails(t *testing.T) {
 	initI18nUp(t)
 	uc := newValidateUC(nil, nil, errors.New("no perm"),
-		func(*config.Deps, func(string, config.Service) string) ([]config.MissingDependency, error) {
+		func(*models.Deps, func(string, models.Service) string) ([]models.MissingDependency, error) {
 			return nil, nil
 		},
-		func(*config.Deps, func(string, config.Service) string) ([]config.DependencyConflict, error) {
+		func(*models.Deps, func(string, models.Service) string) ([]models.DependencyConflict, error) {
 			return nil, nil
 		},
 	)
 	err := uc.validate(
-		context.Background(), &config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		context.Background(), &models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err == nil {
 		t.Error("expected permissions error to propagate")
@@ -127,21 +126,21 @@ func TestHandleDependencyConflictsNone(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
 			GetServicePathFunc: func(
-				ws *workspace.Workspace, n string, svc config.Service,
+				ws *workspace.Workspace, n string, svc models.Service,
 			) string {
 				return "/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
 			DetectDependencyConflictsFunc: func(
-				*config.Deps, func(string, config.Service) string,
-			) ([]config.DependencyConflict, error) {
+				*models.Deps, func(string, models.Service) string,
+			) ([]models.DependencyConflict, error) {
 				return nil, nil
 			},
 		},
 	})
 	shouldContinue, _, err := uc.handleDependencyConflicts(
-		&config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -156,21 +155,21 @@ func TestHandleDependencyConflictsDetectError(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
 			GetServicePathFunc: func(
-				ws *workspace.Workspace, n string, svc config.Service,
+				ws *workspace.Workspace, n string, svc models.Service,
 			) string {
 				return "/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
 			DetectDependencyConflictsFunc: func(
-				*config.Deps, func(string, config.Service) string,
-			) ([]config.DependencyConflict, error) {
+				*models.Deps, func(string, models.Service) string,
+			) ([]models.DependencyConflict, error) {
 				return nil, errors.New("boom")
 			},
 		},
 	})
 	_, _, err := uc.handleDependencyConflicts(
-		&config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err == nil {
 		t.Error("expected error")
@@ -182,23 +181,23 @@ func TestHandleDependencyConflictsDryRun(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
 			GetServicePathFunc: func(
-				ws *workspace.Workspace, n string, svc config.Service,
+				ws *workspace.Workspace, n string, svc models.Service,
 			) string {
 				return "/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
 			DetectDependencyConflictsFunc: func(
-				*config.Deps, func(string, config.Service) string,
-			) ([]config.DependencyConflict, error) {
-				return []config.DependencyConflict{
+				*models.Deps, func(string, models.Service) string,
+			) ([]models.DependencyConflict, error) {
+				return []models.DependencyConflict{
 					{ServiceName: "svc", Differences: []string{"branch differs"}},
 				}, nil
 			},
 		},
 	})
 	shouldContinue, _, err := uc.handleDependencyConflicts(
-		&config.Deps{}, &workspace.Workspace{Root: "/tmp"}, true,
+		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, true,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -215,21 +214,21 @@ func TestHandleDependencyAssistNone(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
 			GetServicePathFunc: func(
-				ws *workspace.Workspace, n string, svc config.Service,
+				ws *workspace.Workspace, n string, svc models.Service,
 			) string {
 				return "/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
 			DetectMissingDependenciesFunc: func(
-				*config.Deps, func(string, config.Service) string,
-			) ([]config.MissingDependency, error) {
+				*models.Deps, func(string, models.Service) string,
+			) ([]models.MissingDependency, error) {
 				return nil, nil
 			},
 		},
 	})
 	ok, added, err := uc.handleDependencyAssist(
-		&config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -247,23 +246,23 @@ func TestHandleDependencyAssistDryRun(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
 			GetServicePathFunc: func(
-				ws *workspace.Workspace, n string, svc config.Service,
+				ws *workspace.Workspace, n string, svc models.Service,
 			) string {
 				return "/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
 			DetectMissingDependenciesFunc: func(
-				*config.Deps, func(string, config.Service) string,
-			) ([]config.MissingDependency, error) {
-				return []config.MissingDependency{
+				*models.Deps, func(string, models.Service) string,
+			) ([]models.MissingDependency, error) {
+				return []models.MissingDependency{
 					{ServiceName: "cache", RequiredBy: "api"},
 				}, nil
 			},
 		},
 	})
 	ok, _, err := uc.handleDependencyAssist(
-		&config.Deps{}, &workspace.Workspace{Root: "/tmp"}, true,
+		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, true,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -278,21 +277,21 @@ func TestHandleDependencyAssistDetectError(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
 			GetServicePathFunc: func(
-				ws *workspace.Workspace, n string, svc config.Service,
+				ws *workspace.Workspace, n string, svc models.Service,
 			) string {
 				return "/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
 			DetectMissingDependenciesFunc: func(
-				*config.Deps, func(string, config.Service) string,
-			) ([]config.MissingDependency, error) {
+				*models.Deps, func(string, models.Service) string,
+			) ([]models.MissingDependency, error) {
 				return nil, errors.New("boom")
 			},
 		},
 	})
 	_, _, err := uc.handleDependencyAssist(
-		&config.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
+		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err == nil {
 		t.Error("expected error")
@@ -311,11 +310,11 @@ func TestPrepareDockerResourcesSuccess(t *testing.T) {
 		},
 		DockerRunner: &mocks.MockDockerRunner{
 			ValidatePortsFunc: func(
-				d *config.Deps, b string, p string,
+				d *models.Deps, b string, p string,
 			) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(
 				ctx context.Context, name, subnet string, _ map[string]string, ask bool,
 			) error {
@@ -332,10 +331,10 @@ func TestPrepareDockerResourcesSuccess(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "2.0",
-		Project:       config.Project{Name: "p"},
-		Network:       config.NetworkConfig{Name: "test-net"},
+		Project:       models.Project{Name: "p"},
+		Network:       models.NetworkConfig{Name: "test-net"},
 	}
 	err := uc.prepareDockerResources(
 		context.Background(), deps, &workspace.Workspace{Root: "/tmp"},
@@ -353,7 +352,7 @@ func TestPrepareDockerResourcesPortConflicts(t *testing.T) {
 		},
 		DockerRunner: &mocks.MockDockerRunner{
 			ValidatePortsFunc: func(
-				d *config.Deps, b string, p string,
+				d *models.Deps, b string, p string,
 			) ([]interfaces.PortConflict, error) {
 				return []interfaces.PortConflict{{Port: "3000", Service: "api"}}, nil
 			},
@@ -362,7 +361,7 @@ func TestPrepareDockerResourcesPortConflicts(t *testing.T) {
 	})
 	err := uc.prepareDockerResources(
 		context.Background(),
-		&config.Deps{Project: config.Project{Name: "p"}},
+		&models.Deps{Project: models.Project{Name: "p"}},
 		&workspace.Workspace{Root: "/t"},
 	)
 	if err == nil {
@@ -378,7 +377,7 @@ func TestPrepareDockerResourcesValidatePortsError(t *testing.T) {
 		},
 		DockerRunner: &mocks.MockDockerRunner{
 			ValidatePortsFunc: func(
-				d *config.Deps, b string, p string,
+				d *models.Deps, b string, p string,
 			) ([]interfaces.PortConflict, error) {
 				return nil, errors.New("validation error")
 			},
@@ -386,7 +385,7 @@ func TestPrepareDockerResourcesValidatePortsError(t *testing.T) {
 	})
 	err := uc.prepareDockerResources(
 		context.Background(),
-		&config.Deps{Project: config.Project{Name: "p"}},
+		&models.Deps{Project: models.Project{Name: "p"}},
 		&workspace.Workspace{Root: "/t"},
 	)
 	if err == nil {
@@ -402,16 +401,16 @@ func TestPrepareDockerResourcesImagePullFails(t *testing.T) {
 		},
 		DockerRunner: &mocks.MockDockerRunner{
 			ValidatePortsFunc: func(
-				d *config.Deps, b string, p string,
+				d *models.Deps, b string, p string,
 			) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return errors.New("pull failed") },
+			ValidateAllImagesFunc: func(*models.Deps) error { return errors.New("pull failed") },
 		},
 	})
 	err := uc.prepareDockerResources(
 		context.Background(),
-		&config.Deps{Project: config.Project{Name: "p"}},
+		&models.Deps{Project: models.Project{Name: "p"}},
 		&workspace.Workspace{Root: "/t"},
 	)
 	if err == nil {
@@ -427,11 +426,11 @@ func TestPrepareDockerResourcesNetworkFails(t *testing.T) {
 		},
 		DockerRunner: &mocks.MockDockerRunner{
 			ValidatePortsFunc: func(
-				d *config.Deps, b string, p string,
+				d *models.Deps, b string, p string,
 			) ([]interfaces.PortConflict, error) {
 				return nil, nil
 			},
-			ValidateAllImagesFunc: func(*config.Deps) error { return nil },
+			ValidateAllImagesFunc: func(*models.Deps) error { return nil },
 			EnsureNetworkWithConfigAndContextFunc: func(
 				ctx context.Context, name, subnet string, _ map[string]string, ask bool,
 			) error {
@@ -441,7 +440,7 @@ func TestPrepareDockerResourcesNetworkFails(t *testing.T) {
 	})
 	err := uc.prepareDockerResources(
 		context.Background(),
-		&config.Deps{Project: config.Project{Name: "p"}},
+		&models.Deps{Project: models.Project{Name: "p"}},
 		&workspace.Workspace{Root: "/t"},
 	)
 	if err == nil {
@@ -456,7 +455,7 @@ func TestProcessComposeEmpty(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	composePath, svcs, infra, err := uc.processCompose(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"}, "/proj",
 	)
@@ -473,16 +472,16 @@ func TestProcessComposeGenerateError(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{
 			GenerateComposeFunc: func(
-				deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+				deps *models.Deps, ws *interfaces.Workspace, projectDir string,
 			) (string, []string, error) {
 				return "", nil, errors.New("generate err")
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image", Image: "nginx"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image", Image: "nginx"}},
 		},
 	}
 	_, _, _, err := uc.processCompose(
@@ -500,7 +499,7 @@ func TestProcessComposeSkipsDisabled(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{
 			GenerateComposeFunc: func(
-				deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+				deps *models.Deps, ws *interfaces.Workspace, projectDir string,
 			) (string, []string, error) {
 				genCalled = true
 				return "/path/compose.yml", nil, nil
@@ -518,11 +517,11 @@ func TestProcessComposeSkipsDisabled(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"enabled":  {Source: config.SourceConfig{Kind: "image"}},
-			"disabled": {Source: config.SourceConfig{Kind: "image"}, Enabled: &disabled},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"enabled":  {Source: models.SourceConfig{Kind: "image"}},
+			"disabled": {Source: models.SourceConfig{Kind: "image"}, Enabled: &disabled},
 		},
 	}
 	_, svcs, _, err := uc.processCompose(
@@ -545,7 +544,7 @@ func TestProcessComposeInfraStartError(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{
 			GenerateComposeFunc: func(
-				deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+				deps *models.Deps, ws *interfaces.Workspace, projectDir string,
 			) (string, []string, error) {
 				return "/path/compose.yml", nil, nil
 			},
@@ -556,10 +555,10 @@ func TestProcessComposeInfraStartError(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres"}},
 		},
 	}
 	_, _, _, err := uc.processCompose(
@@ -576,12 +575,12 @@ func TestCheckDependencyProjectsNoState(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadGlobalStateFunc: func() (*state.GlobalState, error) {
+			LoadGlobalStateFunc: func() (*models.GlobalState, error) {
 				return nil, errors.New("no state")
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	// Should not error when global state can't be loaded
 	err := uc.checkDependencyProjects(context.Background(), deps)
 	if err != nil {
@@ -593,18 +592,18 @@ func TestCheckDependencyProjectsNoMatch(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-				return &state.GlobalState{
-					Projects: map[string]state.ProjectState{
+			LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+				return &models.GlobalState{
+					Projects: map[string]models.ProjectState{
 						"other": {Name: "other"},
 					},
 				}, nil
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"api": {DependsOn: []string{"db"}},
 		},
 	}
@@ -628,34 +627,34 @@ func TestMergeDeps(t *testing.T) {
 		},
 	})
 
-	oldDeps := &config.Deps{
-		Project:     config.Project{Name: "old"},
+	oldDeps := &models.Deps{
+		Project:     models.Project{Name: "old"},
 		ProjectRoot: "/old",
-		Env: config.EnvConfig{
+		Env: models.EnvConfig{
 			Files:     []string{"old.env"},
 			Variables: map[string]string{"K1": "old"},
 		},
-		Services: map[string]config.Service{
-			"shared": {Source: config.SourceConfig{Kind: "git"}},
-			"oldsvc": {Source: config.SourceConfig{Kind: "git"}},
+		Services: map[string]models.Service{
+			"shared": {Source: models.SourceConfig{Kind: "git"}},
+			"oldsvc": {Source: models.SourceConfig{Kind: "git"}},
 		},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres"}},
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres"}},
 		},
 	}
 
-	newDeps := &config.Deps{
-		Project: config.Project{Name: "new"},
-		Env: config.EnvConfig{
+	newDeps := &models.Deps{
+		Project: models.Project{Name: "new"},
+		Env: models.EnvConfig{
 			Files:     []string{"new.env"},
 			Variables: map[string]string{"K1": "new", "K2": "val"},
 		},
-		Services: map[string]config.Service{
-			"shared": {Source: config.SourceConfig{Kind: "image"}},
-			"newsvc": {Source: config.SourceConfig{Kind: "git"}},
+		Services: map[string]models.Service{
+			"shared": {Source: models.SourceConfig{Kind: "image"}},
+			"newsvc": {Source: models.SourceConfig{Kind: "git"}},
 		},
-		Infra: map[string]config.InfraEntry{
-			"redis": {Inline: &config.Infra{Image: "redis"}},
+		Infra: map[string]models.InfraEntry{
+			"redis": {Inline: &models.Infra{Image: "redis"}},
 		},
 	}
 
@@ -707,15 +706,15 @@ func TestMergeDepsNoOldProjectRoot(t *testing.T) {
 			},
 		},
 	})
-	oldDeps := &config.Deps{
-		Project:  config.Project{Name: "p"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	oldDeps := &models.Deps{
+		Project:  models.Project{Name: "p"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
-	newDeps := &config.Deps{
-		Project:  config.Project{Name: "p"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	newDeps := &models.Deps{
+		Project:  models.Project{Name: "p"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	merged := uc.mergeDeps(oldDeps, newDeps, "/current")
 	if merged.ProjectRoot != "/current" {
@@ -729,12 +728,12 @@ func TestCheckWorkspaceProjectConflictNoState(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
 				return nil, errors.New("load err")
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	result, merged, err := uc.checkWorkspaceProjectConflict(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"}, "/proj",
 	)
@@ -753,12 +752,12 @@ func TestCheckWorkspaceProjectConflictNilOldDeps(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
 				return nil, nil
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	result, _, err := uc.checkWorkspaceProjectConflict(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"}, "/proj",
 	)
@@ -774,11 +773,11 @@ func TestCheckWorkspaceProjectConflictSameProject(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{
-					Project:  config.Project{Name: "p"},
-					Services: map[string]config.Service{},
-					Infra:    map[string]config.InfraEntry{},
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+				return &models.Deps{
+					Project:  models.Project{Name: "p"},
+					Services: map[string]models.Service{},
+					Infra:    map[string]models.InfraEntry{},
 				}, nil
 			},
 		},
@@ -790,10 +789,10 @@ func TestCheckWorkspaceProjectConflictSameProject(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project:  config.Project{Name: "p"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "p"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	result, merged, err := uc.checkWorkspaceProjectConflict(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"}, "/proj",
@@ -813,23 +812,23 @@ func TestCheckWorkspaceProjectConflictDifferentNoOverlap(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "other"},
-					Services: map[string]config.Service{
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "other"},
+					Services: map[string]models.Service{
 						"oldonly": {},
 					},
-					Infra: map[string]config.InfraEntry{},
+					Infra: map[string]models.InfraEntry{},
 				}, nil
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "mine"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "mine"},
+		Services: map[string]models.Service{
 			"newonly": {},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 	result, _, err := uc.checkWorkspaceProjectConflict(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"}, "/proj",
@@ -848,7 +847,7 @@ func TestShowSummary(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
 	// showSummary just prints; ensure it doesn't panic.
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	uc.showSummary(
 		context.Background(), deps,
 		[]string{"a"}, []string{"b"},

@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
-func testDeps() *config.Deps {
-	return &config.Deps{
-		Project: config.Project{Name: "test-app"},
-		Services: map[string]config.Service{
+func testDeps() *models.Deps {
+	return &models.Deps{
+		Project: models.Project{Name: "test-app"},
+		Services: map[string]models.Service{
 			"api": {
 				DependsOn: []string{"postgres", "redis"},
 			},
@@ -23,9 +23,9 @@ func testDeps() *config.Deps {
 				DependsOn: []string{"postgres"},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres"}},
-			"redis":    {Inline: &config.Infra{Image: "redis"}},
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres"}},
+			"redis":    {Inline: &models.Infra{Image: "redis"}},
 		},
 	}
 }

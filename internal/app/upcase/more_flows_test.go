@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/state"
@@ -102,7 +102,7 @@ func TestProcessLocalProjectNotLocalNoCommands(t *testing.T) {
 	configPath := filepath.Join(wsDir, ".raioz.json")
 
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	err := uc.processLocalProject(context.Background(), configPath, deps, "up", nil)
 	if err != nil {
 		t.Errorf("should no-op, got %v", err)
@@ -116,11 +116,11 @@ func TestProcessHostServicesNone(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		HostRunner: &mocks.MockHostRunner{},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			// All services have docker → skipped
-			"api": {Docker: &config.DockerConfig{}},
+			"api": {Docker: &models.DockerConfig{}},
 		},
 	}
 	got, err := uc.processHostServices(
@@ -140,24 +140,24 @@ func TestProcessHostServicesStart(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
 				return nil, "", stderrors.New("nope")
 			},
 		},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				startCalled++
 				return &host.ProcessInfo{PID: 1234, Command: svc.Source.Command}, nil
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"hostsvc": {Source: config.SourceConfig{Command: "echo hi"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"hostsvc": {Source: models.SourceConfig{Command: "echo hi"}},
 		},
 	}
 	got, err := uc.processHostServices(
@@ -183,20 +183,20 @@ func TestProcessHostServicesSkipDisabled(t *testing.T) {
 		ConfigLoader: &mocks.MockConfigLoader{},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				startCalled++
 				return &host.ProcessInfo{PID: 1}, nil
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"svc": {
 				Enabled: &disabled,
-				Source:  config.SourceConfig{Command: "echo"},
+				Source:  models.SourceConfig{Command: "echo"},
 			},
 		},
 	}
@@ -314,7 +314,7 @@ func TestCleanStaleHostProcessesNoState(t *testing.T) {
 func TestCleanStaleHostProcessesEmpty(t *testing.T) {
 	dir := t.TempDir()
 	// Create state with empty HostPIDs
-	ls := &state.LocalState{Project: "p", HostPIDs: map[string]int{}}
+	ls := &models.LocalState{Project: "p", HostPIDs: map[string]int{}}
 	if err := state.SaveLocalState(dir, ls); err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ func TestCleanStaleHostProcessesEmpty(t *testing.T) {
 
 func TestCleanStaleHostProcessesDeadPID(t *testing.T) {
 	dir := t.TempDir()
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		Project:  "p",
 		HostPIDs: map[string]int{"svc": 999999999},
 	}
@@ -340,7 +340,7 @@ func TestCleanStaleHostProcessesDeadPID(t *testing.T) {
 // not stomp on running services it isn't touching.
 func TestCleanStaleHostProcessesPreservesOutOfScopePIDs(t *testing.T) {
 	dir := t.TempDir()
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		Project: "p",
 		HostPIDs: map[string]int{
 			"api": 999999991, // dead PID
@@ -411,7 +411,7 @@ func containsString(s, substr string) bool {
 func TestPreHookExecEmpty(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
-	err := uc.preHookExec(context.Background(), &config.Deps{}, t.TempDir())
+	err := uc.preHookExec(context.Background(), &models.Deps{}, t.TempDir())
 	if err != nil {
 		t.Errorf("empty pre-hook should be no-op, got %v", err)
 	}
@@ -420,7 +420,7 @@ func TestPreHookExecEmpty(t *testing.T) {
 func TestPreHookExecSuccess(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{PreHook: "true"}
+	deps := &models.Deps{PreHook: "true"}
 	err := uc.preHookExec(context.Background(), deps, t.TempDir())
 	if err != nil {
 		t.Errorf("true should succeed, got %v", err)
@@ -430,7 +430,7 @@ func TestPreHookExecSuccess(t *testing.T) {
 func TestPreHookExecFails(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{PreHook: "false"}
+	deps := &models.Deps{PreHook: "false"}
 	err := uc.preHookExec(context.Background(), deps, t.TempDir())
 	if err == nil {
 		t.Error("false should fail")
@@ -440,7 +440,7 @@ func TestPreHookExecFails(t *testing.T) {
 func TestPreHookExecChain(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{PreHook: "true && true"}
+	deps := &models.Deps{PreHook: "true && true"}
 	err := uc.preHookExec(context.Background(), deps, t.TempDir())
 	if err != nil {
 		t.Errorf("chain should succeed, got %v", err)
@@ -451,21 +451,21 @@ func TestPostHookExecEmpty(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
 	// Should not panic with empty
-	uc.postHookExec(context.Background(), &config.Deps{}, t.TempDir())
+	uc.postHookExec(context.Background(), &models.Deps{}, t.TempDir())
 }
 
 func TestPostHookExecSuccess(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
 	// Post-hook errors are swallowed
-	uc.postHookExec(context.Background(), &config.Deps{PostHook: "true"}, t.TempDir())
+	uc.postHookExec(context.Background(), &models.Deps{PostHook: "true"}, t.TempDir())
 }
 
 func TestPostHookExecFailureSwallowed(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
 	// Post-hook errors are swallowed — no error should be returned
-	uc.postHookExec(context.Background(), &config.Deps{PostHook: "false"}, t.TempDir())
+	uc.postHookExec(context.Background(), &models.Deps{PostHook: "false"}, t.TempDir())
 }
 
 // --- checkInfraHealth ---------------------------------------------------------
@@ -487,7 +487,7 @@ func TestUpdateGlobalStateSuccess(t *testing.T) {
 		DockerRunner: &mocks.MockDockerRunner{
 			GetServicesInfoWithContextFunc: func(
 				ctx context.Context, cp string, svcs []string, proj string,
-				services map[string]config.Service, ws *interfaces.Workspace,
+				services map[string]models.Service, ws *interfaces.Workspace,
 			) (map[string]*interfaces.ServiceInfo, error) {
 				return map[string]*interfaces.ServiceInfo{
 					"api": {Status: "running"},
@@ -496,19 +496,19 @@ func TestUpdateGlobalStateSuccess(t *testing.T) {
 		},
 		StateManager: &mocks.MockStateManager{
 			BuildServiceStatesFunc: func(
-				d *config.Deps, sis map[string]*state.ServiceInfo,
-			) []state.ServiceState {
-				return []state.ServiceState{{Name: "api"}}
+				d *models.Deps, sis map[string]*models.ServiceInfo,
+			) []models.ServiceState {
+				return []models.ServiceState{{Name: "api"}}
 			},
-			UpdateProjectStateFunc: func(n string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(n string, ps *models.ProjectState) error {
 				called = true
 				return nil
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project:  config.Project{Name: "p"},
-		Services: map[string]config.Service{"api": {}},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "p"},
+		Services: map[string]models.Service{"api": {}},
 	}
 	err := uc.updateGlobalState(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"},
@@ -529,24 +529,24 @@ func TestUpdateGlobalStateDockerErrorToleratedButUpdates(t *testing.T) {
 		DockerRunner: &mocks.MockDockerRunner{
 			GetServicesInfoWithContextFunc: func(
 				ctx context.Context, cp string, svcs []string, proj string,
-				services map[string]config.Service, ws *interfaces.Workspace,
+				services map[string]models.Service, ws *interfaces.Workspace,
 			) (map[string]*interfaces.ServiceInfo, error) {
 				return nil, stderrors.New("docker err")
 			},
 		},
 		StateManager: &mocks.MockStateManager{
 			BuildServiceStatesFunc: func(
-				d *config.Deps, sis map[string]*state.ServiceInfo,
-			) []state.ServiceState {
+				d *models.Deps, sis map[string]*models.ServiceInfo,
+			) []models.ServiceState {
 				return nil
 			},
-			UpdateProjectStateFunc: func(n string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(n string, ps *models.ProjectState) error {
 				called = true
 				return nil
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	err := uc.updateGlobalState(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"},
 		"/path/compose.yml", nil,
@@ -564,12 +564,12 @@ func TestUpdateGlobalStateError(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{},
 		StateManager: &mocks.MockStateManager{
-			UpdateProjectStateFunc: func(n string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(n string, ps *models.ProjectState) error {
 				return stderrors.New("update failed")
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	err := uc.updateGlobalState(
 		context.Background(), deps, &workspace.Workspace{Root: "/t"}, "", nil,
 	)
@@ -587,15 +587,15 @@ func TestSaveStateWritesRoot(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			SaveFunc: func(ws *workspace.Workspace, d *config.Deps) error {
+			SaveFunc: func(ws *workspace.Workspace, d *models.Deps) error {
 				return nil
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project:  config.Project{Name: "p"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "p"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	err := uc.saveState(
 		context.Background(), deps, ws, "",
@@ -613,12 +613,12 @@ func TestSaveStateManagerError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			SaveFunc: func(ws *workspace.Workspace, d *config.Deps) error {
+			SaveFunc: func(ws *workspace.Workspace, d *models.Deps) error {
 				return stderrors.New("save failed")
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	err := uc.saveState(
 		context.Background(), deps, ws, "", nil, nil, nil, nil,
 	)
@@ -633,13 +633,13 @@ func TestCheckDependencyProjectsMatchButHasServices(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-				return &state.GlobalState{
-					Projects: map[string]state.ProjectState{
+			LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+				return &models.GlobalState{
+					Projects: map[string]models.ProjectState{
 						// Has services -> NOT command-based, should be skipped
 						"db": {
 							Name: "db",
-							Services: []state.ServiceState{
+							Services: []models.ServiceState{
 								{Name: "svc", Status: "running"},
 							},
 						},
@@ -648,9 +648,9 @@ func TestCheckDependencyProjectsMatchButHasServices(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"api": {DependsOn: []string{"db"}},
 		},
 	}

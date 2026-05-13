@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // MigrateComposeToDeps converts a production Docker Compose configuration to .raioz.json format
@@ -12,7 +12,7 @@ func MigrateComposeToDeps(
 	prod *ProductionConfig,
 	projectName string,
 	networkName string,
-) (*config.Deps, error) {
+) (*models.Deps, error) {
 	if projectName == "" {
 		return nil, fmt.Errorf("project name is required")
 	}
@@ -20,15 +20,15 @@ func MigrateComposeToDeps(
 		networkName = fmt.Sprintf("%s-network", projectName)
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: networkName, IsObject: false},
-		Project: config.Project{
+		Network:       models.NetworkConfig{Name: networkName, IsObject: false},
+		Project: models.Project{
 			Name: projectName,
 		},
-		Services: make(map[string]config.Service),
-		Infra:    make(map[string]config.InfraEntry),
-		Env: config.EnvConfig{
+		Services: make(map[string]models.Service),
+		Infra:    make(map[string]models.InfraEntry),
+		Env: models.EnvConfig{
 			UseGlobal: false,
 			Files:     []string{},
 		},
@@ -38,7 +38,7 @@ func MigrateComposeToDeps(
 	for name, prodSvc := range prod.Services {
 		if isInfraService(name) {
 			// Add to infra
-			infra := config.Infra{
+			infra := models.Infra{
 				Image:   "",
 				Tag:     "latest",
 				Ports:   []string{},
@@ -59,14 +59,14 @@ func MigrateComposeToDeps(
 			}
 
 			infraCopy := infra
-			deps.Infra[name] = config.InfraEntry{Inline: &infraCopy}
+			deps.Infra[name] = models.InfraEntry{Inline: &infraCopy}
 		} else {
 			// Add to services
-			svc := config.Service{
-				Source: config.SourceConfig{
+			svc := models.Service{
+				Source: models.SourceConfig{
 					Kind: "image",
 				},
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Mode:      "prod",
 					Ports:     []string{},
 					Volumes:   []string{},
@@ -101,7 +101,7 @@ func MigrateComposeToDeps(
 }
 
 // ValidateMigratedDeps validates that a migrated .raioz.json is compatible with the schema
-func ValidateMigratedDeps(deps *config.Deps) []string {
+func ValidateMigratedDeps(deps *models.Deps) []string {
 	var warnings []string
 
 	// Check for required fields
@@ -169,7 +169,7 @@ func ValidateMigratedDeps(deps *config.Deps) []string {
 }
 
 // SuggestGitSource suggests a git source configuration for a service based on common patterns
-func SuggestGitSource(serviceName, imageName string) *config.SourceConfig {
+func SuggestGitSource(serviceName, imageName string) *models.SourceConfig {
 	// Common patterns for suggesting git repos
 	// This is a best-effort suggestion
 	if strings.Contains(imageName, "gcr.io") || strings.Contains(imageName, "docker.io") {
@@ -180,7 +180,7 @@ func SuggestGitSource(serviceName, imageName string) *config.SourceConfig {
 			// Remove tag if present
 			orgRepo = strings.Split(orgRepo, ":")[0]
 
-			return &config.SourceConfig{
+			return &models.SourceConfig{
 				Kind:   "git",
 				Repo:   fmt.Sprintf("git@github.com:org/%s.git", orgRepo),
 				Branch: "main",
@@ -193,7 +193,7 @@ func SuggestGitSource(serviceName, imageName string) *config.SourceConfig {
 }
 
 // EnhanceMigratedDeps enhances a migrated .raioz.json with suggestions for git sources
-func EnhanceMigratedDeps(deps *config.Deps) {
+func EnhanceMigratedDeps(deps *models.Deps) {
 	for name, svc := range deps.Services {
 		if svc.Source.Kind == "image" {
 			_ = SuggestGitSource(name, svc.Source.Image)

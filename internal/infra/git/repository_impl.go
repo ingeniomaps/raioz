@@ -3,8 +3,8 @@ package git
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	gitpkg "raioz/internal/git"
 )
 
@@ -20,22 +20,22 @@ func NewGitRepository() interfaces.GitRepository {
 }
 
 // EnsureRepo ensures a repository exists and is up to date
-func (r *GitRepositoryImpl) EnsureRepo(src config.SourceConfig, baseDir string) error {
+func (r *GitRepositoryImpl) EnsureRepo(src models.SourceConfig, baseDir string) error {
 	return gitpkg.EnsureRepo(src, baseDir)
 }
 
 // EnsureRepoWithForce ensures a repository exists, with option to force re-clone
-func (r *GitRepositoryImpl) EnsureRepoWithForce(src config.SourceConfig, baseDir string, force bool) error {
+func (r *GitRepositoryImpl) EnsureRepoWithForce(src models.SourceConfig, baseDir string, force bool) error {
 	return gitpkg.EnsureRepoWithForce(src, baseDir, force)
 }
 
 // EnsureReadonlyRepo ensures a readonly repository exists without updating it
-func (r *GitRepositoryImpl) EnsureReadonlyRepo(src config.SourceConfig, baseDir string) error {
+func (r *GitRepositoryImpl) EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 	return gitpkg.EnsureReadonlyRepo(src, baseDir)
 }
 
 // EnsureEditableRepo ensures an editable repository exists and is up to date
-func (r *GitRepositoryImpl) EnsureEditableRepo(src config.SourceConfig, baseDir string) error {
+func (r *GitRepositoryImpl) EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 	return gitpkg.EnsureEditableRepo(src, baseDir)
 }
 
@@ -47,13 +47,13 @@ func (r *GitRepositoryImpl) ForceReclone(ctx context.Context, repoPath string, r
 // UpdateReposIfBranchChanged updates repositories if their branches changed
 func (r *GitRepositoryImpl) UpdateReposIfBranchChanged(
 	ctx context.Context,
-	repoPathResolver func(string, config.Service) string,
-	oldDeps, newDeps *config.Deps,
+	repoPathResolver func(string, models.Service) string,
+	oldDeps, newDeps *models.Deps,
 ) error {
 	return gitpkg.UpdateReposIfBranchChanged(ctx, repoPathResolver, oldDeps, newDeps)
 }
 
 // IsReadonly checks if a source configuration is readonly
-func (r *GitRepositoryImpl) IsReadonly(src config.SourceConfig) bool {
+func (r *GitRepositoryImpl) IsReadonly(src models.SourceConfig) bool {
 	return gitpkg.IsReadonly(src)
 }

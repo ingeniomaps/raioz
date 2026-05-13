@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -21,7 +21,7 @@ func TestHealthUseCase_Execute_ConfigLoadError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return nil, nil, fmt.Errorf("fail")
 		},
 	}
@@ -36,8 +36,8 @@ func TestHealthUseCase_Execute_BaseDirError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{Project: config.Project{Name: "test"}}, nil, nil
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{Project: models.Project{Name: "test"}}, nil, nil
 		},
 	}
 	deps.Workspace = &mocks.MockWorkspaceManager{
@@ -57,8 +57,8 @@ func TestHealthUseCase_Execute_NotLocal(t *testing.T) {
 	baseDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{Project: config.Project{Name: "test"}}, nil, nil
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{Project: models.Project{Name: "test"}}, nil, nil
 		},
 	}
 	deps.Workspace = &mocks.MockWorkspaceManager{

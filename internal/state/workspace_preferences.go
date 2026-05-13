@@ -6,25 +6,19 @@ import (
 	"os"
 	"path/filepath"
 
+	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
 	"raioz/internal/workspace"
 )
 
 const workspacePreferencesFileName = "workspace-preferences.json"
 
-// WorkspaceProjectPreference stores which project to use when multiple .raioz.json
-// in the same workspace define overlapping services (e.g. same service name).
-type WorkspaceProjectPreference struct {
-	PreferredProject string `json:"preferredProject"` // project name to use when conflict
-	AlwaysAsk        bool   `json:"alwaysAsk"`        // if true, always prompt instead of applying preference
-	// if true and preferred project matches, merge configs
-	MergeWhenPreferred bool `json:"mergeWhenPreferred"`
-}
-
-// WorkspacePreferences is the file format: workspace name -> preference
-type WorkspacePreferences struct {
-	ByWorkspace map[string]WorkspaceProjectPreference `json:"byWorkspace"`
-}
+// WorkspaceProjectPreference / WorkspacePreferences live in
+// internal/domain/models; aliases kept for callers (ADR-009 / issue 023).
+type (
+	WorkspaceProjectPreference = models.WorkspaceProjectPreference
+	WorkspacePreferences       = models.WorkspacePreferences
+)
 
 func getWorkspacePreferencesPath() (string, error) {
 	base, err := workspace.GetBaseDir()

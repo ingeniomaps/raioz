@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/git"
 	"raioz/internal/runtime"
@@ -162,7 +162,7 @@ func GetServiceInfo(
 	composePath string,
 	serviceName string,
 	projectName string,
-	svc *config.Service,
+	svc *models.Service,
 	ws *workspace.Workspace,
 ) (*ServiceInfo, error) {
 	return GetServiceInfoWithContext(context.Background(), composePath, serviceName, projectName, svc, ws)
@@ -174,7 +174,7 @@ func GetServiceInfoWithContext(
 	composePath string,
 	serviceName string,
 	projectName string,
-	svc *config.Service,
+	svc *models.Service,
 	ws *workspace.Workspace,
 ) (*ServiceInfo, error) {
 	info := &ServiceInfo{
@@ -287,7 +287,7 @@ func GetServicesInfo(
 	composePath string,
 	serviceNames []string,
 	projectName string,
-	services map[string]config.Service,
+	services map[string]models.Service,
 	ws *workspace.Workspace,
 ) (map[string]*ServiceInfo, error) {
 	return GetServicesInfoWithContext(context.Background(), composePath, serviceNames, projectName, services, ws)
@@ -300,7 +300,7 @@ func GetServicesInfoWithContext(
 	composePath string,
 	serviceNames []string,
 	projectName string,
-	services map[string]config.Service,
+	services map[string]models.Service,
 	ws *workspace.Workspace,
 ) (map[string]*ServiceInfo, error) {
 	result := make(map[string]*ServiceInfo, len(serviceNames))
@@ -369,7 +369,7 @@ func GetServicesInfoWithContext(
 		}
 
 		// Git version override for git-based services
-		var svc *config.Service
+		var svc *models.Service
 		if s, ok := services[name]; ok {
 			svc = &s
 		}

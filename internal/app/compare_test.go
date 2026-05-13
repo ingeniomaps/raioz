@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -31,7 +31,7 @@ func TestCompareUseCase_Execute_ConfigLoadError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return nil, nil, fmt.Errorf("bad config")
 		},
 	}
@@ -49,10 +49,10 @@ func TestCompareUseCase_Execute_ProductionLoadError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
 			}, nil, nil
 		},
 	}
@@ -71,10 +71,10 @@ func TestCompareUseCase_Execute_WithWarnings(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
 			}, []string{"some warning"}, nil
 		},
 	}

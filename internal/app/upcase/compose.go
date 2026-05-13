@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -16,7 +16,7 @@ import (
 // processCompose handles generation of docker-compose and docker.Up
 func (uc *UseCase) processCompose(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	projectDir string,
 ) (string, []string, []string, error) {

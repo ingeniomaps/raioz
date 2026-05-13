@@ -1,15 +1,15 @@
-# ADR-009: `internal/domain/models/` holds only types with no infrastructure dependencies
+# ADR-009: `internal/domain/models/` owns the model types; infrastructure depends on it
 
 - **Status:** Accepted
-- **Date:** 2026-05-12
+- **Date:** 2026-05-12 (initial scope) — **superseded by full migration 2026-05-13** (issue 023 completed).
 
 ## Context
 
-The original `internal/domain/models/` was a kitchen-sink package of
-type aliases pointing at infrastructure types:
+The original `internal/domain/models/` was a thin package of type aliases
+pointing at infrastructure types:
 
 ```go
-// Old internal/domain/models/config.go
+// Pre-2026-05-12 internal/domain/models/config.go
 package models
 import "raioz/internal/config"
 type (
@@ -19,7 +19,7 @@ type (
 )
 ```
 
-This had three problems documented in the architecture review:
+Three problems documented in the architecture review:
 
 1. **It lied about layering.** The aliases imported `internal/config`,
    `internal/state`, `internal/host`, `internal/workspace` — concrete
@@ -35,94 +35,158 @@ This had three problems documented in the architecture review:
    domain owned a clean abstraction. In reality the type was
    `config.Deps` — same struct, same package, with a forwarding name.
 
+An interim 2026-05-12 decision moved only `Runtime` / `DetectResult` and
+left `Deps`, `Service`, `Infra`, `ProjectState`, etc. in their source
+packages. That broke the cycle on the smallest possible surface but
+preserved the "interfaces depend on infrastructure directly" honesty
+trade-off. It was explicitly framed as an interim step.
+
 ## Decision
 
-`internal/domain/models/` holds **only** types whose definitions have no
-internal package dependencies. Currently that means `Runtime` and
-`DetectResult` (in `runtime.go`). They were genuine domain concepts that
-the scanning code (`internal/detect`) just happens to produce; they were
-declared in `detect` only because that's where they were first used.
+**Issue 023 (2026-05-13) completed the larger migration the interim ADR
+had postponed.** All model struct definitions live in
+`internal/domain/models/`. Infrastructure packages depend on the domain,
+not the other way around.
 
-Everything else — `Deps`, `Service`, `Infra`, `ProjectState`,
-`GlobalState`, `Workspace`, `ProcessInfo`, etc. — stays in its source
-package (`internal/config`, `internal/state`, `internal/workspace`,
-`internal/host`). `internal/domain/interfaces/*.go` imports those
-packages directly when the interface signatures need their types. No
-forwarding aliases.
+Concretely:
 
-Concretely, after this decision:
+- `internal/domain/models/` is the canonical home for `Deps`, `Service`,
+  `Infra`, `InfraEntry`, `EnvValue`, `NetworkConfig`,
+  `HealthcheckConfig`, `ProxyConfig`, `RoutingConfig`, `YAMLWatch`,
+  `MockConfig`, `FeatureFlagConfig`, `PublishSpec`,
+  `ServiceProxyOverride`, `SourceConfig`, `DockerConfig`, `Project`,
+  `ProjectCommands`, `EnvironmentCommands`, `EnvConfig`,
+  `ServiceCommands`, `MissingDependency`, `DependencyConflict`,
+  `LocalState`, `DevOverride`, `GlobalState`, `ProjectState`,
+  `ServiceState`, `ServiceInfo`, `ConfigChange`, `AlignmentIssue`,
+  `ServicePreference`, `ServicePreferences`,
+  `WorkspaceProjectPreference`, `WorkspacePreferences`, plus the
+  pre-existing `Runtime` and `DetectResult`. Methods on those structs
+  (`Deps.GetWorkspaceName`, `LocalState.MarkDeferred`,
+  `FeatureFlagConfig.IsEnabled`, custom JSON / YAML
+  marshalers, ...) live with the types.
 
-- `internal/detect/result.go` re-exports `Runtime` and `DetectResult`
-  as type aliases from `internal/domain/models` so existing scanner
-  callers (`detect.Runtime`, `detect.RuntimeCompose`, ...) still work.
-- `internal/domain/interfaces/discovery.go` and
-  `internal/domain/interfaces/orchestrator.go` import
-  `internal/domain/models` and use `models.Runtime` /
-  `models.DetectResult` — they no longer depend on `internal/detect`.
-- The other `domain/interfaces/*.go` files import `config`, `state`,
-  `host`, `workspace` **directly** with package-qualified names like
-  `config.Deps`, `state.ProjectState`, `host.ProcessInfo`,
-  `workspacepkg.Workspace`. The dependency is now visible at the
-  import block, not hidden behind a forwarding alias.
+- `internal/domain/interfaces/*.go` imports only
+  `raioz/internal/domain/models` for its types. It still references
+  `Workspace` (via `workspacepkg.Workspace`) and `ProcessInfo` (via
+  `host.ProcessInfo`) — those are infrastructure value types the
+  interface layer needs to talk about, and moving them is a separate
+  exercise. Neither pulls in `config`, `state`, or `detect`.
+
+- `internal/config/*.go`, `internal/state/*.go`, and
+  `internal/detect/result.go` keep **type aliases** for the migrated
+  structs (`type Deps = models.Deps`, etc.). The aliases are kept to
+  avoid forcing every test fixture under those packages onto the new
+  spelling in one PR. Production callers across `internal/app`,
+  `internal/cli`, `internal/orchestrate`, `internal/proxy`, etc. were
+  rewritten in this issue to reference `models.X` directly.
+
+- `internal/detect/result.go` no longer re-exports `Runtime` and
+  `DetectResult` — every production caller uses `models.Runtime` /
+  `models.RuntimeCompose` etc. directly.
+
+- `internal/workspace.Resolve` used to import `internal/config` for the
+  legacy `.raioz.json` migration step. That dependency is now injected
+  via a `LoadDepsForMigration` function variable, set by
+  `internal/infra/workspace/manager_impl.go` in `init()`. `workspace`
+  remains a leaf used by domain interfaces without transitively pulling
+  `config` into the domain dependency graph.
+
+The dependency graph for the domain layer is now:
+
+```bash
+$ go list -deps raioz/internal/domain/... \
+    | grep raioz/internal/ \
+    | grep -v raioz/internal/domain/
+raioz/internal/env
+raioz/internal/errors
+raioz/internal/exec
+raioz/internal/git
+raioz/internal/host
+raioz/internal/logging
+raioz/internal/path
+raioz/internal/resilience
+raioz/internal/workspace
+```
+
+Notably **absent**: `raioz/internal/config`, `raioz/internal/state`,
+`raioz/internal/detect`, `raioz/internal/infra`.
 
 ## Consequences
 
 ### Positive
 
-- The dependency graph matches the prose. A contributor reading
-  `domain/interfaces/config.go` sees `import "raioz/internal/config"`
-  and knows immediately that this layer depends on the config package.
-  No more "wait, what does `models.Deps` actually resolve to?"
-- `domain/models` is now a real leaf in the dependency graph
-  (`go list -deps` shows zero internal imports). Future genuinely
-  domain-owned types — value objects, IDs, lifecycle states — have an
-  honest home.
-- The cycle that blocked moving `Runtime` to the domain is broken.
-  `Runtime` is now genuinely a domain concept that infrastructure
-  re-exports for ergonomics.
+- Clean Architecture's "dependencies point inward" rule is no longer
+  nominal. Domain owns its types; infrastructure depends on the domain
+  layer to know what types it operates on.
+- `go list -deps raioz/internal/domain/...` is a one-line CI assertion
+  that the boundary holds. Adding a stray `import "raioz/internal/config"`
+  anywhere reachable from `domain/` shows up immediately.
+- The `Runtime → DetectResult → config → detect` cycle that motivated
+  this work is broken at the root: `models` has no internal deps at
+  all.
+- Aliases in `config`/`state` give us a controlled deprecation path for
+  the spelling `config.Deps` / `state.LocalState` — tests can migrate
+  later without blocking this refactor.
+- The `LoadDepsForMigration` hook pattern is reusable for any future
+  "domain-friendly package needs an optional legacy IO path" situation.
 
 ### Negative
 
-- `domain/interfaces` explicitly depends on infrastructure packages.
-  An architectural purist would say this violates Clean Architecture's
-  "dependencies point inward" rule. The defense: the dependency was
-  always there (via the forwarding aliases); we just stopped hiding it.
-  If we want to actually invert the dependency, we need to move the
-  struct definitions (not just rename the imports). That is a separate,
-  much larger refactor — explicitly out of scope here.
-- `domain/interfaces` now imports more packages directly. Each
-  interface file picks up two or three new imports. Tests calling those
-  interfaces don't see any change in API shape.
+- The migration touched ~260 files. The diff is mostly mechanical
+  (`config.X` → `models.X`) but it does show up in `git blame` for code
+  whose semantics didn't change. Mitigated by doing it in a single
+  commit per ADR-006's "atomic struct-mirror" pattern.
+- The type aliases in `internal/config/{deps,deps_types,yaml_aux_types,
+  yaml_types,flags,dependency_assist}.go` and
+  `internal/state/{project_state,global,diff,check,service_preferences,
+  workspace_preferences}.go` add a small amount of indirection for
+  anyone reading those packages. Each alias file carries a one-line
+  comment pointing at this ADR.
+- `internal/infra/workspace/manager_impl.go` now installs a hook via
+  `init()`. Init functions can be load-order traps; the hook is
+  guarded with `if LoadDepsForMigration != nil` in
+  `workspace.Resolve` so a missing init is a no-op (legacy migration
+  is best-effort already).
 
 ### Neutral
 
-- Test mocks in `internal/mocks/` continue to satisfy the interfaces
-  unchanged. Type aliases preserve method sets; concrete types in
-  `config`/`state`/`host`/`workspace` continue to satisfy interfaces
-  that reference them.
+- Test fixtures keep using the alias spelling (`config.Deps{...}`,
+  `state.LocalState{...}`). The aliases are real Go type aliases, so
+  this is identical to `models.Deps{...}` — same memory layout, same
+  method set, fully interoperable.
+- `cloneInfraEntry` / `cloneService` (ADR-006) keep working
+  unchanged: they read from `models.Service` / `models.Infra` fields
+  whose names didn't change. Future struct-field additions still need
+  the clone-sync grep documented in ADR-006.
 
 ## Alternatives considered
 
-- **Move all struct definitions into `domain/models`.** Would deliver
-  true Clean Architecture layering. Discarded for now: it requires
-  moving ~16 structs and their methods, then updating ~60 call sites.
-  6+ hours of focused work with a high regression risk because the
-  affected types are central to config and state. Worth doing if and
-  when we have a longer planning window; ADR-009 does not preclude it
-  (a future ADR would supersede this one).
-- **Rename `domain/models` to `domain/typealiases` and keep the
-  aliases.** Honest naming but preserves the cycle problem and
-  doesn't actually fix the dependency-direction issue.
+- **Stop at the interim solution (move only Runtime / DetectResult).**
+  Honest about cost but leaves `domain/interfaces` importing
+  infrastructure forever. The cost-vs-benefit math changed once the
+  mass-rename tooling (sed + goimports, see issue 023's commit) proved
+  reliable enough to do the full migration in a single session.
 - **Define `Runtime` and `DetectResult` in a separate leaf package
   like `internal/domain/scan/`.** Would also work but adds a package
   whose role would be hard to distinguish from `domain/models`. Keeping
   them in `models` matches their conceptual role.
+- **Move `Workspace` and `ProcessInfo` into `domain/models` too.** The
+  obvious next step. Out of scope here because both types carry
+  filesystem-shaped behavior (path resolution, process lifecycle) that
+  is more than a value object, and lifting them needs its own ADR. The
+  `LoadDepsForMigration` hook is the pattern that future work would
+  follow.
 
 ## References
 
-- Code: `internal/domain/models/runtime.go`,
+- Code: `internal/domain/models/{runtime,config_env,config_proxy,
+  config_infra,config_service,config_deps,config_diag,state}.go`,
+  `internal/domain/interfaces/*.go`,
   `internal/detect/result.go`,
-  `internal/domain/interfaces/{config,docker,env,git,host,state,workspace,discovery,orchestrator}.go`
-- Related: ADR-006 (clone-sync — same struct-mirroring pattern is in
-  scope for the larger refactor a future ADR may pursue)
-- Originated from: architecture review findings CRITICAL #1 and CRITICAL #2.
+  `internal/workspace/workspace.go` (LoadDepsForMigration hook),
+  `internal/infra/workspace/manager_impl.go` (hook installer).
+- Related: ADR-006 (clone-sync — same struct-mirroring discipline now
+  applies to `internal/domain/models/` field additions).
+- Originated from: architecture review findings CRITICAL #1 and #2;
+  completed in issue 023.

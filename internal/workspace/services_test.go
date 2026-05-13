@@ -3,7 +3,7 @@ package workspace
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestGetServiceDir(t *testing.T) {
@@ -17,13 +17,13 @@ func TestGetServiceDir(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		svc      config.Service
+		svc      models.Service
 		expected string
 	}{
 		{
 			name: "readonly git service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "readonly",
 				},
@@ -32,8 +32,8 @@ func TestGetServiceDir(t *testing.T) {
 		},
 		{
 			name: "editable git service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "editable",
 				},
@@ -42,8 +42,8 @@ func TestGetServiceDir(t *testing.T) {
 		},
 		{
 			name: "default git service (editable)",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind: "git",
 				},
 			},
@@ -51,8 +51,8 @@ func TestGetServiceDir(t *testing.T) {
 		},
 		{
 			name: "image service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind: "image",
 				},
 			},
@@ -81,13 +81,13 @@ func TestGetServicePath(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		svc      config.Service
+		svc      models.Service
 		expected string
 	}{
 		{
 			name: "readonly git service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "readonly",
 					Path:   "services/auth",
@@ -97,8 +97,8 @@ func TestGetServicePath(t *testing.T) {
 		},
 		{
 			name: "editable git service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "editable",
 					Path:   "services/users",

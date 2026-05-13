@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
@@ -33,7 +32,7 @@ type orchestrationResult struct {
 // Returns nil if no services need watching.
 func startWatcher(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	dispatcher *orchestrate.Dispatcher,
 	detections DetectionMap,
 	networkName string,
@@ -130,7 +129,7 @@ func startWatcher(
 // to try every service even if one fails.
 func stopAllServicesForShutdown(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	dispatcher *orchestrate.Dispatcher,
 	detections DetectionMap,
 	networkName string,
@@ -182,7 +181,7 @@ func stopAllServicesForShutdown(
 // buildRestartCallback creates the function called when a file change triggers a restart.
 func buildRestartCallback(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	dispatcher *orchestrate.Dispatcher,
 	detections DetectionMap,
 	networkName string,
@@ -225,9 +224,9 @@ func buildRestartCallback(
 		}
 
 		// Update PID in state for host processes
-		if det.Runtime != detect.RuntimeCompose &&
-			det.Runtime != detect.RuntimeDockerfile &&
-			det.Runtime != detect.RuntimeImage {
+		if det.Runtime != models.RuntimeCompose &&
+			det.Runtime != models.RuntimeDockerfile &&
+			det.Runtime != models.RuntimeImage {
 			pid := dispatcher.GetHostPID(serviceName)
 			if pid > 0 {
 				updateHostPID(projectDir, serviceName, pid)

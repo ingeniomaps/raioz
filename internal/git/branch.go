@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 )
@@ -172,9 +172,9 @@ func EnsureBranch(ctx context.Context, repoPath string, expectedBranch string) e
 // repoPathResolver is a function that returns the correct path for a service based on access mode
 func UpdateReposIfBranchChanged(
 	ctx context.Context,
-	repoPathResolver func(string, config.Service) string,
-	oldDeps *config.Deps,
-	newDeps *config.Deps,
+	repoPathResolver func(string, models.Service) string,
+	oldDeps *models.Deps,
+	newDeps *models.Deps,
 ) error {
 	if oldDeps == nil {
 		// No previous state, nothing to update

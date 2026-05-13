@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -15,7 +15,7 @@ import (
 
 // preHookExec runs pre-hooks before starting services. A pre-hook failure
 // aborts `raioz up` — use it for critical setup (secrets, env rendering).
-func (uc *UseCase) preHookExec(ctx context.Context, deps *config.Deps, projectDir string) error {
+func (uc *UseCase) preHookExec(ctx context.Context, deps *models.Deps, projectDir string) error {
 	if deps.PreHook == "" {
 		return nil
 	}
@@ -43,7 +43,7 @@ func (uc *UseCase) preHookExec(ctx context.Context, deps *config.Deps, projectDi
 // postHookExec runs post-hooks after starting services. Post-hook failures
 // are logged as warnings and do NOT fail `raioz up` — services are already
 // running and the user can inspect the warning.
-func (uc *UseCase) postHookExec(ctx context.Context, deps *config.Deps, projectDir string) {
+func (uc *UseCase) postHookExec(ctx context.Context, deps *models.Deps, projectDir string) {
 	if deps.PostHook == "" {
 		return
 	}

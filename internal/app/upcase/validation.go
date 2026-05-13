@@ -3,8 +3,8 @@ package upcase
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -13,7 +13,7 @@ import (
 )
 
 // validate handles validate.All, workspace permissions, port validation, and dependency conflicts
-func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, dryRun bool) error {
+func (uc *UseCase) validate(ctx context.Context, deps *models.Deps, ws *interfaces.Workspace, dryRun bool) error {
 	// Step 1: Preflight checks (Docker, Git, disk space, network) - as documented
 	if err := uc.deps.Validator.PreflightCheckWithContext(ctx); err != nil {
 		return errors.New(
@@ -130,7 +130,7 @@ func (uc *UseCase) validate(ctx context.Context, deps *config.Deps, ws *interfac
 //
 // Exported so `raioz check` can reuse the same logic and surface the same
 // error before `raioz up` ever runs — no more "check said green, up failed".
-func CheckProxyRequirements(deps *config.Deps) error {
+func CheckProxyRequirements(deps *models.Deps) error {
 	if !deps.Proxy {
 		return nil
 	}

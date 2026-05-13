@@ -7,18 +7,17 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/state"
 )
 
 // processLocalProject processes local project commands (if this is a local project or has project.commands)
 func (uc *UseCase) processLocalProject(
-	ctx context.Context, configPath string, deps *config.Deps,
+	ctx context.Context, configPath string, deps *models.Deps,
 	commandType string, ws interface{},
 ) error {
 	// Check if this is a local project
@@ -161,15 +160,15 @@ func (uc *UseCase) processLocalProject(
 	// Only if ws is provided (not nil)
 	if ws != nil {
 		// Create a dummy service config for template generation
-		var dummyEnv *config.EnvValue
+		var dummyEnv *models.EnvValue
 		if len(deps.Env.Files) > 0 {
-			dummyEnv = &config.EnvValue{
+			dummyEnv = &models.EnvValue{
 				Files:     deps.Env.Files,
 				Variables: nil,
 				IsObject:  false,
 			}
 		}
-		dummyService := config.Service{
+		dummyService := models.Service{
 			Env: dummyEnv,
 		}
 		// Type assert to *interfaces.Workspace
@@ -239,13 +238,13 @@ func (uc *UseCase) processLocalProject(
 }
 
 // saveProjectCommandState saves the project state to global state when project.commands.up is executed
-func (uc *UseCase) saveProjectCommandState(ctx context.Context, deps *config.Deps, projectDir string) error {
+func (uc *UseCase) saveProjectCommandState(ctx context.Context, deps *models.Deps, projectDir string) error {
 	// Create project state for command-based project
-	projectState := &state.ProjectState{
+	projectState := &models.ProjectState{
 		Name:          deps.Project.Name,
 		Workspace:     projectDir,
 		LastExecution: time.Now(),
-		Services:      []state.ServiceState{}, // Empty services for command-based projects
+		Services:      []models.ServiceState{}, // Empty services for command-based projects
 	}
 
 	// Update global state

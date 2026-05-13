@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/output"
 
 	"gopkg.in/yaml.v3"
@@ -62,7 +63,7 @@ func init() {
 }
 
 // depsToYAMLConfig converts an old Deps struct to the new RaiozConfig format.
-func depsToYAMLConfig(deps *config.Deps) config.RaiozConfig {
+func depsToYAMLConfig(deps *models.Deps) config.RaiozConfig {
 	cfg := config.RaiozConfig{
 		Version:   config.CurrentSchemaVersion,
 		Project:   deps.Project.Name,

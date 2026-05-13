@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -73,12 +73,12 @@ func TestGenerateDockerfileWrapper(t *testing.T) {
 		EnvDir:              tmpDir,
 	}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Command: "npm run dev",
 			Runtime: "node",
 		},
@@ -134,12 +134,12 @@ func TestEnsureDockerfile(t *testing.T) {
 		t.Fatalf("Failed to create dockerfile: %v", err)
 	}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Dockerfile: "Dockerfile.dev",
 		},
 	}
@@ -153,12 +153,12 @@ func TestEnsureDockerfile(t *testing.T) {
 	}
 
 	// Test 2: Dockerfile doesn't exist, no command
-	svc2 := config.Service{
-		Source: config.SourceConfig{
+	svc2 := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git",
 			Path: "test-service-2",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Dockerfile: "Dockerfile.dev",
 		},
 	}
@@ -169,12 +169,12 @@ func TestEnsureDockerfile(t *testing.T) {
 	}
 
 	// Test 3: Dockerfile doesn't exist, but command provided
-	svc3 := config.Service{
-		Source: config.SourceConfig{
+	svc3 := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git",
 			Path: "test-service-3",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Dockerfile: "Dockerfile.dev",
 			Command:    "npm run dev",
 			Runtime:    "node",

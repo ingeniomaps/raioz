@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/naming"
 )
@@ -54,7 +54,7 @@ func TestDispatcher_Start_Image(t *testing.T) {
 		ContainerName: "raioz-proj-redis",
 		NetworkName:   "proj-net",
 		EnvVars:       map[string]string{"RAIOZ_IMAGE": "redis:7"},
-		Detection:     detect.DetectResult{Runtime: detect.RuntimeImage},
+		Detection:     models.DetectResult{Runtime: models.RuntimeImage},
 	}
 	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 
@@ -78,7 +78,7 @@ func TestDispatcher_Start_Image(t *testing.T) {
 func TestDispatcher_Start_Unknown(t *testing.T) {
 	svc := interfaces.ServiceContext{
 		Name:      "x",
-		Detection: detect.DetectResult{Runtime: detect.RuntimeUnknown},
+		Detection: models.DetectResult{Runtime: models.RuntimeUnknown},
 	}
 	d := NewDispatcher(&mocks.MockDockerRunner{})
 	if err := d.Start(context.Background(), svc); err == nil {
@@ -91,7 +91,7 @@ func TestDispatcher_Stop_Image(t *testing.T) {
 		Name:        "redis",
 		ProjectName: "disp-stop-" + t.Name(),
 		NetworkName: "proj-net",
-		Detection:   detect.DetectResult{Runtime: detect.RuntimeImage},
+		Detection:   models.DetectResult{Runtime: models.RuntimeImage},
 	}
 	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 
@@ -104,7 +104,7 @@ func TestDispatcher_Stop_Image(t *testing.T) {
 
 func TestDispatcher_Stop_Unknown(t *testing.T) {
 	svc := interfaces.ServiceContext{
-		Detection: detect.DetectResult{Runtime: detect.RuntimeUnknown},
+		Detection: models.DetectResult{Runtime: models.RuntimeUnknown},
 	}
 	d := NewDispatcher(&mocks.MockDockerRunner{})
 	if err := d.Stop(context.Background(), svc); err == nil {
@@ -114,7 +114,7 @@ func TestDispatcher_Stop_Unknown(t *testing.T) {
 
 func TestDispatcher_Restart_Unknown(t *testing.T) {
 	svc := interfaces.ServiceContext{
-		Detection: detect.DetectResult{Runtime: detect.RuntimeUnknown},
+		Detection: models.DetectResult{Runtime: models.RuntimeUnknown},
 	}
 	d := NewDispatcher(&mocks.MockDockerRunner{})
 	if err := d.Restart(context.Background(), svc); err == nil {
@@ -130,8 +130,8 @@ func TestDispatcher_Status_Compose(t *testing.T) {
 	svc := interfaces.ServiceContext{
 		Name:        "api",
 		NetworkName: "proj-net",
-		Detection: detect.DetectResult{
-			Runtime:     detect.RuntimeCompose,
+		Detection: models.DetectResult{
+			Runtime:     models.RuntimeCompose,
 			ComposeFile: composePath,
 		},
 	}
@@ -155,7 +155,7 @@ func TestDispatcher_Status_Compose(t *testing.T) {
 
 func TestDispatcher_Status_Unknown(t *testing.T) {
 	svc := interfaces.ServiceContext{
-		Detection: detect.DetectResult{Runtime: detect.RuntimeUnknown},
+		Detection: models.DetectResult{Runtime: models.RuntimeUnknown},
 	}
 	d := NewDispatcher(&mocks.MockDockerRunner{})
 	status, err := d.Status(context.Background(), svc)
@@ -169,7 +169,7 @@ func TestDispatcher_Status_Unknown(t *testing.T) {
 
 func TestDispatcher_Logs_Unknown(t *testing.T) {
 	svc := interfaces.ServiceContext{
-		Detection: detect.DetectResult{Runtime: detect.RuntimeUnknown},
+		Detection: models.DetectResult{Runtime: models.RuntimeUnknown},
 	}
 	d := NewDispatcher(&mocks.MockDockerRunner{})
 	if err := d.Logs(context.Background(), svc, false, 0); err == nil {
@@ -184,8 +184,8 @@ func TestDispatcher_Logs_Compose(t *testing.T) {
 
 	svc := interfaces.ServiceContext{
 		Name: "api",
-		Detection: detect.DetectResult{
-			Runtime:     detect.RuntimeCompose,
+		Detection: models.DetectResult{
+			Runtime:     models.RuntimeCompose,
 			ComposeFile: composePath,
 		},
 	}
@@ -216,7 +216,7 @@ func TestDispatcher_Restart_Image(t *testing.T) {
 		ContainerName: "raioz-proj-redis",
 		NetworkName:   "proj-net",
 		EnvVars:       map[string]string{"RAIOZ_IMAGE": "redis:7"},
-		Detection:     detect.DetectResult{Runtime: detect.RuntimeImage},
+		Detection:     models.DetectResult{Runtime: models.RuntimeImage},
 	}
 	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 

@@ -3,8 +3,8 @@ package state
 import (
 	"fmt"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	statepkg "raioz/internal/state"
 	workspacepkg "raioz/internal/workspace"
 )
@@ -21,14 +21,14 @@ func NewStateManager() interfaces.StateManager {
 }
 
 // Load loads the project state
-func (m *StateManagerImpl) Load(ws *interfaces.Workspace) (*config.Deps, error) {
+func (m *StateManagerImpl) Load(ws *interfaces.Workspace) (*models.Deps, error) {
 	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return statepkg.Load(wsConcrete)
 }
 
 // Save saves the project state
-func (m *StateManagerImpl) Save(ws *interfaces.Workspace, deps *config.Deps) error {
+func (m *StateManagerImpl) Save(ws *interfaces.Workspace, deps *models.Deps) error {
 	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return statepkg.Save(wsConcrete, deps)
@@ -42,7 +42,7 @@ func (m *StateManagerImpl) Exists(ws *interfaces.Workspace) bool {
 }
 
 // CompareDeps compares two dependency configurations
-func (m *StateManagerImpl) CompareDeps(oldDeps, newDeps *config.Deps) ([]statepkg.ConfigChange, error) {
+func (m *StateManagerImpl) CompareDeps(oldDeps, newDeps *models.Deps) ([]statepkg.ConfigChange, error) {
 	return statepkg.CompareDeps(oldDeps, newDeps)
 }
 
@@ -106,7 +106,7 @@ func (m *StateManagerImpl) SetWorkspaceProjectPreference(
 
 // BuildServiceStates builds ServiceState list from deps and service info
 func (m *StateManagerImpl) BuildServiceStates(
-	deps *config.Deps, serviceInfos map[string]*statepkg.ServiceInfo,
+	deps *models.Deps, serviceInfos map[string]*statepkg.ServiceInfo,
 ) []statepkg.ServiceState {
 	return statepkg.BuildServiceStates(deps, serviceInfos)
 }

@@ -5,9 +5,8 @@ import (
 	stderrors "errors"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -19,10 +18,10 @@ func TestProcessGitReposBranchChange(t *testing.T) {
 	updateCalled := false
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
-			GetServiceDirFunc: func(ws *workspace.Workspace, svc config.Service) string {
+			GetServiceDirFunc: func(ws *workspace.Workspace, svc models.Service) string {
 				return t.TempDir()
 			},
 			GetComposePathFunc: func(ws *workspace.Workspace) string { return "" },
@@ -30,36 +29,36 @@ func TestProcessGitReposBranchChange(t *testing.T) {
 		GitRepository: &mocks.MockGitRepository{
 			UpdateReposIfBranchChangedFunc: func(
 				ctx context.Context,
-				resolver func(string, config.Service) string,
-				oldDeps, newDeps *config.Deps,
+				resolver func(string, models.Service) string,
+				oldDeps, newDeps *models.Deps,
 			) error {
 				updateCalled = true
 				return nil
 			},
-			EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+			EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 				return nil
 			},
-			IsReadonlyFunc: func(src config.SourceConfig) bool {
+			IsReadonlyFunc: func(src models.SourceConfig) bool {
 				return false
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*state.ServicePreference, error) {
+			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*models.ServicePreference, error) {
 				return nil, nil
 			},
 		},
 	})
 
-	oldDeps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "git", Repo: "r", Branch: "main"}},
+	oldDeps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "git", Repo: "r", Branch: "main"}},
 		},
 	}
-	newDeps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "git", Repo: "r", Branch: "develop"}},
+	newDeps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "git", Repo: "r", Branch: "develop"}},
 		},
 	}
 
@@ -80,31 +79,31 @@ func TestProcessGitReposBranchChangeError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
 		},
 		GitRepository: &mocks.MockGitRepository{
 			UpdateReposIfBranchChangedFunc: func(
 				ctx context.Context,
-				resolver func(string, config.Service) string,
-				oldDeps, newDeps *config.Deps,
+				resolver func(string, models.Service) string,
+				oldDeps, newDeps *models.Deps,
 			) error {
 				return stderrors.New("git error")
 			},
 		},
 	})
 
-	oldDeps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "git", Repo: "r", Branch: "main"}},
+	oldDeps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "git", Repo: "r", Branch: "main"}},
 		},
 	}
-	newDeps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "git", Repo: "r", Branch: "develop"}},
+	newDeps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "git", Repo: "r", Branch: "develop"}},
 		},
 	}
 
@@ -123,34 +122,34 @@ func TestProcessGitReposCloneSuccess(t *testing.T) {
 	cloneCalled := false
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
-			GetServiceDirFunc: func(ws *workspace.Workspace, svc config.Service) string {
+			GetServiceDirFunc: func(ws *workspace.Workspace, svc models.Service) string {
 				return t.TempDir() // New dir → repo doesn't exist
 			},
 			GetComposePathFunc: func(ws *workspace.Workspace) string { return "" },
 		},
 		GitRepository: &mocks.MockGitRepository{
-			EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+			EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 				cloneCalled = true
 				return nil
 			},
-			IsReadonlyFunc: func(src config.SourceConfig) bool {
+			IsReadonlyFunc: func(src models.SourceConfig) bool {
 				return false
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*state.ServicePreference, error) {
+			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*models.ServicePreference, error) {
 				return nil, nil
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"web": {Source: config.SourceConfig{Kind: "git", Repo: "https://github.com/x/y", Branch: "main"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"web": {Source: models.SourceConfig{Kind: "git", Repo: "https://github.com/x/y", Branch: "main"}},
 		},
 	}
 
@@ -171,33 +170,33 @@ func TestProcessGitReposCloneError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
-			GetServiceDirFunc: func(ws *workspace.Workspace, svc config.Service) string {
+			GetServiceDirFunc: func(ws *workspace.Workspace, svc models.Service) string {
 				return t.TempDir()
 			},
 			GetComposePathFunc: func(ws *workspace.Workspace) string { return "" },
 		},
 		GitRepository: &mocks.MockGitRepository{
-			EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+			EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 				return stderrors.New("clone failed")
 			},
-			IsReadonlyFunc: func(src config.SourceConfig) bool {
+			IsReadonlyFunc: func(src models.SourceConfig) bool {
 				return false
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*state.ServicePreference, error) {
+			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*models.ServicePreference, error) {
 				return nil, nil
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"web": {Source: config.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"web": {Source: models.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"}},
 		},
 	}
 
@@ -217,26 +216,26 @@ func TestProcessGitReposSkipsDisabledService(t *testing.T) {
 	disabled := false
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
-			GetServiceDirFunc: func(ws *workspace.Workspace, svc config.Service) string {
+			GetServiceDirFunc: func(ws *workspace.Workspace, svc models.Service) string {
 				return t.TempDir()
 			},
 		},
 		GitRepository: &mocks.MockGitRepository{
-			EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+			EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 				cloneCalled = true
 				return nil
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"web": {
-				Source:  config.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"},
+				Source:  models.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"},
 				Enabled: &disabled,
 			},
 		},
@@ -260,10 +259,10 @@ func TestProcessGitReposReadonlyExistingRepo(t *testing.T) {
 	cloneCalled := false
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
-			GetServiceDirFunc: func(ws *workspace.Workspace, svc config.Service) string {
+			GetServiceDirFunc: func(ws *workspace.Workspace, svc models.Service) string {
 				// Return existing dir → repo existed
 				dir := t.TempDir()
 				return dir
@@ -271,25 +270,25 @@ func TestProcessGitReposReadonlyExistingRepo(t *testing.T) {
 			GetComposePathFunc: func(ws *workspace.Workspace) string { return "" },
 		},
 		GitRepository: &mocks.MockGitRepository{
-			EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+			EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 				cloneCalled = true
 				return nil
 			},
-			IsReadonlyFunc: func(src config.SourceConfig) bool {
+			IsReadonlyFunc: func(src models.SourceConfig) bool {
 				return true
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*state.ServicePreference, error) {
+			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*models.ServicePreference, error) {
 				return nil, nil
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"lib": {Source: config.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"lib": {Source: models.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"}},
 		},
 	}
 
@@ -311,34 +310,34 @@ func TestProcessGitReposForceReclone(t *testing.T) {
 	forceUsed := false
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
-			GetServiceDirFunc: func(ws *workspace.Workspace, svc config.Service) string {
+			GetServiceDirFunc: func(ws *workspace.Workspace, svc models.Service) string {
 				return t.TempDir()
 			},
 			GetComposePathFunc: func(ws *workspace.Workspace) string { return "" },
 		},
 		GitRepository: &mocks.MockGitRepository{
-			EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+			EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 				forceUsed = force
 				return nil
 			},
-			IsReadonlyFunc: func(src config.SourceConfig) bool {
+			IsReadonlyFunc: func(src models.SourceConfig) bool {
 				return false
 			},
 		},
 		StateManager: &mocks.MockStateManager{
-			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*state.ServicePreference, error) {
+			GetServicePreferenceFunc: func(ws *workspace.Workspace, name string) (*models.ServicePreference, error) {
 				return nil, nil
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"web": {Source: config.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"web": {Source: models.SourceConfig{Kind: "git", Repo: "repo", Branch: "main"}},
 		},
 	}
 

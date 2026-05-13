@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -18,14 +18,14 @@ func TestCIUseCase_validateCIPorts_NilConflicts(t *testing.T) {
 		GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/tmp" },
 	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidatePortsFunc: func(d *config.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
+		ValidatePortsFunc: func(d *models.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
 			return nil, nil
 		},
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
 	ws := &workspace.Workspace{Root: "/tmp"}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 
 	if err := uc.validateCIPorts(cfgDeps, ws, "test", result); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -48,14 +48,14 @@ func TestCIUseCase_validateCIPorts_Error(t *testing.T) {
 		GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/tmp" },
 	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidatePortsFunc: func(d *config.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
+		ValidatePortsFunc: func(d *models.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
 			return nil, fmt.Errorf("port error")
 		},
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
 	ws := &workspace.Workspace{Root: "/tmp"}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 
 	if err := uc.validateCIPorts(cfgDeps, ws, "test", result); err == nil {
 		t.Fatal("expected error")
@@ -72,7 +72,7 @@ func TestCIUseCase_validateCIPorts_WithConflicts(t *testing.T) {
 		GetBaseDirFromWorkspaceFunc: func(ws *workspace.Workspace) string { return "/tmp" },
 	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidatePortsFunc: func(d *config.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
+		ValidatePortsFunc: func(d *models.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
 			return []interfaces.PortConflict{
 				{Port: "8080", Project: "other", Service: "api"},
 			}, nil
@@ -81,7 +81,7 @@ func TestCIUseCase_validateCIPorts_WithConflicts(t *testing.T) {
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
 	ws := &workspace.Workspace{Root: "/tmp"}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 
 	if err := uc.validateCIPorts(cfgDeps, ws, "test", result); err == nil {
 		t.Fatal("expected error for port conflicts")
@@ -96,7 +96,7 @@ func TestCIUseCase_validateCIImages_NoPull(t *testing.T) {
 	deps := newFullMockDeps()
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 
 	if err := uc.validateCIImages(cfgDeps, CIOptions{SkipPull: true}, result); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -116,11 +116,11 @@ func TestCIUseCase_validateCIImages_Pass(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidateAllImagesFunc: func(d *config.Deps) error { return nil },
+		ValidateAllImagesFunc: func(d *models.Deps) error { return nil },
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 
 	if err := uc.validateCIImages(cfgDeps, CIOptions{}, result); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -131,11 +131,11 @@ func TestCIUseCase_validateCIImages_Error(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidateAllImagesFunc: func(d *config.Deps) error { return fmt.Errorf("pull fail") },
+		ValidateAllImagesFunc: func(d *models.Deps) error { return fmt.Errorf("pull fail") },
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{Project: config.Project{Name: "test"}}
+	cfgDeps := &models.Deps{Project: models.Project{Name: "test"}}
 
 	if err := uc.validateCIImages(cfgDeps, CIOptions{}, result); err == nil {
 		t.Fatal("expected error")
@@ -152,8 +152,8 @@ func TestCIUseCase_ensureCINetwork_Pass(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Network: config.NetworkConfig{Name: "testnet"},
+	cfgDeps := &models.Deps{
+		Network: models.NetworkConfig{Name: "testnet"},
 	}
 
 	if err := uc.ensureCINetwork(cfgDeps, result); err != nil {
@@ -171,8 +171,8 @@ func TestCIUseCase_ensureCINetwork_Error(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Network: config.NetworkConfig{Name: "testnet"},
+	cfgDeps := &models.Deps{
+		Network: models.NetworkConfig{Name: "testnet"},
 	}
 
 	if err := uc.ensureCINetwork(cfgDeps, result); err == nil {
@@ -190,9 +190,9 @@ func TestCIUseCase_ensureCIVolumes_NoVolumes(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	cfgDeps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	if err := uc.ensureCIVolumes(cfgDeps, result); err != nil {
@@ -215,12 +215,12 @@ func TestCIUseCase_ensureCIVolumes_WithVolumes(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Services: map[string]config.Service{
-			"api": {Docker: &config.DockerConfig{Volumes: []string{"pgdata:/data"}}},
+	cfgDeps := &models.Deps{
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Volumes: []string{"pgdata:/data"}}},
 		},
-		Infra: map[string]config.InfraEntry{
-			"redis": {Inline: &config.Infra{Volumes: []string{"redis-data:/data"}}},
+		Infra: map[string]models.InfraEntry{
+			"redis": {Inline: &models.Infra{Volumes: []string{"redis-data:/data"}}},
 		},
 	}
 
@@ -242,11 +242,11 @@ func TestCIUseCase_ensureCIVolumes_ExtractError(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Services: map[string]config.Service{
-			"api": {Docker: &config.DockerConfig{Volumes: []string{"vol:/data"}}},
+	cfgDeps := &models.Deps{
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Volumes: []string{"vol:/data"}}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	if err := uc.ensureCIVolumes(cfgDeps, result); err == nil {
@@ -267,9 +267,9 @@ func TestCIUseCase_ensureCIVolumes_EnsureError(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	cfgDeps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	if err := uc.ensureCIVolumes(cfgDeps, result); err == nil {
@@ -282,7 +282,7 @@ func TestCIUseCase_resolveCIGit_SkipBuild(t *testing.T) {
 	deps := newFullMockDeps()
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{Services: map[string]config.Service{}}
+	cfgDeps := &models.Deps{Services: map[string]models.Service{}}
 	ws := &workspace.Workspace{Root: "/tmp", ServicesDir: "/tmp/services"}
 
 	if err := uc.resolveCIGit(cfgDeps, ws, CIOptions{SkipBuild: true}, result); err != nil {
@@ -304,16 +304,16 @@ func TestCIUseCase_resolveCIGit_WithGitService(t *testing.T) {
 	var ensureCalled bool
 	deps := newFullMockDeps()
 	deps.GitRepository = &mocks.MockGitRepository{
-		EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+		EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 			ensureCalled = true
 			return nil
 		},
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "git", Repo: "https://example.com/repo.git"}},
+	cfgDeps := &models.Deps{
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "git", Repo: "https://example.com/repo.git"}},
 		},
 	}
 	ws := &workspace.Workspace{Root: "/tmp", ServicesDir: "/tmp/services"}
@@ -330,15 +330,15 @@ func TestCIUseCase_resolveCIGit_Error(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.GitRepository = &mocks.MockGitRepository{
-		EnsureRepoWithForceFunc: func(src config.SourceConfig, baseDir string, force bool) error {
+		EnsureRepoWithForceFunc: func(src models.SourceConfig, baseDir string, force bool) error {
 			return fmt.Errorf("git fail")
 		},
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "git"}},
+	cfgDeps := &models.Deps{
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "git"}},
 		},
 	}
 	ws := &workspace.Workspace{Root: "/tmp", ServicesDir: "/tmp/services"}
@@ -381,7 +381,7 @@ func TestCIUseCase_executeSetup_WorkspaceResolveError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		FilterByFeatureFlagsFunc: func(d *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+		FilterByFeatureFlagsFunc: func(d *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 			return d, nil
 		},
 	}
@@ -392,10 +392,10 @@ func TestCIUseCase_executeSetup_WorkspaceResolveError(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	cfgDeps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	err := uc.executeSetup(cfgDeps, CIOptions{}, result)
@@ -409,7 +409,7 @@ func TestCIUseCase_executeSetup_PermissionsError(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		FilterByFeatureFlagsFunc: func(d *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+		FilterByFeatureFlagsFunc: func(d *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 			return d, nil
 		},
 	}
@@ -425,10 +425,10 @@ func TestCIUseCase_executeSetup_PermissionsError(t *testing.T) {
 	}
 	uc := NewCIUseCase(deps)
 	result := &CIResult{Validations: []ValidationResult{}, Errors: []string{}}
-	cfgDeps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	cfgDeps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	err := uc.executeSetup(cfgDeps, CIOptions{}, result)

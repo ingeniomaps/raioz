@@ -5,25 +5,19 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/git"
 	"raioz/internal/workspace"
 )
 
-// AlignmentIssue represents a detected alignment issue
-type AlignmentIssue struct {
-	Type        string // "branch_drift", "config_change", "port_conflict", "env_change"
-	Severity    string // "info", "warning", "critical"
-	Service     string // Service name (if applicable)
-	Description string // Human-readable description
-	Suggestion  string // Suggested action
-}
+// AlignmentIssue lives in internal/domain/models; alias kept for callers (ADR-009).
+type AlignmentIssue = models.AlignmentIssue
 
 // CheckAlignment checks if the current state aligns with the configuration
 // Returns a list of alignment issues
-func CheckAlignment(ws *workspace.Workspace, currentDeps *config.Deps) ([]AlignmentIssue, error) {
+func CheckAlignment(ws *workspace.Workspace, currentDeps *models.Deps) ([]AlignmentIssue, error) {
 	var issues []AlignmentIssue
 
 	// Load saved state

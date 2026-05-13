@@ -3,7 +3,7 @@ package docker
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -91,12 +91,12 @@ func TestGetLoggingConfig(t *testing.T) {
 }
 
 func TestApplyModeConfig(t *testing.T) {
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Mode:    "dev",
 			Volumes: []string{"mongo-data:/data", "./app:/app"},
 			Runtime: "node",
@@ -139,12 +139,12 @@ func TestApplyModeConfig(t *testing.T) {
 }
 
 func TestApplyModeConfigProd(t *testing.T) {
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git",
 			Path: "test-service",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Mode:    "prod",
 			Volumes: []string{"mongo-data:/data", "./app:/app"},
 		},

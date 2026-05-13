@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	pathvalidate "raioz/internal/path"
 )
@@ -18,7 +18,7 @@ import (
 // 1. Checks if services exist in the old location
 // 2. Moves them to the appropriate new location based on access mode
 // 3. Only moves if the service doesn't already exist in the new location
-func MigrateLegacyServices(ws *Workspace, deps *config.Deps) error {
+func MigrateLegacyServices(ws *Workspace, deps *models.Deps) error {
 	if deps == nil {
 		return nil
 	}
@@ -81,7 +81,7 @@ func MigrateLegacyServices(ws *Workspace, deps *config.Deps) error {
 
 // CheckAndMigrateLegacyServices checks if migration is needed and performs it
 // This is called automatically during workspace resolution
-func CheckAndMigrateLegacyServices(ws *Workspace, deps *config.Deps) error {
+func CheckAndMigrateLegacyServices(ws *Workspace, deps *models.Deps) error {
 	// Only migrate if we have services and the old ServicesDir exists
 	if deps == nil || len(deps.Services) == 0 {
 		return nil

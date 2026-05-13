@@ -3,7 +3,7 @@ package docker
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestBuildImageName(t *testing.T) {
@@ -30,10 +30,10 @@ func TestBuildImageName(t *testing.T) {
 
 func TestValidateServiceImages(t *testing.T) {
 	// Test with no image services (should pass)
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"service1": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git",
 				},
 			},
@@ -45,10 +45,10 @@ func TestValidateServiceImages(t *testing.T) {
 	}
 
 	// Test with image service (will try to check/pull, may fail if no docker)
-	deps2 := &config.Deps{
-		Services: map[string]config.Service{
+	deps2 := &models.Deps{
+		Services: map[string]models.Service{
 			"service2": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:  "image",
 					Image: "nginx",
 					Tag:   "alpine",
@@ -63,8 +63,8 @@ func TestValidateServiceImages(t *testing.T) {
 
 func TestValidateInfraImages(t *testing.T) {
 	// Test with no infra (should pass)
-	deps := &config.Deps{
-		Infra: map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	if err := ValidateInfraImages(deps); err != nil {
@@ -72,9 +72,9 @@ func TestValidateInfraImages(t *testing.T) {
 	}
 
 	// Test with infra (will try to check/pull, may fail if no docker)
-	deps2 := &config.Deps{
-		Infra: map[string]config.InfraEntry{
-			"mongo": {Inline: &config.Infra{
+	deps2 := &models.Deps{
+		Infra: map[string]models.InfraEntry{
+			"mongo": {Inline: &models.Infra{
 				Image: "mongo",
 				Tag:   "5.0",
 			}},
@@ -87,15 +87,15 @@ func TestValidateInfraImages(t *testing.T) {
 
 func TestValidateAllImages(t *testing.T) {
 	// Test with no images (should pass)
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"service1": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git",
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	if err := ValidateAllImages(deps); err != nil {

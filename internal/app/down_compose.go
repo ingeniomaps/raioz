@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
@@ -21,7 +21,7 @@ import (
 // used at `up` time. Required because the default prefix-based cleanup only
 // matches containers named `raioz-<project>-<svc>`, and docker compose names
 // its own containers `<dir>-<svc>-N` instead.
-func stopComposeServices(ctx context.Context, deps *config.Deps) {
+func stopComposeServices(ctx context.Context, deps *models.Deps) {
 	for name, svc := range deps.Services {
 		if svc.Source.Command != "" {
 			continue
@@ -33,7 +33,7 @@ func stopComposeServices(ctx context.Context, deps *config.Deps) {
 				continue
 			}
 			dr := detect.Detect(svc.Source.Path)
-			if dr.Runtime != detect.RuntimeCompose || len(dr.ComposeFiles) == 0 {
+			if dr.Runtime != models.RuntimeCompose || len(dr.ComposeFiles) == 0 {
 				continue
 			}
 			files = dr.ComposeFiles
@@ -65,7 +65,7 @@ func stopComposeServices(ctx context.Context, deps *config.Deps) {
 // runCustomStopCommands executes each service's `stop:` command from raioz.yaml,
 // running in the project directory with the service's configured env vars merged
 // in. Failures are logged but do not abort the overall down flow.
-func runCustomStopCommands(ctx context.Context, deps *config.Deps, projectDir string) {
+func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir string) {
 	for name, svc := range deps.Services {
 		if svc.Commands == nil || svc.Commands.Down == "" {
 			continue

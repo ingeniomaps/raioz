@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -39,13 +39,13 @@ func TestLoadCorruptedRootConfig(t *testing.T) {
 		tmpDir := t.TempDir()
 		ws := &workspace.Workspace{Root: tmpDir}
 
-		deps := &config.Deps{
+		deps := &models.Deps{
 			SchemaVersion: "1.0",
-			Project:       config.Project{Name: "test"},
-			Network:       config.NetworkConfig{Name: "test", IsObject: false},
-			Services:      map[string]config.Service{},
-			Infra:         map[string]config.InfraEntry{},
-			Env:           config.EnvConfig{},
+			Project:       models.Project{Name: "test"},
+			Network:       models.NetworkConfig{Name: "test", IsObject: false},
+			Services:      map[string]models.Service{},
+			Infra:         map[string]models.InfraEntry{},
+			Env:           models.EnvConfig{},
 		}
 
 		rootConfig, err := GenerateFromDeps(deps, []string{}, map[string]string{})

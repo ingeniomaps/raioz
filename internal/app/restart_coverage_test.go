@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -14,8 +14,8 @@ import (
 func TestRestartUseCase_Execute_HostServiceBlocked(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, _, hostRunner := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	hostRunner.LoadProcessesStateFunc = func(ws *workspace.Workspace) (map[string]*host.ProcessInfo, error) {
 		return map[string]*host.ProcessInfo{
@@ -34,14 +34,14 @@ func TestRestartUseCase_Execute_HostServiceBlocked(t *testing.T) {
 func TestRestartUseCase_Execute_AllExcludeInfra(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, stateMgr, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*config.Deps, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "proj"},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Image: "redis:7"}},
+	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "proj"},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Image: "redis:7"}},
 			},
 		}, nil
 	}
@@ -69,8 +69,8 @@ func TestRestartUseCase_Execute_AllExcludeInfra(t *testing.T) {
 func TestRestartUseCase_Execute_RestartFails(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api"}, nil
@@ -88,8 +88,8 @@ func TestRestartUseCase_Execute_RestartFails(t *testing.T) {
 func TestRestartUseCase_Execute_ProjectNameProvided(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api"}, nil
@@ -111,8 +111,8 @@ func TestRestartUseCase_Execute_ProjectNameProvided(t *testing.T) {
 func TestRestartUseCase_Execute_ProjectNameMismatch(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "other-proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "other-proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api"}, nil
@@ -191,12 +191,12 @@ func TestRestartUseCase_resolveProjectComposeServices_Error(t *testing.T) {
 func TestRestartUseCase_Execute_FallbackToProjectCompose(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, stateMgr, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*config.Deps, error) {
-		return &config.Deps{
-			Project:            config.Project{Name: "proj"},
+	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
+		return &models.Deps{
+			Project:            models.Project{Name: "proj"},
 			ProjectComposePath: "/tmp/project-compose.yml",
 		}, nil
 	}

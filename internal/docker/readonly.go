@@ -3,12 +3,12 @@ package docker
 import (
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/git"
 )
 
 // GetVolumeMountMode returns ":ro" for readonly services, empty string otherwise
-func GetVolumeMountMode(svc config.Service) string {
+func GetVolumeMountMode(svc models.Service) string {
 	if svc.Source.Kind == "git" && git.IsReadonly(svc.Source) {
 		return ":ro"
 	}
@@ -16,7 +16,7 @@ func GetVolumeMountMode(svc config.Service) string {
 }
 
 // ApplyReadonlyToVolumes adds :ro suffix to bind mount volumes for readonly services
-func ApplyReadonlyToVolumes(volumes []string, svc config.Service) []string {
+func ApplyReadonlyToVolumes(volumes []string, svc models.Service) []string {
 	if len(volumes) == 0 {
 		return volumes
 	}

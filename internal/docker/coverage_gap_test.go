@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // --- NormalizeContainerName: explicit workspace branches ---
@@ -195,11 +195,11 @@ func TestCleanAllProjects_NoWorkspaces(t *testing.T) {
 // --- ValidatePorts: no conflict scenarios ---
 
 func TestValidatePorts_NoDockerConfig(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Services: map[string]models.Service{
 			"host-svc": {
-				Source: config.SourceConfig{Kind: "git", Command: "npm start"},
+				Source: models.SourceConfig{Kind: "git", Command: "npm start"},
 			},
 		},
 	}
@@ -213,10 +213,10 @@ func TestValidatePorts_NoDockerConfig(t *testing.T) {
 }
 
 func TestValidatePorts_OnlyInfra(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Infra: map[string]config.InfraEntry{
-			"pg": {Inline: &config.Infra{Image: "postgres", Ports: []string{"15432"}}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Infra: map[string]models.InfraEntry{
+			"pg": {Inline: &models.Infra{Image: "postgres", Ports: []string{"15432"}}},
 		},
 	}
 	conflicts, err := ValidatePorts(deps, "/tmp/nonexistent", "proj")
@@ -227,10 +227,10 @@ func TestValidatePorts_OnlyInfra(t *testing.T) {
 }
 
 func TestValidatePorts_InvalidPortSkipped(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Services: map[string]config.Service{
-			"api": {Docker: &config.DockerConfig{Ports: []string{"invalid"}}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Ports: []string{"invalid"}}},
 		},
 	}
 	_, err := ValidatePorts(deps, "/tmp/nonexistent", "proj")
@@ -255,11 +255,11 @@ func TestAddServiceToCompose_GitSource(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	services := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "git", Path: "web"},
-		Docker: &config.DockerConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "git", Path: "web"},
+		Docker: &models.DockerConfig{
 			Ports:      []string{"3000:3000"},
 			Dockerfile: "Dockerfile.dev",
 		},
@@ -285,11 +285,11 @@ func TestAddServiceToCompose_WithDockerCommand(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
 
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	services := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "image", Image: "nginx"},
-		Docker: &config.DockerConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "image", Image: "nginx"},
+		Docker: &models.DockerConfig{
 			Command: "nginx -g 'daemon off;'",
 		},
 	}
@@ -311,11 +311,11 @@ func TestAddServiceToCompose_NoDockerButCommands(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
 
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	services := map[string]any{}
-	svc := config.Service{
-		Source:   config.SourceConfig{Kind: "git"},
-		Commands: &config.ServiceCommands{Up: "npm run dev"},
+	svc := models.Service{
+		Source:   models.SourceConfig{Kind: "git"},
+		Commands: &models.ServiceCommands{Up: "npm run dev"},
 		Docker:   nil,
 	}
 
@@ -341,11 +341,11 @@ func TestBuildInlineInfraConfig_WithEnvFileArray(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
-	infra := config.Infra{
+	infra := models.Infra{
 		Image: "postgres",
-		Env: &config.EnvValue{
+		Env: &models.EnvValue{
 			IsObject: false,
 			Files:    []string{"."},
 		},
@@ -373,9 +373,9 @@ func TestBuildInlineInfraConfig_WithEnvFileArray(t *testing.T) {
 func TestBuildInlineInfraConfig_WithNamedVolume(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
-	infra := config.Infra{
+	infra := models.Infra{
 		Image:   "postgres",
 		Volumes: []string{"pgdata:/var/lib/postgresql/data"},
 	}
@@ -405,11 +405,11 @@ func TestBuildInlineInfraConfig_WithNamedVolume(t *testing.T) {
 func TestResolveInfraEnv_FilePathDoesNotExist(t *testing.T) {
 	ws := mkWorkspace(t.TempDir())
 	projectDir := t.TempDir()
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	cfg := map[string]any{}
 
-	infra := config.Infra{
-		Env: &config.EnvValue{
+	infra := models.Infra{
+		Env: &models.EnvValue{
 			IsObject: false,
 			Files:    []string{"nonexistent.env"},
 		},
@@ -550,9 +550,9 @@ func TestApplyModeConfig_ProdFiltersAutoDevMount(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "git", Path: "web"},
-		Docker: &config.DockerConfig{Mode: "prod"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "git", Path: "web"},
+		Docker: &models.DockerConfig{Mode: "prod"},
 	}
 	// Simulate auto dev mount from svcPath to /app, plus a user volume
 	serviceConfig := map[string]any{
@@ -591,9 +591,9 @@ func TestApplyModeConfig_ProdAllFiltered(t *testing.T) {
 	if err := os.MkdirAll(svcPath, 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "git", Path: "api"},
-		Docker: &config.DockerConfig{Mode: "prod"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "git", Path: "api"},
+		Docker: &models.DockerConfig{Mode: "prod"},
 	}
 	serviceConfig := map[string]any{
 		"volumes": []string{svcPath + ":/app"},
@@ -606,9 +606,9 @@ func TestApplyModeConfig_ProdAllFiltered(t *testing.T) {
 
 func TestApplyModeConfig_ReadonlyService(t *testing.T) {
 	ws := mkWorkspace(t.TempDir())
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "git", Access: "readonly"},
-		Docker: &config.DockerConfig{Mode: "dev"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "git", Access: "readonly"},
+		Docker: &models.DockerConfig{Mode: "dev"},
 	}
 	serviceConfig := map[string]any{}
 	ApplyModeConfig(serviceConfig, "lib", svc, ws)

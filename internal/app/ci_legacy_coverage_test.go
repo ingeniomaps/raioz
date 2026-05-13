@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -15,14 +15,14 @@ func TestCIUseCase_executeLegacy_FeatureFlagsFail(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil, nil
 		},
-		ValidateFeatureFlagsFunc: func(d *config.Deps) error {
+		ValidateFeatureFlagsFunc: func(d *models.Deps) error {
 			return fmt.Errorf("bad flags")
 		},
 	}
@@ -41,11 +41,11 @@ func TestCIUseCase_executeLegacy_ValidateOnly(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
@@ -64,16 +64,16 @@ func TestCIUseCase_executeLegacy_ValidationFails(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
 	deps.Validator = &mocks.MockValidator{
-		ValidateSchemaFunc: func(d *config.Deps) error {
+		ValidateSchemaFunc: func(d *models.Deps) error {
 			return fmt.Errorf("schema bad")
 		},
 	}
@@ -93,14 +93,14 @@ func TestCIUseCase_executeLegacy_EphemeralWorkspace(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil, nil
 		},
-		FilterByFeatureFlagsFunc: func(d *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+		FilterByFeatureFlagsFunc: func(d *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 			return d, nil
 		},
 	}
@@ -117,21 +117,21 @@ func TestCIUseCase_executeLegacy_EphemeralWorkspace(t *testing.T) {
 		},
 	}
 	deps.DockerRunner = &mocks.MockDockerRunner{
-		ValidatePortsFunc: func(d *config.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
+		ValidatePortsFunc: func(d *models.Deps, baseDir string, projectName string) ([]interfaces.PortConflict, error) {
 			return nil, nil
 		},
-		ValidateAllImagesFunc: func(d *config.Deps) error { return nil },
+		ValidateAllImagesFunc: func(d *models.Deps) error { return nil },
 		EnsureNetworkWithConfigAndContextFunc: func(ctx context.Context, name string, subnet string, _ map[string]string, ask bool) error {
 			return nil
 		},
 		ExtractNamedVolumesFunc: func(volumes []string) ([]string, error) { return nil, nil },
-		GenerateComposeFunc: func(d *config.Deps, ws *workspace.Workspace, projectDir string) (string, []string, error) {
+		GenerateComposeFunc: func(d *models.Deps, ws *workspace.Workspace, projectDir string) (string, []string, error) {
 			return tmpDir + "/compose.yml", nil, nil
 		},
 		UpFunc: func(composePath string) error { return nil },
 	}
 	deps.StateManager = &mocks.MockStateManager{
-		SaveFunc: func(ws *workspace.Workspace, d *config.Deps) error { return nil },
+		SaveFunc: func(ws *workspace.Workspace, d *models.Deps) error { return nil },
 	}
 
 	uc := NewCIUseCase(deps)
@@ -157,14 +157,14 @@ func TestCIUseCase_executeLegacy_LockFails(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil, nil
 		},
-		FilterByFeatureFlagsFunc: func(d *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+		FilterByFeatureFlagsFunc: func(d *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 			return d, nil
 		},
 	}

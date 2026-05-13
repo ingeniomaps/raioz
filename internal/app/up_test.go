@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 )
 
 func TestNewUpUseCase(t *testing.T) {
@@ -27,7 +27,7 @@ func TestUpUseCase_stopOtherProjects_NoState(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.StateManager = &mocks.MockStateManager{
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
 			return nil, fmt.Errorf("no state")
 		},
 	}
@@ -40,8 +40,8 @@ func TestUpUseCase_stopOtherProjects_NoActiveProjects(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.StateManager = &mocks.MockStateManager{
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-			return &state.GlobalState{ActiveProjects: []string{}}, nil
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+			return &models.GlobalState{ActiveProjects: []string{}}, nil
 		},
 	}
 	uc := NewUpUseCase(deps)

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/detect"
 	"raioz/internal/discovery"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/proxy"
 )
 
@@ -17,14 +17,14 @@ func TestFullFlow_ServiceDiscovery(t *testing.T) {
 	mgr := discovery.NewManager()
 
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"api":      {Name: "api", Runtime: detect.RuntimeDockerfile, Host: "raioz-app-api", Port: 3000},
-		"frontend": {Name: "frontend", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 8080},
-		"postgres": {Name: "postgres", Runtime: detect.RuntimeImage, Host: "raioz-app-postgres", Port: 5432},
-		"redis":    {Name: "redis", Runtime: detect.RuntimeImage, Host: "raioz-app-redis", Port: 6379},
+		"api":      {Name: "api", Runtime: models.RuntimeDockerfile, Host: "raioz-app-api", Port: 3000},
+		"frontend": {Name: "frontend", Runtime: models.RuntimeNPM, Host: "localhost", Port: 8080},
+		"postgres": {Name: "postgres", Runtime: models.RuntimeImage, Host: "raioz-app-postgres", Port: 5432},
+		"redis":    {Name: "redis", Runtime: models.RuntimeImage, Host: "raioz-app-redis", Port: 6379},
 	}
 
 	// Scenario 1: Docker service (api) calling other Docker services
-	apiVars := mgr.GenerateEnvVars("api", detect.RuntimeDockerfile, endpoints, false)
+	apiVars := mgr.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, false)
 
 	if apiVars["POSTGRES_HOST"] != "raioz-app-postgres" {
 		t.Errorf("api→postgres: expected container name, got %q", apiVars["POSTGRES_HOST"])
@@ -37,7 +37,7 @@ func TestFullFlow_ServiceDiscovery(t *testing.T) {
 	}
 
 	// Scenario 2: Host service (frontend) calling Docker services
-	frontVars := mgr.GenerateEnvVars("frontend", detect.RuntimeNPM, endpoints, false)
+	frontVars := mgr.GenerateEnvVars("frontend", models.RuntimeNPM, endpoints, false)
 
 	if frontVars["API_HOST"] != "localhost" {
 		t.Errorf("frontend(host)→api(docker): expected localhost, got %q", frontVars["API_HOST"])
@@ -47,7 +47,7 @@ func TestFullFlow_ServiceDiscovery(t *testing.T) {
 	}
 
 	// Scenario 3: With proxy enabled
-	apiVarsProxy := mgr.GenerateEnvVars("api", detect.RuntimeDockerfile, endpoints, true)
+	apiVarsProxy := mgr.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, true)
 
 	if apiVarsProxy["POSTGRES_HTTPS_URL"] != "https://postgres.localhost" {
 		t.Errorf("expected HTTPS URL with proxy, got %q", apiVarsProxy["POSTGRES_HTTPS_URL"])
@@ -145,17 +145,17 @@ func TestFullFlow_DiscoveryWithAllRuntimes(t *testing.T) {
 
 	runtimes := []struct {
 		name    string
-		runtime detect.Runtime
+		runtime models.Runtime
 		host    string
 	}{
-		{"compose-svc", detect.RuntimeCompose, "compose-container"},
-		{"docker-svc", detect.RuntimeDockerfile, "docker-container"},
-		{"image-svc", detect.RuntimeImage, "image-container"},
-		{"npm-svc", detect.RuntimeNPM, "localhost"},
-		{"go-svc", detect.RuntimeGo, "localhost"},
-		{"make-svc", detect.RuntimeMake, "localhost"},
-		{"python-svc", detect.RuntimePython, "localhost"},
-		{"rust-svc", detect.RuntimeRust, "localhost"},
+		{"compose-svc", models.RuntimeCompose, "compose-container"},
+		{"docker-svc", models.RuntimeDockerfile, "docker-container"},
+		{"image-svc", models.RuntimeImage, "image-container"},
+		{"npm-svc", models.RuntimeNPM, "localhost"},
+		{"go-svc", models.RuntimeGo, "localhost"},
+		{"make-svc", models.RuntimeMake, "localhost"},
+		{"python-svc", models.RuntimePython, "localhost"},
+		{"rust-svc", models.RuntimeRust, "localhost"},
 	}
 
 	endpoints := make(map[string]interfaces.ServiceEndpoint)
@@ -176,7 +176,7 @@ func TestFullFlow_DiscoveryWithAllRuntimes(t *testing.T) {
 		}
 
 		// Docker callers should see host.docker.internal for host targets
-		if caller.runtime == detect.RuntimeDockerfile || caller.runtime == detect.RuntimeCompose || caller.runtime == detect.RuntimeImage {
+		if caller.runtime == models.RuntimeDockerfile || caller.runtime == models.RuntimeCompose || caller.runtime == models.RuntimeImage {
 			if vars["NPM_SVC_HOST"] != "host.docker.internal" {
 				t.Errorf("%s(docker) → npm-svc(host): expected host.docker.internal, got %q",
 					caller.name, vars["NPM_SVC_HOST"])
@@ -184,7 +184,7 @@ func TestFullFlow_DiscoveryWithAllRuntimes(t *testing.T) {
 		}
 
 		// Host callers should see localhost for docker targets
-		if caller.runtime == detect.RuntimeNPM || caller.runtime == detect.RuntimeGo {
+		if caller.runtime == models.RuntimeNPM || caller.runtime == models.RuntimeGo {
 			if vars["COMPOSE_SVC_HOST"] != "localhost" {
 				t.Errorf("%s(host) → compose-svc(docker): expected localhost, got %q",
 					caller.name, vars["COMPOSE_SVC_HOST"])

@@ -5,7 +5,7 @@ import (
 
 	"raioz/internal/app/upcase"
 	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/output"
 )
 
@@ -18,7 +18,7 @@ func CheckYAML(proj *YAMLProject) error {
 	// Check service paths exist (honoring yaml `command:`/`compose:` overrides).
 	for name, svc := range proj.Deps.Services {
 		result := config.ResolveServiceDetection(svc, svc.Source.Path)
-		if result.Runtime == detect.RuntimeUnknown {
+		if result.Runtime == models.RuntimeUnknown {
 			if svc.Source.Path != "" {
 				output.PrintWarning(fmt.Sprintf("%s: no runtime detected at %s", name, svc.Source.Path))
 			} else {

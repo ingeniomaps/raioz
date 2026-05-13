@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/state"
 )
 
@@ -16,11 +17,11 @@ func TestFullFlow_StatePersistence(t *testing.T) {
 	dir := t.TempDir()
 
 	// Save initial state
-	s := &state.LocalState{
+	s := &models.LocalState{
 		Project:      "my-app",
 		Workspace:    "acme",
 		NetworkName:  "acme-net",
-		DevOverrides: make(map[string]state.DevOverride),
+		DevOverrides: make(map[string]models.DevOverride),
 		HostPIDs:     map[string]int{"api": 12345, "frontend": 12346},
 		Ignored:      []string{"legacy"},
 	}
@@ -141,14 +142,14 @@ dependencies:
 
 	// Detect the local path
 	pgDetect := detect.Detect(pgDir)
-	if pgDetect.Runtime != detect.RuntimeDockerfile {
+	if pgDetect.Runtime != models.RuntimeDockerfile {
 		t.Errorf("local pg runtime = %s, want dockerfile", pgDetect.Runtime)
 	}
 
 	// Record the swap in state
-	localState := &state.LocalState{
+	localState := &models.LocalState{
 		Project:      "test-app",
-		DevOverrides: make(map[string]state.DevOverride),
+		DevOverrides: make(map[string]models.DevOverride),
 		HostPIDs:     make(map[string]int),
 	}
 	localState.AddDevOverride("postgres", "postgres:16", pgDir)
@@ -179,23 +180,23 @@ func TestFullFlow_OrchestratorDispatch(t *testing.T) {
 	// Test that detection results map correctly to runner types
 	tests := []struct {
 		name     string
-		runtime  detect.Runtime
+		runtime  models.Runtime
 		isDocker bool
 		isHost   bool
 	}{
-		{"compose", detect.RuntimeCompose, true, false},
-		{"dockerfile", detect.RuntimeDockerfile, true, false},
-		{"image", detect.RuntimeImage, true, false},
-		{"npm", detect.RuntimeNPM, false, true},
-		{"go", detect.RuntimeGo, false, true},
-		{"make", detect.RuntimeMake, false, true},
-		{"python", detect.RuntimePython, false, true},
-		{"rust", detect.RuntimeRust, false, true},
+		{"compose", models.RuntimeCompose, true, false},
+		{"dockerfile", models.RuntimeDockerfile, true, false},
+		{"image", models.RuntimeImage, true, false},
+		{"npm", models.RuntimeNPM, false, true},
+		{"go", models.RuntimeGo, false, true},
+		{"make", models.RuntimeMake, false, true},
+		{"python", models.RuntimePython, false, true},
+		{"rust", models.RuntimeRust, false, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := detect.DetectResult{Runtime: tt.runtime}
+			result := models.DetectResult{Runtime: tt.runtime}
 			if result.IsDocker() != tt.isDocker {
 				t.Errorf("IsDocker() = %v, want %v", result.IsDocker(), tt.isDocker)
 			}

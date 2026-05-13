@@ -1,8 +1,8 @@
 package checkcase
 
 import (
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 )
@@ -47,7 +47,7 @@ func (uc *UseCase) resolveWorkspace(opts Options) (string, *interfaces.Workspace
 }
 
 // loadConfig loads the current configuration
-func (uc *UseCase) loadConfig(configPath string) (*config.Deps, error) {
+func (uc *UseCase) loadConfig(configPath string) (*models.Deps, error) {
 	currentDeps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
 	if err != nil {
 		return nil, errors.New(

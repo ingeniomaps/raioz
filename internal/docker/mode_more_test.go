@@ -5,16 +5,16 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
 func TestAddDevBindMount_NonDev(t *testing.T) {
 	ws := &workspace.Workspace{Root: "/tmp"}
 	cfg := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "git"},
-		Docker: &config.DockerConfig{Mode: "prod"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "git"},
+		Docker: &models.DockerConfig{Mode: "prod"},
 	}
 	AddDevBindMount(cfg, "api", svc, ws)
 	if _, ok := cfg["volumes"]; ok {
@@ -25,9 +25,9 @@ func TestAddDevBindMount_NonDev(t *testing.T) {
 func TestAddDevBindMount_NonGit(t *testing.T) {
 	ws := &workspace.Workspace{Root: "/tmp"}
 	cfg := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "image", Image: "nginx"},
-		Docker: &config.DockerConfig{Mode: "dev"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "image", Image: "nginx"},
+		Docker: &models.DockerConfig{Mode: "dev"},
 	}
 	AddDevBindMount(cfg, "api", svc, ws)
 	if _, ok := cfg["volumes"]; ok {
@@ -45,9 +45,9 @@ func TestAddDevBindMount_MissingServicePath(t *testing.T) {
 	}
 	cfg := map[string]any{}
 	// Git service whose path doesn't exist
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "git", Path: "missing"},
-		Docker: &config.DockerConfig{Mode: "dev", Runtime: "node"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "git", Path: "missing"},
+		Docker: &models.DockerConfig{Mode: "dev", Runtime: "node"},
 	}
 	AddDevBindMount(cfg, "api", svc, ws)
 	if _, ok := cfg["volumes"]; ok {
@@ -70,9 +70,9 @@ func TestAddDevBindMount_DevNodeRuntime(t *testing.T) {
 		ReadonlyServicesDir: filepath.Join(tmpDir, "services", "ro"),
 	}
 	cfg := map[string]any{}
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "git", Path: "api"},
-		Docker: &config.DockerConfig{Mode: "dev", Runtime: "node"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "git", Path: "api"},
+		Docker: &models.DockerConfig{Mode: "dev", Runtime: "node"},
 	}
 	AddDevBindMount(cfg, "api", svc, ws)
 	vols, ok := cfg["volumes"].([]string)

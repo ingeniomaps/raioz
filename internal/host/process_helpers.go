@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/env"
 	"raioz/internal/workspace"
 )
@@ -16,8 +16,8 @@ import (
 // resolveEnvVars resolves environment variables for a host service
 func resolveEnvVars(
 	ctx context.Context, ws *workspace.Workspace,
-	deps *config.Deps, serviceName string,
-	svc config.Service, projectDir string, servicePath string,
+	deps *models.Deps, serviceName string,
+	svc models.Service, projectDir string, servicePath string,
 ) ([]string, error) {
 	// Resolve env file path (same logic as Docker)
 	envFilePath, err := env.ResolveEnvFileForService(ws, deps, serviceName, svc.Env, projectDir, servicePath)

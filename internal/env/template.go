@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	raiozErr "raioz/internal/errors"
 	pathvalidate "raioz/internal/path"
 	"raioz/internal/workspace"
@@ -27,10 +27,10 @@ var EnvTemplateNames = []string{
 // projectDir is the directory where .raioz.json is located (for resolving "." to project .env)
 func GenerateEnvFromTemplate(
 	ws *workspace.Workspace,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName string,
 	servicePath string,
-	svc config.Service,
+	svc models.Service,
 	projectEnvPath string,
 	projectDir string,
 ) error {

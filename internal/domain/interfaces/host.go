@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 )
 
@@ -12,8 +12,8 @@ type HostRunner interface {
 	// StartService starts a service directly on the host
 	StartService(
 		ctx context.Context, ws *Workspace,
-		deps *config.Deps, serviceName string,
-		svc config.Service, projectDir string,
+		deps *models.Deps, serviceName string,
+		svc models.Service, projectDir string,
 	) (*host.ProcessInfo, error)
 	// StopServiceWithCommand stops a host service by PID with an optional stop command
 	StopServiceWithCommand(ctx context.Context, pid int, stopCommand string) error

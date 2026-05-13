@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 )
 
@@ -33,8 +33,8 @@ func TestHostRunner_Restart_StartsFreshProcess(t *testing.T) {
 		Name:        "restarter",
 		Path:        dir,
 		ProjectName: "host-restart-" + t.Name(),
-		Detection: detect.DetectResult{
-			Runtime:      detect.RuntimeMake,
+		Detection: models.DetectResult{
+			Runtime:      models.RuntimeMake,
 			StartCommand: "sleep 30",
 		},
 	}
@@ -79,8 +79,8 @@ func TestHostRunner_Restart_WhenNotRunning(t *testing.T) {
 		Name:        "cold-restart",
 		Path:        dir,
 		ProjectName: "host-cold-" + t.Name(),
-		Detection: detect.DetectResult{
-			Runtime:      detect.RuntimeMake,
+		Detection: models.DetectResult{
+			Runtime:      models.RuntimeMake,
 			StartCommand: "sleep 30",
 		},
 	}
@@ -254,8 +254,8 @@ func TestHostRunner_Stop_PollingLoopExercised(t *testing.T) {
 		Name:        "poll-sleeper",
 		Path:        dir,
 		ProjectName: "host-poll-" + t.Name(),
-		Detection: detect.DetectResult{
-			Runtime:      detect.RuntimeMake,
+		Detection: models.DetectResult{
+			Runtime:      models.RuntimeMake,
 			StartCommand: "sleep 10",
 		},
 	}

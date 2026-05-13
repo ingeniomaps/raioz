@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"raioz/internal/domain/models"
 )
 
-// MissingDependency represents a dependency that is required but not found
-type MissingDependency struct {
-	ServiceName string   // Service that requires the dependency
-	RequiredBy  string   // Service that requires it (or "root" if from root config)
-	Dependency  string   // Name of the missing dependency
-	FoundConfig *Service // Config found in service's .raioz.json (if any)
-	FoundPath   string   // Path where config was found (if any)
-}
+// MissingDependency / DependencyConflict live in internal/domain/models;
+// the aliases keep `models.MissingDependency` etc. compiling (ADR-009).
+type (
+	MissingDependency  = models.MissingDependency
+	DependencyConflict = models.DependencyConflict
+)
 
 // DetectMissingDependencies detects dependencies that are required but not defined
 // servicePathResolver is a function that returns the path to a service directory given service name and config
@@ -98,14 +98,6 @@ func FindServiceConfig(servicePath string) (*Deps, string, error) {
 	}
 
 	return deps, configPath, nil
-}
-
-// DependencyConflict represents a conflict between root and service dependencies
-type DependencyConflict struct {
-	ServiceName   string   // Service name
-	RootConfig    *Service // Config in root .raioz.json
-	ServiceConfig *Service // Config in service's .raioz.json
-	Differences   []string // List of differences
 }
 
 // DetectDependencyConflicts detects conflicts between root and service dependencies

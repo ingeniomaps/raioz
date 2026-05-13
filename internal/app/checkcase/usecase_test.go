@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/mocks"
 	"raioz/internal/state"
@@ -20,19 +20,19 @@ func initI18n(t *testing.T) {
 	i18n.Init("en")
 }
 
-func testDeps() *config.Deps {
-	return &config.Deps{
+func testDeps() *models.Deps {
+	return &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-net"},
-		Project:       config.Project{Name: "test-project"},
-		Services: map[string]config.Service{
+		Network:       models.NetworkConfig{Name: "test-net"},
+		Project:       models.Project{Name: "test-project"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "image", Image: "org/api", Tag: "latest"},
-				Docker: &config.DockerConfig{Mode: "prod", Ports: []string{"3000:3000"}},
+				Source: models.SourceConfig{Kind: "image", Image: "org/api", Tag: "latest"},
+				Docker: &models.DockerConfig{Mode: "prod", Ports: []string{"3000:3000"}},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
-		Env:   config.EnvConfig{UseGlobal: true, Files: []string{"global"}},
+		Infra: map[string]models.InfraEntry{},
+		Env:   models.EnvConfig{UseGlobal: true, Files: []string{"global"}},
 	}
 }
 
@@ -51,7 +51,7 @@ func TestResolveWorkspaceFromConfig(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -79,7 +79,7 @@ func TestResolveWorkspaceNoConfig(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -98,7 +98,7 @@ func TestResolveWorkspaceWithProjectName(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -124,7 +124,7 @@ func TestLoadConfig(t *testing.T) {
 	cfgDeps := testDeps()
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -144,7 +144,7 @@ func TestLoadConfigError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, os.ErrNotExist
 			},
 		},
@@ -172,9 +172,9 @@ func TestValidateConfigInvalid(t *testing.T) {
 	initI18n(t)
 
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "invalid",
-		Project:       config.Project{Name: ""},
+		Project:       models.Project{Name: ""},
 	}
 
 	errs := uc.validateConfig(deps)
@@ -210,7 +210,7 @@ func TestExecuteNoState(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -243,7 +243,7 @@ func TestExecuteWithConfigError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -265,7 +265,7 @@ func TestExecuteWithAlignedState(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -297,14 +297,14 @@ func TestExecuteWithInvalidConfig(t *testing.T) {
 	initI18n(t)
 
 	ws := &workspace.Workspace{Root: "/tmp/test"}
-	badDeps := &config.Deps{
+	badDeps := &models.Deps{
 		SchemaVersion: "invalid",
-		Project:       config.Project{Name: ""},
+		Project:       models.Project{Name: ""},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return badDeps, nil, nil
 			},
 		},

@@ -3,7 +3,7 @@ package docker
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestParsePort(t *testing.T) {
@@ -64,19 +64,19 @@ func TestParsePort(t *testing.T) {
 
 func TestValidatePorts(t *testing.T) {
 	// Create a test deps with ports
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"service1": {
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Ports: []string{"3000:8080"},
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
-			"infra1": {Inline: &config.Infra{
+		Infra: map[string]models.InfraEntry{
+			"infra1": {Inline: &models.Infra{
 				Ports: []string{"5432:5432"},
 			}},
 		},

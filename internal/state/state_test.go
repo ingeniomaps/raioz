@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -16,13 +16,13 @@ func TestSaveAndLoad(t *testing.T) {
 		ServicesDir: filepath.Join(tmpDir, "services"),
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-network"},
-		Project:       config.Project{Name: "test-project"},
-		Services:      map[string]config.Service{},
-		Infra:         map[string]config.InfraEntry{},
-		Env:           config.EnvConfig{UseGlobal: true, Files: []string{}},
+		Network:       models.NetworkConfig{Name: "test-network"},
+		Project:       models.Project{Name: "test-project"},
+		Services:      map[string]models.Service{},
+		Infra:         map[string]models.InfraEntry{},
+		Env:           models.EnvConfig{UseGlobal: true, Files: []string{}},
 	}
 
 	if err := Save(ws, deps); err != nil {
@@ -58,13 +58,13 @@ func TestExists(t *testing.T) {
 		t.Error("State should not exist initially")
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test"},
-		Project:       config.Project{Name: "test"},
-		Services:      map[string]config.Service{},
-		Infra:         map[string]config.InfraEntry{},
-		Env:           config.EnvConfig{},
+		Network:       models.NetworkConfig{Name: "test"},
+		Project:       models.Project{Name: "test"},
+		Services:      map[string]models.Service{},
+		Infra:         map[string]models.InfraEntry{},
+		Env:           models.EnvConfig{},
 	}
 
 	if err := Save(ws, deps); err != nil {
@@ -100,20 +100,20 @@ func TestSaveWithServices(t *testing.T) {
 		ServicesDir: filepath.Join(tmpDir, "services"),
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-network"},
-		Project:       config.Project{Name: "test-project"},
-		Services: map[string]config.Service{
+		Network:       models.NetworkConfig{Name: "test-network"},
+		Project:       models.Project{Name: "test-project"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "git", Repo: "git@github.com:org/api.git", Branch: "main", Path: "./services/api"},
-				Docker: &config.DockerConfig{Mode: "dev", Ports: []string{"3000:3000"}},
+				Source: models.SourceConfig{Kind: "git", Repo: "git@github.com:org/api.git", Branch: "main", Path: "./services/api"},
+				Docker: &models.DockerConfig{Mode: "dev", Ports: []string{"3000:3000"}},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
-			"database": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
+		Infra: map[string]models.InfraEntry{
+			"database": {Inline: &models.Infra{Image: "postgres", Tag: "15"}},
 		},
-		Env: config.EnvConfig{UseGlobal: true, Files: []string{"global"}},
+		Env: models.EnvConfig{UseGlobal: true, Files: []string{"global"}},
 	}
 
 	if err := Save(ws, deps); err != nil {
@@ -143,13 +143,13 @@ func TestSavePermissions(t *testing.T) {
 		ServicesDir: filepath.Join(tmpDir, "services"),
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test"},
-		Project:       config.Project{Name: "test"},
-		Services:      map[string]config.Service{},
-		Infra:         map[string]config.InfraEntry{},
-		Env:           config.EnvConfig{},
+		Network:       models.NetworkConfig{Name: "test"},
+		Project:       models.Project{Name: "test"},
+		Services:      map[string]models.Service{},
+		Infra:         map[string]models.InfraEntry{},
+		Env:           models.EnvConfig{},
 	}
 
 	if err := Save(ws, deps); err != nil {

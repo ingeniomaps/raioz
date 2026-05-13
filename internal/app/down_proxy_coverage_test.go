@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -16,8 +16,8 @@ func proxyTestDeps(proxy interfaces.ProxyManager) *Dependencies {
 	return &Dependencies{
 		ProxyManager: proxy,
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "test"}}, nil, nil
+			LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "test"}}, nil, nil
 			},
 		},
 	}
@@ -123,9 +123,9 @@ func TestDownUseCase_stopProxy_WorkspaceSharedSkipsWhenSiblingsActive(t *testing
 	deps := &Dependencies{
 		ProxyManager: proxy,
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project:   config.Project{Name: "alpha"},
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
 					Workspace: "acme",
 				}, nil, nil
 			},
@@ -173,9 +173,9 @@ func TestDownUseCase_stopProxy_WorkspaceSharedReloadsWhenSiblingsRemain(t *testi
 	deps := &Dependencies{
 		ProxyManager: proxy,
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project:   config.Project{Name: "alpha"},
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
 					Workspace: "acme",
 				}, nil, nil
 			},
@@ -225,9 +225,9 @@ func TestDownUseCase_stopProxy_WorkspaceSharedTumbasWhenAlone(t *testing.T) {
 	deps := &Dependencies{
 		ProxyManager: proxy,
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project:   config.Project{Name: "alpha"},
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
 					Workspace: "acme",
 				}, nil, nil
 			},

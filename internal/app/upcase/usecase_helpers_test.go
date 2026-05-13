@@ -8,11 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -54,11 +52,11 @@ func TestUseCaseOutCustom(t *testing.T) {
 // --- detectRuntimes ------------------------------------------------------------
 
 func TestDetectRuntimesImages(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
-			"redis":    {Inline: &config.Infra{Image: "redis"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
+			"redis":    {Inline: &models.Infra{Image: "redis"}},
 		},
 	}
 
@@ -68,15 +66,15 @@ func TestDetectRuntimesImages(t *testing.T) {
 		t.Fatalf("expected 2 results, got %d", len(results))
 	}
 	for name, r := range results {
-		if r.Runtime != detect.RuntimeImage {
+		if r.Runtime != models.RuntimeImage {
 			t.Errorf("%s: runtime = %q, want image", name, r.Runtime)
 		}
 	}
 }
 
 func TestDetectRuntimesServiceWithEmptyPath(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {}, // empty path -> skipped
 		},
 	}
@@ -95,9 +93,9 @@ func TestDetectRuntimesServiceWithPath(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Path: dir}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Path: dir}},
 		},
 	}
 	results := detectRuntimes(context.Background(), deps)
@@ -109,14 +107,14 @@ func TestDetectRuntimesServiceWithPath(t *testing.T) {
 // --- buildEndpoints ------------------------------------------------------------
 
 func TestBuildEndpointsDocker(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "app"},
-		Services: map[string]config.Service{
-			"web": {Docker: &config.DockerConfig{Ports: []string{"3000:3000"}}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "app"},
+		Services: map[string]models.Service{
+			"web": {Docker: &models.DockerConfig{Ports: []string{"3000:3000"}}},
 		},
 	}
 	detections := DetectionMap{
-		"web": {Runtime: detect.RuntimeCompose, Port: 3000},
+		"web": {Runtime: models.RuntimeCompose, Port: 3000},
 	}
 
 	got := buildEndpoints(context.Background(), nil, deps, detections, nil)
@@ -134,14 +132,14 @@ func TestBuildEndpointsDocker(t *testing.T) {
 }
 
 func TestBuildEndpointsHost(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "app"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "app"},
+		Services: map[string]models.Service{
 			"api": {},
 		},
 	}
 	detections := DetectionMap{
-		"api": {Runtime: detect.RuntimeGo, Port: 8080},
+		"api": {Runtime: models.RuntimeGo, Port: 8080},
 	}
 	got := buildEndpoints(context.Background(), nil, deps, detections, nil)
 	ep := got["api"]
@@ -154,14 +152,14 @@ func TestBuildEndpointsHost(t *testing.T) {
 }
 
 func TestBuildEndpointsInfraPortOverride(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "app"},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres", Ports: []string{"5433:5432"}}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "app"},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres", Ports: []string{"5433:5432"}}},
 		},
 	}
 	detections := DetectionMap{
-		"db": {Runtime: detect.RuntimeImage, Port: 5432},
+		"db": {Runtime: models.RuntimeImage, Port: 5432},
 	}
 	got := buildEndpoints(context.Background(), nil, deps, detections, nil)
 	ep := got["db"]
@@ -175,9 +173,9 @@ func TestBuildEndpointsInfraPortOverride(t *testing.T) {
 func TestCheckServicesRunningEmpty(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	ws := &workspace.Workspace{Root: "/tmp/foo"}
 	ok, err := uc.checkServicesRunning(context.Background(), deps, ws, nil, nil)
@@ -201,10 +199,10 @@ func TestCheckServicesRunningAllRunning(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{
-		Services: map[string]config.Service{"api": {}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{"api": {}},
 	}
-	oldDeps := &config.Deps{}
+	oldDeps := &models.Deps{}
 	ws := &workspace.Workspace{Root: "/tmp/foo"}
 	ok, err := uc.checkServicesRunning(context.Background(), deps, ws, nil, oldDeps)
 	if err != nil {
@@ -218,9 +216,9 @@ func TestCheckServicesRunningAllRunning(t *testing.T) {
 func TestCheckServicesRunningWithChanges(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{Services: map[string]config.Service{"api": {}}}
+	deps := &models.Deps{Services: map[string]models.Service{"api": {}}}
 	ws := &workspace.Workspace{Root: "/tmp/foo"}
-	changes := []state.ConfigChange{{}}
+	changes := []models.ConfigChange{{}}
 	ok, err := uc.checkServicesRunning(context.Background(), deps, ws, changes, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -236,12 +234,12 @@ func TestProcessStateLoadError(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
 				return nil, errors.New("load failed")
 			},
 		},
 	})
-	deps := &config.Deps{}
+	deps := &models.Deps{}
 	ws := &workspace.Workspace{Root: "/tmp"}
 	_, _, _, _, err := uc.processState(context.Background(), deps, ws, "cfg.json")
 	if err == nil {
@@ -253,15 +251,15 @@ func TestProcessStateCompareError(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{}, nil
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+				return &models.Deps{}, nil
 			},
-			CompareDepsFunc: func(oldDeps, newDeps *config.Deps) ([]state.ConfigChange, error) {
+			CompareDepsFunc: func(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error) {
 				return nil, errors.New("compare failed")
 			},
 		},
 	})
-	deps := &config.Deps{}
+	deps := &models.Deps{}
 	ws := &workspace.Workspace{Root: "/tmp"}
 	_, _, _, _, err := uc.processState(context.Background(), deps, ws, "cfg.json")
 	if err == nil {
@@ -273,16 +271,16 @@ func TestProcessStateSuccess(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil
 			},
-			CompareDepsFunc: func(oldDeps, newDeps *config.Deps) ([]state.ConfigChange, error) {
-				return []state.ConfigChange{{Field: "x", OldValue: "a", NewValue: "b"}}, nil
+			CompareDepsFunc: func(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error) {
+				return []models.ConfigChange{{Field: "x", OldValue: "a", NewValue: "b"}}, nil
 			},
-			FormatChangesFunc: func(changes []state.ConfigChange) string { return "diff" },
+			FormatChangesFunc: func(changes []models.ConfigChange) string { return "diff" },
 		},
 	})
-	deps := &config.Deps{}
+	deps := &models.Deps{}
 	ws := &workspace.Workspace{Root: "/tmp"}
 	oldDeps, changes, added, assisted, err := uc.processState(context.Background(), deps, ws, "cfg.json")
 	if err != nil {
@@ -447,16 +445,16 @@ func TestExecuteLocalProjectCommandFail(t *testing.T) {
 
 func TestSaveProjectCommandStateSuccess(t *testing.T) {
 	initI18nUp(t)
-	var updated *state.ProjectState
+	var updated *models.ProjectState
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			UpdateProjectStateFunc: func(name string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(name string, ps *models.ProjectState) error {
 				updated = ps
 				return nil
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	err := uc.saveProjectCommandState(context.Background(), deps, "/proj")
 	if err != nil {
 		t.Fatal(err)
@@ -476,13 +474,13 @@ func TestSaveProjectCommandStateError(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			UpdateProjectStateFunc: func(name string, ps *state.ProjectState) error {
+			UpdateProjectStateFunc: func(name string, ps *models.ProjectState) error {
 				return errors.New("fail")
 			},
 		},
 	})
-	err := uc.saveProjectCommandState(context.Background(), &config.Deps{
-		Project: config.Project{Name: "p"},
+	err := uc.saveProjectCommandState(context.Background(), &models.Deps{
+		Project: models.Project{Name: "p"},
 	}, "/proj")
 	if err == nil {
 		t.Error("expected error")
@@ -497,14 +495,14 @@ func TestGenerateEnvFilesFromTemplates(t *testing.T) {
 	callCount := 0
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, name string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, name string, svc models.Service) string {
 				return "/path/" + name
 			},
 		},
 		EnvManager: &mocks.MockEnvManager{
 			GenerateEnvFromTemplateFunc: func(
-				ws *workspace.Workspace, d *config.Deps, name, path string,
-				svc config.Service, projEnv, projDir string,
+				ws *workspace.Workspace, d *models.Deps, name, path string,
+				svc models.Service, projEnv, projDir string,
 			) error {
 				callCount++
 				return nil
@@ -512,12 +510,12 @@ func TestGenerateEnvFilesFromTemplates(t *testing.T) {
 		},
 	})
 	disabled := false
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"git1":     {Source: config.SourceConfig{Kind: "git"}},
-			"git2":     {Source: config.SourceConfig{Kind: "git"}},
-			"image":    {Source: config.SourceConfig{Kind: "image"}},
-			"disabled": {Source: config.SourceConfig{Kind: "git"}, Enabled: &disabled},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"git1":     {Source: models.SourceConfig{Kind: "git"}},
+			"git2":     {Source: models.SourceConfig{Kind: "git"}},
+			"image":    {Source: models.SourceConfig{Kind: "image"}},
+			"disabled": {Source: models.SourceConfig{Kind: "git"}, Enabled: &disabled},
 		},
 	}
 	ws := &workspace.Workspace{Root: "/tmp"}
@@ -537,24 +535,24 @@ func TestGenerateEnvFilesFromTemplatesErrorContinues(t *testing.T) {
 	callCount := 0
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, name string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, name string, svc models.Service) string {
 				return "/p/" + name
 			},
 		},
 		EnvManager: &mocks.MockEnvManager{
 			GenerateEnvFromTemplateFunc: func(
-				ws *workspace.Workspace, d *config.Deps, name, path string,
-				svc config.Service, pe, pd string,
+				ws *workspace.Workspace, d *models.Deps, name, path string,
+				svc models.Service, pe, pd string,
 			) error {
 				callCount++
 				return errors.New("template err")
 			},
 		},
 	})
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"a": {Source: config.SourceConfig{Kind: "git"}},
-			"b": {Source: config.SourceConfig{Kind: "git"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"a": {Source: models.SourceConfig{Kind: "git"}},
+			"b": {Source: models.SourceConfig{Kind: "git"}},
 		},
 	}
 	ws := &workspace.Workspace{Root: "/tmp"}

@@ -8,9 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 )
 
 func TestNewDevUseCase(t *testing.T) {
@@ -22,8 +21,8 @@ func TestNewDevUseCase(t *testing.T) {
 }
 
 func TestInfraNames(t *testing.T) {
-	deps := &config.Deps{
-		Infra: map[string]config.InfraEntry{
+	deps := &models.Deps{
+		Infra: map[string]models.InfraEntry{
 			"postgres": {},
 			"redis":    {},
 		},
@@ -38,7 +37,7 @@ func TestInfraNames(t *testing.T) {
 }
 
 func TestInfraNamesEmpty(t *testing.T) {
-	deps := &config.Deps{Infra: map[string]config.InfraEntry{}}
+	deps := &models.Deps{Infra: map[string]models.InfraEntry{}}
 	names := infraNames(deps)
 	if names != "" {
 		t.Errorf("expected empty string, got %q", names)
@@ -46,8 +45,8 @@ func TestInfraNamesEmpty(t *testing.T) {
 }
 
 func TestInfraPorts(t *testing.T) {
-	entry := config.InfraEntry{
-		Inline: &config.Infra{
+	entry := models.InfraEntry{
+		Inline: &models.Infra{
 			Ports: []string{"5432", "5433"},
 		},
 	}
@@ -58,7 +57,7 @@ func TestInfraPorts(t *testing.T) {
 }
 
 func TestInfraPorts_Nil(t *testing.T) {
-	entry := config.InfraEntry{}
+	entry := models.InfraEntry{}
 	ports := infraPorts(entry)
 	if ports != nil {
 		t.Errorf("expected nil, got %v", ports)
@@ -70,7 +69,7 @@ func TestDevUseCase_Execute_ConfigLoadError(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return nil, nil, fmt.Errorf("load error")
 		},
 	}
@@ -89,8 +88,8 @@ func TestDevUseCase_Execute_MissingName(t *testing.T) {
 	tmpDir := t.TempDir()
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{Project: config.Project{Name: "test"}}, nil, nil
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{Project: models.Project{Name: "test"}}, nil, nil
 		},
 	}
 	uc := NewDevUseCase(deps)
@@ -120,7 +119,7 @@ func TestDevUseCase_ListOverrides_Empty(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	uc := NewDevUseCase(deps)
-	err := uc.listOverrides(&state.LocalState{})
+	err := uc.listOverrides(&models.LocalState{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -130,8 +129,8 @@ func TestDevUseCase_ListOverrides_WithOverrides(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	uc := NewDevUseCase(deps)
-	localState := &state.LocalState{
-		DevOverrides: map[string]state.DevOverride{
+	localState := &models.LocalState{
+		DevOverrides: map[string]models.DevOverride{
 			"redis": {
 				OriginalImage: "redis:7",
 				LocalPath:     "/tmp/redis",

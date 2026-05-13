@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -23,8 +23,8 @@ func TestCreateOrUpdateEnvFile_NewFile(t *testing.T) {
 	ws := makeTestWS(t)
 	_ = EnsureEnvDirs(ws)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "myproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "myproj"},
 	}
 
 	vars := map[string]string{
@@ -58,8 +58,8 @@ func TestCreateOrUpdateEnvFile_MergeExisting(t *testing.T) {
 	ws := makeTestWS(t)
 	_ = EnsureEnvDirs(ws)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "myproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "myproj"},
 	}
 
 	// First write
@@ -97,8 +97,8 @@ func TestCreateOrUpdateEnvFile_MergeExisting(t *testing.T) {
 func TestCreateOrUpdateEnvFile_ServicePath(t *testing.T) {
 	ws := makeTestWS(t)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "myproj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "myproj"},
 	}
 
 	servicePath := t.TempDir()
@@ -121,8 +121,8 @@ func TestCreateOrUpdateEnvFile_ServicePath(t *testing.T) {
 func TestWriteGlobalEnvVariables_Disabled(t *testing.T) {
 	ws := makeTestWS(t)
 
-	deps := &config.Deps{
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Env: models.EnvConfig{
 			UseGlobal: false,
 			Files:     []string{},
 			Variables: map[string]string{},
@@ -140,8 +140,8 @@ func TestWriteGlobalEnvVariables_WithVariables(t *testing.T) {
 	ws := makeTestWS(t)
 	projectDir := t.TempDir()
 
-	deps := &config.Deps{
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Variables: map[string]string{
 				"FOO": "bar",
@@ -177,8 +177,8 @@ func TestWriteGlobalEnvVariables_WithFiles(t *testing.T) {
 	envFile := filepath.Join(projectDir, ".env.global")
 	os.WriteFile(envFile, []byte("KEY1=val1\nKEY2=val2\n"), 0o644)
 
-	deps := &config.Deps{
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Files:     []string{".env.global"},
 		},
@@ -207,8 +207,8 @@ func TestWriteGlobalEnvVariables_MergesExisting(t *testing.T) {
 	globalPath := filepath.Join(ws.EnvDir, "global.env")
 	os.WriteFile(globalPath, []byte("OLD=old_val\nKEEP=keep_old\n"), 0o600)
 
-	deps := &config.Deps{
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Variables: map[string]string{
 				"NEW":  "new_val",

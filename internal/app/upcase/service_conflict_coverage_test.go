@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -16,7 +15,7 @@ import (
 
 func TestDetectServiceConflict_NoConflict(t *testing.T) {
 	sm := &mocks.MockStateManager{
-		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*state.ServicePreference, error) {
+		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*models.ServicePreference, error) {
 			return nil, nil
 		},
 	}
@@ -31,8 +30,8 @@ func TestDetectServiceConflict_NoConflict(t *testing.T) {
 		DockerRunner: dr,
 	}}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 	ws := &workspace.Workspace{}
 
@@ -49,14 +48,14 @@ func TestDetectServiceConflict_NoConflict(t *testing.T) {
 
 func TestDetectServiceConflict_ClonedRunning(t *testing.T) {
 	sm := &mocks.MockStateManager{
-		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*state.ServicePreference, error) {
+		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*models.ServicePreference, error) {
 			return nil, nil
 		},
-		LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-			return &state.GlobalState{
-				Projects: map[string]state.ProjectState{
+		LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+			return &models.GlobalState{
+				Projects: map[string]models.ProjectState{
 					"other-proj": {
-						Services: []state.ServiceState{
+						Services: []models.ServiceState{
 							{Name: "api", Status: "running"},
 						},
 					},
@@ -81,8 +80,8 @@ func TestDetectServiceConflict_ClonedRunning(t *testing.T) {
 		DockerRunner: dr,
 	}}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 	ws := &workspace.Workspace{}
 
@@ -107,7 +106,7 @@ func TestDetectServiceConflict_ClonedRunning(t *testing.T) {
 }
 
 func TestDetectServiceConflict_PreferenceLocal(t *testing.T) {
-	pref := &state.ServicePreference{
+	pref := &models.ServicePreference{
 		ServiceName: "web",
 		Preference:  "local",
 		ProjectPath: "/home/user/web",
@@ -115,7 +114,7 @@ func TestDetectServiceConflict_PreferenceLocal(t *testing.T) {
 		Timestamp:   time.Now(),
 	}
 	sm := &mocks.MockStateManager{
-		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*state.ServicePreference, error) {
+		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*models.ServicePreference, error) {
 			return pref, nil
 		},
 	}
@@ -134,8 +133,8 @@ func TestDetectServiceConflict_PreferenceLocal(t *testing.T) {
 		DockerRunner: dr,
 	}}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 	ws := &workspace.Workspace{}
 
@@ -155,14 +154,14 @@ func TestDetectServiceConflict_PreferenceLocal(t *testing.T) {
 }
 
 func TestDetectServiceConflict_PreferenceCloned(t *testing.T) {
-	pref := &state.ServicePreference{
+	pref := &models.ServicePreference{
 		ServiceName: "db",
 		Preference:  "cloned",
 		Workspace:   "acme",
 		Timestamp:   time.Now(),
 	}
 	sm := &mocks.MockStateManager{
-		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*state.ServicePreference, error) {
+		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*models.ServicePreference, error) {
 			return pref, nil
 		},
 	}
@@ -181,8 +180,8 @@ func TestDetectServiceConflict_PreferenceCloned(t *testing.T) {
 		DockerRunner: dr,
 	}}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 	ws := &workspace.Workspace{}
 
@@ -205,13 +204,13 @@ func TestDetectServiceConflict_PreferenceCloned(t *testing.T) {
 }
 
 func TestDetectServiceConflict_PreferenceAskNoConflict(t *testing.T) {
-	pref := &state.ServicePreference{
+	pref := &models.ServicePreference{
 		ServiceName: "api",
 		Preference:  "ask",
 		Timestamp:   time.Now(),
 	}
 	sm := &mocks.MockStateManager{
-		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*state.ServicePreference, error) {
+		GetServicePreferenceFunc: func(ws *interfaces.Workspace, name string) (*models.ServicePreference, error) {
 			return pref, nil
 		},
 	}
@@ -226,8 +225,8 @@ func TestDetectServiceConflict_PreferenceAskNoConflict(t *testing.T) {
 		DockerRunner: dr,
 	}}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 	ws := &workspace.Workspace{}
 

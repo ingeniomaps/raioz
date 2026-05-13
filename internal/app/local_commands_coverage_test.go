@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestHandleLocalProjectDown_LoadFails(t *testing.T) {
@@ -30,25 +30,25 @@ func TestHandleLocalProjectDown_NotLocal(t *testing.T) {
 func TestGetLocalProjectCommand_AllModes(t *testing.T) {
 	tests := []struct {
 		name     string
-		deps     *config.Deps
+		deps     *models.Deps
 		cmdType  string
 		mode     string
 		expected string
 	}{
 		{
 			name:     "nil commands",
-			deps:     &config.Deps{Project: config.Project{Commands: nil}},
+			deps:     &models.Deps{Project: models.Project{Commands: nil}},
 			cmdType:  "up",
 			mode:     "dev",
 			expected: "",
 		},
 		{
 			name: "prod up",
-			deps: &config.Deps{
-				Project: config.Project{
-					Commands: &config.ProjectCommands{
+			deps: &models.Deps{
+				Project: models.Project{
+					Commands: &models.ProjectCommands{
 						Up:   "make dev",
-						Prod: &config.EnvironmentCommands{Up: "make prod"},
+						Prod: &models.EnvironmentCommands{Up: "make prod"},
 					},
 				},
 			},
@@ -58,11 +58,11 @@ func TestGetLocalProjectCommand_AllModes(t *testing.T) {
 		},
 		{
 			name: "dev down",
-			deps: &config.Deps{
-				Project: config.Project{
-					Commands: &config.ProjectCommands{
+			deps: &models.Deps{
+				Project: models.Project{
+					Commands: &models.ProjectCommands{
 						Down: "make down",
-						Dev:  &config.EnvironmentCommands{Down: "make dev-down"},
+						Dev:  &models.EnvironmentCommands{Down: "make dev-down"},
 					},
 				},
 			},
@@ -72,9 +72,9 @@ func TestGetLocalProjectCommand_AllModes(t *testing.T) {
 		},
 		{
 			name: "prod down fallback",
-			deps: &config.Deps{
-				Project: config.Project{
-					Commands: &config.ProjectCommands{
+			deps: &models.Deps{
+				Project: models.Project{
+					Commands: &models.ProjectCommands{
 						Down: "make down",
 					},
 				},
@@ -85,11 +85,11 @@ func TestGetLocalProjectCommand_AllModes(t *testing.T) {
 		},
 		{
 			name: "health prod",
-			deps: &config.Deps{
-				Project: config.Project{
-					Commands: &config.ProjectCommands{
+			deps: &models.Deps{
+				Project: models.Project{
+					Commands: &models.ProjectCommands{
 						Health: "curl /health",
-						Prod:   &config.EnvironmentCommands{Health: "curl /prod-health"},
+						Prod:   &models.EnvironmentCommands{Health: "curl /prod-health"},
 					},
 				},
 			},
@@ -99,9 +99,9 @@ func TestGetLocalProjectCommand_AllModes(t *testing.T) {
 		},
 		{
 			name: "health dev fallback",
-			deps: &config.Deps{
-				Project: config.Project{
-					Commands: &config.ProjectCommands{
+			deps: &models.Deps{
+				Project: models.Project{
+					Commands: &models.ProjectCommands{
 						Health: "curl /health",
 					},
 				},
@@ -112,9 +112,9 @@ func TestGetLocalProjectCommand_AllModes(t *testing.T) {
 		},
 		{
 			name: "unknown command type",
-			deps: &config.Deps{
-				Project: config.Project{
-					Commands: &config.ProjectCommands{Up: "make up"},
+			deps: &models.Deps{
+				Project: models.Project{
+					Commands: &models.ProjectCommands{Up: "make up"},
 				},
 			},
 			cmdType:  "unknown",
@@ -123,10 +123,10 @@ func TestGetLocalProjectCommand_AllModes(t *testing.T) {
 		},
 		{
 			name: "empty mode defaults to dev",
-			deps: &config.Deps{
-				Project: config.Project{
-					Commands: &config.ProjectCommands{
-						Dev: &config.EnvironmentCommands{Up: "make dev-up"},
+			deps: &models.Deps{
+				Project: models.Project{
+					Commands: &models.ProjectCommands{
+						Dev: &models.EnvironmentCommands{Up: "make dev-up"},
 					},
 				},
 			},

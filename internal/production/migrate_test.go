@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestMigrateComposeToDeps(t *testing.T) {
@@ -57,14 +57,14 @@ func TestMigrateComposeToDeps_RequiresProjectName(t *testing.T) {
 
 func TestValidateMigratedDeps(t *testing.T) {
 	t.Run("no warnings on minimal valid", func(t *testing.T) {
-		deps := &config.Deps{
+		deps := &models.Deps{
 			SchemaVersion: "1.0",
-			Network:       config.NetworkConfig{Name: "n"},
-			Project:       config.Project{Name: "p"},
-			Services: map[string]config.Service{
+			Network:       models.NetworkConfig{Name: "n"},
+			Project:       models.Project{Name: "p"},
+			Services: map[string]models.Service{
 				"api": {
-					Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "1.25"},
-					Docker: &config.DockerConfig{Mode: "prod"},
+					Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "1.25"},
+					Docker: &models.DockerConfig{Mode: "prod"},
 				},
 			},
 		}
@@ -75,12 +75,12 @@ func TestValidateMigratedDeps(t *testing.T) {
 	})
 
 	t.Run("warns when fields missing", func(t *testing.T) {
-		deps := &config.Deps{
+		deps := &models.Deps{
 			SchemaVersion: "0.1",
-			Services: map[string]config.Service{
+			Services: map[string]models.Service{
 				"api": {
-					Source: config.SourceConfig{Kind: "image"},
-					Docker: &config.DockerConfig{},
+					Source: models.SourceConfig{Kind: "image"},
+					Docker: &models.DockerConfig{},
 				},
 			},
 		}
@@ -91,14 +91,14 @@ func TestValidateMigratedDeps(t *testing.T) {
 	})
 
 	t.Run("warns on missing dependency reference", func(t *testing.T) {
-		deps := &config.Deps{
+		deps := &models.Deps{
 			SchemaVersion: "1.0",
-			Network:       config.NetworkConfig{Name: "n"},
-			Project:       config.Project{Name: "p"},
-			Services: map[string]config.Service{
+			Network:       models.NetworkConfig{Name: "n"},
+			Project:       models.Project{Name: "p"},
+			Services: map[string]models.Service{
 				"api": {
-					Source: config.SourceConfig{Kind: "image", Image: "x", Tag: "1"},
-					Docker: &config.DockerConfig{Mode: "prod", DependsOn: []string{"ghost"}},
+					Source: models.SourceConfig{Kind: "image", Image: "x", Tag: "1"},
+					Docker: &models.DockerConfig{Mode: "prod", DependsOn: []string{"ghost"}},
 				},
 			},
 		}
@@ -130,9 +130,9 @@ func TestSuggestGitSource(t *testing.T) {
 }
 
 func TestEnhanceMigratedDeps_NoPanic(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image", Image: "gcr.io/p/api"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image", Image: "gcr.io/p/api"}},
 		},
 	}
 	EnhanceMigratedDeps(deps) // best-effort, no return value

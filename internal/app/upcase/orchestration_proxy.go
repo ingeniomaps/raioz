@@ -8,10 +8,9 @@ import (
 	"runtime"
 	"strings"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -36,7 +35,7 @@ import (
 // proxy produces a half-working dev environment that's worse than none.
 func (uc *UseCase) startProxy(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 	serviceNames []string,
 	networkName string,
@@ -226,7 +225,7 @@ func printProxyURLs(pm interfaces.ProxyManager, serviceNames []string) {
 // didn't explicitly declare routing on it. Explicit `routing:` in raioz.yaml
 // is the opt-in escape hatch for deps where the user knows they do speak
 // HTTP (e.g. a custom image that happens to reuse a DB name).
-func shouldProxy(deps *config.Deps, name string) bool {
+func shouldProxy(deps *models.Deps, name string) bool {
 	if _, isService := deps.Services[name]; isService {
 		return true
 	}
@@ -259,7 +258,7 @@ func isNonHTTPImage(image string) bool {
 // buildProxyRoute handles it.
 func enrichDetectionsWithExposedPorts(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 ) {
 	for name, entry := range deps.Infra {
@@ -291,7 +290,7 @@ func enrichDetectionsWithExposedPorts(
 // detection. This is the escape hatch for entries whose runtime raioz can't
 // fully introspect — services with `command:` that launches a hidden compose
 // stack (BUG-13), or dependencies using `compose:` / a non-default port.
-func proxyTargetOverride(deps *config.Deps, name string) (string, int) {
+func proxyTargetOverride(deps *models.Deps, name string) (string, int) {
 	if svc, ok := deps.Services[name]; ok && svc.ProxyOverride != nil {
 		return svc.ProxyOverride.Target, svc.ProxyOverride.Port
 	}
@@ -306,9 +305,9 @@ func proxyTargetOverride(deps *config.Deps, name string) (string, int) {
 func buildProxyRoute(
 	ctx context.Context,
 	lookup naming.ContainerLookup,
-	deps *config.Deps,
+	deps *models.Deps,
 	name string,
-	detection *detect.DetectResult,
+	detection *models.DetectResult,
 ) interfaces.ProxyRoute {
 	hostname := name
 	var target string

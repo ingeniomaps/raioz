@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -23,7 +23,7 @@ import (
 // Returns composePath (empty for orchestrated), serviceNames, infraNames, error.
 func (uc *UseCase) processOrchestration(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	projectDir string,
 	configPath string,
@@ -319,7 +319,7 @@ func (uc *UseCase) processOrchestration(
 func buildEndpoints(
 	ctx context.Context,
 	lookup naming.ContainerLookup,
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 	portAllocs *PortAllocResult,
 ) map[string]interfaces.ServiceEndpoint {
@@ -384,7 +384,7 @@ func buildEndpoints(
 // over service-to-service dependsOn edges).
 
 // infraPorts extracts port mappings from an InfraEntry.
-func infraPorts(entry config.InfraEntry) []string {
+func infraPorts(entry models.InfraEntry) []string {
 	if entry.Inline != nil {
 		return entry.Inline.Ports
 	}
@@ -392,7 +392,7 @@ func infraPorts(entry config.InfraEntry) []string {
 }
 
 // servicePorts extracts port mappings from a Service.
-func servicePorts(svc config.Service) []string {
+func servicePorts(svc models.Service) []string {
 	if svc.Docker != nil {
 		return svc.Docker.Ports
 	}

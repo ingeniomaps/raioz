@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -21,9 +21,9 @@ func TestStatusUseCase_outputJSON(t *testing.T) {
 	servicesInfo := map[string]*interfaces.ServiceInfo{
 		"api": {Status: "running"},
 	}
-	stateDeps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Network: config.NetworkConfig{Name: "net"},
+	stateDeps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Network: models.NetworkConfig{Name: "net"},
 	}
 	if err := uc.outputJSON(servicesInfo, []string{"disabled"}, stateDeps, "ws"); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -48,9 +48,9 @@ func TestStatusUseCase_outputHumanReadable(t *testing.T) {
 	servicesInfo := map[string]*interfaces.ServiceInfo{
 		"api": {Status: "running"},
 	}
-	stateDeps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Network: config.NetworkConfig{Name: "net"},
+	stateDeps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Network: models.NetworkConfig{Name: "net"},
 	}
 	if err := uc.outputHumanReadable(servicesInfo, []string{"disabled"}, stateDeps, "ws"); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -65,9 +65,9 @@ func TestStatusUseCase_outputHumanReadable_Empty(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		DockerRunner: &mocks.MockDockerRunner{},
 	})
-	stateDeps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Network: config.NetworkConfig{Name: "net"},
+	stateDeps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Network: models.NetworkConfig{Name: "net"},
 	}
 	if err := uc.outputHumanReadable(map[string]*interfaces.ServiceInfo{}, nil, stateDeps, ""); err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -79,12 +79,12 @@ func TestStatusUseCase_outputHumanReadable_Empty(t *testing.T) {
 func TestInfraImageRef(t *testing.T) {
 	tests := []struct {
 		name  string
-		entry config.InfraEntry
+		entry models.InfraEntry
 		want  string
 	}{
-		{"nil inline", config.InfraEntry{}, ""},
-		{"image only", config.InfraEntry{Inline: &config.Infra{Image: "redis"}}, "redis"},
-		{"image with tag", config.InfraEntry{Inline: &config.Infra{Image: "redis", Tag: "7"}}, "redis:7"},
+		{"nil inline", models.InfraEntry{}, ""},
+		{"image only", models.InfraEntry{Inline: &models.Infra{Image: "redis"}}, "redis"},
+		{"image with tag", models.InfraEntry{Inline: &models.Infra{Image: "redis", Tag: "7"}}, "redis:7"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestStatusUseCase_queryServiceStatus(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	got := uc.queryServiceStatus(context.Background(), "api", deps)
 	if got != "running" {
 		t.Errorf("expected running, got %q", got)
@@ -123,7 +123,7 @@ func TestStatusUseCase_queryServiceStatus_NotFound(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	got := uc.queryServiceStatus(context.Background(), "api", deps)
 	if got != "stopped" {
 		t.Errorf("expected stopped, got %q", got)
@@ -138,7 +138,7 @@ func TestStatusUseCase_queryServiceStatus_Error(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
 	got := uc.queryServiceStatus(context.Background(), "api", deps)
 	if got != "unknown" {
 		t.Errorf("expected unknown, got %q", got)
@@ -149,7 +149,7 @@ func TestStatusUseCase_showOrchestratedStatus_ConfigLoadError(t *testing.T) {
 	initI18nForTest(t)
 	uc := NewStatusUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, context.DeadlineExceeded
 			},
 		},
@@ -165,11 +165,11 @@ func TestStatusUseCase_showOrchestratedStatus_Empty(t *testing.T) {
 	initI18nForTest(t)
 	uc := NewStatusUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project:  config.Project{Name: "p"},
-					Services: map[string]config.Service{},
-					Infra:    map[string]config.InfraEntry{},
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:  models.Project{Name: "p"},
+					Services: map[string]models.Service{},
+					Infra:    map[string]models.InfraEntry{},
 				}, nil, nil
 			},
 		},
@@ -185,15 +185,15 @@ func TestStatusUseCase_showOrchestratedStatus_WithServicesAndInfra(t *testing.T)
 	initI18nForTest(t)
 	uc := NewStatusUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project:   config.Project{Name: "p"},
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "p"},
 					Workspace: "ws",
-					Services: map[string]config.Service{
-						"api": {Source: config.SourceConfig{Path: "."}},
+					Services: map[string]models.Service{
+						"api": {Source: models.SourceConfig{Path: "."}},
 					},
-					Infra: map[string]config.InfraEntry{
-						"redis": {Inline: &config.Infra{Image: "redis:7"}},
+					Infra: map[string]models.InfraEntry{
+						"redis": {Inline: &models.Infra{Image: "redis:7"}},
 					},
 				}, nil, nil
 			},
@@ -216,7 +216,7 @@ func TestStatusUseCase_showOrchestratedStatus_WithServicesAndInfra(t *testing.T)
 func TestStatusUseCase_getHostServiceInfo_Stopped(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/tmp/x"
 			},
 		},
@@ -229,8 +229,8 @@ func TestStatusUseCase_getHostServiceInfo_Stopped(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
-	svc := config.Service{}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
+	svc := models.Service{}
 	info := uc.getHostServiceInfo(
 		context.Background(), &workspace.Workspace{Root: "/tmp"}, "svc", svc,
 		deps, map[string]*host.ProcessInfo{},
@@ -243,7 +243,7 @@ func TestStatusUseCase_getHostServiceInfo_Stopped(t *testing.T) {
 func TestStatusUseCase_getHostServiceInfo_ComposeRunning(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/tmp/x"
 			},
 		},
@@ -256,8 +256,8 @@ func TestStatusUseCase_getHostServiceInfo_ComposeRunning(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
-	svc := config.Service{}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
+	svc := models.Service{}
 	info := uc.getHostServiceInfo(
 		context.Background(), &workspace.Workspace{Root: "/tmp"}, "svc", svc,
 		deps, map[string]*host.ProcessInfo{},
@@ -270,7 +270,7 @@ func TestStatusUseCase_getHostServiceInfo_ComposeRunning(t *testing.T) {
 func TestStatusUseCase_getHostServiceInfo_ProcessInfoComposePath(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/tmp/x"
 			},
 		},
@@ -281,8 +281,8 @@ func TestStatusUseCase_getHostServiceInfo_ProcessInfoComposePath(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
-	svc := config.Service{}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
+	svc := models.Service{}
 	info := uc.getHostServiceInfo(
 		context.Background(), &workspace.Workspace{Root: "/tmp"}, "svc", svc, deps,
 		map[string]*host.ProcessInfo{
@@ -297,7 +297,7 @@ func TestStatusUseCase_getHostServiceInfo_ProcessInfoComposePath(t *testing.T) {
 func TestStatusUseCase_getHostServiceInfo_ProcessAlive(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/tmp/x"
 			},
 		},
@@ -313,8 +313,8 @@ func TestStatusUseCase_getHostServiceInfo_ProcessAlive(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
-	svc := config.Service{}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
+	svc := models.Service{}
 	info := uc.getHostServiceInfo(
 		context.Background(), &workspace.Workspace{Root: "/tmp"}, "svc", svc, deps,
 		map[string]*host.ProcessInfo{
@@ -358,8 +358,8 @@ func TestQueryDepStatus_FallsBackToLabelsWhenCanonicalNameMissing(t *testing.T) 
 		},
 	})
 
-	deps := &config.Deps{Project: config.Project{Name: "yemdiou"}}
-	entry := config.InfraEntry{Inline: &config.Infra{Image: "postgres:16"}}
+	deps := &models.Deps{Project: models.Project{Name: "yemdiou"}}
+	entry := models.InfraEntry{Inline: &models.Infra{Image: "postgres:16"}}
 	got := uc.queryDepStatus(context.Background(), "postgres", entry, deps)
 	if got != "running" {
 		t.Errorf("queryDepStatus = %q, want %q", got, "running")
@@ -388,8 +388,8 @@ func TestQueryDepStatus_NoFallbackWhenCanonicalHits(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
-	entry := config.InfraEntry{Inline: &config.Infra{Image: "redis:7"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
+	entry := models.InfraEntry{Inline: &models.Infra{Image: "redis:7"}}
 	got := uc.queryDepStatus(context.Background(), "redis", entry, deps)
 	if got != "running" {
 		t.Errorf("queryDepStatus = %q, want running", got)
@@ -412,8 +412,8 @@ func TestQueryDepStatus_StillStoppedWhenNoMatch(t *testing.T) {
 			},
 		},
 	})
-	deps := &config.Deps{Project: config.Project{Name: "p"}}
-	entry := config.InfraEntry{Inline: &config.Infra{Image: "x"}}
+	deps := &models.Deps{Project: models.Project{Name: "p"}}
+	entry := models.InfraEntry{Inline: &models.Infra{Image: "x"}}
 	if got := uc.queryDepStatus(context.Background(), "x", entry, deps); got != "stopped" {
 		t.Errorf("queryDepStatus = %q, want stopped", got)
 	}
@@ -430,7 +430,7 @@ func TestQueryDepStatus_StillStoppedWhenNoMatch(t *testing.T) {
 func TestGetHostServiceInfo_ProxyTargetRunningWins(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/tmp/x"
 			},
 		},
@@ -447,10 +447,10 @@ func TestGetHostServiceInfo_ProxyTargetRunningWins(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{Project: config.Project{Name: "accounts"}, Workspace: "hypixo"}
-	svc := config.Service{
-		Source: config.SourceConfig{Command: "make dev-docker"},
-		ProxyOverride: &config.ServiceProxyOverride{
+	deps := &models.Deps{Project: models.Project{Name: "accounts"}, Workspace: "hypixo"}
+	svc := models.Service{
+		Source: models.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &models.ServiceProxyOverride{
 			Target: "hypixo-accounts",
 			Port:   4002,
 		},
@@ -469,7 +469,7 @@ func TestGetHostServiceInfo_ProxyTargetRunningWins(t *testing.T) {
 func TestGetHostServiceInfo_ProxyTargetExitedWins(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/tmp/x"
 			},
 		},
@@ -487,10 +487,10 @@ func TestGetHostServiceInfo_ProxyTargetExitedWins(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{Project: config.Project{Name: "accounts"}}
-	svc := config.Service{
-		Source:        config.SourceConfig{Command: "make dev-docker"},
-		ProxyOverride: &config.ServiceProxyOverride{Target: "hypixo-accounts"},
+	deps := &models.Deps{Project: models.Project{Name: "accounts"}}
+	svc := models.Service{
+		Source:        models.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &models.ServiceProxyOverride{Target: "hypixo-accounts"},
 	}
 	info := uc.getHostServiceInfo(
 		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,
@@ -510,7 +510,7 @@ func TestGetHostServiceInfo_ProxyTargetExitedWins(t *testing.T) {
 func TestGetHostServiceInfo_ProxyTargetMissingFallsThrough(t *testing.T) {
 	uc := NewStatusUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/tmp/x"
 			},
 		},
@@ -525,10 +525,10 @@ func TestGetHostServiceInfo_ProxyTargetMissingFallsThrough(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{Project: config.Project{Name: "accounts"}}
-	svc := config.Service{
-		Source:        config.SourceConfig{Command: "make dev-docker"},
-		ProxyOverride: &config.ServiceProxyOverride{Target: "not-yet-built"},
+	deps := &models.Deps{Project: models.Project{Name: "accounts"}}
+	svc := models.Service{
+		Source:        models.SourceConfig{Command: "make dev-docker"},
+		ProxyOverride: &models.ServiceProxyOverride{Target: "not-yet-built"},
 	}
 	info := uc.getHostServiceInfo(
 		context.Background(), &workspace.Workspace{Root: "/tmp"}, "accounts", svc,

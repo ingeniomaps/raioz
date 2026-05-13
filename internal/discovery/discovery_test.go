@@ -3,18 +3,18 @@ package discovery
 import (
 	"testing"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 func TestGenerateEnvVars_ContainerToContainer(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"postgres": {Name: "postgres", Runtime: detect.RuntimeImage, Host: "postgres", Port: 5432},
-		"api":      {Name: "api", Runtime: detect.RuntimeDockerfile, Host: "api-container", Port: 3000},
+		"postgres": {Name: "postgres", Runtime: models.RuntimeImage, Host: "postgres", Port: 5432},
+		"api":      {Name: "api", Runtime: models.RuntimeDockerfile, Host: "api-container", Port: 3000},
 	}
 
-	vars := m.GenerateEnvVars("api", detect.RuntimeDockerfile, endpoints, false)
+	vars := m.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, false)
 
 	// api is Docker, postgres is Docker → use container name
 	if vars["POSTGRES_HOST"] != "postgres" {
@@ -31,11 +31,11 @@ func TestGenerateEnvVars_ContainerToContainer(t *testing.T) {
 func TestGenerateEnvVars_HostToContainer(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"postgres": {Name: "postgres", Runtime: detect.RuntimeImage, Host: "postgres", Port: 5432},
-		"cart-api": {Name: "cart-api", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 3001},
+		"postgres": {Name: "postgres", Runtime: models.RuntimeImage, Host: "postgres", Port: 5432},
+		"cart-api": {Name: "cart-api", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3001},
 	}
 
-	vars := m.GenerateEnvVars("cart-api", detect.RuntimeNPM, endpoints, false)
+	vars := m.GenerateEnvVars("cart-api", models.RuntimeNPM, endpoints, false)
 
 	// cart-api is host, postgres is Docker → use localhost
 	if vars["POSTGRES_HOST"] != "localhost" {
@@ -46,11 +46,11 @@ func TestGenerateEnvVars_HostToContainer(t *testing.T) {
 func TestGenerateEnvVars_ContainerToHost(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"auth-api": {Name: "auth-api", Runtime: detect.RuntimeDockerfile, Host: "auth-container", Port: 3000},
-		"cart-api": {Name: "cart-api", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 3001},
+		"auth-api": {Name: "auth-api", Runtime: models.RuntimeDockerfile, Host: "auth-container", Port: 3000},
+		"cart-api": {Name: "cart-api", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3001},
 	}
 
-	vars := m.GenerateEnvVars("auth-api", detect.RuntimeDockerfile, endpoints, false)
+	vars := m.GenerateEnvVars("auth-api", models.RuntimeDockerfile, endpoints, false)
 
 	// auth-api is Docker, cart-api is host → use host.docker.internal
 	if vars["CART_API_HOST"] != "host.docker.internal" {
@@ -70,15 +70,15 @@ func TestGenerateEnvVars_HostToContainerUsesHostPort(t *testing.T) {
 	endpoints := map[string]interfaces.ServiceEndpoint{
 		"postgres": {
 			Name:     "postgres",
-			Runtime:  detect.RuntimeImage,
+			Runtime:  models.RuntimeImage,
 			Host:     "raioz-app-postgres",
 			Port:     5432, // container port
 			HostPort: 5433, // published host port (bumped because 5432 was taken)
 		},
-		"api": {Name: "api", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 3000},
+		"api": {Name: "api", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3000},
 	}
 
-	vars := m.GenerateEnvVars("api", detect.RuntimeNPM, endpoints, false)
+	vars := m.GenerateEnvVars("api", models.RuntimeNPM, endpoints, false)
 
 	if vars["POSTGRES_HOST"] != "localhost" {
 		t.Errorf("POSTGRES_HOST = %q, want localhost", vars["POSTGRES_HOST"])
@@ -100,20 +100,20 @@ func TestGenerateEnvVars_ContainerToContainerIgnoresHostPort(t *testing.T) {
 	endpoints := map[string]interfaces.ServiceEndpoint{
 		"postgres": {
 			Name:     "postgres",
-			Runtime:  detect.RuntimeImage,
+			Runtime:  models.RuntimeImage,
 			Host:     "raioz-app-postgres",
 			Port:     5432,
 			HostPort: 5433,
 		},
 		"api": {
 			Name:    "api",
-			Runtime: detect.RuntimeDockerfile,
+			Runtime: models.RuntimeDockerfile,
 			Host:    "raioz-app-api",
 			Port:    3000,
 		},
 	}
 
-	vars := m.GenerateEnvVars("api", detect.RuntimeDockerfile, endpoints, false)
+	vars := m.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, false)
 
 	if vars["POSTGRES_HOST"] != "raioz-app-postgres" {
 		t.Errorf("POSTGRES_HOST = %q, want container DNS", vars["POSTGRES_HOST"])
@@ -126,11 +126,11 @@ func TestGenerateEnvVars_ContainerToContainerIgnoresHostPort(t *testing.T) {
 func TestGenerateEnvVars_HostToHost(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"admin":    {Name: "admin", Runtime: detect.RuntimeGo, Host: "localhost", Port: 8080},
-		"cart-api": {Name: "cart-api", Runtime: detect.RuntimeNPM, Host: "localhost", Port: 3001},
+		"admin":    {Name: "admin", Runtime: models.RuntimeGo, Host: "localhost", Port: 8080},
+		"cart-api": {Name: "cart-api", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3001},
 	}
 
-	vars := m.GenerateEnvVars("admin", detect.RuntimeGo, endpoints, false)
+	vars := m.GenerateEnvVars("admin", models.RuntimeGo, endpoints, false)
 
 	if vars["CART_API_HOST"] != "localhost" {
 		t.Errorf("expected CART_API_HOST=localhost, got %s", vars["CART_API_HOST"])
@@ -140,11 +140,11 @@ func TestGenerateEnvVars_HostToHost(t *testing.T) {
 func TestGenerateEnvVars_WithProxy(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"api":      {Name: "api", Runtime: detect.RuntimeDockerfile, Host: "api", Port: 3000},
-		"postgres": {Name: "postgres", Runtime: detect.RuntimeImage, Host: "postgres", Port: 5432},
+		"api":      {Name: "api", Runtime: models.RuntimeDockerfile, Host: "api", Port: 3000},
+		"postgres": {Name: "postgres", Runtime: models.RuntimeImage, Host: "postgres", Port: 5432},
 	}
 
-	vars := m.GenerateEnvVars("api", detect.RuntimeDockerfile, endpoints, true)
+	vars := m.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, true)
 
 	if vars["POSTGRES_HTTPS_URL"] != "https://postgres.localhost" {
 		t.Errorf("expected POSTGRES_HTTPS_URL=https://postgres.localhost, got %s", vars["POSTGRES_HTTPS_URL"])
@@ -154,10 +154,10 @@ func TestGenerateEnvVars_WithProxy(t *testing.T) {
 func TestGenerateEnvVars_SkipsSelf(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
-		"api": {Name: "api", Runtime: detect.RuntimeDockerfile, Host: "api", Port: 3000},
+		"api": {Name: "api", Runtime: models.RuntimeDockerfile, Host: "api", Port: 3000},
 	}
 
-	vars := m.GenerateEnvVars("api", detect.RuntimeDockerfile, endpoints, false)
+	vars := m.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, false)
 
 	if _, exists := vars["API_HOST"]; exists {
 		t.Error("should not include self in env vars")
@@ -166,7 +166,7 @@ func TestGenerateEnvVars_SkipsSelf(t *testing.T) {
 
 func TestGenerateEnvVars_Metadata(t *testing.T) {
 	m := NewManager()
-	vars := m.GenerateEnvVars("api", detect.RuntimeGo, nil, false)
+	vars := m.GenerateEnvVars("api", models.RuntimeGo, nil, false)
 
 	if vars["RAIOZ_SERVICE"] != "api" {
 		t.Errorf("expected RAIOZ_SERVICE=api, got %s", vars["RAIOZ_SERVICE"])

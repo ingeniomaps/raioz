@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestExecuteHappyPathNoOptionals(t *testing.T) {
@@ -26,7 +26,7 @@ func TestExecuteHappyPathNoOptionals(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	if deps.Project.Name != "test-app" {
@@ -58,7 +58,7 @@ func TestExecuteWithService(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	if len(deps.Services) != 1 {
@@ -95,7 +95,7 @@ func TestExecuteWithMultipleServices(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	if len(deps.Services) != 2 {
@@ -125,7 +125,7 @@ func TestExecuteWithImageService(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	svc := deps.Services["frontend"]
@@ -153,7 +153,7 @@ func TestExecuteWithInfraPresets(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	if len(deps.Infra) != 2 {
@@ -177,7 +177,7 @@ func TestExecuteWithCustomInfra(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	entry, ok := deps.Infra["elastic"]
@@ -204,7 +204,7 @@ func TestExecuteWithDefaults(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	if deps.Project.Name != "my-project" {
@@ -250,7 +250,7 @@ func TestExecuteFileExistsUserConfirms(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(outputPath)
-	var deps config.Deps
+	var deps models.Deps
 	json.Unmarshal(data, &deps)
 
 	if deps.Project.Name != "new-project" {

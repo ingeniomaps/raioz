@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -28,8 +28,8 @@ func newTestDepsForRestart(t *testing.T) (*Dependencies, *mocks.MockConfigLoader
 	}
 	stateMgr := &mocks.MockStateManager{
 		ExistsFunc: func(ws *workspace.Workspace) bool { return true },
-		LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{Project: config.Project{Name: "test-project"}}, nil
+		LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{Project: models.Project{Name: "test-project"}}, nil
 		},
 	}
 	dockerRunner := &mocks.MockDockerRunner{}
@@ -62,7 +62,7 @@ func TestNewRestartUseCase(t *testing.T) {
 func TestRestartUseCase_Execute_NoProject(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, _, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return nil, nil, fmt.Errorf("nope")
 	}
 	uc := NewRestartUseCase(deps)
@@ -75,8 +75,8 @@ func TestRestartUseCase_Execute_NoProject(t *testing.T) {
 func TestRestartUseCase_Execute_WorkspaceResolveFails(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, wsMgr, _, _, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	wsMgr.ResolveFunc = func(name string) (*workspace.Workspace, error) {
 		return nil, fmt.Errorf("not found")
@@ -91,8 +91,8 @@ func TestRestartUseCase_Execute_WorkspaceResolveFails(t *testing.T) {
 func TestRestartUseCase_Execute_NotRunning(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, stateMgr, _, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	stateMgr.ExistsFunc = func(ws *workspace.Workspace) bool { return false }
 	uc := NewRestartUseCase(deps)
@@ -105,10 +105,10 @@ func TestRestartUseCase_Execute_NotRunning(t *testing.T) {
 func TestRestartUseCase_Execute_StateLoadFails(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, stateMgr, _, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*config.Deps, error) {
+	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
 		return nil, fmt.Errorf("corrupt")
 	}
 	uc := NewRestartUseCase(deps)
@@ -121,8 +121,8 @@ func TestRestartUseCase_Execute_StateLoadFails(t *testing.T) {
 func TestRestartUseCase_Execute_NoServicesRequested(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api"}, nil
@@ -138,8 +138,8 @@ func TestRestartUseCase_Execute_NoServicesRequested(t *testing.T) {
 func TestRestartUseCase_Execute_AllServices(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api", "worker"}, nil
@@ -162,8 +162,8 @@ func TestRestartUseCase_Execute_AllServices(t *testing.T) {
 func TestRestartUseCase_Execute_ForceRecreate(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api"}, nil
@@ -190,8 +190,8 @@ func TestRestartUseCase_Execute_ForceRecreate(t *testing.T) {
 func TestRestartUseCase_Execute_SpecificServices(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForRestart(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "proj"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "proj"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api", "worker"}, nil

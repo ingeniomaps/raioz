@@ -3,25 +3,25 @@ package validate
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // validDeps returns a minimally valid Deps for CI/validation tests.
-func validDeps() *config.Deps {
-	return &config.Deps{
+func validDeps() *models.Deps {
+	return &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-network"},
-		Project: config.Project{
+		Network:       models.NetworkConfig{Name: "test-network"},
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"web": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:  "image",
 					Image: "nginx",
 					Tag:   "latest",
 				},
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Mode:      "dev",
 					Ports:     []string{},
 					Volumes:   []string{},
@@ -29,8 +29,8 @@ func validDeps() *config.Deps {
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
-		Env:   config.EnvConfig{Files: []string{}},
+		Infra: map[string]models.InfraEntry{},
+		Env:   models.EnvConfig{Files: []string{}},
 	}
 }
 
@@ -72,9 +72,9 @@ func TestCIWrappers_ValidateServices(t *testing.T) {
 	}
 
 	bad := validDeps()
-	bad.Services = map[string]config.Service{
+	bad.Services = map[string]models.Service{
 		"bad": {
-			Source: config.SourceConfig{Kind: "unknown"},
+			Source: models.SourceConfig{Kind: "unknown"},
 		},
 	}
 	if err := ValidateServices(bad); err == nil {
@@ -89,8 +89,8 @@ func TestCIWrappers_ValidateInfra(t *testing.T) {
 
 	// infra with empty image
 	bad := validDeps()
-	bad.Infra = map[string]config.InfraEntry{
-		"db": {Inline: &config.Infra{Image: ""}},
+	bad.Infra = map[string]models.InfraEntry{
+		"db": {Inline: &models.Infra{Image: ""}},
 	}
 	if err := ValidateInfra(bad); err == nil {
 		t.Error("ValidateInfra(empty image) expected error, got nil")
@@ -98,8 +98,8 @@ func TestCIWrappers_ValidateInfra(t *testing.T) {
 
 	// valid inline infra
 	good := validDeps()
-	good.Infra = map[string]config.InfraEntry{
-		"db": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
+	good.Infra = map[string]models.InfraEntry{
+		"db": {Inline: &models.Infra{Image: "postgres", Tag: "15"}},
 	}
 	if err := ValidateInfra(good); err != nil {
 		t.Errorf("ValidateInfra(valid infra) unexpected error: %v", err)
@@ -113,10 +113,10 @@ func TestCIWrappers_ValidateDependencies(t *testing.T) {
 
 	// service depends on missing
 	bad := validDeps()
-	bad.Services = map[string]config.Service{
+	bad.Services = map[string]models.Service{
 		"web": {
-			Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
-			Docker: &config.DockerConfig{Mode: "dev", DependsOn: []string{"missing"}},
+			Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
+			Docker: &models.DockerConfig{Mode: "dev", DependsOn: []string{"missing"}},
 		},
 	}
 	if err := ValidateDependencies(bad); err == nil {

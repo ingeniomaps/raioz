@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -65,12 +65,12 @@ func TestLoad(t *testing.T) {
 		// Create root config
 		root := &RootConfig{
 			SchemaVersion: "1.0",
-			Project: config.Project{
+			Project: models.Project{
 				Name: "test-project",
 			},
-			Services: make(map[string]config.Service),
-			Infra:    make(map[string]config.InfraEntry),
-			Env:      config.EnvConfig{},
+			Services: make(map[string]models.Service),
+			Infra:    make(map[string]models.InfraEntry),
+			Env:      models.EnvConfig{},
 		}
 		Save(ws, root)
 
@@ -115,12 +115,12 @@ func TestSave(t *testing.T) {
 	t.Run("save root config", func(t *testing.T) {
 		root := &RootConfig{
 			SchemaVersion: "1.0",
-			Project: config.Project{
+			Project: models.Project{
 				Name: "test-project",
 			},
-			Services: make(map[string]config.Service),
-			Infra:    make(map[string]config.InfraEntry),
-			Env:      config.EnvConfig{},
+			Services: make(map[string]models.Service),
+			Infra:    make(map[string]models.InfraEntry),
+			Env:      models.EnvConfig{},
 		}
 
 		err := Save(ws, root)
@@ -148,12 +148,12 @@ func TestSave(t *testing.T) {
 		root := &RootConfig{
 			SchemaVersion: "1.0",
 			GeneratedAt:   originalTime,
-			Project: config.Project{
+			Project: models.Project{
 				Name: "test",
 			},
-			Services: make(map[string]config.Service),
-			Infra:    make(map[string]config.InfraEntry),
-			Env:      config.EnvConfig{},
+			Services: make(map[string]models.Service),
+			Infra:    make(map[string]models.InfraEntry),
+			Env:      models.EnvConfig{},
 		}
 
 		Save(ws, root)
@@ -170,27 +170,27 @@ func TestSave(t *testing.T) {
 }
 
 func TestGenerateFromDeps(t *testing.T) {
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-network", IsObject: false},
-		Project: config.Project{
+		Network:       models.NetworkConfig{Name: "test-network", IsObject: false},
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git",
 					Repo: "git@github.com:org/api.git",
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
-			"database": {Inline: &config.Infra{
+		Infra: map[string]models.InfraEntry{
+			"database": {Inline: &models.Infra{
 				Image: "postgres",
 				Tag:   "15",
 			}},
 		},
-		Env: config.EnvConfig{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 		},
 	}
@@ -228,8 +228,8 @@ func TestGenerateFromDeps(t *testing.T) {
 		assistedServices := map[string]string{
 			"new-service": "api",
 		}
-		deps.Services["new-service"] = config.Service{
-			Source: config.SourceConfig{
+		deps.Services["new-service"] = models.Service{
+			Source: models.SourceConfig{
 				Kind: "git",
 				Repo: "git@github.com:org/new-service.git",
 			},
@@ -250,19 +250,19 @@ func TestUpdateFromDeps(t *testing.T) {
 	existingRoot := &RootConfig{
 		SchemaVersion: "1.0",
 		GeneratedAt:   "2024-01-01T00:00:00Z",
-		Project: config.Project{
+		Project: models.Project{
 			Name: "old-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"old-service": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git",
 					Repo: "git@github.com:org/old.git",
 				},
 			},
 		},
-		Infra: make(map[string]config.InfraEntry),
-		Env:   config.EnvConfig{},
+		Infra: make(map[string]models.InfraEntry),
+		Env:   models.EnvConfig{},
 		Metadata: map[string]ServiceMetadata{
 			"old-service": {
 				Origin:  OriginRoot,
@@ -271,21 +271,21 @@ func TestUpdateFromDeps(t *testing.T) {
 		},
 	}
 
-	newDeps := &config.Deps{
+	newDeps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
+		Project: models.Project{
 			Name: "new-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"new-service": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git",
 					Repo: "git@github.com:org/new.git",
 				},
 			},
 		},
-		Infra: make(map[string]config.InfraEntry),
-		Env:   config.EnvConfig{},
+		Infra: make(map[string]models.InfraEntry),
+		Env:   models.EnvConfig{},
 	}
 
 	t.Run("update basic fields", func(t *testing.T) {
@@ -326,9 +326,9 @@ func TestUpdateFromDeps(t *testing.T) {
 	t.Run("update with override", func(t *testing.T) {
 		root := &RootConfig{
 			SchemaVersion: "1.0",
-			Services: map[string]config.Service{
+			Services: map[string]models.Service{
 				"api": {
-					Source: config.SourceConfig{
+					Source: models.SourceConfig{
 						Kind: "git",
 						Repo: "git@github.com:org/api.git",
 					},
@@ -342,19 +342,19 @@ func TestUpdateFromDeps(t *testing.T) {
 			},
 		}
 
-		deps := &config.Deps{
+		deps := &models.Deps{
 			SchemaVersion: "1.0",
-			Project:       config.Project{Name: "test"},
-			Services: map[string]config.Service{
+			Project:       models.Project{Name: "test"},
+			Services: map[string]models.Service{
 				"api": {
-					Source: config.SourceConfig{
+					Source: models.SourceConfig{
 						Kind: "git",
 						Repo: "git@github.com:org/api.git",
 					},
 				},
 			},
-			Infra: make(map[string]config.InfraEntry),
-			Env:   config.EnvConfig{},
+			Infra: make(map[string]models.InfraEntry),
+			Env:   models.EnvConfig{},
 		}
 
 		err := UpdateFromDeps(root, deps, []string{"api"}, map[string]string{})
@@ -372,26 +372,26 @@ func TestUpdateFromDeps(t *testing.T) {
 	t.Run("update with assisted service", func(t *testing.T) {
 		root := &RootConfig{
 			SchemaVersion: "1.0",
-			Project:       config.Project{Name: "test"},
-			Services:      make(map[string]config.Service),
-			Infra:         make(map[string]config.InfraEntry),
-			Env:           config.EnvConfig{},
+			Project:       models.Project{Name: "test"},
+			Services:      make(map[string]models.Service),
+			Infra:         make(map[string]models.InfraEntry),
+			Env:           models.EnvConfig{},
 			Metadata:      make(map[string]ServiceMetadata),
 		}
 
-		deps := &config.Deps{
+		deps := &models.Deps{
 			SchemaVersion: "1.0",
-			Project:       config.Project{Name: "test"},
-			Services: map[string]config.Service{
+			Project:       models.Project{Name: "test"},
+			Services: map[string]models.Service{
 				"new-service": {
-					Source: config.SourceConfig{
+					Source: models.SourceConfig{
 						Kind: "git",
 						Repo: "git@github.com:org/new.git",
 					},
 				},
 			},
-			Infra: make(map[string]config.InfraEntry),
-			Env:   config.EnvConfig{},
+			Infra: make(map[string]models.InfraEntry),
+			Env:   models.EnvConfig{},
 		}
 
 		assistedServices := map[string]string{
@@ -414,25 +414,25 @@ func TestUpdateFromDeps(t *testing.T) {
 func TestToDeps(t *testing.T) {
 	root := &RootConfig{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-network", IsObject: false},
-		Project: config.Project{
+		Network:       models.NetworkConfig{Name: "test-network", IsObject: false},
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git",
 					Repo: "git@github.com:org/api.git",
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
-			"database": {Inline: &config.Infra{
+		Infra: map[string]models.InfraEntry{
+			"database": {Inline: &models.Infra{
 				Image: "postgres",
 				Tag:   "15",
 			}},
 		},
-		Env: config.EnvConfig{
+		Env: models.EnvConfig{
 			UseGlobal: true,
 		},
 	}
@@ -455,15 +455,15 @@ func TestToDeps(t *testing.T) {
 func TestAddAssistedService(t *testing.T) {
 	root := &RootConfig{
 		SchemaVersion: "1.0",
-		Project:       config.Project{Name: "test"},
-		Services:      make(map[string]config.Service),
-		Infra:         make(map[string]config.InfraEntry),
-		Env:           config.EnvConfig{},
+		Project:       models.Project{Name: "test"},
+		Services:      make(map[string]models.Service),
+		Infra:         make(map[string]models.InfraEntry),
+		Env:           models.EnvConfig{},
 		Metadata:      make(map[string]ServiceMetadata),
 	}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind: "git",
 			Repo: "git@github.com:org/service.git",
 		},

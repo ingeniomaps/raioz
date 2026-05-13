@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -161,10 +161,10 @@ func TestStartServiceLocalBackground(t *testing.T) {
 
 	projectDir := t.TempDir()
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    ".",
 			Command: "sleep 30",
@@ -215,10 +215,10 @@ func TestStartServiceLocalRelativePath(t *testing.T) {
 		t.Fatalf("mkdir sub: %v", err)
 	}
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    "sub",
 			Command: "sleep 30",
@@ -247,10 +247,10 @@ func TestStartServiceLocalAbsolutePath(t *testing.T) {
 
 	absPath := t.TempDir()
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    absPath,
 			Command: "sleep 30",
@@ -272,10 +272,10 @@ func TestStartServiceLocalAbsolutePath(t *testing.T) {
 
 func TestStartServiceMissingCommand(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "local", Path: "."},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "local", Path: "."},
 	}
 
 	_, err := StartService(context.Background(), ws, deps, "svc", svc, t.TempDir())
@@ -286,10 +286,10 @@ func TestStartServiceMissingCommand(t *testing.T) {
 
 func TestStartServiceImageRejected(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{Kind: "image", Image: "nginx", Command: "nginx -g daemon off;"},
+	svc := models.Service{
+		Source: models.SourceConfig{Kind: "image", Image: "nginx", Command: "nginx -g daemon off;"},
 	}
 
 	_, err := StartService(context.Background(), ws, deps, "svc", svc, "")
@@ -300,10 +300,10 @@ func TestStartServiceImageRejected(t *testing.T) {
 
 func TestStartServiceLocalMissingPath(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    "/nonexistent/definitely/does/not/exist/xyz123",
 			Command: "sleep 30",
@@ -318,10 +318,10 @@ func TestStartServiceLocalMissingPath(t *testing.T) {
 
 func TestStartServiceLocalInvalidCommand(t *testing.T) {
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    ".",
 			Command: "nonexistent-binary-xyz-12345",
@@ -348,9 +348,9 @@ func TestStartServiceEarlyExitDetected(t *testing.T) {
 	t.Cleanup(func() { startSettleWindow = prev })
 
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
-	svc := config.Service{
-		Source: config.SourceConfig{
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    ".",
 			Command: "false",
@@ -388,9 +388,9 @@ func TestStartServiceEarlyExitIncludesStderrTail(t *testing.T) {
 	}
 
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
-	svc := config.Service{
-		Source: config.SourceConfig{
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    ".",
 			Command: script,
@@ -420,9 +420,9 @@ func TestStartServiceSurvivesSettleWindow(t *testing.T) {
 	t.Cleanup(func() { startSettleWindow = prev })
 
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
-	svc := config.Service{
-		Source: config.SourceConfig{
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    ".",
 			Command: "sleep 30",
@@ -463,9 +463,9 @@ func TestStartServiceCleanExitInSettleWindowIsNotError(t *testing.T) {
 	}
 
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
-	svc := config.Service{
-		Source: config.SourceConfig{
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    ".",
 			Command: script,
@@ -485,10 +485,10 @@ func TestStartServiceSynchronousTrue(t *testing.T) {
 	skipIfNoBinary(t, "true")
 
 	ws := &workspace.Workspace{Root: t.TempDir()}
-	deps := &config.Deps{Project: config.Project{Name: "test"}}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
 
-	svc := config.Service{
-		Source: config.SourceConfig{
+	svc := models.Service{
+		Source: models.SourceConfig{
 			Kind:    "local",
 			Path:    ".",
 			Command: "./true.sh", // shouldWait returns true for ./ commands

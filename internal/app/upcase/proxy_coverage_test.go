@@ -5,9 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -19,15 +18,15 @@ func TestStartProxy_AddRoutesAndStart(t *testing.T) {
 		},
 	}
 
-	deps := &config.Deps{
-		Project:  config.Project{Name: "myproj"},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "myproj"},
 		Proxy:    true,
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	detections := DetectionMap{
-		"api": {Runtime: detect.RuntimeGo, Port: 8080},
-		"web": {Runtime: detect.RuntimeNPM, Port: 3000},
+		"api": {Runtime: models.RuntimeGo, Port: 8080},
+		"web": {Runtime: models.RuntimeNPM, Port: 3000},
 	}
 	serviceNames := []string{"api", "web"}
 
@@ -52,15 +51,15 @@ func TestStartProxy_SetsDomainAndTLS(t *testing.T) {
 		},
 	}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 		Proxy:   true,
-		ProxyConfig: &config.ProxyConfig{
+		ProxyConfig: &models.ProxyConfig{
 			Domain: "acme.localhost",
 			TLS:    "mkcert",
 		},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	detections := DetectionMap{}
 
@@ -86,14 +85,14 @@ func TestStartProxy_StartFailure(t *testing.T) {
 		},
 	}
 
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
 		Proxy:    true,
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	detections := DetectionMap{
-		"api": {Runtime: detect.RuntimeGo, Port: 8080},
+		"api": {Runtime: models.RuntimeGo, Port: 8080},
 	}
 
 	// Proxy failure must bubble up — `up` aborts hard when `proxy: true` is
@@ -129,11 +128,11 @@ func TestStartProxy_InteractiveSkip(t *testing.T) {
 		},
 	}
 	uc := &UseCase{deps: &Dependencies{ProxyManager: pm}}
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
 		Proxy:    true,
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	err := uc.startProxy(context.Background(), deps, DetectionMap{}, nil, "net")
@@ -156,11 +155,11 @@ func TestStartProxy_InteractiveRetrySucceeds(t *testing.T) {
 		},
 	}
 	uc := &UseCase{deps: &Dependencies{ProxyManager: pm}}
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
 		Proxy:    true,
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	err := uc.startProxy(context.Background(), deps, DetectionMap{}, nil, "net")
@@ -181,11 +180,11 @@ func TestStartProxy_InteractiveCancel(t *testing.T) {
 		},
 	}
 	uc := &UseCase{deps: &Dependencies{ProxyManager: pm}}
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
 		Proxy:    true,
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	err := uc.startProxy(context.Background(), deps, DetectionMap{}, nil, "net")
@@ -206,13 +205,13 @@ func TestStartProxy_AddRouteError(t *testing.T) {
 		},
 	}
 
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	detections := DetectionMap{
-		"api": {Runtime: detect.RuntimeGo, Port: 8080},
+		"api": {Runtime: models.RuntimeGo, Port: 8080},
 	}
 
 	// Should not panic — route add failure is logged as warning
@@ -227,12 +226,12 @@ func TestStartProxy_NoProxyConfig(t *testing.T) {
 		},
 	}
 
-	deps := &config.Deps{
-		Project:     config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project:     models.Project{Name: "proj"},
 		Proxy:       true,
 		ProxyConfig: nil, // no custom config
-		Services:    map[string]config.Service{},
-		Infra:       map[string]config.InfraEntry{},
+		Services:    map[string]models.Service{},
+		Infra:       map[string]models.InfraEntry{},
 	}
 	detections := DetectionMap{}
 

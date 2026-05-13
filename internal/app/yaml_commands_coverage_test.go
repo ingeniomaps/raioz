@@ -8,8 +8,8 @@ import (
 
 	"fmt"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/state"
 )
@@ -20,7 +20,7 @@ func TestStatusUseCase_StatusYAML_Basic(t *testing.T) {
 	initI18nForTest(t)
 	tmpDir := t.TempDir()
 	// Create a local state file to exercise host PID logic
-	ls := &state.LocalState{HostPIDs: map[string]int{"api": os.Getpid()}}
+	ls := &models.LocalState{HostPIDs: map[string]int{"api": os.Getpid()}}
 	_ = state.SaveLocalState(tmpDir, ls)
 
 	uc := NewStatusUseCase(&Dependencies{
@@ -29,13 +29,13 @@ func TestStatusUseCase_StatusYAML_Basic(t *testing.T) {
 	proj := &YAMLProject{
 		ProjectName: "test",
 		ConfigPath:  filepath.Join(tmpDir, "raioz.yaml"),
-		Deps: &config.Deps{
-			Project: config.Project{Name: "test"},
-			Services: map[string]config.Service{
-				"api": {Source: config.SourceConfig{Path: "."}},
+		Deps: &models.Deps{
+			Project: models.Project{Name: "test"},
+			Services: map[string]models.Service{
+				"api": {Source: models.SourceConfig{Path: "."}},
 			},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Image: "redis", Tag: "7"}},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Image: "redis", Tag: "7"}},
 			},
 		},
 	}
@@ -63,11 +63,11 @@ func TestStatusUseCase_StatusYAML_WithProxy(t *testing.T) {
 	proj := &YAMLProject{
 		ProjectName: "test",
 		ConfigPath:  filepath.Join(tmpDir, "raioz.yaml"),
-		Deps: &config.Deps{
-			Project:  config.Project{Name: "test"},
+		Deps: &models.Deps{
+			Project:  models.Project{Name: "test"},
 			Proxy:    true,
-			Services: map[string]config.Service{},
-			Infra:    map[string]config.InfraEntry{},
+			Services: map[string]models.Service{},
+			Infra:    map[string]models.InfraEntry{},
 		},
 	}
 	err := uc.StatusYAML(context.Background(), proj, nil)
@@ -82,9 +82,9 @@ func TestStatusUseCase_StatusYAML_WithProxy(t *testing.T) {
 func TestStatusUseCase_StatusYAML_DevOverride(t *testing.T) {
 	initI18nForTest(t)
 	tmpDir := t.TempDir()
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		HostPIDs:     map[string]int{},
-		DevOverrides: map[string]state.DevOverride{"api": {LocalPath: "/tmp/local", OriginalImage: "api:latest"}},
+		DevOverrides: map[string]models.DevOverride{"api": {LocalPath: "/tmp/local", OriginalImage: "api:latest"}},
 	}
 	_ = state.SaveLocalState(tmpDir, ls)
 
@@ -92,12 +92,12 @@ func TestStatusUseCase_StatusYAML_DevOverride(t *testing.T) {
 	proj := &YAMLProject{
 		ProjectName: "test",
 		ConfigPath:  filepath.Join(tmpDir, "raioz.yaml"),
-		Deps: &config.Deps{
-			Project: config.Project{Name: "test"},
-			Services: map[string]config.Service{
-				"api": {Source: config.SourceConfig{Path: "."}},
+		Deps: &models.Deps{
+			Project: models.Project{Name: "test"},
+			Services: map[string]models.Service{
+				"api": {Source: models.SourceConfig{Path: "."}},
 			},
-			Infra: map[string]config.InfraEntry{},
+			Infra: map[string]models.InfraEntry{},
 		},
 	}
 	err := uc.StatusYAML(context.Background(), proj, nil)
@@ -112,12 +112,12 @@ func TestLogsYAML_WithServices(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Services: map[string]config.Service{
-				"api": {Source: config.SourceConfig{Path: "/tmp/api"}},
+		Deps: &models.Deps{
+			Services: map[string]models.Service{
+				"api": {Source: models.SourceConfig{Path: "/tmp/api"}},
 			},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Image: "redis:7"}},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Image: "redis:7"}},
 			},
 		},
 	}
@@ -133,11 +133,11 @@ func TestLogsYAML_AllServices(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Services: map[string]config.Service{
+		Deps: &models.Deps{
+			Services: map[string]models.Service{
 				"api": {},
 			},
-			Infra: map[string]config.InfraEntry{
+			Infra: map[string]models.InfraEntry{
 				"redis": {},
 			},
 		},
@@ -184,7 +184,7 @@ func TestRestartYAML_WithServices(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps:        &config.Deps{},
+		Deps:        &models.Deps{},
 	}
 	// Docker won't be running but the function should not panic
 	err := (&RestartUseCase{}).RestartYAML(
@@ -194,8 +194,8 @@ func TestRestartYAML_WithServices(t *testing.T) {
 }
 
 func TestCollectYAMLServiceNames_SortedAndStable(t *testing.T) {
-	proj := &YAMLProject{Deps: &config.Deps{
-		Services: map[string]config.Service{
+	proj := &YAMLProject{Deps: &models.Deps{
+		Services: map[string]models.Service{
 			"web": {}, "api": {}, "worker": {},
 		},
 	}}
@@ -212,8 +212,8 @@ func TestCollectYAMLServiceNames_SortedAndStable(t *testing.T) {
 }
 
 func TestCollectYAMLDepNames_SortedAndStable(t *testing.T) {
-	proj := &YAMLProject{Deps: &config.Deps{
-		Infra: map[string]config.InfraEntry{
+	proj := &YAMLProject{Deps: &models.Deps{
+		Infra: map[string]models.InfraEntry{
 			"redis": {}, "postgres": {}, "kafka": {},
 		},
 	}}
@@ -233,7 +233,7 @@ func TestRestartYAML_AllOnEmptyProjectStillReturns(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps:        &config.Deps{},
+		Deps:        &models.Deps{},
 	}
 	// --all on an empty project must not be a silent no-op pretending --all
 	// wasn't passed; it must short-circuit with a clear warning and exit
@@ -252,9 +252,9 @@ func TestExecYAML_StoppedHostService(t *testing.T) {
 	tmpDir := t.TempDir()
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Services: map[string]config.Service{
-				"api": {Source: config.SourceConfig{Path: tmpDir}},
+		Deps: &models.Deps{
+			Services: map[string]models.Service{
+				"api": {Source: models.SourceConfig{Path: tmpDir}},
 			},
 		},
 	}
@@ -270,8 +270,8 @@ func TestExecYAML_StoppedNoPath(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Services: map[string]config.Service{
+		Deps: &models.Deps{
+			Services: map[string]models.Service{
 				"api": {},
 			},
 		},
@@ -286,8 +286,8 @@ func TestExecYAML_NoServiceFound(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Services: map[string]config.Service{},
+		Deps: &models.Deps{
+			Services: map[string]models.Service{},
 		},
 	}
 	err := ExecYAML(context.Background(), proj, "missing", nil, false)
@@ -306,12 +306,12 @@ func TestCheckYAML_ServiceWithRuntime(t *testing.T) {
 
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Project: config.Project{Name: "test"},
-			Services: map[string]config.Service{
-				"api": {Source: config.SourceConfig{Path: tmpDir}},
+		Deps: &models.Deps{
+			Project: models.Project{Name: "test"},
+			Services: map[string]models.Service{
+				"api": {Source: models.SourceConfig{Path: tmpDir}},
 			},
-			Infra: map[string]config.InfraEntry{},
+			Infra: map[string]models.InfraEntry{},
 		},
 	}
 	err := CheckYAML(proj)
@@ -324,12 +324,12 @@ func TestCheckYAML_NoRuntimeNoPath(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Project: config.Project{Name: "test"},
-			Services: map[string]config.Service{
+		Deps: &models.Deps{
+			Project: models.Project{Name: "test"},
+			Services: map[string]models.Service{
 				"api": {}, // no path, no command, no compose
 			},
-			Infra: map[string]config.InfraEntry{},
+			Infra: map[string]models.InfraEntry{},
 		},
 	}
 	err := CheckYAML(proj)
@@ -344,12 +344,12 @@ func TestStatusUseCase_Execute_WorkspaceResolveError(t *testing.T) {
 	initI18nForTest(t)
 	deps := &Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project:       config.Project{Name: "proj"},
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:       models.Project{Name: "proj"},
 					SchemaVersion: "1.0",
-					Services:      map[string]config.Service{},
-					Infra:         map[string]config.InfraEntry{},
+					Services:      map[string]models.Service{},
+					Infra:         map[string]models.InfraEntry{},
 				}, nil, nil
 			},
 		},

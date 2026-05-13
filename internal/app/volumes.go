@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -340,7 +340,7 @@ func (uc *VolumesUseCase) removeVolumes(ctx context.Context, volumes []VolumeInf
 }
 
 // extractVolumesFromDeps extracts service and infra volumes from deps
-func extractVolumesFromDeps(deps *config.Deps) (serviceVolumes []string, infraVolumes []string) {
+func extractVolumesFromDeps(deps *models.Deps) (serviceVolumes []string, infraVolumes []string) {
 	for _, svc := range deps.Services {
 		if svc.Docker != nil {
 			serviceVolumes = append(serviceVolumes, svc.Docker.Volumes...)

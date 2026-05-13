@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -48,7 +48,7 @@ func (uc *DownUseCase) stopProxy(ctx context.Context, opts DownOptions) {
 
 // handleSharedProxyDown implements the workspace-shared lifecycle: drop our
 // routes, then either reload (siblings remain) or stop (last one out).
-func (uc *DownUseCase) handleSharedProxyDown(ctx context.Context, deps *config.Deps) {
+func (uc *DownUseCase) handleSharedProxyDown(ctx context.Context, deps *models.Deps) {
 	if err := uc.deps.ProxyManager.RemoveProjectRoutes(); err != nil {
 		logging.WarnWithContext(ctx, "Failed to remove project routes",
 			"project", deps.Project.Name, "error", err.Error())
@@ -108,7 +108,7 @@ func (uc *DownUseCase) handlePerProjectProxyDown(ctx context.Context) {
 // legacy removal is best-effort because the offending tree is exactly the
 // kind that the upgrading user can't os.RemoveAll without sudo — log and
 // move on instead of failing the down.
-func cleanProxyDirOnDisk(ctx context.Context, deps *config.Deps) {
+func cleanProxyDirOnDisk(ctx context.Context, deps *models.Deps) {
 	var current, legacy string
 	if deps.Workspace != "" {
 		current = naming.WorkspaceProxyDir()

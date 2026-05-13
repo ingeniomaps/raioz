@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -64,7 +64,7 @@ func getBaseDirForLocalCheck() (string, error) {
 }
 
 // getLocalProjectCommand gets the command to execute for the local project
-func getLocalProjectCommand(deps *config.Deps, commandType string, mode string) string {
+func getLocalProjectCommand(deps *models.Deps, commandType string, mode string) string {
 	if deps.Project.Commands == nil {
 		return ""
 	}

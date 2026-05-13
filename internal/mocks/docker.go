@@ -3,8 +3,8 @@ package mocks
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // Compile-time check
@@ -21,7 +21,7 @@ type MockDockerRunner struct {
 	GetServicesStatusWithContextFunc func(ctx context.Context, composePath string) (map[string]string, error)
 	GetServicesInfoWithContextFunc   func(
 		ctx context.Context, composePath string, serviceNames []string,
-		projectName string, services map[string]config.Service,
+		projectName string, services map[string]models.Service,
 		ws *interfaces.Workspace,
 	) (map[string]*interfaces.ServiceInfo, error)
 	GetNetworkProjectsFunc              func(networkName string, baseDir string) ([]string, error)
@@ -37,7 +37,7 @@ type MockDockerRunner struct {
 	CleanUnusedNetworksWithContextFunc  func(ctx context.Context, dryRun bool) ([]string, error)
 	GetAllActivePortsFunc               func(baseDir string) ([]interfaces.PortInfo, error)
 	GenerateComposeFunc                 func(
-		deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+		deps *models.Deps, ws *interfaces.Workspace, projectDir string,
 	) (string, []string, error)
 	UpServicesWithContextFunc            func(ctx context.Context, composePath string, serviceNames []string) error
 	RestartServicesWithContextFunc       func(ctx context.Context, composePath string, serviceNames []string) error
@@ -51,10 +51,10 @@ type MockDockerRunner struct {
 		serviceNames []string, infraNames []string, projectName string,
 	) error
 	ValidatePortsFunc func(
-		deps *config.Deps, baseDir string, projectName string,
+		deps *models.Deps, baseDir string, projectName string,
 	) ([]interfaces.PortConflict, error)
 	FormatPortConflictsFunc               func(conflicts []interfaces.PortConflict) string
-	ValidateAllImagesFunc                 func(deps *config.Deps) error
+	ValidateAllImagesFunc                 func(deps *models.Deps) error
 	EnsureNetworkWithConfigAndContextFunc func(
 		ctx context.Context, name string, subnet string,
 		labels map[string]string, askConfirmation bool,
@@ -76,7 +76,7 @@ type MockDockerRunner struct {
 	AreServicesRunningFunc            func(composePath string, serviceNames []string) (bool, error)
 	IsNetworkInUseWithContextFunc     func(ctx context.Context, networkName string) (bool, error)
 	StopContainerWithContextFunc      func(ctx context.Context, containerName string) error
-	BuildServiceVolumesMapFunc        func(deps *config.Deps) (map[string]interfaces.ServiceVolumes, error)
+	BuildServiceVolumesMapFunc        func(deps *models.Deps) (map[string]interfaces.ServiceVolumes, error)
 	DetectSharedVolumesFunc           func(services map[string]interfaces.ServiceVolumes) map[string][]string
 	FormatSharedVolumesWarningFunc    func(sharedVolumes map[string][]string) string
 	RemoveVolumeWithContextFunc       func(ctx context.Context, name string) error
@@ -135,7 +135,7 @@ func (m *MockDockerRunner) GetServicesStatusWithContext(
 
 func (m *MockDockerRunner) GetServicesInfoWithContext(
 	ctx context.Context, composePath string, serviceNames []string,
-	projectName string, services map[string]config.Service,
+	projectName string, services map[string]models.Service,
 	ws *interfaces.Workspace,
 ) (map[string]*interfaces.ServiceInfo, error) {
 	if m.GetServicesInfoWithContextFunc != nil {

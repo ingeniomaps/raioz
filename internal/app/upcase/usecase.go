@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
@@ -112,7 +113,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	}
 
 	// Save filtered deps for re-applying --only after merge
-	var onlyFilteredDeps *config.Deps
+	var onlyFilteredDeps *models.Deps
 	if len(opts.Only) > 0 {
 		depsCopy := *deps
 		onlyFilteredDeps = &depsCopy

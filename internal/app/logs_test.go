@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -30,8 +30,8 @@ func newTestDepsForLogs(t *testing.T) (*Dependencies, *mocks.MockConfigLoader, *
 	}
 	stateMgr := &mocks.MockStateManager{
 		ExistsFunc: func(ws *workspace.Workspace) bool { return true },
-		LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{Project: config.Project{Name: "test-project"}}, nil
+		LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{Project: models.Project{Name: "test-project"}}, nil
 		},
 	}
 	dockerRunner := &mocks.MockDockerRunner{}
@@ -55,7 +55,7 @@ func TestLogsUseCase_Execute_NoProject(t *testing.T) {
 	deps, configLoader, _, _, _ := newTestDepsForLogs(t)
 
 	// ConfigLoader returns nil (no config found)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return nil, nil, fmt.Errorf("not found")
 	}
 
@@ -73,8 +73,8 @@ func TestLogsUseCase_Execute_NoProject(t *testing.T) {
 func TestLogsUseCase_Execute_NotRunning(t *testing.T) {
 	deps, configLoader, _, stateMgr, _ := newTestDepsForLogs(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 
 	// State does not exist (project not running)
@@ -94,8 +94,8 @@ func TestLogsUseCase_Execute_NotRunning(t *testing.T) {
 func TestLogsUseCase_Execute_AllServices(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner := newTestDepsForLogs(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 
 	var viewLogsCalled bool

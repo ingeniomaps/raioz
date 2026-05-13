@@ -6,8 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 // TestMain stubs the host-port busy probe for the entire upcase test suite.
@@ -24,35 +23,35 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// newDeps is a tiny helper to build a config.Deps with a set of services for
+// newDeps is a tiny helper to build a models.Deps with a set of services for
 // allocator tests. Each entry is (name, runtime-unused-here, explicitPort).
 // The Runtime is set via the detections map in each test because the allocator
 // reads it from there, not from the config.
-func newDeps(services map[string]int) *config.Deps {
-	deps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
+func newDeps(services map[string]int) *models.Deps {
+	deps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
 	}
 	for name, port := range services {
-		deps.Services[name] = config.Service{
-			Source: config.SourceConfig{Kind: "local", Path: "/tmp/" + name},
+		deps.Services[name] = models.Service{
+			Source: models.SourceConfig{Kind: "local", Path: "/tmp/" + name},
 			Port:   port,
 		}
 	}
 	return deps
 }
 
-func hostDet(rt detect.Runtime) detect.DetectResult {
-	return detect.DetectResult{Runtime: rt}
+func hostDet(rt models.Runtime) models.DetectResult {
+	return models.DetectResult{Runtime: rt}
 }
 
-func dockerDet() detect.DetectResult {
-	return detect.DetectResult{Runtime: detect.RuntimeCompose}
+func dockerDet() models.DetectResult {
+	return models.DetectResult{Runtime: models.RuntimeCompose}
 }
 
 func TestAllocateHostPorts_SingleHostServiceImplicit(t *testing.T) {
 	deps := newDeps(map[string]int{"web": 0})
-	detections := DetectionMap{"web": hostDet(detect.RuntimeNPM)}
+	detections := DetectionMap{"web": hostDet(models.RuntimeNPM)}
 
 	allocs, err := AllocateHostPorts(deps, detections)
 	if err != nil {
@@ -68,7 +67,7 @@ func TestAllocateHostPorts_SingleHostServiceImplicit(t *testing.T) {
 
 func TestAllocateHostPorts_ExplicitHonored(t *testing.T) {
 	deps := newDeps(map[string]int{"web": 4000})
-	detections := DetectionMap{"web": hostDet(detect.RuntimeNPM)}
+	detections := DetectionMap{"web": hostDet(models.RuntimeNPM)}
 
 	allocs, err := AllocateHostPorts(deps, detections)
 	if err != nil {
@@ -87,8 +86,8 @@ func TestAllocateHostPorts_TwoImplicitDefaultsBumpDeterministic(t *testing.T) {
 	// name) must move to 3001.
 	deps := newDeps(map[string]int{"web-a": 0, "web-b": 0})
 	detections := DetectionMap{
-		"web-a": hostDet(detect.RuntimeNPM),
-		"web-b": hostDet(detect.RuntimeNPM),
+		"web-a": hostDet(models.RuntimeNPM),
+		"web-b": hostDet(models.RuntimeNPM),
 	}
 
 	allocs, err := AllocateHostPorts(deps, detections)
@@ -107,8 +106,8 @@ func TestAllocateHostPorts_ExplicitExplicitConflictFails(t *testing.T) {
 	// Two services both explicitly declaring port 3000 → hard error.
 	deps := newDeps(map[string]int{"web-a": 3000, "web-b": 3000})
 	detections := DetectionMap{
-		"web-a": hostDet(detect.RuntimeNPM),
-		"web-b": hostDet(detect.RuntimeNPM),
+		"web-a": hostDet(models.RuntimeNPM),
+		"web-b": hostDet(models.RuntimeNPM),
 	}
 
 	_, err := AllocateHostPorts(deps, detections)
@@ -126,8 +125,8 @@ func TestAllocateHostPorts_ExplicitBeatsImplicit(t *testing.T) {
 	// (explicit pass runs before implicit pass regardless of name order)
 	deps := newDeps(map[string]int{"web-a": 0, "web-b": 3000})
 	detections := DetectionMap{
-		"web-a": hostDet(detect.RuntimeNPM),
-		"web-b": hostDet(detect.RuntimeNPM),
+		"web-a": hostDet(models.RuntimeNPM),
+		"web-b": hostDet(models.RuntimeNPM),
 	}
 
 	allocs, err := AllocateHostPorts(deps, detections)
@@ -172,7 +171,7 @@ func TestAllocateHostPorts_MixedHostAndDocker(t *testing.T) {
 	// allocated. No conflict because docker lives in its own namespace.
 	deps := newDeps(map[string]int{"web": 0, "api": 0})
 	detections := DetectionMap{
-		"web": hostDet(detect.RuntimeNPM),
+		"web": hostDet(models.RuntimeNPM),
 		"api": dockerDet(),
 	}
 
@@ -192,9 +191,9 @@ func TestAllocateHostPorts_ThreeServicesChainBump(t *testing.T) {
 	// web-a, web-b, web-c all default to 3000 → 3000/3001/3002.
 	deps := newDeps(map[string]int{"web-a": 0, "web-b": 0, "web-c": 0})
 	detections := DetectionMap{
-		"web-a": hostDet(detect.RuntimeNPM),
-		"web-b": hostDet(detect.RuntimeNPM),
-		"web-c": hostDet(detect.RuntimeNPM),
+		"web-a": hostDet(models.RuntimeNPM),
+		"web-b": hostDet(models.RuntimeNPM),
+		"web-c": hostDet(models.RuntimeNPM),
 	}
 
 	allocs, err := AllocateHostPorts(deps, detections)
@@ -218,8 +217,8 @@ func TestAllocateHostPorts_DifferentRuntimeDefaultsNoConflict(t *testing.T) {
 	// web (npm→3000) + api-go (go→8080): no collision, both get their defaults.
 	deps := newDeps(map[string]int{"web": 0, "api-go": 0})
 	detections := DetectionMap{
-		"web":    hostDet(detect.RuntimeNPM),
-		"api-go": hostDet(detect.RuntimeGo),
+		"web":    hostDet(models.RuntimeNPM),
+		"api-go": hostDet(models.RuntimeGo),
 	}
 
 	allocs, err := AllocateHostPorts(deps, detections)
@@ -247,7 +246,7 @@ func TestAllocateHostPorts_CrossProjectBindClash(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	deps := newDeps(map[string]int{"web": port})
-	detections := DetectionMap{"web": hostDet(detect.RuntimeNPM)}
+	detections := DetectionMap{"web": hostDet(models.RuntimeNPM)}
 
 	result, err := AllocateHostPorts(deps, detections)
 	if err != nil {
@@ -265,16 +264,16 @@ func TestAllocateHostPorts_CrossProjectBindClash(t *testing.T) {
 
 // --- Dependency publish allocation -------------------------------------------
 
-// newDepsWithInfra builds a config.Deps that has both services and infra,
+// newDepsWithInfra builds a models.Deps that has both services and infra,
 // for tests that exercise the joint allocation path.
 func newDepsWithInfra(
 	services map[string]int,
-	infra map[string]*config.Infra,
-) *config.Deps {
+	infra map[string]*models.Infra,
+) *models.Deps {
 	deps := newDeps(services)
-	deps.Infra = map[string]config.InfraEntry{}
+	deps.Infra = map[string]models.InfraEntry{}
 	for name, inf := range infra {
-		deps.Infra[name] = config.InfraEntry{Inline: inf}
+		deps.Infra[name] = models.InfraEntry{Inline: inf}
 	}
 	return deps
 }
@@ -287,18 +286,18 @@ func TestAllocateHostPorts_ModeASiblingDepSkipped(t *testing.T) {
 	// regular dep that wants it.
 	deps := newDepsWithInfra(
 		nil,
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			// Mode A with explicit publish — must be ignored.
 			"keycloak": {
 				Project: "/abs/sibling",
 				Expose:  []int{8080},
-				Publish: &config.PublishSpec{Ports: []int{8080}},
+				Publish: &models.PublishSpec{Ports: []int{8080}},
 			},
 			// Regular dep that should still get its allocation.
 			"redis": {
 				Image:   "redis",
 				Expose:  []int{6379},
-				Publish: &config.PublishSpec{Ports: []int{6379}},
+				Publish: &models.PublishSpec{Ports: []int{6379}},
 			},
 		},
 	)
@@ -324,7 +323,7 @@ func TestAllocateHostPorts_DepInternalOnly(t *testing.T) {
 	// it via DNS; the allocator just has nothing to say.
 	deps := newDepsWithInfra(
 		nil,
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"postgres": {Image: "postgres", Tag: "16", Expose: []int{5432}},
 		},
 	)
@@ -342,11 +341,11 @@ func TestAllocateHostPorts_DepInternalOnly(t *testing.T) {
 func TestAllocateHostPorts_DepExplicitPublish(t *testing.T) {
 	deps := newDepsWithInfra(
 		nil,
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"postgres": {
 				Image:   "postgres",
 				Expose:  []int{5432},
-				Publish: &config.PublishSpec{Ports: []int{5432}},
+				Publish: &models.PublishSpec{Ports: []int{5432}},
 			},
 		},
 	)
@@ -376,11 +375,11 @@ func TestAllocateHostPorts_DepAutoPublish(t *testing.T) {
 	// 5432. With nothing else taken, it should land on 5432 itself.
 	deps := newDepsWithInfra(
 		nil,
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"postgres": {
 				Image:   "postgres",
 				Expose:  []int{5432},
-				Publish: &config.PublishSpec{Auto: true},
+				Publish: &models.PublishSpec{Auto: true},
 			},
 		},
 	)
@@ -403,16 +402,16 @@ func TestAllocateHostPorts_DepAutoBumpsOnConflict(t *testing.T) {
 	// A service already holds 5432 → postgres auto must bump to 5433.
 	deps := newDepsWithInfra(
 		map[string]int{"web": 5432}, // explicit service on 5432
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"postgres": {
 				Image:   "postgres",
 				Expose:  []int{5432},
-				Publish: &config.PublishSpec{Auto: true},
+				Publish: &models.PublishSpec{Auto: true},
 			},
 		},
 	)
 	detections := DetectionMap{
-		"web":      hostDet(detect.RuntimeGo),
+		"web":      hostDet(models.RuntimeGo),
 		"postgres": dockerDet(),
 	}
 
@@ -438,15 +437,15 @@ func TestAllocateHostPorts_DepExplicitConflictWithService(t *testing.T) {
 	// A service explicitly on 5432, a dep ALSO explicitly on 5432 → error.
 	deps := newDepsWithInfra(
 		map[string]int{"web": 5432},
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"postgres": {
 				Image:   "postgres",
-				Publish: &config.PublishSpec{Ports: []int{5432}},
+				Publish: &models.PublishSpec{Ports: []int{5432}},
 			},
 		},
 	)
 	detections := DetectionMap{
-		"web":      hostDet(detect.RuntimeGo),
+		"web":      hostDet(models.RuntimeGo),
 		"postgres": dockerDet(),
 	}
 
@@ -462,14 +461,14 @@ func TestAllocateHostPorts_DepExplicitConflictWithService(t *testing.T) {
 func TestAllocateHostPorts_TwoDepsExplicitConflict(t *testing.T) {
 	deps := newDepsWithInfra(
 		nil,
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"pg-a": {
 				Image:   "postgres",
-				Publish: &config.PublishSpec{Ports: []int{5432}},
+				Publish: &models.PublishSpec{Ports: []int{5432}},
 			},
 			"pg-b": {
 				Image:   "postgres",
-				Publish: &config.PublishSpec{Ports: []int{5432}},
+				Publish: &models.PublishSpec{Ports: []int{5432}},
 			},
 		},
 	)
@@ -488,11 +487,11 @@ func TestAllocateHostPorts_DepAutoMultipleExpose(t *testing.T) {
 	// publish: true with multiple exposed ports → a mapping per expose entry.
 	deps := newDepsWithInfra(
 		nil,
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"multi": {
 				Image:   "fake",
 				Expose:  []int{5432, 9090},
-				Publish: &config.PublishSpec{Auto: true},
+				Publish: &models.PublishSpec{Auto: true},
 			},
 		},
 	)
@@ -519,10 +518,10 @@ func TestAllocateHostPorts_DepAutoNoExposeSilentlySkipped(t *testing.T) {
 	// an error (the dep still starts internal-only).
 	deps := newDepsWithInfra(
 		nil,
-		map[string]*config.Infra{
+		map[string]*models.Infra{
 			"mystery": {
 				Image:   "fake",
-				Publish: &config.PublishSpec{Auto: true},
+				Publish: &models.PublishSpec{Auto: true},
 			},
 		},
 	)
@@ -538,16 +537,16 @@ func TestAllocateHostPorts_DepAutoNoExposeSilentlySkipped(t *testing.T) {
 }
 
 func TestAllocateHostPorts_IsHostHelper(t *testing.T) {
-	if !(PortAllocation{Runtime: detect.RuntimeNPM}).IsHost() {
+	if !(PortAllocation{Runtime: models.RuntimeNPM}).IsHost() {
 		t.Error("npm should be host")
 	}
-	if (PortAllocation{Runtime: detect.RuntimeCompose}).IsHost() {
+	if (PortAllocation{Runtime: models.RuntimeCompose}).IsHost() {
 		t.Error("compose should not be host")
 	}
-	if (PortAllocation{Runtime: detect.RuntimeDockerfile}).IsHost() {
+	if (PortAllocation{Runtime: models.RuntimeDockerfile}).IsHost() {
 		t.Error("dockerfile should not be host")
 	}
-	if (PortAllocation{Runtime: detect.RuntimeImage}).IsHost() {
+	if (PortAllocation{Runtime: models.RuntimeImage}).IsHost() {
 		t.Error("image should not be host")
 	}
 }

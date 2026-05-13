@@ -5,7 +5,7 @@ import (
 	stderrors "errors"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -19,19 +19,19 @@ func TestProcessHostServicesWithServiceCommands(t *testing.T) {
 	startCalled := 0
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
 				return nil, "", stderrors.New("no config")
 			},
 		},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				startCalled++
 				return &host.ProcessInfo{PID: 100, Command: "npm start"}, nil
@@ -39,12 +39,12 @@ func TestProcessHostServicesWithServiceCommands(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"web": {
-				Commands: &config.ServiceCommands{
-					Dev: &config.EnvironmentCommands{Up: "npm start"},
+				Commands: &models.ServiceCommands{
+					Dev: &models.EnvironmentCommands{Up: "npm start"},
 				},
 			},
 		},
@@ -72,24 +72,24 @@ func TestProcessHostServicesStartError(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
 				return nil, "", stderrors.New("nope")
 			},
 		},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				return nil, stderrors.New("start failed")
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
-			"worker": {Source: config.SourceConfig{Command: "node worker.js"}},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
+			"worker": {Source: models.SourceConfig{Command: "node worker.js"}},
 		},
 	}
 
@@ -108,24 +108,24 @@ func TestProcessHostServicesMissingCommand(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
 				return nil, "", stderrors.New("no config")
 			},
 		},
 		HostRunner: &mocks.MockHostRunner{},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			// Has commands struct but no actual up command
 			"broken": {
-				Commands: &config.ServiceCommands{
+				Commands: &models.ServiceCommands{
 					Health: "curl localhost",
 				},
 			},
@@ -149,27 +149,27 @@ func TestProcessHostServicesWithStopCommand(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
 				return nil, "", stderrors.New("no config")
 			},
 		},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				return &host.ProcessInfo{PID: 100, Command: svc.Source.Command}, nil
 			},
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Command: "go run ."},
-				Commands: &config.ServiceCommands{
-					Dev: &config.EnvironmentCommands{Down: "pkill api"},
+				Source: models.SourceConfig{Command: "go run ."},
+				Commands: &models.ServiceCommands{
+					Dev: &models.EnvironmentCommands{Down: "pkill api"},
 				},
 			},
 		},
@@ -198,19 +198,19 @@ func TestProcessHostServicesFallbackToRootCommands(t *testing.T) {
 	startCalled := false
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
 				return nil, "", stderrors.New("no config")
 			},
 		},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				startCalled = true
 				return &host.ProcessInfo{PID: 100, Command: svc.Source.Command}, nil
@@ -218,16 +218,16 @@ func TestProcessHostServicesFallbackToRootCommands(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "p",
-			Commands: &config.ProjectCommands{
-				Dev: &config.EnvironmentCommands{Up: "make dev"},
+			Commands: &models.ProjectCommands{
+				Dev: &models.EnvironmentCommands{Up: "make dev"},
 			},
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"app": {
-				Commands: &config.ServiceCommands{}, // Empty, no up
+				Commands: &models.ServiceCommands{}, // Empty, no up
 			},
 		},
 	}
@@ -252,14 +252,14 @@ func TestProcessHostServicesProdMode(t *testing.T) {
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
 				return nil, "", stderrors.New("nope")
 			},
 		},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				startCalled = true
 				return &host.ProcessInfo{PID: 100, Command: svc.Source.Command}, nil
@@ -267,11 +267,11 @@ func TestProcessHostServicesProdMode(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Command: "node dist/index.js"},
+				Source: models.SourceConfig{Command: "node dist/index.js"},
 			},
 		},
 	}
@@ -298,16 +298,16 @@ func TestProcessHostServicesGitServiceWithConfig(t *testing.T) {
 	startCalled := false
 	uc := NewUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc/" + n
 			},
 		},
 		ConfigLoader: &mocks.MockConfigLoader{
-			FindServiceConfigFunc: func(p string) (*config.Deps, string, error) {
-				return &config.Deps{
-					Project: config.Project{
-						Commands: &config.ProjectCommands{
-							Dev: &config.EnvironmentCommands{Up: "npm start"},
+			FindServiceConfigFunc: func(p string) (*models.Deps, string, error) {
+				return &models.Deps{
+					Project: models.Project{
+						Commands: &models.ProjectCommands{
+							Dev: &models.EnvironmentCommands{Up: "npm start"},
 						},
 					},
 				}, "raioz.yaml", nil
@@ -315,8 +315,8 @@ func TestProcessHostServicesGitServiceWithConfig(t *testing.T) {
 		},
 		HostRunner: &mocks.MockHostRunner{
 			StartServiceFunc: func(
-				ctx context.Context, ws *workspace.Workspace, d *config.Deps,
-				n string, svc config.Service, pd string,
+				ctx context.Context, ws *workspace.Workspace, d *models.Deps,
+				n string, svc models.Service, pd string,
 			) (*host.ProcessInfo, error) {
 				startCalled = true
 				return &host.ProcessInfo{PID: 100, Command: svc.Source.Command}, nil
@@ -324,12 +324,12 @@ func TestProcessHostServicesGitServiceWithConfig(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"frontend": {
-				Source:   config.SourceConfig{Kind: "git"},
-				Commands: &config.ServiceCommands{}, // empty, will fallback to service config
+				Source:   models.SourceConfig{Kind: "git"},
+				Commands: &models.ServiceCommands{}, // empty, will fallback to service config
 			},
 		},
 	}

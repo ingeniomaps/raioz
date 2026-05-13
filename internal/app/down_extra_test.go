@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -53,8 +53,8 @@ func TestDownUseCase_handleProjectComposeDown_FromState(t *testing.T) {
 			},
 		},
 	})
-	stateDeps := &config.Deps{
-		Project:            config.Project{Name: "p"},
+	stateDeps := &models.Deps{
+		Project:            models.Project{Name: "p"},
 		ProjectComposePath: composePath,
 	}
 	uc.handleProjectComposeDown(context.Background(), stateDeps, DownOptions{})
@@ -78,7 +78,7 @@ func TestDownUseCase_handleProjectComposeDown_FromConfigPath(t *testing.T) {
 			},
 		},
 	})
-	stateDeps := &config.Deps{Project: config.Project{Name: "p"}}
+	stateDeps := &models.Deps{Project: models.Project{Name: "p"}}
 	uc.handleProjectComposeDown(context.Background(), stateDeps, DownOptions{
 		ConfigPath: filepath.Join(tmpDir, "raioz.yaml"),
 	})
@@ -90,7 +90,7 @@ func TestDownUseCase_handleProjectComposeDown_FromConfigPath(t *testing.T) {
 func TestDownUseCase_handleProjectComposeDown_NoPath(t *testing.T) {
 	initI18nForTest(t)
 	uc := NewDownUseCase(&Dependencies{})
-	stateDeps := &config.Deps{Project: config.Project{Name: "p"}}
+	stateDeps := &models.Deps{Project: models.Project{Name: "p"}}
 	uc.handleProjectComposeDown(context.Background(), stateDeps, DownOptions{})
 }
 
@@ -99,7 +99,7 @@ func TestDownUseCase_handleProjectComposeDown_NoPath(t *testing.T) {
 func TestDownUseCase_executeProjectDownCommand_NoCommands(t *testing.T) {
 	initI18nForTest(t)
 	uc := NewDownUseCase(&Dependencies{})
-	stateDeps := &config.Deps{Project: config.Project{Name: "p", Commands: nil}}
+	stateDeps := &models.Deps{Project: models.Project{Name: "p", Commands: nil}}
 	uc.executeProjectDownCommand(
 		context.Background(), stateDeps, &workspace.Workspace{Root: "/tmp"}, DownOptions{}, "ws",
 	)
@@ -113,10 +113,10 @@ func TestDownUseCase_executeProjectDownCommand_DownOnly(t *testing.T) {
 			GetRootFunc: func(ws *workspace.Workspace) string { return tmpDir },
 		},
 	})
-	stateDeps := &config.Deps{
-		Project: config.Project{
+	stateDeps := &models.Deps{
+		Project: models.Project{
 			Name: "p",
-			Commands: &config.ProjectCommands{
+			Commands: &models.ProjectCommands{
 				Down: "true", // Harmless shell command
 			},
 		},
@@ -135,11 +135,11 @@ func TestDownUseCase_executeProjectDownCommand_DevMode(t *testing.T) {
 			GetRootFunc: func(ws *workspace.Workspace) string { return tmpDir },
 		},
 	})
-	stateDeps := &config.Deps{
-		Project: config.Project{
+	stateDeps := &models.Deps{
+		Project: models.Project{
 			Name: "p",
-			Commands: &config.ProjectCommands{
-				Dev: &config.EnvironmentCommands{Down: "true"},
+			Commands: &models.ProjectCommands{
+				Dev: &models.EnvironmentCommands{Down: "true"},
 			},
 		},
 	}
@@ -162,14 +162,14 @@ func TestDownUseCase_executeProjectDownCommand_CommandOnlyProject(t *testing.T) 
 			},
 		},
 	})
-	stateDeps := &config.Deps{
-		Project: config.Project{
+	stateDeps := &models.Deps{
+		Project: models.Project{
 			Name: "p",
-			Commands: &config.ProjectCommands{
+			Commands: &models.ProjectCommands{
 				Up: "echo start", // no Down, has Up
 			},
 		},
-		Services: map[string]config.Service{},
+		Services: map[string]models.Service{},
 	}
 	uc.executeProjectDownCommand(
 		context.Background(), stateDeps, &workspace.Workspace{Root: "/tmp"}, DownOptions{}, "ws",
@@ -195,8 +195,8 @@ func TestDownUseCase_stopCommandOnlyProjectContainers(t *testing.T) {
 			},
 		},
 	})
-	stateDeps := &config.Deps{
-		Project: config.Project{Name: "myproj"},
+	stateDeps := &models.Deps{
+		Project: models.Project{Name: "myproj"},
 	}
 	uc.stopCommandOnlyProjectContainers(context.Background(), stateDeps, "ws")
 	if stopCalls == 0 {
@@ -310,17 +310,17 @@ func TestDownUseCase_resolveHostStopCommand_FromConfig(t *testing.T) {
 	initI18nForTest(t)
 	uc := NewDownUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return "/svc-path"
 			},
 		},
 	})
 	pi := host.ProcessInfo{PID: 1}
-	currentDeps := &config.Deps{
-		Services: map[string]config.Service{
+	currentDeps := &models.Deps{
+		Services: map[string]models.Service{
 			"svc": {
-				Source: config.SourceConfig{Kind: "git"},
-				Commands: &config.ServiceCommands{
+				Source: models.SourceConfig{Kind: "git"},
+				Commands: &models.ServiceCommands{
 					Down: "stop.sh",
 				},
 			},
@@ -342,7 +342,7 @@ func TestDownUseCase_resolveHostStopCommand_DetectCompose(t *testing.T) {
 
 	uc := NewDownUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return tmpDir
 			},
 		},
@@ -351,9 +351,9 @@ func TestDownUseCase_resolveHostStopCommand_DetectCompose(t *testing.T) {
 		},
 	})
 	pi := host.ProcessInfo{PID: 1}
-	currentDeps := &config.Deps{
-		Services: map[string]config.Service{
-			"svc": {Source: config.SourceConfig{Kind: "git"}},
+	currentDeps := &models.Deps{
+		Services: map[string]models.Service{
+			"svc": {Source: models.SourceConfig{Kind: "git"}},
 		},
 	}
 	stopCmd, _ := uc.resolveHostStopCommand(
@@ -393,7 +393,7 @@ func TestDownUseCase_detectHostComposePath_NilDeps(t *testing.T) {
 
 func TestDownUseCase_detectHostComposePath_ServiceNotFound(t *testing.T) {
 	uc := NewDownUseCase(&Dependencies{})
-	deps := &config.Deps{Services: map[string]config.Service{}}
+	deps := &models.Deps{Services: map[string]models.Service{}}
 	got := uc.detectHostComposePath(
 		context.Background(), "svc", host.ProcessInfo{}, deps, &workspace.Workspace{Root: "/tmp"}, "",
 	)
@@ -405,13 +405,13 @@ func TestDownUseCase_detectHostComposePath_ServiceNotFound(t *testing.T) {
 func TestDownUseCase_detectHostComposePath_NoServicePath(t *testing.T) {
 	uc := NewDownUseCase(&Dependencies{
 		Workspace: &mocks.MockWorkspaceManager{
-			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc config.Service) string {
+			GetServicePathFunc: func(ws *workspace.Workspace, n string, svc models.Service) string {
 				return ""
 			},
 		},
 	})
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"svc": {},
 		},
 	}
@@ -446,13 +446,13 @@ func TestDownUseCase_handleNetworkAndVolumes(t *testing.T) {
 			},
 		},
 	})
-	stateDeps := &config.Deps{
-		Project: config.Project{Name: "me"},
-		Network: config.NetworkConfig{Name: "net"},
-		Services: map[string]config.Service{
-			"a": {Docker: &config.DockerConfig{Volumes: []string{"x:/y"}}},
+	stateDeps := &models.Deps{
+		Project: models.Project{Name: "me"},
+		Network: models.NetworkConfig{Name: "net"},
+		Services: map[string]models.Service{
+			"a": {Docker: &models.DockerConfig{Volumes: []string{"x:/y"}}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 	remaining, inUse := uc.handleNetworkAndVolumes(
 		context.Background(), stateDeps, &workspace.Workspace{Root: "/tmp"}, "me", "ws",

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	errpkg "raioz/internal/errors"
 	rt "raioz/internal/runtime"
 )
@@ -55,7 +56,7 @@ func TestDecideSibling_NilInline(t *testing.T) {
 }
 
 func TestDecideSibling_RegularImageDep(t *testing.T) {
-	inline := &config.Infra{Image: "postgres", Tag: "16"}
+	inline := &models.Infra{Image: "postgres", Tag: "16"}
 	got, err := decideSibling(context.Background(), "postgres", inline, "ws")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -73,7 +74,7 @@ func TestDecideSibling_ModeA_SiblingActive_SkipsSpawn(t *testing.T) {
 			"services:\n  keycloak:\n    path: .\n")
 	writeFakeRuntime(t, "hypixo-keycloak\n") // sibling reported active
 
-	inline := &config.Infra{Project: siblingDir}
+	inline := &models.Infra{Project: siblingDir}
 	got, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -92,7 +93,7 @@ func TestDecideSibling_ModeA_SiblingInactive_RequestsSpawn(t *testing.T) {
 			"services:\n  keycloak:\n    path: .\n")
 	writeFakeRuntime(t, "") // empty docker ps → not active
 
-	inline := &config.Infra{Project: siblingDir}
+	inline := &models.Infra{Project: siblingDir}
 	got, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -113,7 +114,7 @@ func TestDecideSibling_ModeA_DetectsCycle(t *testing.T) {
 	// child raioz process running in a recursive chain.
 	t.Setenv(siblingStackEnv, siblingDir)
 
-	inline := &config.Infra{Project: siblingDir}
+	inline := &models.Infra{Project: siblingDir}
 	_, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")
 	if err == nil || !strings.Contains(err.Error(), "sibling cycle") {
 		t.Errorf("expected sibling-cycle error, got %v", err)
@@ -128,7 +129,7 @@ func TestDecideSibling_ModeB_SiblingActive(t *testing.T) {
 			"services:\n  keycloak:\n    path: .\n")
 	writeFakeRuntime(t, "hypixo-keycloak\n") // docker ps reports the container
 
-	inline := &config.Infra{
+	inline := &models.Infra{
 		Image:          "keycloak",
 		Tag:            "24",
 		SiblingProject: siblingDir,
@@ -151,7 +152,7 @@ func TestDecideSibling_ModeB_SiblingInactive(t *testing.T) {
 			"services:\n  keycloak:\n    path: .\n")
 	writeFakeRuntime(t, "") // docker ps returns nothing → not active
 
-	inline := &config.Infra{
+	inline := &models.Infra{
 		Image:          "keycloak",
 		SiblingProject: siblingDir,
 	}
@@ -165,7 +166,7 @@ func TestDecideSibling_ModeB_SiblingInactive(t *testing.T) {
 }
 
 func TestDecideSibling_ModeB_SiblingMissing(t *testing.T) {
-	inline := &config.Infra{
+	inline := &models.Infra{
 		Image:          "keycloak",
 		SiblingProject: "/does/not/exist",
 	}
@@ -183,14 +184,14 @@ func TestResolveSiblingVerdicts_DispatchCountSkipsSiblingDeferred(t *testing.T) 
 			"services:\n  keycloak:\n    path: .\n")
 	writeFakeRuntime(t, "hypixo-keycloak\n") // sibling reported active
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		Workspace: "hypixo",
-		Infra: map[string]config.InfraEntry{
-			"keycloak": {Inline: &config.Infra{
+		Infra: map[string]models.InfraEntry{
+			"keycloak": {Inline: &models.Infra{
 				Image: "keycloak", Tag: "24", SiblingProject: siblingDir,
 			}},
-			"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
-			"redis":    {Inline: &config.Infra{Image: "redis", Tag: "7"}},
+			"postgres": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
+			"redis":    {Inline: &models.Infra{Image: "redis", Tag: "7"}},
 		},
 	}
 	names := []string{"keycloak", "postgres", "redis"}
@@ -215,10 +216,10 @@ func TestResolveSiblingVerdicts_DispatchCountSkipsSiblingDeferred(t *testing.T) 
 }
 
 func TestResolveSiblingVerdicts_AllRegular(t *testing.T) {
-	deps := &config.Deps{
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
-			"redis":    {Inline: &config.Infra{Image: "redis", Tag: "7"}},
+	deps := &models.Deps{
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
+			"redis":    {Inline: &models.Infra{Image: "redis", Tag: "7"}},
 		},
 	}
 	_, toDispatch, err := resolveSiblingVerdicts(
@@ -233,10 +234,10 @@ func TestResolveSiblingVerdicts_AllRegular(t *testing.T) {
 }
 
 func TestResolveSiblingVerdicts_PropagatesError(t *testing.T) {
-	deps := &config.Deps{
+	deps := &models.Deps{
 		Workspace: "hypixo",
-		Infra: map[string]config.InfraEntry{
-			"keycloak": {Inline: &config.Infra{
+		Infra: map[string]models.InfraEntry{
+			"keycloak": {Inline: &models.Infra{
 				SiblingProject: "/does/not/exist",
 				Image:          "keycloak",
 			}},
@@ -370,7 +371,7 @@ func TestDecideSibling_ModeA_RequiredHostnameMissing_FailsBeforeSpawn(t *testing
 			"services:\n  keycloak:\n    path: .\n")
 	// No fake runtime needed — the hostname check fires before active probe.
 
-	inline := &config.Infra{
+	inline := &models.Infra{
 		Project:          siblingDir,
 		RequiredHostname: "sso", // sibling only declares "keycloak"
 	}
@@ -385,7 +386,7 @@ func TestDecideSibling_ModeB_RequiredHostnameMissing_OnlyWhenSiblingActive(t *te
 		"workspace: hypixo\nproject: keycloak\n"+
 			"services:\n  keycloak:\n    path: .\n")
 
-	inline := &config.Infra{
+	inline := &models.Infra{
 		Image:            "keycloak",
 		SiblingProject:   siblingDir,
 		RequiredHostname: "sso",
@@ -416,7 +417,7 @@ func TestDecideSibling_ModeB_WorkspaceMismatch(t *testing.T) {
 			"services:\n  keycloak:\n    path: .\n")
 	// Fake runtime not needed — workspace check fails before probing.
 
-	inline := &config.Infra{
+	inline := &models.Infra{
 		Image:          "keycloak",
 		SiblingProject: siblingDir,
 	}
@@ -433,9 +434,9 @@ func TestVerifySiblingsStillUp_EmptyAndProceedVerdicts(t *testing.T) {
 	// install a fake runtime — if the code probes docker accidentally,
 	// the real binary lookup will surface an error from t.Fatal below.
 	verdicts := map[string]siblingDecision{
-		"empty":  {},                          // SiblingInfo == nil → skip
-		"reg":    {Kind: siblingProceed},      // not a sibling defer → skip
-		"spawn":  {Kind: siblingSpawnModeA},   // spawn handled elsewhere → skip
+		"empty": {},                        // SiblingInfo == nil → skip
+		"reg":   {Kind: siblingProceed},    // not a sibling defer → skip
+		"spawn": {Kind: siblingSpawnModeA}, // spawn handled elsewhere → skip
 	}
 	if err := verifySiblingsStillUp(context.Background(), verdicts); err != nil {
 		t.Errorf("expected nil for non-deferring verdicts, got %v", err)

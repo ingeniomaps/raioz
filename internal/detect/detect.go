@@ -3,6 +3,8 @@ package detect
 import (
 	"os"
 	"path/filepath"
+
+	"raioz/internal/domain/models"
 )
 
 // composeNames are the filenames that indicate a Docker Compose project.
@@ -15,8 +17,8 @@ var composeNames = []string{
 
 // Detect scans a directory and determines the runtime/tool used by the service.
 // Priority: docker-compose > Dockerfile > package.json > go.mod > Makefile > pyproject.toml > Cargo.toml
-func Detect(path string) DetectResult {
-	result := DetectResult{Runtime: RuntimeUnknown}
+func Detect(path string) models.DetectResult {
+	result := models.DetectResult{Runtime: models.RuntimeUnknown}
 
 	if path == "" {
 		return result
@@ -31,7 +33,7 @@ func Detect(path string) DetectResult {
 	for _, name := range composeNames {
 		composePath := filepath.Join(path, name)
 		if fileExists(composePath) {
-			result.Runtime = RuntimeCompose
+			result.Runtime = models.RuntimeCompose
 			result.ComposeFile = composePath
 			result.ComposeFiles = []string{composePath}
 			result.Files = append(result.Files, name)
@@ -43,7 +45,7 @@ func Detect(path string) DetectResult {
 	// Check for Dockerfile
 	dockerfile := filepath.Join(path, "Dockerfile")
 	if fileExists(dockerfile) {
-		result.Runtime = RuntimeDockerfile
+		result.Runtime = models.RuntimeDockerfile
 		result.Dockerfile = dockerfile
 		result.Files = append(result.Files, "Dockerfile")
 		inferFromDockerfile(&result, path)
@@ -53,7 +55,7 @@ func Detect(path string) DetectResult {
 	// Check for package.json (Node.js — npm, yarn, pnpm, or bun)
 	packageJSON := filepath.Join(path, "package.json")
 	if fileExists(packageJSON) {
-		result.Runtime = RuntimeNPM
+		result.Runtime = models.RuntimeNPM
 		result.Files = append(result.Files, "package.json")
 		inferFromPackageJSON(&result, packageJSON)
 		// Detect package manager from lock file
@@ -74,7 +76,7 @@ func Detect(path string) DetectResult {
 	// Check for go.mod (Go)
 	goMod := filepath.Join(path, "go.mod")
 	if fileExists(goMod) {
-		result.Runtime = RuntimeGo
+		result.Runtime = models.RuntimeGo
 		result.Files = append(result.Files, "go.mod")
 		result.StartCommand = "go run ."
 		result.DevCommand = "go run ."
@@ -90,7 +92,7 @@ func Detect(path string) DetectResult {
 	// Check for Makefile
 	makefile := filepath.Join(path, "Makefile")
 	if fileExists(makefile) {
-		result.Runtime = RuntimeMake
+		result.Runtime = models.RuntimeMake
 		result.Files = append(result.Files, "Makefile")
 		inferFromMakefile(&result, makefile)
 		return result
@@ -100,7 +102,7 @@ func Detect(path string) DetectResult {
 	for _, name := range []string{"justfile", "Justfile", ".justfile"} {
 		jf := filepath.Join(path, name)
 		if fileExists(jf) {
-			result.Runtime = RuntimeJust
+			result.Runtime = models.RuntimeJust
 			result.Files = append(result.Files, name)
 			result.StartCommand = "just dev"
 			result.DevCommand = "just dev"
@@ -111,7 +113,7 @@ func Detect(path string) DetectResult {
 	// Check for Task (Taskfile.yml)
 	taskfile := filepath.Join(path, "Taskfile.yml")
 	if fileExists(taskfile) {
-		result.Runtime = RuntimeTask
+		result.Runtime = models.RuntimeTask
 		result.Files = append(result.Files, "Taskfile.yml")
 		result.StartCommand = "task dev"
 		result.DevCommand = "task dev"
@@ -122,7 +124,7 @@ func Detect(path string) DetectResult {
 	pyproject := filepath.Join(path, "pyproject.toml")
 	requirements := filepath.Join(path, "requirements.txt")
 	if fileExists(pyproject) || fileExists(requirements) {
-		result.Runtime = RuntimePython
+		result.Runtime = models.RuntimePython
 		if fileExists(pyproject) {
 			result.Files = append(result.Files, "pyproject.toml")
 		}
@@ -137,7 +139,7 @@ func Detect(path string) DetectResult {
 	// Check for Rust (Cargo.toml)
 	cargoToml := filepath.Join(path, "Cargo.toml")
 	if fileExists(cargoToml) {
-		result.Runtime = RuntimeRust
+		result.Runtime = models.RuntimeRust
 		result.Files = append(result.Files, "Cargo.toml")
 		result.StartCommand = "cargo run"
 		result.HasHotReload = false
@@ -147,7 +149,7 @@ func Detect(path string) DetectResult {
 	// Check for PHP (composer.json)
 	composerJSON := filepath.Join(path, "composer.json")
 	if fileExists(composerJSON) {
-		result.Runtime = RuntimePHP
+		result.Runtime = models.RuntimePHP
 		result.Files = append(result.Files, "composer.json")
 		result.StartCommand = "php -S 0.0.0.0:8000 -t public"
 		result.Port = 8000
@@ -165,7 +167,7 @@ func Detect(path string) DetectResult {
 	buildGradle := filepath.Join(path, "build.gradle")
 	buildGradleKts := filepath.Join(path, "build.gradle.kts")
 	if fileExists(pomXML) {
-		result.Runtime = RuntimeJava
+		result.Runtime = models.RuntimeJava
 		result.Files = append(result.Files, "pom.xml")
 		result.StartCommand = "./mvnw spring-boot:run"
 		if fileExists(filepath.Join(path, "gradlew")) {
@@ -175,7 +177,7 @@ func Detect(path string) DetectResult {
 		return result
 	}
 	if fileExists(buildGradle) || fileExists(buildGradleKts) {
-		result.Runtime = RuntimeJava
+		result.Runtime = models.RuntimeJava
 		if fileExists(buildGradle) {
 			result.Files = append(result.Files, "build.gradle")
 		} else {
@@ -188,7 +190,7 @@ func Detect(path string) DetectResult {
 
 	// Check for C# / .NET (*.csproj or *.sln)
 	if hasGlob(path, "*.csproj") || hasGlob(path, "*.sln") {
-		result.Runtime = RuntimeDotnet
+		result.Runtime = models.RuntimeDotnet
 		result.StartCommand = "dotnet watch run"
 		result.DevCommand = "dotnet watch run"
 		result.HasHotReload = true
@@ -204,7 +206,7 @@ func Detect(path string) DetectResult {
 	// Check for Ruby (Gemfile)
 	gemfile := filepath.Join(path, "Gemfile")
 	if fileExists(gemfile) {
-		result.Runtime = RuntimeRuby
+		result.Runtime = models.RuntimeRuby
 		result.Files = append(result.Files, "Gemfile")
 		result.StartCommand = "bundle exec ruby app.rb"
 		result.Port = 3000
@@ -219,7 +221,7 @@ func Detect(path string) DetectResult {
 	// Check for Elixir (mix.exs)
 	mixExs := filepath.Join(path, "mix.exs")
 	if fileExists(mixExs) {
-		result.Runtime = RuntimeElixir
+		result.Runtime = models.RuntimeElixir
 		result.Files = append(result.Files, "mix.exs")
 		result.StartCommand = "mix phx.server"
 		result.DevCommand = "mix phx.server"
@@ -231,7 +233,7 @@ func Detect(path string) DetectResult {
 	// Check for Dart (pubspec.yaml)
 	pubspec := filepath.Join(path, "pubspec.yaml")
 	if fileExists(pubspec) {
-		result.Runtime = RuntimeDart
+		result.Runtime = models.RuntimeDart
 		result.Files = append(result.Files, "pubspec.yaml")
 		result.StartCommand = "dart run"
 		result.Port = 8080
@@ -241,7 +243,7 @@ func Detect(path string) DetectResult {
 	// Check for Swift (Package.swift)
 	packageSwift := filepath.Join(path, "Package.swift")
 	if fileExists(packageSwift) {
-		result.Runtime = RuntimeSwift
+		result.Runtime = models.RuntimeSwift
 		result.Files = append(result.Files, "Package.swift")
 		result.StartCommand = "swift run"
 		result.Port = 8080
@@ -251,7 +253,7 @@ func Detect(path string) DetectResult {
 	// Check for Scala (build.sbt)
 	buildSbt := filepath.Join(path, "build.sbt")
 	if fileExists(buildSbt) {
-		result.Runtime = RuntimeScala
+		result.Runtime = models.RuntimeScala
 		result.Files = append(result.Files, "build.sbt")
 		result.StartCommand = "sbt run"
 		result.Port = 9000
@@ -262,14 +264,14 @@ func Detect(path string) DetectResult {
 	depsEdn := filepath.Join(path, "deps.edn")
 	projectClj := filepath.Join(path, "project.clj")
 	if fileExists(depsEdn) {
-		result.Runtime = RuntimeClojure
+		result.Runtime = models.RuntimeClojure
 		result.Files = append(result.Files, "deps.edn")
 		result.StartCommand = "clj -M:dev"
 		result.Port = 3000
 		return result
 	}
 	if fileExists(projectClj) {
-		result.Runtime = RuntimeClojure
+		result.Runtime = models.RuntimeClojure
 		result.Files = append(result.Files, "project.clj")
 		result.StartCommand = "lein run"
 		result.Port = 3000
@@ -279,7 +281,7 @@ func Detect(path string) DetectResult {
 	// Check for Zig (build.zig)
 	buildZig := filepath.Join(path, "build.zig")
 	if fileExists(buildZig) {
-		result.Runtime = RuntimeZig
+		result.Runtime = models.RuntimeZig
 		result.Files = append(result.Files, "build.zig")
 		result.StartCommand = "zig build run"
 		result.Port = 8080
@@ -289,7 +291,7 @@ func Detect(path string) DetectResult {
 	// Check for Gleam (gleam.toml)
 	gleamToml := filepath.Join(path, "gleam.toml")
 	if fileExists(gleamToml) {
-		result.Runtime = RuntimeGleam
+		result.Runtime = models.RuntimeGleam
 		result.Files = append(result.Files, "gleam.toml")
 		result.StartCommand = "gleam run"
 		result.Port = 8080
@@ -299,14 +301,14 @@ func Detect(path string) DetectResult {
 	// Check for Haskell (*.cabal or stack.yaml)
 	stackYaml := filepath.Join(path, "stack.yaml")
 	if fileExists(stackYaml) {
-		result.Runtime = RuntimeHaskell
+		result.Runtime = models.RuntimeHaskell
 		result.Files = append(result.Files, "stack.yaml")
 		result.StartCommand = "stack run"
 		result.Port = 3000
 		return result
 	}
 	if hasGlob(path, "*.cabal") {
-		result.Runtime = RuntimeHaskell
+		result.Runtime = models.RuntimeHaskell
 		result.Files = append(result.Files, "*.cabal")
 		result.StartCommand = "cabal run"
 		result.Port = 3000
@@ -317,7 +319,7 @@ func Detect(path string) DetectResult {
 	denoJSON := filepath.Join(path, "deno.json")
 	denoJSONC := filepath.Join(path, "deno.jsonc")
 	if fileExists(denoJSON) || fileExists(denoJSONC) {
-		result.Runtime = RuntimeDeno
+		result.Runtime = models.RuntimeDeno
 		result.Files = append(result.Files, "deno.json")
 		result.StartCommand = "deno task dev"
 		result.DevCommand = "deno task dev"
@@ -330,7 +332,7 @@ func Detect(path string) DetectResult {
 	bunConfig := filepath.Join(path, "bunfig.toml")
 	bunLock := filepath.Join(path, "bun.lockb")
 	if fileExists(bunConfig) || fileExists(bunLock) {
-		result.Runtime = RuntimeBun
+		result.Runtime = models.RuntimeBun
 		result.Files = append(result.Files, "bunfig.toml")
 		result.StartCommand = "bun run dev"
 		result.DevCommand = "bun run dev"
@@ -359,10 +361,10 @@ func hasGlob(dir, pattern string) bool {
 	return len(matches) > 0
 }
 
-// ForImage returns a DetectResult for a dependency that is a Docker image.
-func ForImage(image string) DetectResult {
-	return DetectResult{
-		Runtime:      RuntimeImage,
+// ForImage returns a models.DetectResult for a dependency that is a Docker image.
+func ForImage(image string) models.DetectResult {
+	return models.DetectResult{
+		Runtime:      models.RuntimeImage,
 		StartCommand: "docker pull " + image,
 	}
 }

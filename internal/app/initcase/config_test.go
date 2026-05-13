@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // Test helpers are in helpers_test.go
@@ -81,8 +81,8 @@ func TestCreateConfigWithService(t *testing.T) {
 	svcs := []serviceResult{
 		{
 			Name:   "api",
-			Source: config.SourceConfig{Kind: "git", Repo: "git@github.com:org/api.git", Branch: "main", Path: "services/api"},
-			Docker: &config.DockerConfig{Mode: "dev", Ports: []string{"3000:3000"}},
+			Source: models.SourceConfig{Kind: "git", Repo: "git@github.com:org/api.git", Branch: "main", Path: "services/api"},
+			Docker: &models.DockerConfig{Mode: "dev", Ports: []string{"3000:3000"}},
 		},
 	}
 
@@ -112,8 +112,8 @@ func TestCreateConfigWithMultipleServices(t *testing.T) {
 
 	uc := newTestUseCase()
 	svcs := []serviceResult{
-		{Name: "api", Source: config.SourceConfig{Kind: "git", Repo: "git@github.com:org/api.git", Branch: "main", Path: "services/api"}, Docker: &config.DockerConfig{Mode: "dev", Ports: []string{"3000:3000"}}},
-		{Name: "web", Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"}, Docker: &config.DockerConfig{Mode: "prod", Ports: []string{"80:80"}}},
+		{Name: "api", Source: models.SourceConfig{Kind: "git", Repo: "git@github.com:org/api.git", Branch: "main", Path: "services/api"}, Docker: &models.DockerConfig{Mode: "dev", Ports: []string{"3000:3000"}}},
+		{Name: "web", Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"}, Docker: &models.DockerConfig{Mode: "prod", Ports: []string{"80:80"}}},
 	}
 
 	deps, err := uc.createConfig("my-project", "my-network", svcs, nil)
@@ -136,8 +136,8 @@ func TestCreateConfigWithInfra(t *testing.T) {
 	initI18n(t)
 
 	uc := newTestUseCase()
-	infra := map[string]config.InfraEntry{
-		"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "15", Ports: []string{"5432:5432"}}},
+	infra := map[string]models.InfraEntry{
+		"postgres": {Inline: &models.Infra{Image: "postgres", Tag: "15", Ports: []string{"5432:5432"}}},
 	}
 
 	deps, err := uc.createConfig("my-project", "my-network", nil, infra)
@@ -164,7 +164,7 @@ func TestCreateConfigProducesValidJSON(t *testing.T) {
 		t.Fatalf("json.Marshal error: %v", err)
 	}
 
-	var parsed config.Deps
+	var parsed models.Deps
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("json.Unmarshal error: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestWriteConfigFile(t *testing.T) {
 		}
 
 		data, _ := os.ReadFile(outputPath)
-		var parsed config.Deps
+		var parsed models.Deps
 		if err := json.Unmarshal(data, &parsed); err != nil {
 			t.Fatalf("written file is not valid JSON: %v", err)
 		}

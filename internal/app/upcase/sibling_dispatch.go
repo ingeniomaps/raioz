@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
@@ -59,7 +60,7 @@ type siblingDecision struct {
 func decideSibling(
 	ctx context.Context,
 	depName string,
-	inline *config.Infra,
+	inline *models.Infra,
 	consumerWorkspace string,
 ) (siblingDecision, error) {
 	if inline == nil {
@@ -232,7 +233,7 @@ func verifySiblingsStillUp(
 func resolveSiblingVerdicts(
 	ctx context.Context,
 	infraNames []string,
-	deps *config.Deps,
+	deps *models.Deps,
 ) (map[string]siblingDecision, int, error) {
 	verdicts := make(map[string]siblingDecision, len(infraNames))
 	toDispatch := 0

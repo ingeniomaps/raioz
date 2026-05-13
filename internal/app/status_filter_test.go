@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestFilterSet_EmptyMeansNoFilter(t *testing.T) {
@@ -33,7 +33,7 @@ func TestInFilter_OnlyDeclared(t *testing.T) {
 }
 
 func TestCountMatching_SkipsHidden(t *testing.T) {
-	infra := map[string]config.InfraEntry{
+	infra := map[string]models.InfraEntry{
 		"redis": {}, "postgres": {},
 	}
 	want := filterSet([]string{"redis"})
@@ -48,9 +48,9 @@ func TestCountMatching_SkipsHidden(t *testing.T) {
 func TestValidateStatusFilter_UnknownNameFails(t *testing.T) {
 	proj := &YAMLProject{
 		ProjectName: "demo",
-		Deps: &config.Deps{
-			Services: map[string]config.Service{"front": {}, "back": {}},
-			Infra:    map[string]config.InfraEntry{"redis": {}},
+		Deps: &models.Deps{
+			Services: map[string]models.Service{"front": {}, "back": {}},
+			Infra:    map[string]models.InfraEntry{"redis": {}},
 		},
 	}
 
@@ -71,7 +71,7 @@ func TestValidateStatusFilter_UnknownNameFails(t *testing.T) {
 }
 
 func TestValidateStatusFilter_EmptyIsNoop(t *testing.T) {
-	proj := &YAMLProject{Deps: &config.Deps{}}
+	proj := &YAMLProject{Deps: &models.Deps{}}
 	if err := validateStatusFilter(proj, nil); err != nil {
 		t.Errorf("nil filter must not error: %v", err)
 	}

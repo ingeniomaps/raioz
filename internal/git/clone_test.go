@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // isGitAvailable reports whether the `git` binary is installed on the host.
@@ -17,7 +17,7 @@ func isGitAvailable() bool {
 func TestEnsureRepoWithForce_ReadonlyRejected(t *testing.T) {
 	// Force re-clone on a readonly git repo must be rejected immediately,
 	// before any filesystem/network operations are attempted.
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "git",
 		Repo:   "https://github.com/example/repo.git",
 		Branch: "main",
@@ -38,7 +38,7 @@ func TestEnsureRepoWithForce_NonGitSourceNotReadonly(t *testing.T) {
 	// Non-git sources are never readonly, so force path should not be blocked
 	// by the readonly guard. It will fail later (invalid repo URL), but not
 	// because of the readonly check.
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "image",
 		Access: "readonly",
 		Path:   "svc",
@@ -58,11 +58,11 @@ func TestEnsureRepo_Dispatch(t *testing.T) {
 	// point at an invalid local URL) but they take different code paths.
 	tests := []struct {
 		name   string
-		source config.SourceConfig
+		source models.SourceConfig
 	}{
 		{
 			name: "readonly git",
-			source: config.SourceConfig{
+			source: models.SourceConfig{
 				Kind:   "git",
 				Repo:   "file:///nonexistent/repo",
 				Branch: "main",
@@ -72,7 +72,7 @@ func TestEnsureRepo_Dispatch(t *testing.T) {
 		},
 		{
 			name: "editable git",
-			source: config.SourceConfig{
+			source: models.SourceConfig{
 				Kind:   "git",
 				Repo:   "file:///nonexistent/repo",
 				Branch: "main",
@@ -102,7 +102,7 @@ func TestEnsureRepoWithForce_NoForceCallsEnsureRepo(t *testing.T) {
 	if !isGitAvailable() {
 		t.Skip("git not available")
 	}
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "git",
 		Repo:   "file:///nonexistent/repo",
 		Branch: "main",
@@ -120,11 +120,11 @@ func TestEnsureRepoWithForce_InvalidInput(t *testing.T) {
 	// inputs, so malformed branches/repos must fail fast with a validation error.
 	tests := []struct {
 		name string
-		src  config.SourceConfig
+		src  models.SourceConfig
 	}{
 		{
 			name: "invalid branch",
-			src: config.SourceConfig{
+			src: models.SourceConfig{
 				Kind:   "git",
 				Repo:   "https://github.com/example/repo.git",
 				Branch: "main; rm -rf /",
@@ -134,7 +134,7 @@ func TestEnsureRepoWithForce_InvalidInput(t *testing.T) {
 		},
 		{
 			name: "invalid repo",
-			src: config.SourceConfig{
+			src: models.SourceConfig{
 				Kind:   "git",
 				Repo:   "https://github.com/example/repo.git; rm -rf",
 				Branch: "main",

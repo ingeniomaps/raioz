@@ -6,18 +6,18 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestBuildInlineInfraConfig_Basic(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 
-	infra := config.Infra{
+	infra := models.Infra{
 		Image: "postgres",
 		Tag:   "16",
 		Ports: []string{"5432:5432"},
@@ -61,9 +61,9 @@ func TestBuildInlineInfraConfig_Basic(t *testing.T) {
 func TestBuildInlineInfraConfig_WithIP(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
-	infra := config.Infra{
+	infra := models.Infra{
 		Image: "redis",
 		IP:    "150.150.0.20",
 	}
@@ -89,11 +89,11 @@ func TestBuildInlineInfraConfig_WithIP(t *testing.T) {
 func TestBuildInlineInfraConfig_WithCustomHealthcheck(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
-	infra := config.Infra{
+	infra := models.Infra{
 		Image: "myimage",
-		Healthcheck: &config.HealthcheckConfig{
+		Healthcheck: &models.HealthcheckConfig{
 			Test:     []string{"CMD", "check"},
 			Interval: "10s",
 			Retries:  3,
@@ -125,9 +125,9 @@ func TestBuildInlineInfraConfig_WithSeed(t *testing.T) {
 		t.Fatalf("write seed: %v", err)
 	}
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
-	infra := config.Infra{
+	infra := models.Infra{
 		Image: "postgres",
 		Seed:  []string{"seed.sql"},
 	}
@@ -160,11 +160,11 @@ func TestBuildInlineInfraConfig_WithSeed(t *testing.T) {
 func TestBuildInlineInfraConfig_WithObjectEnv(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
-	infra := config.Infra{
+	infra := models.Infra{
 		Image: "custom",
-		Env: &config.EnvValue{
+		Env: &models.EnvValue{
 			IsObject:  true,
 			Variables: map[string]string{"FOO": "bar", "BAZ": "qux"},
 		},
@@ -195,11 +195,11 @@ func TestBuildInlineInfraConfig_WithObjectEnv(t *testing.T) {
 
 func TestResolveInfraEnv_ObjectVars(t *testing.T) {
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	cfg := map[string]any{}
 
-	infra := config.Infra{
-		Env: &config.EnvValue{
+	infra := models.Infra{
+		Env: &models.EnvValue{
 			IsObject:  true,
 			Variables: map[string]string{"A": "1"},
 		},
@@ -219,10 +219,10 @@ func TestResolveInfraEnv_ObjectVars(t *testing.T) {
 
 func TestResolveInfraEnv_NilEnv(t *testing.T) {
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	cfg := map[string]any{}
 
-	infra := config.Infra{}
+	infra := models.Infra{}
 
 	vars, hasFile, err := resolveInfraEnv(cfg, "svc", infra, deps, ws, t.TempDir())
 	if err != nil {
@@ -244,11 +244,11 @@ func TestResolveInfraEnv_DotEnvFile(t *testing.T) {
 		t.Fatalf("write env: %v", err)
 	}
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	cfg := map[string]any{}
 
-	infra := config.Infra{
-		Env: &config.EnvValue{
+	infra := models.Infra{
+		Env: &models.EnvValue{
 			IsObject: false,
 			Files:    []string{"."},
 		},
@@ -277,10 +277,10 @@ func TestCollectInfraEnvFromFiles_DotEnv(t *testing.T) {
 
 	target := make(map[string]string)
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
-	infra := config.Infra{
-		Env: &config.EnvValue{
+	infra := models.Infra{
+		Env: &models.EnvValue{
 			IsObject: false,
 			Files:    []string{"."},
 		},

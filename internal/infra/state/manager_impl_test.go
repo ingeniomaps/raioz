@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	statepkg "raioz/internal/state"
 )
 
@@ -44,9 +44,9 @@ func TestStateManagerImpl_SaveLoadExists(t *testing.T) {
 		t.Error("expected no state initially")
 	}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "testproj"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "testproj"},
+		Services: map[string]models.Service{
 			"api": {},
 		},
 	}
@@ -84,11 +84,11 @@ func TestStateManagerImpl_Load_NoState(t *testing.T) {
 func TestStateManagerImpl_CompareDeps(t *testing.T) {
 	m := NewStateManager()
 
-	oldDeps := &config.Deps{
-		Services: map[string]config.Service{"api": {}},
+	oldDeps := &models.Deps{
+		Services: map[string]models.Service{"api": {}},
 	}
-	newDeps := &config.Deps{
-		Services: map[string]config.Service{
+	newDeps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {},
 			"web": {},
 		},
@@ -214,8 +214,8 @@ func TestStateManagerImpl_GetSetWorkspaceProjectPreference(t *testing.T) {
 
 func TestStateManagerImpl_BuildServiceStates(t *testing.T) {
 	m := NewStateManager()
-	deps := &config.Deps{
-		Services: map[string]config.Service{"api": {}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{"api": {}},
 	}
 	states := m.BuildServiceStates(deps, nil)
 	if len(states) == 0 {

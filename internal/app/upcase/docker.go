@@ -3,8 +3,8 @@ package upcase
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -13,7 +13,7 @@ import (
 )
 
 // prepareDockerResources handles validation of images, network, and volumes
-func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps, ws *interfaces.Workspace) error {
+func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *models.Deps, ws *interfaces.Workspace) error {
 	// Validate ports before starting
 	// Use workspace name (not project name) because Docker Compose uses workspace name as project prefix
 	baseDir := uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
@@ -158,7 +158,7 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *config.Deps
 // without colliding with networks the user (or other tools) created. The
 // workspace and project labels narrow the sweep to "this project's
 // networks" — important when several raioz projects coexist on one daemon.
-func networkLabelsFor(deps *config.Deps) map[string]string {
+func networkLabelsFor(deps *models.Deps) map[string]string {
 	labels := map[string]string{
 		naming.LabelManaged: "true",
 	}

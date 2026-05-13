@@ -3,15 +3,15 @@ package docker
 import (
 	"context"
 
-	"raioz/internal/config"
 	dockerpkg "raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	workspacepkg "raioz/internal/workspace"
 )
 
 // GenerateCompose generates a docker-compose file from dependencies
 func (r *DockerRunnerImpl) GenerateCompose(
-	deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+	deps *models.Deps, ws *interfaces.Workspace, projectDir string,
 ) (string, []string, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return dockerpkg.GenerateCompose(deps, wsConcrete, projectDir)
@@ -58,7 +58,7 @@ func (r *DockerRunnerImpl) WaitForServicesHealthy(
 
 // ValidatePorts checks if all ports in a project are available
 func (r *DockerRunnerImpl) ValidatePorts(
-	deps *config.Deps, baseDir string, projectName string,
+	deps *models.Deps, baseDir string, projectName string,
 ) ([]interfaces.PortConflict, error) {
 	conflicts, err := dockerpkg.ValidatePorts(deps, baseDir, projectName)
 	if err != nil {
@@ -91,7 +91,7 @@ func (r *DockerRunnerImpl) FormatPortConflicts(conflicts []interfaces.PortConfli
 }
 
 // ValidateAllImages validates all images (services and infra) before compose generation
-func (r *DockerRunnerImpl) ValidateAllImages(deps *config.Deps) error {
+func (r *DockerRunnerImpl) ValidateAllImages(deps *models.Deps) error {
 	return dockerpkg.ValidateAllImages(deps)
 }
 
@@ -162,7 +162,7 @@ func (r *DockerRunnerImpl) StopContainerWithContext(ctx context.Context, contain
 }
 
 // BuildServiceVolumesMap builds a map of service volumes from Deps configuration
-func (r *DockerRunnerImpl) BuildServiceVolumesMap(deps *config.Deps) (map[string]interfaces.ServiceVolumes, error) {
+func (r *DockerRunnerImpl) BuildServiceVolumesMap(deps *models.Deps) (map[string]interfaces.ServiceVolumes, error) {
 	svcVols, err := dockerpkg.BuildServiceVolumesMap(deps)
 	if err != nil {
 		return nil, err
