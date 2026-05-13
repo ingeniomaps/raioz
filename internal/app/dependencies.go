@@ -11,6 +11,7 @@ import (
 	"raioz/internal/infra/lock"
 	infrasnapshot "raioz/internal/infra/snapshot"
 	"raioz/internal/infra/state"
+	infratunnel "raioz/internal/infra/tunnel"
 	"raioz/internal/infra/validate"
 	"raioz/internal/infra/workspace"
 	"raioz/internal/proxy"
@@ -30,6 +31,7 @@ type Dependencies struct {
 	ProxyManager     interfaces.ProxyManager     // Optional: nil if proxy not needed
 	DiscoveryManager interfaces.DiscoveryManager // Optional: nil if discovery not needed
 	SnapshotManager  interfaces.SnapshotManager  // Volume backup/restore (ADR-014)
+	TunnelManager    interfaces.TunnelManager    // Cloudflared/bore tunnels (ADR-015)
 }
 
 // NewDependencies creates a new Dependencies instance with default implementations
@@ -47,6 +49,7 @@ func NewDependencies() *Dependencies {
 		ProxyManager:     proxy.NewManager(proxy.CertsDir()),
 		DiscoveryManager: discovery.NewManager(),
 		SnapshotManager:  infrasnapshot.NewManager(""),
+		TunnelManager:    infratunnel.NewManager(),
 	}
 }
 
