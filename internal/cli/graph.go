@@ -3,7 +3,6 @@ package cli
 import (
 	"os"
 
-	"raioz/internal/app"
 	"raioz/internal/graph"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ var graphCmd = &cobra.Command{
 	Short:        "Visualize service dependency graph",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		configPath := ResolveConfigPath(graphConfigPath)
 
 		cfgDeps, _, err := deps.ConfigLoader.LoadDeps(configPath)

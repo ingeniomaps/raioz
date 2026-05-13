@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 
-	"raioz/internal/app"
 	"raioz/internal/app/snapshotcase"
 	"raioz/internal/output"
 
@@ -24,7 +23,7 @@ var snapshotCreateCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := snapshotcase.CreateUseCase{Deps: &snapshotcase.Dependencies{
 			ConfigLoader:    deps.ConfigLoader,
 			SnapshotManager: deps.SnapshotManager,
@@ -53,7 +52,7 @@ var snapshotRestoreCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := snapshotcase.RestoreUseCase{Deps: &snapshotcase.Dependencies{
 			ConfigLoader:    deps.ConfigLoader,
 			SnapshotManager: deps.SnapshotManager,
@@ -74,7 +73,7 @@ var snapshotListCmd = &cobra.Command{
 	Short:        "List snapshots",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := snapshotcase.ListUseCase{Deps: &snapshotcase.Dependencies{
 			ConfigLoader:    deps.ConfigLoader,
 			SnapshotManager: deps.SnapshotManager,
@@ -111,7 +110,7 @@ var snapshotDeleteCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := snapshotcase.DeleteUseCase{Deps: &snapshotcase.Dependencies{
 			ConfigLoader:    deps.ConfigLoader,
 			SnapshotManager: deps.SnapshotManager,

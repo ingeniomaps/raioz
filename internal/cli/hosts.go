@@ -46,7 +46,7 @@ Typical usage:
   raioz hosts`,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		// Reuse the same yaml-or-json discovery as status/up so the command
 		// works no matter what the project has on disk.
 		proj := app.ResolveYAMLProject(deps, "")

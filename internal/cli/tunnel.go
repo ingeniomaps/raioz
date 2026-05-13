@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 
-	"raioz/internal/app"
 	"raioz/internal/app/tunnelcase"
 	"raioz/internal/output"
 
@@ -24,7 +23,7 @@ var tunnelCmd = &cobra.Command{
 		if port == 0 {
 			port = defaultTunnelPort
 		}
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := tunnelcase.StartUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
 		info, err := uc.Execute(cmd.Context(), tunnelcase.StartOptions{
 			ServiceName: args[0],
@@ -46,7 +45,7 @@ var tunnelListCmd = &cobra.Command{
 	Short:        "List active tunnels",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := tunnelcase.ListUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
 		tunnels := uc.Execute(cmd.Context())
 		if len(tunnels) == 0 {
@@ -67,7 +66,7 @@ var tunnelStopCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := tunnelcase.StopUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
 		if err := uc.Execute(cmd.Context(), tunnelcase.StopOptions{ServiceName: args[0]}); err != nil {
 			return err
@@ -82,7 +81,7 @@ var tunnelStopAllCmd = &cobra.Command{
 	Short:        "Stop all tunnels",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := tunnelcase.StopAllUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
 		if err := uc.Execute(cmd.Context()); err != nil {
 			return err

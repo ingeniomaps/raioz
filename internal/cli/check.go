@@ -30,7 +30,7 @@ var checkCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		checkUseCase := app.NewCheckUseCase(deps)
 
 		result, err := checkUseCase.Execute(ctx, app.CheckOptions{

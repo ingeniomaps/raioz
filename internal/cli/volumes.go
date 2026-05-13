@@ -24,7 +24,7 @@ var volumesListCmd = &cobra.Command{
 		}
 
 		configPath = ResolveConfigPath(configPath)
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewVolumesUseCase(deps)
 
 		return useCase.List(ctx, app.VolumesOptions{
@@ -48,7 +48,7 @@ var volumesRemoveCmd = &cobra.Command{
 		all, _ := cmd.Flags().GetBool("all")
 		force, _ := cmd.Flags().GetBool("force")
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewVolumesUseCase(deps)
 
 		return useCase.Remove(ctx, app.VolumesRemoveOptions{

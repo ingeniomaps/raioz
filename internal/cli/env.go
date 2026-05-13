@@ -35,7 +35,7 @@ var envCmd = &cobra.Command{
 		cfgPath, _ := cmd.Flags().GetString("file")
 		cfgPath = ResolveConfigPath(cfgPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := app.NewEnvShowUseCase(deps)
 
 		entries, err := uc.Execute(ctx, app.EnvShowOptions{

@@ -83,6 +83,8 @@ Today's exempt list, with the reason each entry is exempt:
 | `migrate.go`, `yaml.go` | Parent commands; subcommands carry the logic. |
 | `migrate_yaml.go` | Legacy `.raioz.json → raioz.yaml` conversion. **Tech debt**: should grow a use case when next feature lands. |
 | `yaml_lint.go` | `raioz yaml lint`; analyzes YAML and prints. Pure viz. |
+| `graph.go` | `raioz graph`; renders the dependency graph as ASCII/DOT/JSON. Pure viz. |
+| `wiring.go` | Production wiring of `*app.Dependencies` (ADR-018). Has no command. |
 
 `scripts/lint-cli-layering.sh` (wired into `make check-cli-layering`)
 enforces this list. Adding a new exempt file requires editing the

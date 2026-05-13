@@ -135,6 +135,10 @@ func newTestDownDeps(tmpDir string) (*Dependencies, *testDownMocks) {
 		m.lockMgr,
 		m.hostRunner,
 		m.envMgr,
+		nil, // ProxyManager — not exercised by this test
+		nil, // DiscoveryManager
+		nil, // SnapshotManager
+		nil, // TunnelManager
 	)
 
 	return deps, m

@@ -17,7 +17,7 @@ var compareCmd = &cobra.Command{
 	Long:  "Compare your local raioz.yaml with a production Docker Compose file.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath := ResolveConfigPath(configPath)
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewCompareUseCase(deps)
 		return useCase.Execute(app.CompareOptions{
 			ConfigPath:     configPath,

@@ -48,7 +48,7 @@ var downCmd = &cobra.Command{
 			return metaErr
 		}
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		downUseCase := app.NewDownUseCase(deps)
 
 		if downConflicting && downAllProjects {

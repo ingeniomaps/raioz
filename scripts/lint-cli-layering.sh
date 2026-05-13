@@ -13,7 +13,7 @@
 set -euo pipefail
 
 # Files allowed to skip the use-case layer.
-EXEMPT='^(root|config_path|zzz_i18n_descriptions|version|lang|migrate|yaml|migrate_yaml|yaml_lint)\.go$'
+EXEMPT='^(root|config_path|zzz_i18n_descriptions|wiring|version|lang|migrate|yaml|migrate_yaml|yaml_lint|graph)\.go$'
 
 bad=""
 for f in internal/cli/*.go; do

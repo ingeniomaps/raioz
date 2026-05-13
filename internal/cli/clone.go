@@ -94,7 +94,7 @@ var cloneCmd = &cobra.Command{
 			return fmt.Errorf("chdir to %q: %w", absDir, err)
 		}
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		upUC := app.NewUpUseCase(deps)
 		return upUC.Execute(ctx, app.UpOptions{
 			ConfigPath: configPath,

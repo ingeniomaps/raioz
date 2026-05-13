@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"raioz/internal/app"
 	"raioz/internal/app/proxycase"
 
 	"github.com/spf13/cobra"
@@ -21,7 +20,7 @@ var proxyStatusCmd = &cobra.Command{
 	Short:        "Show proxy status",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := proxycase.StatusUseCase{Deps: &proxycase.Dependencies{
 			ConfigLoader: deps.ConfigLoader,
 			ProxyManager: deps.ProxyManager,
@@ -48,7 +47,7 @@ var proxyStopCmd = &cobra.Command{
 	Short:        "Stop the proxy",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := proxycase.StopUseCase{Deps: &proxycase.Dependencies{
 			ConfigLoader: deps.ConfigLoader,
 			ProxyManager: deps.ProxyManager,

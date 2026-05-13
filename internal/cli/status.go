@@ -40,7 +40,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		// Initialize dependencies and use case
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		statusUseCase := app.NewStatusUseCase(deps)
 
 		// Execute use case

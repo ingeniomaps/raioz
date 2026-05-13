@@ -42,7 +42,7 @@ var switchCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		uc := app.NewSwitchUseCase(deps)
 
 		switchErr := uc.Execute(ctx, app.SwitchOptions{
