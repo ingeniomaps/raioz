@@ -1,0 +1,23 @@
+# 07-proxy-subnet-ip — pin both subnet and proxy IP.
+#
+# When `proxy.publish: false` is in use, callers need a stable proxy IP
+# for /etc/hosts entries. This fixture exercises the explicit
+# `proxy.ip:` + `network.subnet:` combo, which is the most rigid
+# configuration. The default fallback (<subnet>.1.1 when ip is empty)
+# is exercised by 06-proxy-publish-false.
+
+workspace: ws-b
+project: api-svc
+
+network:
+  name: acme-net
+  subnet: 172.28.0.0/16
+
+proxy:
+  domain: ws-b.localhost
+  ip: 172.28.1.1
+  publish: false
+
+services:
+  api:
+    path: ./api

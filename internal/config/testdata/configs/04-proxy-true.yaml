@@ -1,0 +1,13 @@
+# 04-proxy-true — proxy as a plain bool.
+#
+# `proxy: true` is the polymorphic shorthand for "enable Caddy with
+# defaults" (subdomain mode, localhost, mkcert). Locks the UnmarshalYAML
+# branch in ProxyConfig that accepts a scalar bool — see
+# internal/domain/models/config_proxy.go.
+
+project: simple-proxy
+proxy: true
+
+services:
+  web:
+    path: ./web

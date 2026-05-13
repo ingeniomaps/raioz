@@ -1,0 +1,20 @@
+# 16-watch-modes — all three forms of `watch:`.
+#
+# `watch` is polymorphic (bool or "native" string). The default false
+# is implicit elsewhere; this fixture exercises true and "native"
+# side-by-side so a YAMLWatch refactor doesn't drop the string branch.
+
+project: watch-modes
+
+services:
+  api:
+    path: ./api
+    watch: true
+
+  frontend:
+    path: ./frontend
+    watch: native
+
+  worker:
+    path: ./worker
+    watch: false

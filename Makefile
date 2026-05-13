@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check-labels check ci
+.PHONY: check-lines check-length check-i18n check-labels check-configs check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -101,7 +101,13 @@ check-labels: ## Verify com.raioz.* labels are not hardcoded outside internal/na
 	@echo "Checking for hardcoded com.raioz.* labels..."
 	@./scripts/lint-labels.sh
 
-check: format check-lines check-length check-i18n check-labels lint test ## Run all checks
+check-configs: ## Run the raioz.yaml schema corpus
+	@echo "Checking config corpus..."
+	@go test -run TestConfigCorpus -count=1 ./internal/config/ \
+		&& echo "All fixtures parse cleanly"
+	@./scripts/check-config-fixtures.sh
+
+check: format check-lines check-length check-i18n check-labels check-configs lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."

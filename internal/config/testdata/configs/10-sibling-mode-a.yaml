@@ -1,0 +1,19 @@
+# 10-sibling-mode-a — `dependencies.<n>.project:` (mode A).
+#
+# Mode A: the sibling raioz project IS the dependency. No image/compose
+# fallback. Validates the mutex rule that project / image / compose
+# can't coexist (see validateSiblingDependency). requiredHostname is
+# included to lock that field too.
+
+workspace: acme
+project: consumer
+
+services:
+  api:
+    path: ./api
+    dependsOn: [keycloak]
+
+dependencies:
+  keycloak:
+    project: ../keycloak
+    requiredHostname: sso

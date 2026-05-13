@@ -1,0 +1,19 @@
+# 11-sibling-mode-b — `siblingProject:` + image fallback.
+#
+# Mode B: prefer the sibling when running, fall back to the image
+# otherwise. Validates the inverse mutex of mode A — siblingProject
+# REQUIRES image or compose to pair with.
+
+workspace: acme
+project: consumer
+
+services:
+  api:
+    path: ./api
+    dependsOn: [kafka]
+
+dependencies:
+  kafka:
+    image: bitnami/kafka:3
+    siblingProject: ../kafka
+    requiredHostname: broker

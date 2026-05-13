@@ -1,0 +1,11 @@
+# 01-minimal — the smallest valid raioz.yaml.
+#
+# Covers the floor of the schema: only `project` plus one service with
+# the bare-minimum `path`. Every other field is exercised by later
+# fixtures. If a refactor breaks this fixture, the whole config layer
+# is broken — that's the canary.
+
+project: minimal
+services:
+  api:
+    path: ./api

@@ -1,0 +1,18 @@
+# 03-workspace — workspace mode (multi-project resolution).
+#
+# Workspace pins resources under `{workspace}-` prefix and enables
+# DNS aliases across projects in the same workspace. Defends the
+# rename of containers/networks documented in ADR-001/002. Pair
+# with sibling-mode fixtures to lock the cross-project contract.
+
+workspace: acme-corp
+project: api-svc
+
+services:
+  api:
+    path: ./api
+    dependsOn: [postgres]
+
+dependencies:
+  postgres:
+    image: postgres:16

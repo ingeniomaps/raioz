@@ -1,0 +1,15 @@
+# 09-network-object — `network:` in full object form.
+#
+# Pair with 08-network-shorthand to lock both UnmarshalYAML branches.
+# Subnet-only (no name) is intentionally NOT covered here; it's a less
+# common case and the loader treats it as auto-name + custom subnet.
+
+project: net-object
+
+network:
+  name: my-net
+  subnet: 150.150.0.0/16
+
+services:
+  api:
+    path: ./api

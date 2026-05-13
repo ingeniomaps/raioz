@@ -1,0 +1,15 @@
+# 18-host-command — service with `command:` and `stop:`.
+#
+# When the service has a non-standard launcher (e.g. `make dev`
+# spawning its own compose), `command:` overrides runtime detection.
+# `stop:` is REQUIRED when the command launches background work,
+# because killing the parent PID won't clean up children.
+
+project: host-mode
+
+services:
+  legacy:
+    path: ./legacy
+    command: make start
+    stop: make stop
+    env: .env.legacy

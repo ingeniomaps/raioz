@@ -1,0 +1,21 @@
+# 06-proxy-publish-false — multi-workspace parallel mode (Linux-only).
+#
+# `publish: false` is the load-bearing field for running multiple
+# workspaces in parallel without fighting over host 80/443. Requires a
+# deterministic IP via network.subnet (Docker won't honor --ip
+# otherwise). This fixture asserts the combination parses; the
+# Linux-only runtime check lives in the proxy package.
+
+workspace: ws-a
+project: api-svc
+
+network:
+  subnet: 172.28.0.0/16
+
+proxy:
+  domain: ws-a.localhost
+  publish: false
+
+services:
+  api:
+    path: ./api

@@ -1,0 +1,12 @@
+# 08-network-shorthand — `network:` as a bare string.
+#
+# Polymorphic YAML: `network: foo` should parse as
+# `network: { name: foo }`. Defends the UnmarshalYAML branch in
+# YAMLNetwork that accepts a scalar.
+
+project: net-string
+network: my-external-net
+
+services:
+  api:
+    path: ./api
