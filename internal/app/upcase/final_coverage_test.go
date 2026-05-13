@@ -465,53 +465,9 @@ func TestCheckWorkspaceProjectConflictPreferenceReplace(t *testing.T) {
 	}
 }
 
-func TestCheckWorkspaceProjectConflictPreferenceMerge(t *testing.T) {
-	initI18nUp(t)
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return &models.Deps{
-					Project:  models.Project{Name: "other"},
-					Services: map[string]models.Service{"shared": {}},
-					Infra:    map[string]models.InfraEntry{},
-				}, nil
-			},
-			GetWorkspaceProjectPreferenceFunc: func(
-				name string,
-			) (*models.WorkspaceProjectPreference, error) {
-				return &models.WorkspaceProjectPreference{
-					PreferredProject:   "mine",
-					AlwaysAsk:          false,
-					MergeWhenPreferred: true,
-				}, nil
-			},
-		},
-		DockerRunner: &mocks.MockDockerRunner{
-			ResolveRelativeVolumesFunc: func(
-				v []string, pd string,
-			) ([]string, error) {
-				return v, nil
-			},
-		},
-	})
-	deps := &models.Deps{
-		Project:  models.Project{Name: "mine"},
-		Services: map[string]models.Service{"shared": {}},
-		Infra:    map[string]models.InfraEntry{},
-	}
-	result, merged, err := uc.checkWorkspaceProjectConflict(
-		context.Background(), deps, &workspace.Workspace{Root: "/t"}, "/proj",
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result != WorkspaceConflictProceed {
-		t.Errorf("expected Proceed, got %v", result)
-	}
-	if merged == nil {
-		t.Error("expected merged deps for merge preference")
-	}
-}
+// TestCheckWorkspaceProjectConflictPreferenceMerge removed: ADR-011
+// Phase 3 deleted the workspace-conflict prompt. The
+// MergeWhenPreferred path it exercised no longer exists.
 
 // --- checkAndHandleDuplicateProject: not-local path --------------------------
 

@@ -4,29 +4,17 @@ import (
 	"raioz/internal/domain/models"
 )
 
-// StateManager defines operations for managing project state
+// StateManager defines operations for managing project state.
+//
+// ADR-011 Phase 3 removed the legacy whole-Deps snapshot. The methods
+// that used to expose it — Load, Save, Exists, CompareDeps, and
+// FormatChanges — are deleted. Liveness is probed via
+// DockerRunner.IsProjectActive; runtime overrides live in LocalState
+// (state.LoadLocalState / state.SaveLocalState). The remaining methods
+// here cover the global state file (cross-project, persisted at the
+// raioz home) and per-workspace preferences, which Phase 3 leaves
+// alone.
 type StateManager interface {
-	// Load reads the post-up snapshot of *models.Deps that the legacy
-	// state.Save wrote to .state.json.
-	//
-	// Deprecated: This is the legacy whole-Deps snapshot. New consumers
-	// must use LocalState (state.LoadLocalState) for runtime overrides
-	// and re-read raioz.yaml + Docker labels for everything else. See
-	// ADR-011 and the migration plan across issues 030/031.
-	Load(ws *Workspace) (*models.Deps, error)
-	// Save persists the entire *models.Deps to .state.json.
-	//
-	// Deprecated: see Load. Use SaveLocalState for minimal runtime state.
-	Save(ws *Workspace, deps *models.Deps) error
-	// Exists reports whether the legacy .state.json snapshot exists.
-	//
-	// Deprecated: derive project liveness from Docker labels (e.g.
-	// docker.IsProjectActive) rather than the presence of this file.
-	Exists(ws *Workspace) bool
-	// CompareDeps compares two dependency configurations
-	CompareDeps(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error)
-	// FormatChanges formats configuration changes for display
-	FormatChanges(changes []models.ConfigChange) string
 	// UpdateProjectState updates the global project state
 	UpdateProjectState(projectName string, projectState *models.ProjectState) error
 	// RemoveProject removes a project from global state

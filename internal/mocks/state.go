@@ -9,13 +9,22 @@ import (
 // Compile-time check
 var _ interfaces.StateManager = (*MockStateManager)(nil)
 
-// MockStateManager is a mock implementation of interfaces.StateManager
+// MockStateManager is a mock implementation of interfaces.StateManager.
+// ADR-011 Phase 3 removed Load/Save/Exists/CompareDeps/FormatChanges
+// from the interface; the corresponding Func fields below are kept
+// only so existing test fixtures still compile. They are NEVER called
+// — the methods that consulted them are gone. New tests should not
+// touch them; migrate fixtures to MockDockerRunner.IsProjectActiveFunc
+// when they need to control project liveness.
 type MockStateManager struct {
-	LoadFunc                          func(ws *workspace.Workspace) (*models.Deps, error)
-	SaveFunc                          func(ws *workspace.Workspace, deps *models.Deps) error
-	ExistsFunc                        func(ws *workspace.Workspace) bool
-	CompareDepsFunc                   func(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error)
-	FormatChangesFunc                 func(changes []models.ConfigChange) string
+	// Deprecated noop fields (kept to avoid a sweeping test rewrite;
+	// remove in a follow-up once stale tests are cleaned up).
+	LoadFunc          func(ws *workspace.Workspace) (*models.Deps, error)
+	SaveFunc          func(ws *workspace.Workspace, deps *models.Deps) error
+	ExistsFunc        func(ws *workspace.Workspace) bool
+	CompareDepsFunc   func(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error)
+	FormatChangesFunc func(changes []models.ConfigChange) string
+
 	UpdateProjectStateFunc            func(projectName string, projectState *models.ProjectState) error
 	RemoveProjectFunc                 func(projectName string) error
 	LoadGlobalStateFunc               func() (*models.GlobalState, error)
@@ -28,41 +37,6 @@ type MockStateManager struct {
 		deps *models.Deps, serviceInfos map[string]*models.ServiceInfo,
 	) []models.ServiceState
 	FormatIssuesFunc func(issues []models.AlignmentIssue) string
-}
-
-func (m *MockStateManager) Load(ws *workspace.Workspace) (*models.Deps, error) {
-	if m.LoadFunc != nil {
-		return m.LoadFunc(ws)
-	}
-	return nil, nil
-}
-
-func (m *MockStateManager) Save(ws *workspace.Workspace, deps *models.Deps) error {
-	if m.SaveFunc != nil {
-		return m.SaveFunc(ws, deps)
-	}
-	return nil
-}
-
-func (m *MockStateManager) Exists(ws *workspace.Workspace) bool {
-	if m.ExistsFunc != nil {
-		return m.ExistsFunc(ws)
-	}
-	return false
-}
-
-func (m *MockStateManager) CompareDeps(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error) {
-	if m.CompareDepsFunc != nil {
-		return m.CompareDepsFunc(oldDeps, newDeps)
-	}
-	return nil, nil
-}
-
-func (m *MockStateManager) FormatChanges(changes []models.ConfigChange) string {
-	if m.FormatChangesFunc != nil {
-		return m.FormatChangesFunc(changes)
-	}
-	return ""
 }
 
 func (m *MockStateManager) UpdateProjectState(projectName string, projectState *models.ProjectState) error {

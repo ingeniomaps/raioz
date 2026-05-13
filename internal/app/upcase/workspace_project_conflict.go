@@ -1,16 +1,11 @@
 package upcase
 
 import (
-	"bufio"
 	"context"
-	"fmt"
-	"os"
 	"strings"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
-	"raioz/internal/i18n"
-	"raioz/internal/output"
 )
 
 // WorkspaceProjectConflictResult is the result of resolving a workspace-vs-project conflict
@@ -253,141 +248,23 @@ func (uc *UseCase) checkWorkspaceProjectConflict(
 	ws *interfaces.Workspace,
 	currentProjectDir string,
 ) (WorkspaceProjectConflictResult, *models.Deps, error) {
-	workspaceName := deps.GetWorkspaceName()
-
-	oldDeps, err := uc.deps.StateManager.Load(ws)
-	if err != nil {
-		return WorkspaceConflictProceed, nil, nil
-	}
-	if oldDeps == nil {
-		return WorkspaceConflictProceed, nil, nil
-	}
-	// Same project: state may hold a merged config (multiple projects). Use merge of state + current
-	// so we preserve all services/infra from the workspace and update current project's from file.
-	if oldDeps.Project.Name == deps.Project.Name {
-		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
-	}
-
-	overlap := false
-	for name := range deps.Services {
-		if _, has := oldDeps.Services[name]; has {
-			overlap = true
-			break
-		}
-	}
-	if !overlap {
-		for name := range deps.Infra {
-			if _, has := oldDeps.Infra[name]; has {
-				overlap = true
-				break
-			}
-		}
-	}
-	if !overlap {
-		return WorkspaceConflictProceed, nil, nil
-	}
-
-	pref, _ := uc.deps.StateManager.GetWorkspaceProjectPreference(workspaceName)
-	if pref != nil && !pref.AlwaysAsk {
-		if pref.PreferredProject == deps.Project.Name {
-			if pref.MergeWhenPreferred {
-				return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
-			}
-			return WorkspaceConflictProceed, nil, nil
-		}
-		// When preferred is the old project, do not auto-skip: show the menu so the user
-		// can choose Merge to add this project to the same workspace (e.g. ui-core + accounts).
-	}
-
-	changes, _ := uc.deps.StateManager.CompareDeps(oldDeps, deps)
-	changeSummary := uc.deps.StateManager.FormatChanges(changes)
-
-	output.PrintWarning(i18n.T("up.conflict.workspace_already_running"))
-	output.PrintInfo("")
-	output.PrintInfo(i18n.T("up.conflict.currently_running", oldDeps.Project.Name))
-	output.PrintInfo(i18n.T("up.conflict.you_are_running", deps.Project.Name))
-	output.PrintInfo("")
-	output.PrintInfo(i18n.T("up.conflict.merge_explanation"))
-	output.PrintInfo(i18n.T("up.conflict.replace_explanation"))
-	output.PrintInfo(changeSummary)
-	output.PrintInfo("")
-	output.PrintInfo(i18n.T("up.conflict.how_to_proceed"))
-	output.PrintInfo(i18n.T("up.conflict.opt_merge"))
-	output.PrintInfo(i18n.T("up.conflict.opt_replace"))
-	output.PrintInfo(i18n.T("up.conflict.opt_keep"))
-	output.PrintInfo(i18n.T("up.conflict.opt_merge_remember"))
-	output.PrintInfo(i18n.T("up.conflict.opt_replace_remember"))
-	output.PrintInfo(i18n.T("up.conflict.opt_keep_remember"))
-	output.PrintInfo(i18n.T("up.conflict.opt_always_ask"))
-	output.PrintInfo(i18n.T("up.conflict.opt_cancel_ws"))
-	output.PrintPrompt(i18n.T("up.conflict.ws_choice_prompt"))
-
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return WorkspaceConflictCancel, nil, fmt.Errorf("failed to read user response: %w", err)
-	}
-	response = strings.TrimSpace(response)
-	var choice int
-	if _, err := fmt.Sscanf(response, "%d", &choice); err != nil || choice < 1 || choice > 8 {
-		return WorkspaceConflictCancel, nil, fmt.Errorf("invalid choice: %s", response)
-	}
-
-	switch choice {
-	case 1:
-		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
-	case 2:
-		return WorkspaceConflictProceed, nil, nil
-	case 3:
-		output.PrintInfo(i18n.T("up.conflict.keeping_current_project"))
-		return WorkspaceConflictSkip, nil, nil
-	case 4:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
-			PreferredProject:   deps.Project.Name,
-			AlwaysAsk:          false,
-			MergeWhenPreferred: true,
-		}); err != nil {
-			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
-		} else {
-			output.PrintSuccess(i18n.T("up.conflict.pref_saved_merge", workspaceName))
-		}
-		return WorkspaceConflictProceed, uc.mergeDeps(oldDeps, deps, currentProjectDir), nil
-	case 5:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
-			PreferredProject:   deps.Project.Name,
-			AlwaysAsk:          false,
-			MergeWhenPreferred: false,
-		}); err != nil {
-			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
-		} else {
-			output.PrintSuccess(i18n.T("up.conflict.pref_saved_replace", workspaceName))
-		}
-		return WorkspaceConflictProceed, nil, nil
-	case 6:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
-			PreferredProject: oldDeps.Project.Name,
-			AlwaysAsk:        false,
-		}); err != nil {
-			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
-		} else {
-			output.PrintSuccess(i18n.T("up.conflict.pref_saved_keep", oldDeps.Project.Name, workspaceName))
-		}
-		output.PrintInfo(i18n.T("up.conflict.keeping_current_project"))
-		return WorkspaceConflictSkip, nil, nil
-	case 7:
-		if err := uc.deps.StateManager.SetWorkspaceProjectPreference(workspaceName, models.WorkspaceProjectPreference{
-			AlwaysAsk: true,
-		}); err != nil {
-			output.PrintWarning(i18n.T("up.conflict.pref_save_error", err.Error()))
-		} else {
-			output.PrintSuccess(i18n.T("up.conflict.pref_saved_always_ask", workspaceName))
-		}
-		output.PrintInfo(i18n.T("output.operation_cancelled"))
-		return WorkspaceConflictCancel, nil, fmt.Errorf("operation cancelled by user")
-	case 8:
-		output.PrintInfo(i18n.T("output.operation_cancelled"))
-		return WorkspaceConflictCancel, nil, fmt.Errorf("operation cancelled by user")
-	default:
-		return WorkspaceConflictCancel, nil, fmt.Errorf("invalid choice: %d", choice)
-	}
+	// ADR-011 Phase 3: the conflict prompt used to compare the current
+	// project's services/infra against the previous project's
+	// deserialized from .state.json. With the legacy snapshot gone there
+	// is no way to materialize the "other project's" config without
+	// knowing where its raioz.yaml lives — a piece of data the
+	// snapshot uniquely provided.
+	//
+	// The feature is dropped rather than partially reconstructed:
+	// reconstructing it from Docker labels alone would let us name
+	// "project P is also up here" but not diff its services, so the
+	// merge prompt would be unactionable. Users who hit a multi-project
+	// workspace collision can resolve it by running `raioz down
+	// --conflicting` (which already sweeps cross-project containers via
+	// labels) before re-running `raioz up`. Documented in ADR-011.
+	_ = ctx
+	_ = deps
+	_ = ws
+	_ = currentProjectDir
+	return WorkspaceConflictProceed, nil, nil
 }

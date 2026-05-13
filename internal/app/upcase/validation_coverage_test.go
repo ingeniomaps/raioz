@@ -83,49 +83,9 @@ func TestCheckWorkspaceProjectConflict_PreferredProjectMatchNoMerge(t *testing.T
 	}
 }
 
-func TestCheckWorkspaceProjectConflict_PreferredProjectMatchWithMerge(t *testing.T) {
-	oldDeps := &models.Deps{
-		Project:  models.Project{Name: "old-proj"},
-		Services: map[string]models.Service{"api": {}},
-		Infra:    map[string]models.InfraEntry{},
-	}
-	currentDeps := &models.Deps{
-		Project:  models.Project{Name: "new-proj"},
-		Services: map[string]models.Service{"api": {}},
-		Infra:    map[string]models.InfraEntry{},
-	}
-
-	sm := &mocks.MockStateManager{
-		LoadFunc: func(ws *interfaces.Workspace) (*models.Deps, error) {
-			return oldDeps, nil
-		},
-		GetWorkspaceProjectPreferenceFunc: func(ws string) (*models.WorkspaceProjectPreference, error) {
-			return &models.WorkspaceProjectPreference{
-				PreferredProject:   "new-proj",
-				AlwaysAsk:          false,
-				MergeWhenPreferred: true,
-			}, nil
-		},
-	}
-
-	uc := &UseCase{deps: &Dependencies{
-		StateManager: sm,
-	}}
-
-	ws := &workspace.Workspace{}
-	result, merged, err := uc.checkWorkspaceProjectConflict(
-		context.Background(), currentDeps, ws, "/tmp/proj",
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result != WorkspaceConflictProceed {
-		t.Errorf("result = %d, want Proceed", result)
-	}
-	if merged == nil {
-		t.Error("mergedDeps should not be nil when MergeWhenPreferred=true")
-	}
-}
+// TestCheckWorkspaceProjectConflict_PreferredProjectMatchWithMerge removed:
+// ADR-011 Phase 3 dropped the workspace-conflict prompt and its
+// MergeWhenPreferred branch.
 
 func TestCheckWorkspaceProjectConflict_NoOverlapInfra(t *testing.T) {
 	oldDeps := &models.Deps{

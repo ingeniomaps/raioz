@@ -1,6 +1,6 @@
 # ADR-011: LocalState is the single source of truth for runtime state
 
-- **Status:** Accepted — Phase 1 implemented 2026-05-13
+- **Status:** Implemented 2026-05-13
 - **Date:** 2026-05-13
 
 ## Context
@@ -162,9 +162,14 @@ The `Exists` ports are removed in 031 in favor of
   either `GlobalState.ProjectState.ProjectRoot` (so we can re-load
   the active project's raioz.yaml) or accepting the loss of the
   conflict prompt — design call deferred to 031b.
-- **Phase 3 (sub-issue 031b, pending).** Resolve the
-  workspace-project-conflict reader, delete
-  `state.{Save,Load,Exists}` and the corresponding `StateManager`
-  interface methods, remove `scripts/lint-state-legacy.sh` (no
-  longer guarding anything), and remove the `check-state-legacy`
-  target from the Makefile.
+- **Phase 3 (sub-issue 031b, landed 2026-05-13).** Dropped the
+  workspace-project-conflict prompt (it required diffing the previous
+  project's deps, which only the snapshot exposed; the surviving
+  escape hatch is `raioz down --conflicting`). Deleted
+  `state.{Save,Load,Exists}` along with
+  `StateManager.{Load,Save,Exists,CompareDeps,FormatChanges}`,
+  `internal/infra/state/manager_impl.go`'s wrappers, and the
+  matching mock methods. `CheckAlignment` keeps only its branch-drift
+  path; image-tag drift was state-only and is dropped. Removed
+  `scripts/lint-state-legacy.sh` and the `check-state-legacy` target;
+  the API the lint was guarding no longer exists.

@@ -20,37 +20,6 @@ func NewStateManager() interfaces.StateManager {
 	return &StateManagerImpl{}
 }
 
-// Load loads the project state
-func (m *StateManagerImpl) Load(ws *interfaces.Workspace) (*models.Deps, error) {
-	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return statepkg.Load(wsConcrete)
-}
-
-// Save saves the project state
-func (m *StateManagerImpl) Save(ws *interfaces.Workspace, deps *models.Deps) error {
-	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return statepkg.Save(wsConcrete, deps)
-}
-
-// Exists checks if state file exists
-func (m *StateManagerImpl) Exists(ws *interfaces.Workspace) bool {
-	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return statepkg.Exists(wsConcrete)
-}
-
-// CompareDeps compares two dependency configurations
-func (m *StateManagerImpl) CompareDeps(oldDeps, newDeps *models.Deps) ([]statepkg.ConfigChange, error) {
-	return statepkg.CompareDeps(oldDeps, newDeps)
-}
-
-// FormatChanges formats configuration changes for display
-func (m *StateManagerImpl) FormatChanges(changes []statepkg.ConfigChange) string {
-	return statepkg.FormatChanges(changes)
-}
-
 // UpdateProjectState updates the global project state
 func (m *StateManagerImpl) UpdateProjectState(projectName string, projectState *statepkg.ProjectState) error {
 	if projectState == nil {

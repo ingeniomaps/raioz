@@ -771,24 +771,11 @@ func TestCheckWorkspaceProjectConflictNilOldDeps(t *testing.T) {
 
 func TestCheckWorkspaceProjectConflictSameProject(t *testing.T) {
 	initI18nUp(t)
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
-				return &models.Deps{
-					Project:  models.Project{Name: "p"},
-					Services: map[string]models.Service{},
-					Infra:    map[string]models.InfraEntry{},
-				}, nil
-			},
-		},
-		DockerRunner: &mocks.MockDockerRunner{
-			ResolveRelativeVolumesFunc: func(
-				volumes []string, projectDir string,
-			) ([]string, error) {
-				return volumes, nil
-			},
-		},
-	})
+	// ADR-011 Phase 3: the conflict detection feature is gone. The
+	// function always returns (Proceed, nil, nil) — there is no merge
+	// path because we can no longer materialize the "other project's"
+	// deps without the legacy snapshot. Test pins the new contract.
+	uc := NewUseCase(&Dependencies{})
 	deps := &models.Deps{
 		Project:  models.Project{Name: "p"},
 		Services: map[string]models.Service{},
@@ -803,8 +790,8 @@ func TestCheckWorkspaceProjectConflictSameProject(t *testing.T) {
 	if result != WorkspaceConflictProceed {
 		t.Errorf("expected Proceed, got %v", result)
 	}
-	if merged == nil {
-		t.Error("expected merged deps for same project")
+	if merged != nil {
+		t.Error("expected nil merged deps after ADR-011 Phase 3")
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -190,8 +189,8 @@ func TestCheckAlignmentNoIssues(t *testing.T) {
 	ws := &workspace.Workspace{Root: tmpDir, ServicesDir: filepath.Join(tmpDir, "services")}
 
 	deps := testDeps()
-	state.Save(ws, deps)
-
+	// ADR-011 Phase 3: state.Save no longer exists; checkAlignment now
+	// only reports branch drift, which this test doesn't exercise.
 	uc := NewUseCase(&Dependencies{})
 	issues, err := uc.checkAlignment(ws, deps)
 	if err != nil {
@@ -264,8 +263,7 @@ func TestExecuteWithAlignedState(t *testing.T) {
 	tmpDir := t.TempDir()
 	ws := &workspace.Workspace{Root: tmpDir, ServicesDir: filepath.Join(tmpDir, "services")}
 	cfgDeps := testDeps()
-	state.Save(ws, cfgDeps)
-
+	// ADR-011 Phase 3: state.Save removed.
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
 			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {

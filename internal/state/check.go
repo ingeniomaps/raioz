@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"raioz/internal/domain/models"
-	raiozErrors "raioz/internal/errors"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/git"
 	"raioz/internal/workspace"
@@ -15,162 +14,46 @@ import (
 // AlignmentIssue lives in internal/domain/models; alias kept for callers (ADR-009).
 type AlignmentIssue = models.AlignmentIssue
 
-// CheckAlignment checks if the current state aligns with the configuration
-// Returns a list of alignment issues
+// CheckAlignment checks if the current state aligns with the configuration.
+//
+// ADR-011 Phase 3: the function used to load the legacy .state.json
+// snapshot and diff it against currentDeps to surface config drift
+// since the last `raioz up`. Without that snapshot only the git
+// branch-drift case still has signal — it compares the on-disk repo's
+// branch against `currentDeps.Services[name].Source.Branch`, which
+// doesn't depend on state at all. Image-tag drift required the
+// snapshot's old tag, so that branch is dropped.
 func CheckAlignment(ws *workspace.Workspace, currentDeps *models.Deps) ([]AlignmentIssue, error) {
 	var issues []AlignmentIssue
 
-	// Load saved state
-	savedDeps, err := Load(ws)
-	if err != nil {
-		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to load saved state for alignment check").
-			WithError(err).
-			WithSuggestion("The state file may be corrupted. Try running 'raioz down' and then 'raioz up' again")
-	}
-
-	if savedDeps == nil {
-		// No saved state, no alignment issues
-		return issues, nil
-	}
-
-	// Check config changes
-	configChanges, err := CompareDeps(savedDeps, currentDeps)
-	if err != nil {
-		return nil, raiozErrors.New(raiozErrors.ErrCodeStateLoadError, "failed to compare saved and current configurations").
-			WithError(err).
-			WithSuggestion("Try running 'raioz down' and then 'raioz up' to reset the state")
-	}
-
-	// Convert config changes to alignment issues
-	for _, change := range configChanges {
-		severity := "warning"
-		suggestion := "Run 'raioz up' to apply changes"
-
-		// Critical changes
-		switch change.Field {
-		case "docker.ports", "ports":
-			severity = "critical"
-			suggestion = "Port changes detected. Run 'raioz down' then 'raioz up' to apply"
-		case "dependsOn", "docker.dependsOn", "removed":
-			severity = "critical"
-			suggestion = "Dependencies changed. Run 'raioz down' then 'raioz up' to apply"
-		case "added":
-			severity = "warning"
-			suggestion = "New service/infra added. Run 'raioz up' to start it"
-		}
-
-		// Branch and tag changes are handled separately for drift detection
-		if change.Field == "source.branch" || change.Field == "source.tag" ||
-			change.Field == "image" || change.Field == "tag" {
-			// Skip here, will be handled in drift detection
-			continue
-		}
-
-		issues = append(issues, AlignmentIssue{
-			Type:     "config_change",
-			Severity: severity,
-			Service:  change.Name,
-			Description: fmt.Sprintf(
-				"%s.%s changed: %s -> %s",
-				change.Name, change.Field, change.OldValue, change.NewValue,
-			),
-			Suggestion: suggestion,
-		})
-	}
-
-	// Check branch drift for git-based services
 	for name, svc := range currentDeps.Services {
 		if svc.Source.Kind != "git" {
 			continue
 		}
-
-		// Use GetServicePath to get correct path based on access mode
 		repoPath := workspace.GetServicePath(ws, name, svc)
-
-		// Check if repo exists (check for .git directory)
 		gitDir := filepath.Join(repoPath, ".git")
-		if _, err := os.Stat(gitDir); err == nil {
-			// Check for branch drift (manual branch changes)
-			ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
-			defer cancel()
-			hasDrift, currentBranch, err := git.DetectBranchDrift(ctx, repoPath, svc.Source.Branch)
-			if err != nil {
-				// Repo might not exist yet or not be a git repo
-				continue
-			}
-
-			if hasDrift {
-				// Check if branch also changed in config
-				oldSvc, exists := savedDeps.Services[name]
-				if exists && oldSvc.Source.Branch == svc.Source.Branch {
-					// Branch drift detected (manual change, not in config)
-					issues = append(issues, AlignmentIssue{
-						Type:     "branch_drift",
-						Severity: "info",
-						Service:  name,
-						Description: fmt.Sprintf(
-							"Branch drift: repository is on '%s', but config expects '%s'",
-							currentBranch, svc.Source.Branch,
-						),
-						Suggestion: fmt.Sprintf(
-							"Repository was manually switched. Run 'raioz up' to switch to '%s' or update .raioz.json",
-							svc.Source.Branch,
-						),
-					})
-				}
-				// If branch changed in config, it's already handled in config changes above
-			}
-		}
-	}
-
-	// Check for tag/image changes (if image-based)
-	for name, svc := range currentDeps.Services {
-		if svc.Source.Kind != "image" {
+		if _, err := os.Stat(gitDir); err != nil {
 			continue
 		}
-
-		oldSvc, exists := savedDeps.Services[name]
-		if !exists {
+		ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
+		defer cancel()
+		hasDrift, currentBranch, err := git.DetectBranchDrift(ctx, repoPath, svc.Source.Branch)
+		if err != nil || !hasDrift {
 			continue
 		}
-
-		// Check if tag changed
-		if oldSvc.Source.Tag != svc.Source.Tag {
-			issues = append(issues, AlignmentIssue{
-				Type:     "config_change",
-				Severity: "warning",
-				Service:  name,
-				Description: fmt.Sprintf(
-					"Image tag changed: %s -> %s",
-					oldSvc.Source.Tag, svc.Source.Tag,
-				),
-				Suggestion: "Run 'raioz up' to pull and use the new tag",
-			})
-		}
-	}
-
-	// Check for infra image/tag changes (inline only)
-	for name, entry := range currentDeps.Infra {
-		if entry.Inline == nil {
-			continue
-		}
-		oldEntry, exists := savedDeps.Infra[name]
-		if !exists || oldEntry.Inline == nil {
-			continue
-		}
-
-		if oldEntry.Inline.Tag != entry.Inline.Tag {
-			issues = append(issues, AlignmentIssue{
-				Type:     "config_change",
-				Severity: "warning",
-				Service:  name,
-				Description: fmt.Sprintf(
-					"Infra tag changed: %s -> %s",
-					oldEntry.Inline.Tag, entry.Inline.Tag,
-				),
-				Suggestion: "Run 'raioz up' to pull and use the new tag",
-			})
-		}
+		issues = append(issues, AlignmentIssue{
+			Type:     "branch_drift",
+			Severity: "info",
+			Service:  name,
+			Description: fmt.Sprintf(
+				"Branch drift: repository is on '%s', but config expects '%s'",
+				currentBranch, svc.Source.Branch,
+			),
+			Suggestion: fmt.Sprintf(
+				"Repository was manually switched. Run 'raioz up' to switch to '%s' or update raioz.yaml",
+				svc.Source.Branch,
+			),
+		})
 	}
 
 	return issues, nil

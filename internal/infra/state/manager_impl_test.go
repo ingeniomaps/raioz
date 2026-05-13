@@ -35,79 +35,9 @@ func TestNewStateManager(t *testing.T) {
 	}
 }
 
-func TestStateManagerImpl_SaveLoadExists(t *testing.T) {
-	m := NewStateManager()
-	ws := setupWS(t)
-
-	// Initially no state
-	if m.Exists(ws) {
-		t.Error("expected no state initially")
-	}
-
-	deps := &models.Deps{
-		Project: models.Project{Name: "testproj"},
-		Services: map[string]models.Service{
-			"api": {},
-		},
-	}
-
-	if err := m.Save(ws, deps); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
-
-	if !m.Exists(ws) {
-		t.Error("expected state to exist after Save")
-	}
-
-	loaded, err := m.Load(ws)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if loaded == nil || loaded.Project.Name != "testproj" {
-		t.Errorf("Load returned unexpected: %+v", loaded)
-	}
-}
-
-func TestStateManagerImpl_Load_NoState(t *testing.T) {
-	m := NewStateManager()
-	ws := setupWS(t)
-
-	loaded, err := m.Load(ws)
-	if err != nil {
-		t.Errorf("Load on empty ws should not error: %v", err)
-	}
-	if loaded != nil {
-		t.Error("expected nil for non-existent state")
-	}
-}
-
-func TestStateManagerImpl_CompareDeps(t *testing.T) {
-	m := NewStateManager()
-
-	oldDeps := &models.Deps{
-		Services: map[string]models.Service{"api": {}},
-	}
-	newDeps := &models.Deps{
-		Services: map[string]models.Service{
-			"api": {},
-			"web": {},
-		},
-	}
-
-	changes, err := m.CompareDeps(oldDeps, newDeps)
-	if err != nil {
-		t.Fatalf("CompareDeps: %v", err)
-	}
-	if len(changes) == 0 {
-		t.Log("no changes detected — may be implementation-specific")
-	}
-}
-
-func TestStateManagerImpl_FormatChanges(t *testing.T) {
-	m := NewStateManager()
-	formatted := m.FormatChanges([]statepkg.ConfigChange{})
-	_ = formatted // Just verify it doesn't crash
-}
+// TestStateManagerImpl_SaveLoadExists, _Load_NoState, _CompareDeps,
+// _FormatChanges removed: ADR-011 Phase 3 deleted the corresponding
+// StateManager methods together with the legacy .state.json snapshot.
 
 func TestStateManagerImpl_UpdateRemoveProject(t *testing.T) {
 	// Set up isolated global state
