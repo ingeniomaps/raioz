@@ -18,38 +18,38 @@ type RaiozConfig struct {
 	// Version declares which raioz.yaml schema this file targets. Optional
 	// today; the loader emits a warning when absent. Future releases may
 	// require it. Currently the only valid value is "1".
-	Version   string                    `yaml:"version,omitempty"`
-	Workspace string                    `yaml:"workspace,omitempty"`
-	Project   string                    `yaml:"project"`
-	Network   *YAMLNetwork              `yaml:"network,omitempty"`
-	Proxy     *ProxyConfig              `yaml:"proxy,omitempty"`
-	Pre       YAMLStringOrSlice         `yaml:"pre,omitempty"`
-	Post      YAMLStringOrSlice         `yaml:"post,omitempty"`
-	Services  map[string]YAMLService    `yaml:"services,omitempty"`
-	Deps      map[string]YAMLDependency `yaml:"dependencies,omitempty"`
+	Version   string                    `yaml:"version,omitempty"`      // since: v0.5.0
+	Workspace string                    `yaml:"workspace,omitempty"`    // since: v0.1.0
+	Project   string                    `yaml:"project"`                // since: v0.1.0
+	Network   *YAMLNetwork              `yaml:"network,omitempty"`      // since: v0.1.0
+	Proxy     *ProxyConfig              `yaml:"proxy,omitempty"`        // since: v0.1.0
+	Pre       YAMLStringOrSlice         `yaml:"pre,omitempty"`          // since: v0.1.0
+	Post      YAMLStringOrSlice         `yaml:"post,omitempty"`         // since: v0.1.0
+	Services  map[string]YAMLService    `yaml:"services,omitempty"`     // since: v0.1.0
+	Deps      map[string]YAMLDependency `yaml:"dependencies,omitempty"` // since: v0.1.0
 
 	// Kind discriminates the config shape. Empty / "project" (default) means
 	// the regular shape with services/dependencies. "meta" means this file
 	// is a meta-orchestrator that delegates to sub-projects (see issue 011).
-	Kind string `yaml:"kind,omitempty"`
+	Kind string `yaml:"kind,omitempty"` // since: v0.4.0
 	// Projects is the list of sub-projects this meta config orchestrates.
 	// Each path is resolved relative to the meta raioz.yaml. Used only when
 	// Kind == "meta".
-	Projects []YAMLMetaProject `yaml:"projects,omitempty"`
+	Projects []YAMLMetaProject `yaml:"projects,omitempty"` // since: v0.4.0
 	// StartOrder optionally pins the order in which sub-projects are brought
 	// up. Each entry must match a `path:` from `projects:`. Down runs in
 	// reverse. When omitted, the order of `projects:` is used.
-	StartOrder []string `yaml:"startOrder,omitempty"`
+	StartOrder []string `yaml:"startOrder,omitempty"` // since: v0.4.0
 }
 
 // YAMLMetaProject is one entry in a meta-orchestrator config's `projects:`
 // list. The path is relative to the meta raioz.yaml file.
 type YAMLMetaProject struct {
-	Path string `yaml:"path"`
+	Path string `yaml:"path"` // since: v0.4.0
 	// Optional sub-projects don't abort the meta `up` on failure — the meta
 	// run logs a warning and continues. Useful for repos that aren't always
 	// checked out (ad-service, internal tools, work-in-progress migrations).
-	Optional bool `yaml:"optional,omitempty"`
+	Optional bool `yaml:"optional,omitempty"` // since: v0.4.0
 }
 
 // YAMLNetwork lets the user override the Docker network raioz manages for a
@@ -65,8 +65,8 @@ type YAMLMetaProject struct {
 // When omitted, raioz falls back to <workspace>-net or <project>-net and lets
 // Docker pick any subnet.
 type YAMLNetwork struct {
-	Name   string `yaml:"name,omitempty"`
-	Subnet string `yaml:"subnet,omitempty"`
+	Name   string `yaml:"name,omitempty"`   // since: v0.1.0
+	Subnet string `yaml:"subnet,omitempty"` // since: v0.1.0
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler for YAMLNetwork so both the
@@ -90,43 +90,43 @@ func (n *YAMLNetwork) UnmarshalYAML(unmarshal func(any) error) error {
 
 // YAMLService represents a service in the new raioz.yaml format.
 type YAMLService struct {
-	Path      string          `yaml:"path"`
-	DependsOn YAMLStringSlice `yaml:"dependsOn,omitempty"`
-	Env       YAMLStringSlice `yaml:"env,omitempty"`
-	Ports     YAMLStringSlice `yaml:"ports,omitempty"`
+	Path      string          `yaml:"path"`                // since: v0.1.0
+	DependsOn YAMLStringSlice `yaml:"dependsOn,omitempty"` // since: v0.1.0
+	Env       YAMLStringSlice `yaml:"env,omitempty"`       // since: v0.1.0
+	Ports     YAMLStringSlice `yaml:"ports,omitempty"`     // since: v0.1.0
 
 	// Port is the explicit host port the service should listen on. When set,
 	// raioz guarantees the service gets exactly this port or `raioz up` fails
 	// with a conflict error. When unset, raioz infers a port (.env PORT,
 	// runtime default) and, if that collides with another service, picks the
 	// next free port deterministically and injects it via $PORT.
-	Port int `yaml:"port,omitempty"`
+	Port int `yaml:"port,omitempty"` // since: v0.1.0
 
-	Watch           YAMLWatch       `yaml:"watch,omitempty"`
-	Health          string          `yaml:"health,omitempty"`
-	Hostname        string          `yaml:"hostname,omitempty"`
-	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"`
-	Routing         *RoutingConfig  `yaml:"routing,omitempty"`
-	Profiles        YAMLStringSlice `yaml:"profiles,omitempty"`
-	Git             string          `yaml:"git,omitempty"`
-	Branch          string          `yaml:"branch,omitempty"`
+	Watch           YAMLWatch       `yaml:"watch,omitempty"`           // since: v0.1.0
+	Health          string          `yaml:"health,omitempty"`          // since: v0.1.0
+	Hostname        string          `yaml:"hostname,omitempty"`        // since: v0.1.0
+	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"` // since: v0.3.0
+	Routing         *RoutingConfig  `yaml:"routing,omitempty"`         // since: v0.1.0
+	Profiles        YAMLStringSlice `yaml:"profiles,omitempty"`        // since: v0.1.0
+	Git             string          `yaml:"git,omitempty"`             // since: v0.1.0
+	Branch          string          `yaml:"branch,omitempty"`          // since: v0.1.0
 
 	// Command overrides auto-detection: raioz runs this command verbatim on the
 	// host via HostRunner, passing env vars from `env` as process environment.
 	// Use it when your project has a non-standard launch script (e.g. `make dev`)
 	// that internally does docker compose / build / whatever you need.
-	Command string `yaml:"command,omitempty"`
+	Command string `yaml:"command,omitempty"` // since: v0.1.0
 
 	// Stop is the command to tear down the service. Required when `command`
 	// launches background work (e.g. `make start` spawning compose containers)
 	// because killing the PID of the parent process won't clean up children.
 	// If empty, HostRunner falls back to SIGTERM-then-SIGKILL of the PID.
-	Stop string `yaml:"stop,omitempty"`
+	Stop string `yaml:"stop,omitempty"` // since: v0.1.0
 
 	// Compose points raioz at one or more existing docker-compose files for
 	// this service. Overrides auto-detection. Accepts a single string or a
 	// list (merged in order, matching `docker compose -f a -f b`).
-	Compose YAMLStringSlice `yaml:"compose,omitempty"`
+	Compose YAMLStringSlice `yaml:"compose,omitempty"` // since: v0.1.0
 
 	// Proxy overrides how the shared HTTPS proxy reaches this service.
 	// Normally raioz picks a target from detection (container DNS for Docker
@@ -136,7 +136,7 @@ type YAMLService struct {
 	// spawning hypixo-keycloak on 8080) — raioz classifies the service as
 	// "host" and the proxy ends up pointing at host.docker.internal with no
 	// port. Setting `proxy:` bypasses the heuristic entirely.
-	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"`
+	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"` // since: v0.1.0
 }
 
 // YAMLServiceProxy tells the proxy exactly where to forward traffic for a
@@ -147,9 +147,9 @@ type YAMLServiceProxy struct {
 	// the container name when the service lives on the shared network
 	// (e.g. "hypixo-keycloak"), or a hostname reachable from the proxy
 	// network (e.g. "host.docker.internal").
-	Target string `yaml:"target,omitempty"`
+	Target string `yaml:"target,omitempty"` // since: v0.1.0
 	// Port is the port to dial on Target.
-	Port int `yaml:"port,omitempty"`
+	Port int `yaml:"port,omitempty"` // since: v0.1.0
 }
 
 // YAMLDependency represents a dependency (infrastructure/external service) in raioz.yaml.
@@ -158,7 +158,7 @@ type YAMLDependency struct {
 	// literal string as the Docker container name instead of generating one.
 	// Useful when you need the dep to match a name that other tooling (IDEs,
 	// backup scripts, external clients) already expects.
-	Name string `yaml:"name,omitempty"`
+	Name string `yaml:"name,omitempty"` // since: v0.1.0
 
 	// Compose points raioz at one or more existing docker-compose files for
 	// this dependency. Mutually exclusive with `image:` — use compose when
@@ -170,15 +170,15 @@ type YAMLDependency struct {
 	// workspace network and get swept cleanly on `raioz down`. Env
 	// interpolation (${VAR} in your compose) resolves against the files
 	// listed in `env:`, which raioz passes as --env-file to docker compose.
-	Compose YAMLStringSlice `yaml:"compose,omitempty"`
+	Compose YAMLStringSlice `yaml:"compose,omitempty"` // since: v0.1.0
 
-	Image string `yaml:"image,omitempty"`
+	Image string `yaml:"image,omitempty"` // since: v0.1.0
 
 	// Ports is the legacy publish list (Docker-compose style). Keeps working
 	// for backwards compatibility but emits a deprecation warning at load:
 	// prefer `publish:` for scarce host ports and `expose:` for documenting
 	// internal container ports. See yaml_bridge.go for the migration path.
-	Ports YAMLStringSlice `yaml:"ports,omitempty"`
+	Ports YAMLStringSlice `yaml:"ports,omitempty"` // since: v0.1.0
 
 	// Expose lists the container ports this dependency listens on internally.
 	// Purely informational for raioz (not passed to Docker as the separate
@@ -186,7 +186,7 @@ type YAMLDependency struct {
 	// with `publish: true` it defines which container ports get a host-side
 	// binding; without publish it just documents what the image serves so
 	// discovery can build correct URLs.
-	Expose YAMLIntSlice `yaml:"expose,omitempty"`
+	Expose YAMLIntSlice `yaml:"expose,omitempty"` // since: v0.1.0
 
 	// Publish is the opt-in for host-side exposure of this dependency.
 	// Accepts three shapes:
@@ -202,14 +202,14 @@ type YAMLDependency struct {
 	//                        by DNS name, host tools cannot see it.
 	// For multi-port images (e.g. redis + metrics), pass a list:
 	//   publish: [5432, 9090]
-	Publish YAMLPublish `yaml:"publish,omitempty"`
+	Publish YAMLPublish `yaml:"publish,omitempty"` // since: v0.1.0
 
-	Env             YAMLStringSlice `yaml:"env,omitempty"`
-	Volumes         YAMLStringSlice `yaml:"volumes,omitempty"`
-	Hostname        string          `yaml:"hostname,omitempty"`
-	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"`
-	Routing         *RoutingConfig  `yaml:"routing,omitempty"`
-	Dev             *YAMLDevConfig  `yaml:"dev,omitempty"`
+	Env             YAMLStringSlice `yaml:"env,omitempty"`             // since: v0.1.0
+	Volumes         YAMLStringSlice `yaml:"volumes,omitempty"`         // since: v0.1.0
+	Hostname        string          `yaml:"hostname,omitempty"`        // since: v0.1.0
+	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"` // since: v0.3.0
+	Routing         *RoutingConfig  `yaml:"routing,omitempty"`         // since: v0.1.0
+	Dev             *YAMLDevConfig  `yaml:"dev,omitempty"`             // since: v0.1.0
 
 	// Proxy overrides how the shared HTTPS proxy reaches this dependency.
 	// Same semantics as services.<name>.proxy — useful when `compose:`
@@ -217,7 +217,7 @@ type YAMLDependency struct {
 	// the image's default port doesn't match what your process actually
 	// listens on. Both fields optional; raioz falls back to detection for
 	// whichever is left out.
-	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"`
+	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"` // since: v0.1.1
 
 	// Project points at a sibling raioz project that *is* this dependency
 	// (mode A of issue #26). Path is relative to this raioz.yaml. When
@@ -227,7 +227,7 @@ type YAMLDependency struct {
 	// consumer never touches the sibling.
 	//
 	// Mutually exclusive with Image / Compose / SiblingProject.
-	Project string `yaml:"project,omitempty"`
+	Project string `yaml:"project,omitempty"` // since: v0.4.0
 
 	// SiblingProject is the fallback variant (mode B of issue #26): pair
 	// it with Image (or Compose) and raioz will skip the local image
@@ -236,10 +236,10 @@ type YAMLDependency struct {
 	// contributors without the sibling clone.
 	//
 	// Mutually exclusive with Project.
-	SiblingProject string `yaml:"siblingProject,omitempty"`
+	SiblingProject string `yaml:"siblingProject,omitempty"` // since: v0.4.0
 
 	// RequiredHostname asks raioz to verify that the sibling actually
 	// publishes this hostname before treating the dep as satisfied. Only
 	// meaningful with Project or SiblingProject; ignored otherwise.
-	RequiredHostname string `yaml:"requiredHostname,omitempty"`
+	RequiredHostname string `yaml:"requiredHostname,omitempty"` // since: v0.4.0
 }

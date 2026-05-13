@@ -100,17 +100,54 @@ project: my-app
 `raioz init` and `raioz migrate yaml` both write `version: "1"` into newly
 generated files.
 
-### Evolution policy
+### Field evolution policy
+
+Every public field in `raioz.yaml` carries a `// since: vX.Y.Z` marker
+next to its declaration in `internal/config/yaml_types.go` (and
+`internal/domain/models/config_proxy.go` for the proxy fields). The
+marker is enforced by `make check-since` — adding a field without one
+fails CI.
 
 - **Adding** a field to the schema does not require bumping the version
-  (optional fields are backward compatible). The field carries its own
-  `since:` marker in raioz's source.
+  (optional fields are backward compatible). Add the `since:` marker
+  AND add a fixture in `internal/config/testdata/configs/` exercising
+  the new field (`make check-configs` ensures the schema diff comes
+  with a corresponding fixture diff).
 - **Removing or changing semantics** of a field requires a version bump
   AND one minor release of grace where the change emits a deprecation
   warning.
 - A future major release may **require** `version:` and refuse to load
   configs that don't declare it. The current warning gives the field
   time to land in real-world configs.
+
+#### Inspecting your config
+
+`raioz yaml lint` reports, for every field your `raioz.yaml` populates,
+the raioz version that introduced it. Useful when you inherit a config
+from a teammate and want to know whether your binary supports it:
+
+```text
+$ raioz yaml lint
+raioz yaml lint: raioz.yaml
+  declared version: 1
+  fields in use:    14
+
+  [ok]   project (since v0.1.0)
+  [ok]   proxy.publish (since v0.1.0)
+  [ok]   dependencies.keycloak.project (since v0.4.0)
+  ...
+```
+
+When `version:` is missing, every used field is flagged as `[warn]`
+with a suggestion to declare it. Add `version: "1"` to silence the
+warnings and lock the expected schema.
+
+> Limitation: only fields declared in `internal/config/yaml_types.go`
+> are scanned at runtime today; fields in nested types from
+> `internal/domain/models/` (ProxyConfig, RoutingConfig) are validated
+> at build time by `make check-since` but skipped silently by `raioz
+> yaml lint`. Acceptable while those types are stable; revisit if a new
+> proxy / routing field needs end-user-visible lint coverage.
 
 ---
 

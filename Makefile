@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check-labels check-configs check ci
+.PHONY: check-lines check-length check-i18n check-labels check-configs check-since check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -107,7 +107,12 @@ check-configs: ## Run the raioz.yaml schema corpus
 		&& echo "All fixtures parse cleanly"
 	@./scripts/check-config-fixtures.sh
 
-check: format check-lines check-length check-i18n check-labels check-configs lint test ## Run all checks
+check-since: ## Verify every public raioz.yaml field has a since marker
+	@echo "Checking schema since: markers..."
+	@go test -run "TestSchemaSince" -count=1 ./internal/config/ \
+		&& echo "All public fields have since markers"
+
+check: format check-lines check-length check-i18n check-labels check-configs check-since lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."

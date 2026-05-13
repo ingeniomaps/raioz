@@ -3,9 +3,9 @@ package models
 // ProxyConfig can be a simple bool or a detailed object.
 type ProxyConfig struct {
 	Enabled bool   `yaml:"-"`
-	Mode    string `yaml:"mode,omitempty"`   // "subdomain" (default) | "path"
-	Domain  string `yaml:"domain,omitempty"` // custom domain (default: "localhost")
-	TLS     string `yaml:"tls,omitempty"`    // "mkcert" (default) | "letsencrypt"
+	Mode    string `yaml:"mode,omitempty"`   // since: v0.1.0 — "subdomain" (default) | "path"
+	Domain  string `yaml:"domain,omitempty"` // since: v0.1.0 — custom domain (default: "localhost")
+	TLS     string `yaml:"tls,omitempty"`    // since: v0.1.0 — "mkcert" (default) | "letsencrypt"
 
 	// IP pins the proxy container to a specific address inside the Docker
 	// network. Useful for scripts / /etc/hosts entries that need a stable
@@ -13,7 +13,7 @@ type ProxyConfig struct {
 	// defaults to <subnet-base>.1.1 — a memorable, reserved-slot address
 	// that stays free across reinstalls. Requires network.subnet to be set
 	// (Docker won't honor --ip without a user-defined subnet).
-	IP string `yaml:"ip,omitempty"`
+	IP string `yaml:"ip,omitempty"` // since: v0.1.0
 
 	// Publish controls whether the proxy binds host ports 80/443. Default
 	// (nil/true) keeps the legacy behavior — accessible from the host via
@@ -27,7 +27,7 @@ type ProxyConfig struct {
 	// knows what to put in /etc/hosts. Linux only: macOS and Windows route
 	// Docker traffic through a VM whose bridge IPs aren't reachable from
 	// the host, so publish:false is functionally broken there.
-	Publish *bool `yaml:"publish,omitempty"`
+	Publish *bool `yaml:"publish,omitempty"` // since: v0.1.0
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler for ProxyConfig to support both bool and object.
@@ -50,8 +50,8 @@ func (p *ProxyConfig) UnmarshalYAML(unmarshal func(any) error) error {
 
 // RoutingConfig defines proxy routing behavior for a service.
 type RoutingConfig struct {
-	WS     bool `yaml:"ws,omitempty" json:"ws,omitempty"`
-	Stream bool `yaml:"stream,omitempty" json:"stream,omitempty"`
-	GRPC   bool `yaml:"grpc,omitempty" json:"grpc,omitempty"`
-	Tunnel bool `yaml:"tunnel,omitempty" json:"tunnel,omitempty"`
+	WS     bool `yaml:"ws,omitempty" json:"ws,omitempty"`         // since: v0.1.0
+	Stream bool `yaml:"stream,omitempty" json:"stream,omitempty"` // since: v0.1.0
+	GRPC   bool `yaml:"grpc,omitempty" json:"grpc,omitempty"`     // since: v0.1.0
+	Tunnel bool `yaml:"tunnel,omitempty" json:"tunnel,omitempty"` // since: v0.1.0
 }
