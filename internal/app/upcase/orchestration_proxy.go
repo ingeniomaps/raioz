@@ -40,15 +40,19 @@ func (uc *UseCase) startProxy(
 	serviceNames []string,
 	networkName string,
 ) error {
-	uc.deps.ProxyManager.SetProjectName(deps.Project.Name)
-	uc.deps.ProxyManager.SetWorkspace(deps.Workspace)
-	uc.deps.ProxyManager.SetNetworkSubnet(deps.Network.GetSubnet())
-	if deps.ProxyConfig != nil {
-		uc.deps.ProxyManager.SetDomain(deps.ProxyConfig.Domain)
-		uc.deps.ProxyManager.SetTLSMode(deps.ProxyConfig.TLS)
-		uc.deps.ProxyManager.SetContainerIP(deps.ProxyConfig.IP)
-		uc.deps.ProxyManager.SetPublish(deps.ProxyConfig.Publish)
+	// ADR-013: single Configure call replaces the 4-8 setter dance.
+	cfg := interfaces.ProxyConfig{
+		ProjectName:   deps.Project.Name,
+		Workspace:     deps.Workspace,
+		NetworkSubnet: deps.Network.GetSubnet(),
 	}
+	if deps.ProxyConfig != nil {
+		cfg.Domain = deps.ProxyConfig.Domain
+		cfg.TLSMode = deps.ProxyConfig.TLS
+		cfg.ContainerIP = deps.ProxyConfig.IP
+		cfg.Publish = deps.ProxyConfig.Publish
+	}
+	uc.deps.ProxyManager.Configure(cfg)
 
 	output.PrintProgress("Starting proxy...")
 

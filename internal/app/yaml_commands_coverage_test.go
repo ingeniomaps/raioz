@@ -421,6 +421,7 @@ func (m *mockProxyManager) RemainingProjects() int {
 	}
 	return 0
 }
-func (m *mockProxyManager) SetPublish(*bool)  {}
-func (m *mockProxyManager) IsPublished() bool { return true }
-func (m *mockProxyManager) HostsLine() string { return "" }
+func (m *mockProxyManager) SetPublish(*bool)                 {}
+func (m *mockProxyManager) IsPublished() bool                { return true }
+func (m *mockProxyManager) HostsLine() string                { return "" }
+func (m *mockProxyManager) Configure(interfaces.ProxyConfig) {}

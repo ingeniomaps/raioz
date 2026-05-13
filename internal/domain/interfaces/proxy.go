@@ -20,8 +20,33 @@ type ProxyRoute struct {
 	GRPC      bool
 }
 
+// ProxyConfig captures every option that used to be applied to a
+// ProxyManager through individual setters (SetDomain, SetTLSMode,
+// SetPublish, …). Building the value once and passing it to Configure
+// replaces the "remember to call all eight setters" orchestration that
+// pre-dated ADR-013.
+//
+// Zero-value ProxyConfig is valid: it means "defaults" (localhost
+// domain, mkcert TLS, host publish enabled). Each field's zero-value
+// semantics are documented inline.
+type ProxyConfig struct {
+	Domain        string // empty → "localhost"
+	TLSMode       string // empty → "mkcert"; accepts "mkcert" | "letsencrypt"
+	BindHost      string // empty → manager default (127.0.0.1)
+	ProjectName   string // empty → no project scope (one-shot CLI ops)
+	Workspace     string // non-empty → workspace-shared mode
+	NetworkSubnet string // CIDR; empty → Docker auto-assigns
+	ContainerIP   string // empty + NetworkSubnet → derive <base>.1.1
+	Publish       *bool  // nil → default (true); *false → no host binding
+}
+
 // ProxyManager defines operations for managing the reverse proxy (Caddy).
 type ProxyManager interface {
+	// Configure applies a ProxyConfig to the manager in one call.
+	// Canonical entry point for configuration (ADR-013); the per-field
+	// setters below remain for backward compatibility but are
+	// deprecated.
+	Configure(cfg ProxyConfig)
 	// Start starts the proxy container on the given network
 	Start(ctx context.Context, networkName string) error
 	// Stop stops the proxy container
