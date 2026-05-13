@@ -13,6 +13,15 @@ import (
 
 const stateFileName = ".state.json"
 
+// Save persists the entire models.Deps to .state.json as a post-up snapshot.
+//
+// Deprecated: This duplicates information that Docker labels and raioz.yaml
+// already encode, and silently drifts whenever models.Deps grows a field.
+// New callers MUST use LocalState (see internal/domain/models/state.go and
+// the LoadLocalState / SaveLocalState helpers in project_state.go) and
+// store only the minimal projection that cannot be recovered from Docker
+// or the raioz.yaml. See ADR-011 for the rationale and the migration plan
+// across issues 029/030/031.
 func Save(ws *workspace.Workspace, deps *models.Deps) error {
 	path := filepath.Join(ws.Root, stateFileName)
 	data, err := json.MarshalIndent(deps, "", "  ")
@@ -32,6 +41,12 @@ func Save(ws *workspace.Workspace, deps *models.Deps) error {
 	return nil
 }
 
+// Load reads the .state.json snapshot written by Save. See the Save
+// docstring for why this whole-Deps snapshot is being phased out.
+//
+// Deprecated: Use LocalState (LoadLocalState in project_state.go) for
+// runtime state and re-read raioz.yaml + Docker labels for everything
+// else. See ADR-011.
 func Load(ws *workspace.Workspace) (*models.Deps, error) {
 	path := filepath.Join(ws.Root, stateFileName)
 	data, err := os.ReadFile(path)
@@ -56,6 +71,14 @@ func Load(ws *workspace.Workspace) (*models.Deps, error) {
 	return &deps, nil
 }
 
+// Exists reports whether the legacy .state.json file is present. Used as
+// a fast-path "have we ever run up here?" probe.
+//
+// Deprecated: New code should derive "is the project up?" from Docker
+// labels via internal/docker.IsProjectActive (or
+// container-listing equivalents). The presence of the JSON file is a
+// proxy that diverges whenever the file fails to write or is manually
+// removed. See ADR-011.
 func Exists(ws *workspace.Workspace) bool {
 	path := filepath.Join(ws.Root, stateFileName)
 	_, err := os.Stat(path)
