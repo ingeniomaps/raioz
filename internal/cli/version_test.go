@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"runtime/debug"
 	"strings"
 	"testing"
 )
@@ -143,6 +144,115 @@ func TestPrintVersion(t *testing.T) {
 				if strings.Contains(output, line) {
 					t.Errorf("output should not contain %q\ngot:\n%s", line, output)
 				}
+			}
+		})
+	}
+}
+
+func TestPopulateFromBuildInfo(t *testing.T) {
+	tests := []struct {
+		name        string
+		initVer     string
+		initCommit  string
+		initDate    string
+		info        *debug.BuildInfo
+		wantVersion string
+		wantCommit  string
+		wantDate    string
+	}{
+		{
+			name:       "module version fills dev defaults",
+			initVer:    "dev",
+			initCommit: "unknown",
+			initDate:   "unknown",
+			info: &debug.BuildInfo{
+				Main: debug.Module{Version: "v1.2.3"},
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "abcdef1234567"},
+					{Key: "vcs.time", Value: "2026-05-14T10:00:00Z"},
+				},
+			},
+			wantVersion: "v1.2.3",
+			wantCommit:  "abcdef1",
+			wantDate:    "2026-05-14T10:00:00Z",
+		},
+		{
+			name:       "ldflags version is respected",
+			initVer:    "v9.9.9",
+			initCommit: "deadbee",
+			initDate:   "2099-01-01",
+			info: &debug.BuildInfo{
+				Main: debug.Module{Version: "v1.2.3"},
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "feedface"},
+					{Key: "vcs.time", Value: "2026-01-01T00:00:00Z"},
+				},
+			},
+			wantVersion: "v9.9.9",
+			wantCommit:  "deadbee",
+			wantDate:    "2099-01-01",
+		},
+		{
+			name:       "devel main version ignored, vcs info still captured",
+			initVer:    "dev",
+			initCommit: "unknown",
+			initDate:   "unknown",
+			info: &debug.BuildInfo{
+				Main: debug.Module{Version: "(devel)"},
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "abcdef1234"},
+					{Key: "vcs.time", Value: "2026-05-14T10:00:00Z"},
+				},
+			},
+			wantVersion: "dev",
+			wantCommit:  "abcdef1",
+			wantDate:    "2026-05-14T10:00:00Z",
+		},
+		{
+			name:        "nil buildinfo is a no-op",
+			initVer:     "dev",
+			initCommit:  "unknown",
+			initDate:    "unknown",
+			info:        nil,
+			wantVersion: "dev",
+			wantCommit:  "unknown",
+			wantDate:    "unknown",
+		},
+		{
+			name:       "short vcs revision below 7 chars is ignored",
+			initVer:    "dev",
+			initCommit: "unknown",
+			initDate:   "unknown",
+			info: &debug.BuildInfo{
+				Main: debug.Module{Version: "v0.1.0"},
+				Settings: []debug.BuildSetting{
+					{Key: "vcs.revision", Value: "abc"},
+				},
+			},
+			wantVersion: "v0.1.0",
+			wantCommit:  "unknown",
+			wantDate:    "unknown",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			origV, origC, origD := Version, Commit, BuildDate
+			defer func() {
+				Version, Commit, BuildDate = origV, origC, origD
+			}()
+			Version, Commit, BuildDate = tt.initVer, tt.initCommit, tt.initDate
+
+			populateFromBuildInfo(tt.info)
+
+			if Version != tt.wantVersion {
+				t.Errorf("Version = %q, want %q", Version, tt.wantVersion)
+			}
+			if Commit != tt.wantCommit {
+				t.Errorf("Commit = %q, want %q", Commit, tt.wantCommit)
+			}
+			if BuildDate != tt.wantDate {
+				t.Errorf("BuildDate = %q, want %q", BuildDate, tt.wantDate)
 			}
 		})
 	}
