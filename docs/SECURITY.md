@@ -1,0 +1,275 @@
+# Security policy and threat model
+
+## Threat model
+
+raioz is a **local developer tool**. The assumed posture is the
+same one your editor and shell scripts run under: you trust the
+contents of `raioz.yaml`, the projects it references, and the
+binaries on your `$PATH`. Running raioz against a config file
+you didn't author yourself — or against a sibling project whose
+source you haven't reviewed — is **out of scope of raioz's
+security guarantees**.
+
+This is the same model that `make`, `cargo`, `npm`, `task`,
+`docker compose`, and every other local-dev orchestrator
+operates under. Documenting it lets you decide deliberately:
+running someone else's `raioz.yaml` is roughly equivalent to
+running their shell script.
+
+If you need to evaluate a config file from someone else, **read
+it first** — every executable surface listed below is plain text
+in `raioz.yaml` or the project files it references.
+
+## Executable surfaces
+
+raioz invokes user-controlled code in five places. Each is
+intentional and documented below.
+
+### 1. Lifecycle hooks: `pre:` / `preUp:` / `post:`
+
+```yaml
+pre: ./scripts/fetch-secrets.sh
+preUp: make createdb
+post: rm -f .env.*.tmp
+```
+
+Each command runs via `exec.CommandContext(ctx, "sh", "-c",
+<cmd>)` from `internal/app/upcase/hooks.go`. The host's `/bin/sh`
+interprets the string — pipes, redirects, variable expansion, and
+quoting are all in play.
+
+- `pre:` runs before anything else (env rendering, secrets fetch).
+- `preUp:` runs after infra/sibling-spawn, before service start
+  (ADR-024 — `make createdb` against a sibling-spawned postgres).
+- `post:` runs after services are up (cleanup).
+
+**Implications:** anything `sh -c` can do, these hooks can do —
+including reading your home directory, exfiltrating env vars,
+calling out to external services.
+
+### 2. Service commands: `services.<name>.command:` and `.stop:`
+
+```yaml
+services:
+  api:
+    command: make dev
+    stop: make stop
+```
+
+`HostRunner.Start` invokes `exec.CommandContext(ctx, parts[0],
+parts[1:]...)` where `parts = strings.Fields(command)`. This is
+**not** `sh -c` — there's no shell expansion or pipe parsing —
+but the first token is searched on `$PATH` and the rest are
+passed verbatim as argv. A command running on your host has the
+same authority as if you ran it from your shell.
+
+**Implications:** a config that declares `command: rm -rf
+/important/path` will delete `/important/path` as your user when
+you `raioz up`. No prompt, no confirmation — that's the point of
+`command:`.
+
+### 3. Recursive `raioz up` (mode A sibling spawn)
+
+```yaml
+dependencies:
+  postgres:
+    project: ../keycloak     # mode A — ADR-008
+```
+
+When raioz encounters `dependencies.<n>.project:`, it spawns
+itself via `exec.CommandContext(ctx, os.Executable(), "up")` with
+`cmd.Dir` pointing at the sibling project. The child process
+**inherits the parent's full environment** (`os.Environ()`) plus
+two propagated values: `RAIOZ_SIBLING_STACK` (cycle detection)
+and `RAIOZ_CORRELATION_ID` (audit trace).
+
+The child is now an independent `raioz up` — it reads
+`../keycloak/raioz.yaml` and executes everything in that file
+(hooks, commands, more siblings).
+
+**Implications:** pointing `project:` at a path you don't control
+runs that project's hooks and commands with your env. Cycles are
+caught (`RAIOZ_SIBLING_STACK`), but the transitive trust applies:
+you trust A → you trust everything A's sibling chain reaches.
+
+### 4. Git operations: `raioz clone`
+
+```bash
+raioz clone https://github.com/some-user/their-project
+```
+
+Runs `git clone <url>` and then, by default, `raioz up` in the
+checkout. `git` itself executes any `core.hooksPath` /
+`core.fsmonitor` / submodule `update` hook the cloned repo
+configures. The subsequent `raioz up` runs the cloned project's
+hooks and commands.
+
+**Implications:** equivalent to `git clone` plus running the
+project. Use `--no-up` to skip the up step if you want to read
+the config first.
+
+### 5. Container runtimes (Docker / Podman / nerdctl)
+
+`internal/runtime/runtime.go` selects the runtime via
+`RAIOZ_RUNTIME` (default `docker`). Container runtimes hold
+Docker-socket-level privileges, which on most systems is
+effectively root-equivalent on the host (a container can mount
+`/`, run as host root, etc.). raioz delegates trust to the
+runtime binary on your `$PATH`.
+
+**Implications:** if the runtime binary has been tampered with,
+raioz can't help. The same is true for `make`, `docker`, any
+other tool you run.
+
+## Sensitive data raioz handles
+
+### TLS certificates (mkcert mode)
+
+- Path: `~/.raioz/certs/<domain>/cert.pem` + `cert-key.pem`
+  (ADR-003).
+- Permissions: whatever `mkcert` writes (typically `0644` for the
+  cert, `0600` for the key — raioz does not chmod).
+- Trust: keys are signed by the mkcert local CA you installed
+  with `mkcert -install`. Adding new domains does NOT re-prompt
+  for trust because the CA is already in your system trust
+  store. **This is a feature, not a bug** — but a hostile
+  `raioz.yaml` pointing at `domain: my-bank.com` could mint a
+  trusted cert for that domain. Reject configs that declare a
+  `domain:` you don't own.
+- Cleanup: raioz never deletes certs. `rm -rf ~/.raioz/certs/`
+  is the manual purge; the local CA itself is removed by
+  `mkcert -uninstall`.
+
+### Environment variable propagation
+
+raioz inherits the **entire** `os.Environ()` when spawning:
+
+- Lifecycle hooks (`pre`/`preUp`/`post`) — see the inherited
+  list with `printenv` inside the hook.
+- Service `command:` — same; HostRunner sets `cmd.Env =
+  os.Environ()` and appends declared env vars.
+- Sibling spawn (`os.Executable()`) — child gets parent's full
+  env (ADR-008).
+- Custom `stop:` (`down`) — same; explicit fix in issue 044.
+
+raioz does **not** scrub `AWS_*`, `GITHUB_TOKEN`, or any other
+common secret env vars. If you don't want a hook or sibling to
+see them, unset them before invoking `raioz`.
+
+### Audit log
+
+`audit.log` (ADR-020 / ADR-022) records project names, service
+names, paths, and event types. By design, it does NOT contain:
+
+- Contents of `.env` files.
+- Values of env vars (only their names, when relevant — e.g. for
+  drift detection).
+- Stdout/stderr of hooks or commands.
+- Network response bodies.
+
+**Rule for new audit emitters:** never include the contents of
+env files, secrets, or arbitrary command output in the `details`
+map. Keep the payload to names, paths, and counts.
+
+If you find an audit event leaking sensitive payload, that is a
+security bug — file it (see "Reporting" below).
+
+## Network exposure
+
+### Proxy (`proxy: true`)
+
+By default the Caddy proxy binds host ports **80** and **443**
+on all interfaces. The `bindHost:` option can constrain to
+`127.0.0.1`. `publish: false` skips host port binding entirely
+(only the container IP is reachable — Linux only; ADR-005).
+
+A misconfigured proxy on a multi-user box exposes every routed
+service to anyone who can reach the host's network. Default
+posture is "binds 80/443" because that's the most common dev
+workflow; constrain explicitly when running on a shared machine.
+
+### Tunnels (`raioz tunnel start`)
+
+Opt-in only. Backends: `cloudflared` (Cloudflare Quick Tunnels)
+or `bore` (self-hosted / bore.pub). Running `raioz tunnel start
+api` publishes the named service to the public internet
+**deliberately**. Tunnel state persists in `<RaiozStateDir>/tunnels/`
+until you `raioz tunnel stop`.
+
+**Implications:** a forgotten tunnel keeps your local service
+public. `raioz tunnel list` shows active tunnels; check it after
+demos.
+
+### `/etc/hosts` modification
+
+raioz **never writes** to `/etc/hosts` automatically. The `raioz
+hosts` command prints the line ready for you to pipe through
+`sudo tee -a /etc/hosts`. The decision to modify a privileged
+system file is always explicit.
+
+## What raioz does NOT protect against
+
+- **Hostile `raioz.yaml` from third parties.** As above —
+  treat it like a shell script.
+- **Compromised binaries on your `$PATH`.** raioz delegates to
+  `docker`, `git`, `make`, `mkcert`, `cloudflared`, `bore`. If
+  any of those are tampered with, raioz can't tell.
+- **Workspace-shared deps containing exploits.** If you and
+  your teammate share a workspace and they declare a hostile
+  dep, the dep's container runs in your workspace network with
+  access to your other containers. The workspace boundary
+  isolates Docker; it does not isolate the contents of shared
+  images.
+- **Side-channel attacks across siblings.** Mode A spawn shares
+  the host with siblings (same OS, same kernel, same Docker
+  socket). Standard host isolation rules apply.
+
+## Reporting a vulnerability
+
+Open an issue at
+<https://github.com/ingeniomaps/raioz/security/advisories>
+(GitHub Security Advisories — private, encrypted, viewable
+only by the maintainer until disclosed). Include:
+
+- raioz version (`raioz version`).
+- Minimum reproduction (config file + command).
+- Expected vs observed behavior.
+- Your assessment of severity.
+
+If you cannot use GitHub's private channel, fall back to an
+issue at <https://github.com/ingeniomaps/raioz/issues> with the
+title `[security] ...` — the maintainer will move it to a
+private advisory before triaging.
+
+### Triage expectations
+
+raioz is maintained by a small team. Realistic response SLA:
+
+- **Acknowledged** within 7 days.
+- **Triaged** (severity + plan) within 14 days.
+- **Fixed and released** for high-severity issues within 30
+  days; medium-severity may be folded into the next minor
+  release.
+
+We do not run a bug bounty.
+
+## References
+
+- ADRs touching security surfaces:
+  [ADR-003](decisions/003-cert-namespacing.md) (cert
+  namespacing + SAN validation),
+  [ADR-008](decisions/008-sibling-projects-as-deps.md) (recursive
+  spawn, cycle detection),
+  [ADR-022](decisions/022-unified-state-paths.md) (where state
+  lives),
+  [ADR-024](decisions/024-pre-up-hook.md) (`preUp:` runs on the
+  host, not in a container),
+  [ADR-026](decisions/026-signal-handling-and-pdeathsig.md)
+  (signal handling + Pdeathsig — affects cleanup, not
+  authorization).
+- Layered docs:
+  [STATE.md](STATE.md) lists every file raioz writes;
+  [LOCKS.md](LOCKS.md) lists every serialization mechanism;
+  [OBSERVABILITY.md](OBSERVABILITY.md) lists every emitter
+  (incl. audit, where the no-secrets rule applies).
+- Issue: 053.

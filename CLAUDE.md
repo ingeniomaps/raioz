@@ -173,7 +173,8 @@ and how to add new ADRs. For the interaction between locks and
 mutexes (project lock vs workspace lock vs in-process map mutexes),
 see [docs/LOCKS.md](docs/LOCKS.md). For where raioz writes state
 on disk (LocalState, `raioz.root.json`, audit log, routes, certs),
-see [docs/STATE.md](docs/STATE.md).
+see [docs/STATE.md](docs/STATE.md). For the threat model and what
+raioz does NOT protect against, see [docs/SECURITY.md](docs/SECURITY.md).
 
 - **[ADR-001](docs/decisions/001-container-identity-labels.md)** — Containers identified by `com.raioz.*` labels, never by name prefix. New runners MUST stamp the labels via `naming.Labels()`; `make check-labels` enforces literal-free call sites. Files: `internal/naming/labels.go`, `internal/orchestrate/image_runner.go`.
 - **[ADR-002](docs/decisions/002-shared-deps-workspace-scoped.md)** — Workspace-shared deps omit `com.raioz.project`; lifecycle uses `otherProjectsActiveInWorkspace`, no refcount file. `ImageRunner.Start` is idempotent.

@@ -141,6 +141,14 @@ See `.claude/skills/architecture/SKILL.md`:
 3. Add i18n keys to both catalogs
 4. Register in `internal/cli/root.go`
 
+## Reporting security issues
+
+raioz' threat model is "trusted local-dev tool" — see
+[docs/SECURITY.md](docs/SECURITY.md) for the executable
+surfaces, sensitive data, and what raioz does NOT protect
+against. Vulnerability reports go through GitHub Security
+Advisories (private channel) per the same doc.
+
 ## License
 
 MIT
