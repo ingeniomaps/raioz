@@ -12,11 +12,12 @@ needs to know what coverage they get from CI.
 | `Lint` | `ubuntu-latest` | every push + PR | gofmt, golangci-lint, file/line caps, i18n catalogs + source discipline, label discipline, schema fixtures + `since:` markers, CLI thin-viz, app-layer infra imports baseline |
 | `Unit tests` | `ubuntu-latest` | every push + PR | `go test -race ./...` + cross-compile to windows/darwin × amd64/arm64 (build-only, smoke for goreleaser) |
 | `Integration E2E` | `ubuntu-latest` | every push + PR (needs unit tests) | bring up a real toy service via the installed `raioz` binary, exercise init/up/status/logs/down + restart cycle |
+| `Goreleaser dry-run` | `ubuntu-latest` | every push + PR | `goreleaser release --snapshot --clean --skip=publish,sign` — full packaging pipeline minus the publish step (ADR-033) |
 | `Unit tests (Windows)` | `windows-latest` | push to main/develop only | OS-sensitive packages: `naming`, `host`, `audit`, `workspace`, `proxy`, `lock`, `ignore` |
 
 Triggers in detail:
 
-- **PR** → Lint + Unit tests + Integration E2E.
+- **PR** → Lint + Unit tests + Integration E2E + Goreleaser dry-run.
 - **Push to develop or main** → all of the above plus
   `Unit tests (Windows)`.
 - **Tag** (release.yml) → goreleaser builds + publishes assets.
@@ -72,6 +73,22 @@ goreleaser failed to build Windows binaries because a Unix-only
 syscall slipped in (issue 047). The gate catches the same class
 of regression on every PR without paying for a Windows runner.
 
+## Goreleaser dry-run
+
+`Goreleaser dry-run` runs `goreleaser release --snapshot --clean
+--skip=publish,sign` on every PR/push. The cross-compile gate
+above only validates `go build`; this job exercises the full
+packaging pipeline — archive templates, checksum generation,
+changelog regex, and the `builds.hooks.post` script
+(`scripts/verify-stamp.sh`, ADR-019) — without publishing to
+GitHub Releases.
+
+On failure the job uploads `dist/` as a 7-day-retention
+artifact (`goreleaser-snapshot-dist`) so a contributor can
+inspect the partial output without re-running locally.
+
+Rationale and design notes: [ADR-033](decisions/033-goreleaser-pr-dry-run.md).
+
 ## Adding new coverage
 
 - **A new package with OS-sensitive code** → add it to the
@@ -94,6 +111,7 @@ Approximate wall-clock per job (May 2026 baseline):
 | `Lint` | 1-2 min |
 | `Unit tests` (Linux, with race + cross-compile) | 3-4 min |
 | `Integration E2E` | 1-2 min |
+| `Goreleaser dry-run` | 1-2 min |
 | `Unit tests (Windows)` | 4-6 min |
 
 Windows runners on GitHub-hosted infrastructure are 2x the
@@ -105,6 +123,7 @@ develop/main merges.
 
 - Workflow: [.github/workflows/ci.yml](../.github/workflows/ci.yml).
 - Release pipeline: [.github/workflows/release.yml](../.github/workflows/release.yml).
-- Issue: 050.
+- Issues: 050 (Windows gate), 056 (goreleaser dry-run).
+- ADRs: [ADR-030](decisions/030-windows-ci-on-push.md), [ADR-033](decisions/033-goreleaser-pr-dry-run.md).
 - v0.5.1 incident (drove the cross-compile gate):
   [CHANGELOG.md](../CHANGELOG.md#051---2026-05-14).
