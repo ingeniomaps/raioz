@@ -215,10 +215,21 @@ func TestRunCustomStopCommands_FailingCommand(t *testing.T) {
 					Down: "false", // exits with 1
 				},
 			},
+			"web": {
+				Commands: &models.ServiceCommands{
+					Down: "true", // exits with 0
+				},
+			},
 		},
 	}
-	// Should not panic, just log warning
-	runCustomStopCommands(context.Background(), deps, tmpDir)
+	// Issue 044: failing stops must be surfaced through the return
+	// value so downOrchestrated can render an error block and exit
+	// non-zero. The loop itself must still complete every service
+	// (best-effort teardown).
+	failed := runCustomStopCommands(context.Background(), deps, tmpDir)
+	if len(failed) != 1 || failed[0] != "api" {
+		t.Errorf("runCustomStopCommands() failed = %v, want [api]", failed)
+	}
 }
 
 func TestRunCustomStopCommands_EmptyCommand(t *testing.T) {

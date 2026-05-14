@@ -119,6 +119,8 @@
   "output.starting_services": "Iniciando servicios...",
   "output.project_started": "Proyecto '%s' iniciado exitosamente",
   "output.project_stopped": "Proyecto '%s' detenido exitosamente",
+  "down.stop_failed_summary": "El comando stop falló para %d servicio(s): %s",
+  "down.stop_failed_suggestion": "Ejecuta el comando 'stop:' que falló manualmente desde el directorio del servicio para ver su error real; luego vuelve a correr 'raioz down' o limpia los contenedores que quedaron arriba.",
   "output.stopping_services": "Deteniendo servicios Docker...",
   "output.stopping_project_services": "Deteniendo servicios del proyecto...",
   "output.no_services_to_stop": "No hay servicios del proyecto para detener en la configuración actual.",

@@ -9,7 +9,9 @@ import (
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
+	"raioz/internal/errors"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
@@ -55,8 +57,10 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	// These take precedence over PID/prefix-based cleanup because they know how to
 	// tear down whatever the `command:` started — e.g. `make start` spawning its
 	// own docker compose project whose containers are outside the raioz naming
-	// convention.
-	runCustomStopCommands(ctx, deps, projectDir)
+	// convention. Any service whose stop command failed gets carried through to
+	// the final return so the user sees an error block and the process exits
+	// non-zero (issue 044).
+	failedStops := runCustomStopCommands(ctx, deps, projectDir)
 
 	// Tear down compose-based services (yaml `compose:` or auto-detected) by
 	// invoking `docker compose down` with the same project name scope that
@@ -169,6 +173,17 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		logging.WarnWithContext(ctx, "Labeled-network sweep failed", "error", err.Error())
 	} else if len(removed) > 0 {
 		logging.InfoWithContext(ctx, "Labeled networks removed", "names", removed)
+	}
+
+	if len(failedStops) > 0 {
+		output.PrintError(i18n.T("down.stop_failed_summary",
+			len(failedStops), strings.Join(failedStops, ", ")))
+		return errors.New(
+			errors.ErrCodeServiceStopFailed,
+			i18n.T("down.stop_failed_summary",
+				len(failedStops), strings.Join(failedStops, ", ")),
+		).WithSuggestion(i18n.T("down.stop_failed_suggestion")).
+			WithContext("services", strings.Join(failedStops, ","))
 	}
 
 	output.PrintSuccess("Project '" + projectName + "' stopped")

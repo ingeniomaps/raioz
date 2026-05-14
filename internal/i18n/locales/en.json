@@ -119,6 +119,8 @@
   "output.starting_services": "Starting services...",
   "output.project_started": "Project '%s' started successfully",
   "output.project_stopped": "Project '%s' stopped successfully",
+  "down.stop_failed_summary": "Stop command failed for %d service(s): %s",
+  "down.stop_failed_suggestion": "Run the failing 'stop:' command manually from the service directory to see its real error, then re-run 'raioz down' or clean up the surviving containers.",
   "output.stopping_services": "Stopping Docker services...",
   "output.stopping_project_services": "Stopping project services...",
   "output.no_services_to_stop": "No project services to stop in current config.",

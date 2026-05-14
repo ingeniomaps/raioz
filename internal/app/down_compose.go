@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"sort"
+
 	"raioz/internal/detect"
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
@@ -64,8 +66,14 @@ func stopComposeServices(ctx context.Context, deps *models.Deps) {
 
 // runCustomStopCommands executes each service's `stop:` command from raioz.yaml,
 // running in the project directory with the service's configured env vars merged
-// in. Failures are logged but do not abort the overall down flow.
-func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir string) {
+// in (see buildStopCmdEnv — issue 044 regression fix). Returns the sorted list
+// of service names whose stop command exited non-zero so the caller can
+// surface a visible error block at the end of the down flow and return a
+// non-zero exit code; the loop itself is best-effort and never aborts early
+// (every service still gets a chance to stop, which is the whole point of
+// "down").
+func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir string) []string {
+	var failed []string
 	for name, svc := range deps.Services {
 		if svc.Commands == nil || svc.Commands.Down == "" {
 			continue
@@ -82,20 +90,41 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 		}
 		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
 		cmd.Dir = projectDir
-
-		if svc.Env != nil {
-			for _, f := range svc.Env.GetFilePaths() {
-				if f == "" {
-					continue
-				}
-				cmd.Env = append(cmd.Env, "RAIOZ_ENV_FILE="+f)
-			}
-		}
+		cmd.Env = buildStopCmdEnv(svc)
 
 		if out, err := cmd.CombinedOutput(); err != nil {
 			logging.WarnWithContext(ctx, "Custom stop command failed",
 				"service", name, "error", err.Error(), "output", string(out))
 			output.PrintWarning(fmt.Sprintf("Stop command for %s failed: %v", name, err))
+			failed = append(failed, name)
 		}
 	}
+	sort.Strings(failed)
+	return failed
+}
+
+// buildStopCmdEnv returns the environment slice for a service's custom
+// stop command. Starts from os.Environ() so the child inherits PATH,
+// HOME, DOCKER_HOST, XDG_*, etc. — without these the typical `make
+// stop` / `docker compose down` invocations fail because their
+// sub-shell can't find `docker`.
+//
+// Each declared env-file produces one `RAIOZ_ENV_FILE=<path>` entry
+// after the inherited block. Go's exec semantics: if the same key
+// appears twice, the last one wins, so overrides are effective even
+// though we keep the parent values for diagnostic clarity.
+//
+// Extracted to ease regression-testing — see down_stop_env_test.go.
+func buildStopCmdEnv(svc models.Service) []string {
+	env := os.Environ()
+	if svc.Env == nil {
+		return env
+	}
+	for _, f := range svc.Env.GetFilePaths() {
+		if f == "" {
+			continue
+		}
+		env = append(env, "RAIOZ_ENV_FILE="+f)
+	}
+	return env
 }
