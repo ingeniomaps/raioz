@@ -35,7 +35,9 @@ var statusCmd = &cobra.Command{
 
 		// Meta-orchestrator dispatches to sub-projects.
 		resolved := ResolveConfigPath(configPath)
-		if handled, metaErr := tryHandleMeta(ctx, resolved, "status", nil); handled {
+		if handled, metaErr := tryHandleMeta(
+			ctx, resolved, "status", nil, metaProfiles,
+		); handled {
 			return metaErr
 		}
 
@@ -57,4 +59,6 @@ func init() {
 	statusCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	statusCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
 	statusCmd.Flags().BoolVar(&statusJSON, "json", false, "Output status in JSON format")
+	statusCmd.Flags().StringSliceVar(&metaProfiles, "meta-profile", nil,
+		"Report only meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")
 }

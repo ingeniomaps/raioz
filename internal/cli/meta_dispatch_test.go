@@ -24,7 +24,7 @@ func TestTryHandleMeta_RegularProjectFallsThrough(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handled, err := tryHandleMeta(context.Background(), path, "up", nil)
+	handled, err := tryHandleMeta(context.Background(), path, "up", nil, nil)
 	if err != nil {
 		t.Errorf("err = %v, want nil", err)
 	}
@@ -36,7 +36,7 @@ func TestTryHandleMeta_RegularProjectFallsThrough(t *testing.T) {
 // AutoDetectMarker means the user invoked raioz outside any config — no
 // meta dispatch should kick in.
 func TestTryHandleMeta_AutoDetectMarkerSkipped(t *testing.T) {
-	handled, err := tryHandleMeta(context.Background(), AutoDetectMarker, "up", nil)
+	handled, err := tryHandleMeta(context.Background(), AutoDetectMarker, "up", nil, nil)
 	if err != nil || handled {
 		t.Errorf("auto-detect must not engage meta dispatch (handled=%v, err=%v)",
 			handled, err)
@@ -45,7 +45,7 @@ func TestTryHandleMeta_AutoDetectMarkerSkipped(t *testing.T) {
 
 // Empty path is also a no-op — early returns must guard the loader call.
 func TestTryHandleMeta_EmptyPathSkipped(t *testing.T) {
-	handled, err := tryHandleMeta(context.Background(), "", "up", nil)
+	handled, err := tryHandleMeta(context.Background(), "", "up", nil, nil)
 	if err != nil || handled {
 		t.Errorf("empty path must not engage meta dispatch")
 	}
@@ -89,7 +89,7 @@ func TestTryHandleMeta_DispatchesToFakeBinary(t *testing.T) {
 	os.Args[0] = fake
 	t.Cleanup(func() { os.Args[0] = prevArg0 })
 
-	handled, err := tryHandleMeta(context.Background(), metaPath, "up", nil)
+	handled, err := tryHandleMeta(context.Background(), metaPath, "up", nil, nil)
 	if !handled {
 		t.Fatalf("expected handled=true, got false (err=%v)", err)
 	}
@@ -108,7 +108,7 @@ func TestTryHandleMeta_InvalidMetaIsHandled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handled, err := tryHandleMeta(context.Background(), path, "up", nil)
+	handled, err := tryHandleMeta(context.Background(), path, "up", nil, nil)
 	if !handled {
 		t.Errorf("invalid meta must still be handled (no fall-through)")
 	}

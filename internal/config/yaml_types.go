@@ -51,6 +51,13 @@ type YAMLMetaProject struct {
 	// run logs a warning and continues. Useful for repos that aren't always
 	// checked out (ad-service, internal tools, work-in-progress migrations).
 	Optional bool `yaml:"optional,omitempty"` // since: v0.4.0
+	// Profiles are opt-in tags. A project with non-empty Profiles is
+	// skipped from `raioz up` / `raioz status` unless the user passes
+	// `--meta-profile <name>` matching one of them. Empty Profiles means
+	// always-on. `raioz down` ignores Profiles and tears down whatever is
+	// declared so the user can't strand a sub-project that was started
+	// with a different profile set.
+	Profiles YAMLStringSlice `yaml:"profiles,omitempty"` // since: v0.6.0
 }
 
 // YAMLNetwork lets the user override the Docker network raioz manages for a

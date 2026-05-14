@@ -514,6 +514,57 @@ Generate a config from auto-detection: `raioz init`
 
 ---
 
+## Meta-orchestrator (`kind: meta`)
+
+A meta-orchestrator config has no services or dependencies of its own.
+Its only job is to delegate `raioz up` / `down` / `status` to N
+sibling raioz projects in order. Each sub-project keeps its own
+`raioz.yaml`, `.raioz.state.json`, and lifecycle.
+
+```yaml
+version: "1"
+kind: meta
+workspace: acme
+
+projects:
+  - path: ./api          # always-on
+  - path: ./web          # always-on
+  - path: ./gateway
+    profiles: [edge, validation]   # opt-in
+  - path: ./grafana
+    optional: true
+    profiles: [ops]
+
+startOrder:               # optional: pin the up order
+  - ./api
+  - ./web
+```
+
+| Field         | Type              | Default | Effect |
+|---------------|-------------------|---------|--------|
+| `path`        | string (required) | —       | Path to the sub-project, relative to this meta file. |
+| `optional`    | bool              | `false` | When true, `raioz up` logs a warning and continues if this sub fails instead of aborting. |
+| `profiles`    | string list       | `[]`    | Opt-in tags. Empty = always-on. Non-empty = skipped unless the user passes `--meta-profile` matching one of them. |
+| `startOrder`  | string list (top-level) | empty (use declaration order) | Pin which sub-projects come up first. Down runs in reverse. |
+
+### `--meta-profile` flag
+
+Repeatable flag on `raioz up` / `raioz status`. `raioz down` ignores
+profiles by design — you cannot strand a sub-project that was started
+under a different profile set.
+
+```bash
+raioz up                              # only always-on projects
+raioz up --meta-profile edge          # always-on + projects tagged `edge`
+raioz up --meta-profile edge --meta-profile ops   # union of matches
+raioz down                            # tears down everything declared
+```
+
+`--meta-profile` is distinct from the service-level `--profile` flag
+(which filters services inside a single project); they don't compete.
+
+---
+
 ## Docker resource naming
 
 Service containers use a per-project name; dependencies in a workspace

@@ -1,0 +1,20 @@
+# 19-meta-profiles — `kind: meta` with per-project `profiles:` opt-in tags.
+#
+# Validates the meta-orchestrator shape with the v0.6 Profiles field:
+# always-on projects (no profiles) participate in every `raioz up`;
+# tagged projects (profiles: [edge, validation]) only participate when
+# the user passes `--meta-profile <name>` matching one of them. Pairs
+# with internal/app/meta_profiles_test.go for the runtime contract.
+
+version: "1"
+kind: meta
+workspace: acme
+
+projects:
+  - path: ./api          # always-on
+  - path: ./web          # always-on
+  - path: ./gateway
+    profiles: [edge, validation]
+  - path: ./grafana
+    optional: true
+    profiles: [ops]

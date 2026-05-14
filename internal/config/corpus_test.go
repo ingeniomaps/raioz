@@ -43,6 +43,16 @@ func TestConfigCorpus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(corpusDir, name)
 
+			// Meta-orchestrator fixtures go through LoadMetaConfig — the
+			// same loader the CLI uses when `kind: meta`. They do not
+			// have a `project:` (the meta shape isn't a project).
+			if meta, isMeta, err := LoadMetaConfig(path); err == nil && isMeta {
+				if meta == nil || len(meta.Projects) == 0 {
+					t.Fatalf("LoadMetaConfig(%s): empty Projects list", name)
+				}
+				return
+			}
+
 			cfg, err := LoadYAML(path)
 			if err != nil {
 				t.Fatalf("LoadYAML(%s): %v", name, err)

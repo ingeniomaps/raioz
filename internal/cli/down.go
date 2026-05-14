@@ -44,7 +44,7 @@ var downCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
-		if handled, metaErr := tryHandleMeta(ctx, configPath, "down", nil); handled {
+		if handled, metaErr := tryHandleMeta(ctx, configPath, "down", nil, nil); handled {
 			return metaErr
 		}
 

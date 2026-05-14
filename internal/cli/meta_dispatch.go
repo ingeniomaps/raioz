@@ -13,9 +13,11 @@ import (
 // raioz.yaml (`kind: meta`). If yes, it dispatches to MetaRunner with the
 // matching sub-command and returns (handled=true, err). If the config is a
 // regular project, it returns (false, nil) so the caller proceeds with the
-// normal use case.
+// normal use case. activeProfiles filters which sub-projects participate
+// in `up` / `status`; `down` ignores it (see MetaRunner.Down).
 func tryHandleMeta(
-	ctx context.Context, configPath, subCmd string, args []string,
+	ctx context.Context, configPath, subCmd string,
+	args, activeProfiles []string,
 ) (bool, error) {
 	if configPath == "" || configPath == AutoDetectMarker {
 		return false, nil
@@ -45,11 +47,11 @@ func tryHandleMeta(
 	var summary app.MetaSummaryList
 	switch subCmd {
 	case "up":
-		summary = runner.Up(ctx, cfg, args)
+		summary = runner.Up(ctx, cfg, args, activeProfiles)
 	case "down":
 		summary = runner.Down(ctx, cfg, args)
 	case "status":
-		summary = runner.Status(ctx, cfg, args)
+		summary = runner.Status(ctx, cfg, args, activeProfiles)
 	default:
 		return false, fmt.Errorf("meta dispatch: unsupported subcommand %q", subCmd)
 	}

@@ -14,6 +14,7 @@ import (
 var (
 	configPath   string
 	profile      string
+	metaProfiles []string
 	forceReclone bool
 	dryRun       bool
 	onlyServices []string
@@ -52,7 +53,9 @@ var upCmd = &cobra.Command{
 
 		// If the config is a meta-orchestrator, delegate to the
 		// MetaRunner before initializing project-mode dependencies.
-		if handled, metaErr := tryHandleMeta(ctx, configPath, "up", nil); handled {
+		if handled, metaErr := tryHandleMeta(
+			ctx, configPath, "up", nil, metaProfiles,
+		); handled {
 			return metaErr
 		}
 
@@ -127,4 +130,6 @@ func init() {
 		"File-watch services with watch: true and auto-restart (blocks until Ctrl+C)")
 	upCmd.Flags().BoolVar(&exclusive, "exclusive", false, i18n.T("cmd.up.flag.exclusive"))
 	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
+	upCmd.Flags().StringSliceVar(&metaProfiles, "meta-profile", nil,
+		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")
 }
