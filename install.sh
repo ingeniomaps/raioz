@@ -19,10 +19,33 @@ set -euo pipefail
 
 # --- Configuration -----------------------------------------------------------
 
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="raioz"
 GITHUB_REPO="${GITHUB_REPO:-ingeniomaps/raioz}"
 GITHUB_URL="https://github.com/${GITHUB_REPO}"
+
+# pick_install_dir chooses where to install. Honors INSTALL_DIR if set,
+# otherwise picks the first preferred bin directory that already lives
+# on the user's PATH — so the freshly installed binary actually wins
+# `command -v raioz`. Falls back to ~/.local/bin (the binary still
+# installs, just with a follow-up tip to add it to PATH).
+pick_install_dir() {
+    if [ -n "${INSTALL_DIR:-}" ]; then
+        echo "$INSTALL_DIR"
+        return
+    fi
+    local IFS=':' dir
+    for dir in $PATH; do
+        case "$dir" in
+            "$HOME/.local/bin"|"$HOME/bin"|/usr/local/bin)
+                echo "$dir"
+                return
+                ;;
+        esac
+    done
+    echo "$HOME/.local/bin"
+}
+
+INSTALL_DIR="$(pick_install_dir)"
 
 # --- Output helpers -----------------------------------------------------------
 
@@ -202,24 +225,56 @@ main() {
 
     install_binary "$binary_path"
 
-    # Verify
+    verify_install
+}
+
+# verify_install reports whether `command -v raioz` resolves to the
+# binary we just installed, or whether an older copy elsewhere on PATH
+# is shadowing it. Output is informational; we don't fail the install
+# because the user can still invoke the new binary by full path while
+# they clean up.
+verify_install() {
     echo ""
-    if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-        local installed_version
-        installed_version=$($BINARY_NAME version 2>/dev/null \
-            | head -n 1 || echo "installed")
-        ok "raioz installed successfully!"
-        echo ""
-        echo "  Version:  ${installed_version}"
-        echo "  Location: $(command -v "$BINARY_NAME")"
-        echo ""
-        info "Run 'raioz --help' to get started"
-    else
-        warn "raioz installed to ${INSTALL_DIR} but not found in PATH"
+    local target="${INSTALL_DIR}/${BINARY_NAME}"
+    local resolved
+    resolved="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
+
+    if [ -z "$resolved" ]; then
+        warn "raioz installed to ${target} but is not on your \$PATH"
         echo ""
         echo "  Add to your PATH:"
         echo "    export PATH=\"${INSTALL_DIR}:\$PATH\""
+        return 0
     fi
+
+    local resolved_real target_real
+    resolved_real="$(readlink -f "$resolved" 2>/dev/null || echo "$resolved")"
+    target_real="$(readlink -f "$target" 2>/dev/null || echo "$target")"
+
+    if [ "$resolved_real" != "$target_real" ]; then
+        warn "raioz installed to ${target} but 'command -v raioz' resolves to: ${resolved}"
+        warn "The freshly installed binary is shadowed by an older copy."
+        echo ""
+        echo "  Remove the shadowing copy:"
+        echo "    rm '${resolved}'"
+        echo ""
+        echo "  Or re-install over the shadowing copy:"
+        echo "    INSTALL_DIR='$(dirname "$resolved")' bash install.sh"
+        echo ""
+        echo "  Until then, invoke the new binary explicitly:"
+        echo "    ${target} version"
+        return 0
+    fi
+
+    local installed_version
+    installed_version=$("$BINARY_NAME" version 2>/dev/null \
+        | head -n 1 || echo "installed")
+    ok "raioz installed successfully!"
+    echo ""
+    echo "  Version:  ${installed_version}"
+    echo "  Location: ${resolved}"
+    echo ""
+    info "Run 'raioz --help' to get started"
 }
 
 main

@@ -46,10 +46,12 @@ Pre-built binaries are shipped for **Linux**, **macOS**, and
 curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh | bash
 ```
 
-No-sudo variant (installs to `~/.local/bin`):
+The installer picks the first of `~/.local/bin`, `~/bin`, `/usr/local/bin`
+that already lives on your `PATH`, so the freshly installed binary
+isn't shadowed by an older copy. Override the location with `INSTALL_DIR`:
 
 ```bash
-INSTALL_DIR=~/.local/bin bash -c "$(curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh)"
+INSTALL_DIR=/opt/raioz/bin bash -c "$(curl -fsSL https://raw.githubusercontent.com/ingeniomaps/raioz/main/install.sh)"
 ```
 
 ### Any platform (Go toolchain)
