@@ -266,8 +266,9 @@ func LauncherDrainTimeout() time.Duration {
 }
 
 // EnvDurationStatus snapshots how a duration-typed env var resolved.
-// Used by `raioz doctor` to surface user overrides and silent
-// malformed values that durationFromEnv used to swallow (issue 062).
+// Used by `raioz doctor` to surface user overrides and malformed
+// values that durationFromEnv silently masked behind the default.
+// See ADR-035.
 type EnvDurationStatus struct {
 	Name      string        // env var name (e.g. RAIOZ_LAUNCHER_TIMEOUT)
 	Raw       string        // user-supplied value; "" when unset
@@ -297,7 +298,7 @@ func InspectDurationEnv(name string, def time.Duration) EnvDurationStatus {
 // KnownDurationEnvs enumerates every duration-typed env var raioz
 // reads. `raioz doctor` walks this list to print resolution state.
 // New duration env vars MUST be appended here so the doctor surfaces
-// them — otherwise a typo'd value stays silent (issue 062).
+// them — otherwise a typo'd value stays silent. See ADR-035.
 func KnownDurationEnvs() []EnvDurationStatus {
 	return []EnvDurationStatus{
 		InspectDurationEnv(launcherWaitTimeoutEnv, 60*time.Second),
@@ -321,7 +322,7 @@ func ResetMalformedEnvWarningsForTest() {
 // unparseable or negative value also returns def but logs a warning
 // once per (process, var name) so the user spots typos like
 // "RAIOZ_LAUNCHER_TIMEOUT=60" (missing "s") instead of seeing the
-// default silently — issue 062.
+// default silently. See ADR-035.
 func durationFromEnv(name string, def time.Duration) time.Duration {
 	s := InspectDurationEnv(name, def)
 	if s.Malformed {

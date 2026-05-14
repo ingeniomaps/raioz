@@ -85,8 +85,8 @@ func sortedKeys(set map[string]struct{}) []string {
 	return out
 }
 
-// Package-level hooks so tests can simulate Docker without a daemon. Same
-// pattern as listContainersByLabelsFn in down_proxy.go (issue 060).
+// Package-level hooks so tests can simulate Docker without a daemon.
+// Same pattern as listContainersByLabelsFn in down_proxy.go.
 var (
 	validatePortsFn         = docker.ValidatePorts
 	listActiveProjectsFn    = docker.ListActiveProjects

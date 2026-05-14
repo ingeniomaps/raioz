@@ -163,13 +163,13 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	// also handles reaping after the settle window — the channel buffer
 	// absorbs the eventual exit so we don't leak a zombie.
 	//
-	// Issue 061: the drain goroutine ALSO closes logFile once cmd exits.
-	// Previously logFile was left open on the "still alive after the
-	// settle window" path, leaking one fd per Start. Long watch-mode
-	// sessions with frequent restarts accumulated those handles until
-	// finalizer-driven GC ran. Closing in the drain goroutine guarantees
-	// release exactly once, when the child actually dies — regardless of
-	// which select branch fired above.
+	// The drain goroutine ALSO closes logFile once cmd exits. Without
+	// that explicit close, the "still alive after the settle window"
+	// path leaves the parent's copy of the fd open and a long watch-mode
+	// session leaks one handle per Start until GC runs the finalizer.
+	// Closing inside the goroutine guarantees release exactly once,
+	// when the child actually dies — regardless of which select branch
+	// fired above. See ADR-034.
 	logPath := naming.LogFile(svc.ProjectName, svc.Name)
 	waitCh := make(chan error, 1)
 	go func() {
@@ -220,7 +220,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 
 	r.recordPID(svc.Name, cmd.Process.Pid)
 	// logFile is owned by the drain goroutine; it closes the parent's
-	// copy of the fd when cmd.Wait() returns. Issue 061.
+	// copy of the fd when cmd.Wait() returns. See ADR-034.
 
 	logging.InfoWithContext(ctx, "Host service started",
 		"service", svc.Name, "pid", cmd.Process.Pid)

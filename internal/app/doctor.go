@@ -185,10 +185,9 @@ func (uc *DoctorUseCase) checkRaiozDir() DoctorCheck {
 }
 
 // checkEnvironment surfaces the resolution state of duration-typed env
-// vars raioz reads. Issue 062: previously a typo like
-// `RAIOZ_LAUNCHER_TIMEOUT=60` (missing "s") fell back to the default
-// without telling the user. Now the doctor flags malformed values
-// loudly and lists overrides quietly.
+// vars raioz reads. A typo like `RAIOZ_LAUNCHER_TIMEOUT=60` (missing
+// "s") used to fall back to the default silently; the doctor now flags
+// malformed values loudly and lists overrides quietly. See ADR-035.
 //
 // Status:
 //   - error    → at least one value is malformed (typo'd unit, etc.)

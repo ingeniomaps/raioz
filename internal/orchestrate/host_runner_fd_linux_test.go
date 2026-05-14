@@ -41,7 +41,7 @@ func logFDIsOpen(t *testing.T, logPath string) bool {
 	return false
 }
 
-// TestHostRunner_Start_ClosesLogFileAfterExit pins issue 061: after a host
+// TestHostRunner_Start_ClosesLogFileAfterExit pins ADR-034: after a host
 // service's process exits, the parent's copy of the log fd must be
 // released. Previously the file was held until GC ran the finalizer,
 // accumulating one leaked fd per Start in long watch-mode sessions.

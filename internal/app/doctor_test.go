@@ -127,7 +127,7 @@ func TestGetFreeDiskSpaceGB(t *testing.T) {
 	}
 }
 
-// TestDoctorCheckEnvironment_NoOverrides pins issue 062's "ok" branch:
+// TestDoctorCheckEnvironment_NoOverrides pins ADR-035's "ok" branch:
 // when no env override is set, the doctor reports "no overrides".
 func TestDoctorCheckEnvironment_NoOverrides(t *testing.T) {
 	// Make sure neither launcher env var leaks from the host shell.
@@ -161,7 +161,7 @@ func TestDoctorCheckEnvironment_ValidOverride(t *testing.T) {
 }
 
 func TestDoctorCheckEnvironment_MalformedSurfaces(t *testing.T) {
-	// Typo: "60" without a unit — the bug from issue 062.
+	// Typo: "60" without a unit — the canonical malformed case.
 	t.Setenv("RAIOZ_LAUNCHER_TIMEOUT", "60")
 	os.Unsetenv("RAIOZ_LAUNCHER_DRAIN_TIMEOUT")
 
