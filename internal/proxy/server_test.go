@@ -10,8 +10,8 @@ import (
 
 func TestServerMode_LetsEncrypt(t *testing.T) {
 	m := NewManager("")
-	m.SetDomain("dev.acme.com")
-	m.SetTLSMode("letsencrypt")
+	m.domain = ("dev.acme.com")
+	m.tlsMode = ("letsencrypt")
 
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
@@ -33,7 +33,7 @@ func TestServerMode_LetsEncrypt(t *testing.T) {
 
 func TestServerMode_CustomDomain(t *testing.T) {
 	m := NewManager("/certs")
-	m.SetDomain("dev.mycompany.io")
+	m.domain = ("dev.mycompany.io")
 
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "frontend",
@@ -50,7 +50,7 @@ func TestServerMode_CustomDomain(t *testing.T) {
 
 func TestServerMode_BindHost(t *testing.T) {
 	m := NewManager("")
-	m.SetBindHost("0.0.0.0")
+	m.bindHost = ("0.0.0.0")
 
 	if m.bindHost != "0.0.0.0" {
 		t.Errorf("bindHost = %q, want '0.0.0.0'", m.bindHost)
@@ -78,7 +78,7 @@ func TestLocalMode_DefaultDomain(t *testing.T) {
 
 func TestNoTLS_Mode(t *testing.T) {
 	m := NewManager("")
-	m.SetTLSMode("")
+	m.tlsMode = ("")
 
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",

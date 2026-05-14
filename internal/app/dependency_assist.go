@@ -2,6 +2,7 @@ package app
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -151,7 +152,7 @@ func HandleDependencyAssist(
 
 			// Log audit event
 			reason := fmt.Sprintf("dependency assist: required by %s", dep.RequiredBy)
-			if err := audit.LogServiceAssisted(dep.ServiceName, dep.RequiredBy, reason); err != nil {
+			if err := audit.LogServiceAssisted(context.Background(), dep.ServiceName, dep.RequiredBy, reason); err != nil {
 				// Log audit error but don't fail
 				output.PrintWarning(i18n.T("output.failed_log_audit", err))
 			}
@@ -261,7 +262,7 @@ func HandleDependencyConflicts(
 		if resolution != "" {
 			// Log audit event
 			reason := fmt.Sprintf("conflict resolution: %s (differences: %v)", resolution, conflict.Differences)
-			if err := audit.LogConflictResolved(conflict.ServiceName, resolution, reason); err != nil {
+			if err := audit.LogConflictResolved(context.Background(), conflict.ServiceName, resolution, reason); err != nil {
 				// Log audit error but don't fail
 				output.PrintWarning(i18n.T("output.failed_log_audit", err))
 			}

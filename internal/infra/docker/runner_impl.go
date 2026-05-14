@@ -66,7 +66,7 @@ func (r *DockerRunnerImpl) GetContainerStatusByName(
 }
 
 // FindManagedContainerByService resolves a raioz-managed container by its
-// project + service labels (issue 009). Returns "" when nothing matches.
+// project + service labels. Returns "" when nothing matches.
 func (r *DockerRunnerImpl) FindManagedContainerByService(
 	ctx context.Context, project, service string,
 ) string {

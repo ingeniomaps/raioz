@@ -1,5 +1,5 @@
 // Package proxycase hosts use cases for `raioz proxy` and a
-// preflight helper (ADR-016 / issue 036) the proxy CLI and `raioz
+// preflight helper (ADR-016) the proxy CLI and `raioz
 // doctor` can share to surface fixable issues before the proxy is
 // touched.
 package proxycase

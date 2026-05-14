@@ -69,7 +69,9 @@ func (m *Manager) generateCaddyfile() (string, error) {
 		}
 	} else {
 		tls := tlsConfig{mode: m.tlsMode, certsDir: m.certsDir, domain: m.domain}
-		for _, route := range m.routes {
+		// snapshot under RLock — generateCaddyfile runs while
+		// AddRoute may be called from a watcher goroutine. ADR-028.
+		for _, route := range m.snapshotRoutes() {
 			writeRouteBlock(&b, route, m.domain, tls)
 			b.WriteString("\n")
 		}
@@ -147,7 +149,7 @@ func writeRouteBlock(b *strings.Builder, route interfaces.ProxyRoute, domain str
 func (m *Manager) GenerateCaddyfileContent() string {
 	var b strings.Builder
 	tls := tlsConfig{mode: m.tlsMode, certsDir: m.certsDir, domain: m.domain}
-	for _, route := range m.routes {
+	for _, route := range m.snapshotRoutes() {
 		writeRouteBlock(&b, route, m.domain, tls)
 		b.WriteString("\n")
 	}

@@ -1,6 +1,8 @@
 # ADR-013: ProxyManager configuration is passed as a value
 
-- **Status:** Accepted — Phase 1 implemented 2026-05-13
+- **Status:** Accepted — Phase 1 implemented 2026-05-13;
+  Phase 2 (setter removal + typed TLSMode) implemented 2026-05-14 in
+  [ADR-032](032-proxy-interface-cleanup.md).
 - **Date:** 2026-05-13
 
 ## Context
@@ -72,16 +74,16 @@ Landed in this commit:
 Not landed (follow-up):
 
 - **Migrate the remaining four call sites** (`down_proxy.go`,
-  `cli/proxy.go`, …). Mechanical: replace 1-4 setter calls with a
-  single `Configure(...)`. Deferred because each touches the
-  up/down hot path and earns no architectural value beyond
-  ergonomics.
+  `cli/proxy.go`, …). ✅ Done 2026-05-14 (ADR-032).
+- **Delete the deprecated setters** once every call site is
+  migrated. ✅ Done 2026-05-14 (ADR-032). All eight setters were
+  removed from the interface, the concrete `Manager`, and the mocks;
+  the field type for `TLSMode` was tightened to the
+  `interfaces.TLSMode` enum at the same time.
 - **Move presenters** (`GetURL`, `HostsLine`) **out of the manager**
   to free functions in `internal/output/`. Same rationale as
   ADR-012's deferred Format moves: the cycle direction makes the
-  relocation non-trivial.
-- **Delete the deprecated setters** once every call site is
-  migrated. Gated on a grep, not build-time enforcement.
+  relocation non-trivial. Still deferred.
 
 ## Consequences
 

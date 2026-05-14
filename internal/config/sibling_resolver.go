@@ -135,8 +135,7 @@ func collectSiblingHostnames(cfg *RaiozConfig) []string {
 
 // ValidateSiblingWorkspace asserts that the consumer and sibling share
 // a workspace — they need the same docker network for DNS resolution
-// to work. A future `--allow-cross-workspace` flag may downgrade this
-// to a warning; for now it's a hard error.
+// to work. Hard error; no escape hatch today.
 func ValidateSiblingWorkspace(consumerWorkspace string, sib *SiblingInfo) error {
 	if sib == nil {
 		return fmt.Errorf("nil sibling info")

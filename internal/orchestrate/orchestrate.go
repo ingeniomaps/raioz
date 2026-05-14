@@ -88,7 +88,7 @@ func (d *Dispatcher) GetHostPID(serviceName string) int {
 }
 
 // selectRunner resolves the runner for a runtime via the package-init
-// registry (ADR-019 / issue 039). Each runner-file registers in its
+// registry (ADR-019). Each runner-file registers in its
 // init(); the registry is exhaustive-checked by
 // TestAllRuntimesHaveRunner. A runtime missing here is a programming
 // error — return a typed error so callers can present it.

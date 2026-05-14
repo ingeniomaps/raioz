@@ -144,4 +144,6 @@ verified by the early-return at `downOrchestrated.go:51`.
 - Predecessor: [ADR-011](011-runtime-state-single-source.md) Phase
   3 retired the interactive prompt that surfaced the symptom of
   this invariant being violated.
+- State-file map (where each file lives, who writes/deletes):
+  [docs/STATE.md](../STATE.md).
 - Issue: 045.

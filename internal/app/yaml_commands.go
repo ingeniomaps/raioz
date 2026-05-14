@@ -9,8 +9,11 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
+	"raioz/internal/audit"
 	"raioz/internal/config"
+	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
@@ -19,7 +22,7 @@ import (
 
 // StatusYAML shows status for a YAML orchestrated project. When `filter` is
 // non-empty, only services / dependencies in that list are reported and any
-// unknown name returns an error so the user notices the typo (issue 014).
+// unknown name returns an error so the user notices the typo.
 func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filter []string) error {
 	if err := validateStatusFilter(proj, filter); err != nil {
 		return err
@@ -69,10 +72,10 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filt
 				runtime = "unknown"
 			}
 
-			// Issue 010 priority 0: when the user declared `proxy.target`,
-			// THAT container is the source of truth — bypass the PID/compose
-			// heuristics that go false-negative for launchers that exit 0
-			// after `docker run -d`.
+			// Priority 0: when the user declared `proxy.target`, THAT
+			// container is the source of truth — bypass the PID/compose
+			// heuristics that go false-negative for launchers that exit
+			// 0 after `docker run -d`.
 			status := "stopped"
 			pidInfo := ""
 			if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
@@ -212,23 +215,13 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 	return nil
 }
 
-// RestartYAML restarts services in a YAML orchestrated project.
-//
-// For each service the runtime is detected before invoking docker:
-//   - Host services (declared with `command:` or `commands:`) are stopped
-//     via custom stop command + PID kill, then re-launched through the
-//     HostRunner — same path the up flow uses, including the settle window.
-//   - Docker services delegate to `docker restart <container>` against the
-//     container name resolved from naming.Container. Same legacy behavior
-//     as before for everything that lives in a container.
-//
-// Issue 013. Without this branching, restart of a host service hit
-// `docker restart raioz-<project>-<svc>` and failed with "No such
-// container", which surprised everyone who declared a `command:` and
-// expected restart to "just work".
+// RestartYAML restarts services in a YAML orchestrated project. Host
+// services (declared with `command:`) go through HostRunner so the
+// settle-window + launcher-pattern logic applies; docker services
+// delegate to `docker restart <container>`. ADR-025.
 func (uc *RestartUseCase) RestartYAML(
 	ctx context.Context, proj *YAMLProject, opts RestartOptions,
-) error {
+) (err error) {
 	services := opts.Services
 	if len(services) == 0 {
 		if !opts.All {
@@ -245,6 +238,30 @@ func (uc *RestartUseCase) RestartYAML(
 			return nil
 		}
 	}
+
+	// Lifecycle audit. Restart can be partial-success at the
+	// per-service level (printed); the lifecycle pair records the
+	// outer Execute outcome only.
+	startTime := time.Now()
+	if auditErr := audit.LogLifecycleStart(
+		ctx, "restart", proj.ProjectName, proj.Deps.Workspace,
+	); auditErr != nil {
+		logging.DebugWithContext(ctx, "audit LogLifecycleStart failed",
+			"error", auditErr.Error())
+	}
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "failure"
+		}
+		if auditErr := audit.LogLifecycleComplete(
+			ctx, "restart", proj.ProjectName, proj.Deps.Workspace,
+			status, time.Since(startTime), err,
+		); auditErr != nil {
+			logging.DebugWithContext(ctx, "audit LogLifecycleComplete failed",
+				"error", auditErr.Error())
+		}
+	}()
 
 	for _, name := range services {
 		if isYAMLHostService(proj, name) {

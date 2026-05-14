@@ -125,14 +125,26 @@ project: my-app
 
 ### Current behavior
 
-| Field state                                  | Behavior                                  |
-| -------------------------------------------- | ----------------------------------------- |
-| `version: "1"`                               | Loads silently. Recommended.              |
-| Field absent                                 | Loads with a warning. Still works.        |
-| Field set to anything else (e.g. `"2"`)      | Loads (no validation yet). Future-only.   |
+| Field state | Behavior |
+| ----------- | -------- |
+| `version: "1"` | Loads silently. Recommended. |
+| Field absent | Loads with a soft warning ("consider adding"). Still works. |
+| `version: "2"` (newer) | Loads with a **loud warning**: this binary supports "1", fields introduced in newer schemas are ignored. Update raioz. |
+| `version: "0"` (older) | Loads with a **loud warning**: semantics may have changed since this binary's expected version. Run `raioz migrate yaml`. |
+| `version: "v1"`, `"1.0"`, `"abc"`, `"-1"` | Loads with a malformed-value warning. Treats the config as if `version: "1"` was declared. |
 
 `raioz init` and `raioz migrate yaml` both write `version: "1"` into newly
 generated files.
+
+The warnings are advisory in v0.6 (issue 054 / ADR-031). Future
+releases may upgrade specific cases to hard errors:
+
+- **v0.7** is the target for hard-erroring on past-version configs
+  (forces a `raioz migrate yaml` before load).
+- **v1.0** is the target for hard-erroring on any mismatch.
+
+The escalation lets configs in real-world repos see one minor
+release of warning before they become breaking.
 
 ### Field evolution policy
 
@@ -410,12 +422,10 @@ fixes this:
   running), raioz waits before invoking `stop:` so the build doesn't
   finish post-stop and leave an orphan.
 
-Environment variables (Go duration strings, e.g. `90s`, `2m`):
-
-| Var | Default | Effect |
-|-----|---------|--------|
-| `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the container. `0s` opts out (legacy behavior). |
-| `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container. `0s` opts out. |
+Tunable via `RAIOZ_LAUNCHER_TIMEOUT` (up-time) and
+`RAIOZ_LAUNCHER_DRAIN_TIMEOUT` (down-time) — see [Environment
+variables (read by raioz)](#environment-variables-read-by-raioz)
+for defaults and the malformed-value behavior.
 
 Skipped automatically when `proxy.target:` is empty or
 host-shaped (a dotted name, IP literal, `localhost`, or
@@ -504,6 +514,57 @@ Generate a config from auto-detection: `raioz init`
 
 ---
 
+## Meta-orchestrator (`kind: meta`)
+
+A meta-orchestrator config has no services or dependencies of its own.
+Its only job is to delegate `raioz up` / `down` / `status` to N
+sibling raioz projects in order. Each sub-project keeps its own
+`raioz.yaml`, `.raioz.state.json`, and lifecycle.
+
+```yaml
+version: "1"
+kind: meta
+workspace: acme
+
+projects:
+  - path: ./api          # always-on
+  - path: ./web          # always-on
+  - path: ./gateway
+    profiles: [edge, validation]   # opt-in
+  - path: ./grafana
+    optional: true
+    profiles: [ops]
+
+startOrder:               # optional: pin the up order
+  - ./api
+  - ./web
+```
+
+| Field         | Type              | Default | Effect |
+|---------------|-------------------|---------|--------|
+| `path`        | string (required) | —       | Path to the sub-project, relative to this meta file. |
+| `optional`    | bool              | `false` | When true, `raioz up` logs a warning and continues if this sub fails instead of aborting. |
+| `profiles`    | string list       | `[]`    | Opt-in tags. Empty = always-on. Non-empty = skipped unless the user passes `--meta-profile` matching one of them. |
+| `startOrder`  | string list (top-level) | empty (use declaration order) | Pin which sub-projects come up first. Down runs in reverse. |
+
+### `--meta-profile` flag
+
+Repeatable flag on `raioz up` / `raioz status`. `raioz down` ignores
+profiles by design — you cannot strand a sub-project that was started
+under a different profile set.
+
+```bash
+raioz up                              # only always-on projects
+raioz up --meta-profile edge          # always-on + projects tagged `edge`
+raioz up --meta-profile edge --meta-profile ops   # union of matches
+raioz down                            # tears down everything declared
+```
+
+`--meta-profile` is distinct from the service-level `--profile` flag
+(which filters services inside a single project); they don't compete.
+
+---
+
 ## Docker resource naming
 
 Service containers use a per-project name; dependencies in a workspace
@@ -539,7 +600,63 @@ sweep by label instead of name prefix:
 
 ---
 
-## Environment variable injection
+## Environment variables (read by raioz)
+
+These environment variables override raioz defaults. Most have
+sensible defaults — set one only when the default doesn't fit
+your setup. `raioz doctor` reports the resolved state of the
+duration-typed vars and exits non-zero if any are malformed
+(ADR-035 / issue 062).
+
+### State and configuration paths
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_HOME` | (unset) | Override the runtime state root entirely. Takes precedence over XDG. |
+| `XDG_STATE_HOME` | `~/.local/state` | Base for `<XDG>/raioz/` (state). Used when `RAIOZ_HOME` is unset (ADR-022). |
+| `XDG_CONFIG_HOME` | `~/.config` | Base for `<XDG>/raioz/` (user prefs). |
+
+### Runtime selection
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_RUNTIME` | `docker` | Container runtime: `docker`, `podman`, or `nerdctl`. |
+| `RAIOZ_LANG` | system locale (`LC_ALL` → `LANG`) | UI language. Currently `en` / `es`. |
+
+### Logging
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_LOG_LEVEL` | `error` | slog level: `debug`, `info`, `warn`, `error`. |
+| `RAIOZ_LOG_JSON` | `false` (auto-`true` in CI) | Emit structured JSON logs instead of text. CI detection looks at `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `JENKINS_URL`, `TRAVIS`, `CIRCLECI`, `CONTINUOUS_INTEGRATION`. |
+
+### Launcher pattern (ADR-025)
+
+Go duration strings (e.g. `90s`, `2m`). `0s` opts out. Malformed
+values warn once and fall back to the default — surfaced by
+`raioz doctor` (ADR-035).
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the launcher's container to appear. |
+| `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container before invoking `stop:`. |
+
+Adding a new duration env var? Append it to
+`host.KnownDurationEnvs()` so `raioz doctor` picks it up — same
+contract as the table above (ADR-035).
+
+### Internal (don't set manually)
+
+These are managed by raioz itself; don't override them.
+
+| Var | Use |
+|-----|-----|
+| `RAIOZ_SIBLING_STACK` | Recursion cycle detection in mode A sibling spawn (ADR-008). |
+| `RAIOZ_CORRELATION_ID` | Request/correlation ID propagated across recursive `raioz up` so audit logs from sibling spawns share an ID. |
+
+---
+
+## Environment variables (injected by raioz)
 
 Raioz injects service discovery env vars automatically:
 

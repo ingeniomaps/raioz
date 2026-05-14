@@ -50,11 +50,36 @@ fi
 
 changed=$(git diff --name-only "$mb" HEAD)
 
+# A schema file is considered "really changed" only when the diff
+# adds or removes a non-comment, non-blank line. Pure comment edits
+# (typo fixes, reformatting, documentation cleanup) don't alter the
+# user contract and don't require a fixture refresh.
+has_substantive_change() {
+    local file="$1"
+    local diff
+    diff=$(git diff -U0 "$mb" HEAD -- "$file" 2>/dev/null || true)
+    [ -z "$diff" ] && return 1
+
+    echo "$diff" | awk '
+        /^(diff |index |--- |\+\+\+ |@@ )/ { next }
+        /^[+-]/ {
+            line = substr($0, 2)
+            sub(/^[[:space:]]+/, "", line)
+            if (line == "" || line ~ /^\/\//) next
+            found = 1
+            exit
+        }
+        END { exit (found ? 0 : 1) }
+    '
+}
+
 schema_changed=false
 for f in "${SCHEMA_FILES[@]}"; do
     if echo "$changed" | grep -Fxq "$f"; then
-        schema_changed=true
-        break
+        if has_substantive_change "$f"; then
+            schema_changed=true
+            break
+        fi
     fi
 done
 

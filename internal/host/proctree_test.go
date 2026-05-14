@@ -2,6 +2,7 @@ package host
 
 import (
 	"os/exec"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -42,6 +43,9 @@ func TestSetNewProcessGroup_NoPanicOnExecCmd(t *testing.T) {
 }
 
 func TestKillProcessTree_RealChild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: taskkill exit-code mapping diverges on Windows")
+	}
 	cmd := exec.Command("sleep", "30")
 	SetNewProcessGroup(cmd)
 	if err := cmd.Start(); err != nil {

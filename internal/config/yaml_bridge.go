@@ -278,22 +278,6 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 	return InfraEntry{Inline: infra}
 }
 
-// schemaVersionWarnings returns advisory warnings about the schema
-// version declared (or missing) in the config. Missing version is not
-// an error today — `raioz init` and `raioz migrate yaml` write it on
-// new configs, but existing files without it still load. See
-// docs/CONFIG_REFERENCE.md#versioning for the evolution policy.
-func schemaVersionWarnings(cfg *RaiozConfig) []string {
-	if cfg == nil || cfg.Version != "" {
-		return nil
-	}
-	return []string{
-		"no 'version:' field declared in raioz.yaml; add `version: \"" +
-			CurrentSchemaVersion + "\"` to lock the schema your config " +
-			"targets — see docs/CONFIG_REFERENCE.md#versioning",
-	}
-}
-
 // yamlDeprecationWarnings walks a parsed RaiozConfig looking for legacy
 // fields that still work but are superseded by newer, clearer alternatives.
 // Returns a flat list of human-readable warnings; callers (cli/up.go) print

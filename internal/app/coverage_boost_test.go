@@ -18,10 +18,6 @@ import (
 // up.go — Execute + stopOtherProjects
 // ---------------------------------------------------------------------------
 
-// TestUpUseCase_Execute_NonExclusive was removed — the mock Dependencies are
-// not wired deeply enough to cover upcase.Execute without nil panics. Testing
-// UpUseCase.Execute end-to-end requires integration-level mocks.
-
 func TestUpUseCase_stopOtherProjects_NoGlobalState(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()

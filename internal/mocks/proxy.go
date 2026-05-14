@@ -10,6 +10,9 @@ import (
 var _ interfaces.ProxyManager = (*MockProxyManager)(nil)
 
 // MockProxyManager is a mock implementation of interfaces.ProxyManager.
+// ADR-032: the 8 per-field SetXXX methods are gone; tests inspect the
+// captured fields after Configure to verify the surface that used to
+// be observed via individual setter calls.
 type MockProxyManager struct {
 	StartFunc               func(ctx context.Context, networkName string) error
 	StopFunc                func(ctx context.Context) error
@@ -18,26 +21,18 @@ type MockProxyManager struct {
 	GetURLFunc              func(serviceName string) string
 	ReloadFunc              func(ctx context.Context) error
 	StatusFunc              func(ctx context.Context) (bool, error)
-	SetDomainFunc           func(domain string)
-	SetTLSModeFunc          func(mode string)
-	SetBindHostFunc         func(host string)
-	SetProjectNameFunc      func(name string)
-	SetNetworkSubnetFunc    func(cidr string)
-	SetContainerIPFunc      func(ip string)
-	SetWorkspaceFunc        func(name string)
 	SaveProjectRoutesFunc   func() error
 	RemoveProjectRoutesFunc func() error
 	RemainingProjectsFunc   func() int
-	SetPublishFunc          func(*bool)
 	HostsLineFunc           func() string
 	ConfigureFunc           func(cfg interfaces.ProxyConfig)
 
-	// Track calls
+	// Captured state — tests assert against these after Configure.
 	AddedRoutes               []interfaces.ProxyRoute
 	StartCalled               bool
 	ProjectName               string
 	Domain                    string
-	TLSMode                   string
+	TLSMode                   interfaces.TLSMode
 	NetworkSubnet             string
 	ContainerIP               string
 	Workspace                 string
@@ -98,54 +93,6 @@ func (m *MockProxyManager) Status(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (m *MockProxyManager) SetDomain(domain string) {
-	m.Domain = domain
-	if m.SetDomainFunc != nil {
-		m.SetDomainFunc(domain)
-	}
-}
-
-func (m *MockProxyManager) SetTLSMode(mode string) {
-	m.TLSMode = mode
-	if m.SetTLSModeFunc != nil {
-		m.SetTLSModeFunc(mode)
-	}
-}
-
-func (m *MockProxyManager) SetBindHost(host string) {
-	if m.SetBindHostFunc != nil {
-		m.SetBindHostFunc(host)
-	}
-}
-
-func (m *MockProxyManager) SetProjectName(name string) {
-	m.ProjectName = name
-	if m.SetProjectNameFunc != nil {
-		m.SetProjectNameFunc(name)
-	}
-}
-
-func (m *MockProxyManager) SetNetworkSubnet(cidr string) {
-	m.NetworkSubnet = cidr
-	if m.SetNetworkSubnetFunc != nil {
-		m.SetNetworkSubnetFunc(cidr)
-	}
-}
-
-func (m *MockProxyManager) SetContainerIP(ip string) {
-	m.ContainerIP = ip
-	if m.SetContainerIPFunc != nil {
-		m.SetContainerIPFunc(ip)
-	}
-}
-
-func (m *MockProxyManager) SetWorkspace(name string) {
-	m.Workspace = name
-	if m.SetWorkspaceFunc != nil {
-		m.SetWorkspaceFunc(name)
-	}
-}
-
 func (m *MockProxyManager) SaveProjectRoutes() error {
 	m.SaveProjectRoutesCalled = true
 	if m.SaveProjectRoutesFunc != nil {
@@ -169,16 +116,6 @@ func (m *MockProxyManager) RemainingProjects() int {
 	return 0
 }
 
-func (m *MockProxyManager) SetPublish(publish *bool) {
-	if publish != nil {
-		m.Publish = *publish
-		m.PublishExplicit = true
-	}
-	if m.SetPublishFunc != nil {
-		m.SetPublishFunc(publish)
-	}
-}
-
 func (m *MockProxyManager) IsPublished() bool {
 	if !m.PublishExplicit {
 		return true // default
@@ -194,16 +131,16 @@ func (m *MockProxyManager) HostsLine() string {
 }
 
 func (m *MockProxyManager) Configure(cfg interfaces.ProxyConfig) {
-	// Echo each field into the corresponding setter so existing tests
-	// that inspect m.ProjectName / m.Domain / etc. keep working.
-	m.SetDomain(cfg.Domain)
-	m.SetTLSMode(cfg.TLSMode)
-	m.SetBindHost(cfg.BindHost)
-	m.SetProjectName(cfg.ProjectName)
-	m.SetWorkspace(cfg.Workspace)
-	m.SetNetworkSubnet(cfg.NetworkSubnet)
-	m.SetContainerIP(cfg.ContainerIP)
-	m.SetPublish(cfg.Publish)
+	m.Domain = cfg.Domain
+	m.TLSMode = cfg.TLSMode
+	m.ProjectName = cfg.ProjectName
+	m.Workspace = cfg.Workspace
+	m.NetworkSubnet = cfg.NetworkSubnet
+	m.ContainerIP = cfg.ContainerIP
+	if cfg.Publish != nil {
+		m.Publish = *cfg.Publish
+		m.PublishExplicit = true
+	}
 	if m.ConfigureFunc != nil {
 		m.ConfigureFunc(cfg)
 	}

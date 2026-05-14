@@ -6,7 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"raioz/internal/audit"
 	"raioz/internal/docker"
 	"raioz/internal/errors"
 	"raioz/internal/host"
@@ -22,7 +24,7 @@ import (
 // downOrchestrated handles raioz down for YAML-based (orchestrated) projects.
 // Instead of using a generated compose file, it stops containers by name
 // and kills host processes tracked in .raioz.state.json.
-func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) error {
+func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (err error) {
 	configPath := opts.ConfigPath
 	if configPath == "" {
 		configPath = "raioz.yaml"
@@ -43,18 +45,41 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	projectDir, _ := filepath.Abs(filepath.Dir(configPath))
 	projectName := deps.Project.Name
 
-	// Issue 012: when the user passed service names, stop only that subset
+	// When the user passed service names, stop only that subset
 	// and leave the network / proxy / state file alone. The rest of the
 	// project keeps running.
 	if len(opts.Services) > 0 {
 		return uc.downSelectiveServices(ctx, deps, projectDir, projectName, opts.Services)
 	}
 
+	// Lifecycle audit. Selective down skips above intentionally
+	// — it isn't a project-wide teardown, just a subset stop.
+	startTime := time.Now()
+	if auditErr := audit.LogLifecycleStart(
+		ctx, "down", projectName, deps.Workspace,
+	); auditErr != nil {
+		logging.DebugWithContext(ctx, "audit LogLifecycleStart failed",
+			"error", auditErr.Error())
+	}
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "failure"
+		}
+		if auditErr := audit.LogLifecycleComplete(
+			ctx, "down", projectName, deps.Workspace,
+			status, time.Since(startTime), err,
+		); auditErr != nil {
+			logging.DebugWithContext(ctx, "audit LogLifecycleComplete failed",
+				"error", auditErr.Error())
+		}
+	}()
+
 	output.PrintProgress("Stopping project " + projectName + "...")
 
 	// Custom `stop:` runs first — only it knows how to tear down whatever
 	// `command:` launched (e.g. `make start` → its own compose project).
-	// Failures are surfaced at the tail of the function (issue 044).
+	// Failures are surfaced at the tail of the function.
 	failedStops := runCustomStopCommands(ctx, deps, projectDir)
 
 	// Tear down compose-based services (yaml `compose:` or auto-detected) by
@@ -296,7 +321,8 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 
 // killProcessGroup kills pid and its descendants (`go run`'s compiled
 // binary, `sh -c`'s grandchildren, etc). Cross-platform via the host
-// helper; best-effort because the process may already be gone.
-func killProcessGroup(pid int) {
+// helper; best-effort because the process may already be gone. Exposed
+// as a var so tests can swap it without delivering real signals.
+var killProcessGroup = func(pid int) {
 	_ = host.KillProcessTree(pid)
 }

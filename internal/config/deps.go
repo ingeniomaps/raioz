@@ -9,7 +9,7 @@ import (
 )
 
 // Type aliases keep `config.Foo` callers compiling while the canonical
-// definitions live in internal/domain/models (see ADR-009 / issue 023).
+// definitions live in internal/domain/models (see ADR-009).
 type (
 	Deps                = models.Deps
 	Project             = models.Project

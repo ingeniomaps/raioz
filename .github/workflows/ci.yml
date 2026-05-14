@@ -48,6 +48,12 @@ jobs:
       - name: Check i18n catalogs in sync
         run: make check-i18n
 
+      - name: Check i18n source discipline (issue 058)
+        run: make check-i18n-source
+
+      - name: Check app-layer infra imports baseline (issue 049)
+        run: make check-app-infra-imports
+
   test:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -100,3 +106,62 @@ jobs:
         run: cd /tmp/ci-test && raioz down && sleep 1 && ! curl -sf http://localhost:8080/ 2>/dev/null
       - name: Test up-down-up cycle (no orphans)
         run: cd /tmp/ci-test && raioz up && sleep 3 && curl -sf http://localhost:8080/ && raioz down
+
+  release-dry-run:
+    # Issue 056: goreleaser packaging-layer gate. The `test` job's
+    # cross-compile step catches build-time forks (Unix-only syscalls,
+    # missing build tags) but not packaging issues — bad archive
+    # templates, broken changelog regex, hook script regressions, etc.
+    # `goreleaser release --snapshot --clean --skip=publish,sign`
+    # exercises the whole pipeline up to (but not including) the
+    # GitHub release publish. Failures here mean a future `git tag v*`
+    # would die in the same place — caught at PR time instead.
+    name: Goreleaser dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: release --snapshot --clean --skip=publish,sign
+      - name: Upload snapshot artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-snapshot-dist
+          path: dist/
+          retention-days: 7
+
+  test-windows:
+    # Issue 050: runtime-behavior gate on Windows. The cross-compile
+    # check in `test` catches build-time forks (e.g. v0.5.1's
+    # syscall.Flock regression); this job catches differences that
+    # only surface when the binary actually runs — os.Rename
+    # semantics, LockFileEx vs Flock, taskkill vs Setpgid, XDG path
+    # fallbacks, etc. Scope: the OS-sensitive packages only, so the
+    # job stays under the Linux-suite wall-clock. Gated on push so
+    # PRs don't pay the slower Windows runner; the cross-compile
+    # gate still runs on every PR.
+    name: Unit tests (Windows, OS-sensitive packages)
+    runs-on: windows-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+      - name: Test OS-sensitive packages
+        shell: bash
+        run: |
+          go test ./internal/naming/... \
+                  ./internal/host/... \
+                  ./internal/audit/... \
+                  ./internal/workspace/... \
+                  ./internal/proxy/... \
+                  ./internal/lock/... \
+                  ./internal/ignore/...

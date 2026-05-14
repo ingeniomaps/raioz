@@ -69,7 +69,7 @@ func TestIsRunning_ReturnsFalse_WhenInspectFails(t *testing.T) {
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	running, err := m.isRunning(context.Background(), "raioz-proxy-proj")
 	if err != nil {
 		t.Fatalf("isRunning returned err: %v", err)
@@ -86,7 +86,7 @@ func TestIsRunning_ReturnsTrue_WhenStatusIsRunning(t *testing.T) {
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	running, err := m.isRunning(context.Background(), "raioz-proxy-proj")
 	if err != nil {
 		t.Fatalf("isRunning: %v", err)
@@ -103,7 +103,7 @@ func TestIsRunning_ReturnsFalse_WhenStatusIsNotRunning(t *testing.T) {
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	running, err := m.isRunning(context.Background(), "raioz-proxy-proj")
 	if err != nil {
 		t.Fatalf("isRunning: %v", err)
@@ -120,7 +120,7 @@ func TestStatus_DelegatesToIsRunning(t *testing.T) {
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	running, err := m.Status(context.Background())
 	if err != nil {
 		t.Fatalf("Status: %v", err)
@@ -137,7 +137,7 @@ func TestStatus_ReturnsFalse_WhenInspectFails(t *testing.T) {
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	running, err := m.Status(context.Background())
 	if err != nil {
 		t.Fatalf("Status: %v", err)
@@ -157,7 +157,7 @@ func TestStop_AlwaysReturnsNil(t *testing.T) {
 			withFakeRuntime(t, fake)
 
 			m := NewManager("")
-			m.SetProjectName("proj")
+			m.projectName = ("proj")
 			if err := m.Stop(context.Background()); err != nil {
 				t.Errorf("Stop should swallow errors, got: %v", err)
 			}
@@ -178,7 +178,7 @@ func TestReload_FailsWhenCaddyReloadFails(t *testing.T) {
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	m.networkName = "net"
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
@@ -211,7 +211,7 @@ esac
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	m.networkName = "net"
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
@@ -237,7 +237,7 @@ func TestReload_SucceedsWhenBothSteps_Ok(t *testing.T) {
 	withFakeRuntime(t, fake)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
+	m.projectName = ("proj")
 	m.networkName = "net"
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
@@ -270,8 +270,8 @@ esac
 	t.Setenv("PATH", dir) // only our fake binary; no mkcert
 
 	m := NewManager("")
-	m.SetProjectName("proj")
-	m.SetTLSMode("") // skip EnsureCerts entirely
+	m.projectName = ("proj")
+	m.tlsMode = ("") // skip EnsureCerts entirely
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -308,8 +308,8 @@ esac
 	t.Setenv("PATH", dir)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
-	m.SetBindHost("0.0.0.0")
+	m.projectName = ("proj")
+	m.bindHost = ("0.0.0.0")
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -336,8 +336,8 @@ esac
 	t.Setenv("PATH", dir)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
-	m.SetTLSMode("letsencrypt") // avoid mkcert codepath
+	m.projectName = ("proj")
+	m.tlsMode = ("letsencrypt") // avoid mkcert codepath
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -377,8 +377,8 @@ esac
 	t.Setenv("PATH", dir)
 
 	m := NewManager("")
-	m.SetProjectName("proj")
-	m.SetTLSMode("mkcert")
+	m.projectName = ("proj")
+	m.tlsMode = ("mkcert")
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",

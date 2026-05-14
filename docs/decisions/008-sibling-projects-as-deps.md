@@ -97,5 +97,10 @@ Invariants:
   `internal/app/upcase/sibling_spawn.go`,
   `internal/docker/sibling_probe.go`,
   `internal/config/sibling_resolver.go`
-- Related: ADR-006 (clone-sync — same risk class), Wave 1 issue
-  026 (readiness probe), GitHub issue #26
+- Related: ADR-006 (clone-sync — same risk class),
+  ADR-010 (workspace lock the child must still take),
+  ADR-026 (Pdeathsig — kernel-level reap of the spawned child),
+  Wave 1 issue 026 (readiness probe), GitHub issue #26.
+- Cross-lock interactions: see [docs/LOCKS.md](../LOCKS.md) for
+  the matrix — `RAIOZ_SIBLING_STACK` is documented there as the
+  bypass signal for the project lock.

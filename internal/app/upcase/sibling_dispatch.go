@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"raioz/internal/audit"
 	"raioz/internal/config"
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
+	"raioz/internal/logging"
 	"raioz/internal/output"
 )
 
@@ -275,20 +277,33 @@ func applySiblingVerdict(
 		if err := spawnSibling(ctx, projectDir, depName, verdict.SiblingInfo); err != nil {
 			return false, err
 		}
+		auditSiblingDeferred(ctx, depName, verdict.SiblingName, "modeA-spawn")
 		return true, nil
 	case siblingSkipModeA:
 		delete(detections, depName)
 		output.PrintProgress(
 			i18n.T("up.sibling_modea_already_up", depName, verdict.SiblingName))
+		auditSiblingDeferred(ctx, depName, verdict.SiblingName, "modeA-already-up")
 		return true, nil
 	case siblingSkipDeferred:
 		delete(detections, depName)
 		output.PrintProgress(
 			i18n.T("up.sibling_dep_skipped", depName, verdict.Reason))
 		*deferredDeps = append(*deferredDeps, depName)
+		auditSiblingDeferred(ctx, depName, verdict.SiblingName, "modeB-fallback")
 		return true, nil
 	}
 	return false, nil
+}
+
+// auditSiblingDeferred records that this consumer's dep is served by
+// a live sibling raioz project (ADR-008). Failure is logged at debug;
+// the audit is observability, not a precondition.
+func auditSiblingDeferred(ctx context.Context, dep, sibling, mode string) {
+	if err := audit.LogSiblingDeferred(ctx, dep, sibling, mode); err != nil {
+		logging.DebugWithContext(ctx, "audit LogSiblingDeferred failed",
+			"error", err.Error())
+	}
 }
 
 // validateRequiredHostname errors when the consumer asked for a

@@ -165,9 +165,9 @@ func TestCreateVolumeSymlinksRelativeNoProjectDir(t *testing.T) {
 
 func TestReadLogTail(t *testing.T) {
 	t.Run("missing file returns empty", func(t *testing.T) {
-		got := readLogTail("/no/such/path/xyz123", 5)
+		got := ReadLogTail("/no/such/path/xyz123", 5)
 		if got != "" {
-			t.Errorf("readLogTail(missing) = %q, want empty", got)
+			t.Errorf("ReadLogTail(missing) = %q, want empty", got)
 		}
 	})
 
@@ -176,8 +176,8 @@ func TestReadLogTail(t *testing.T) {
 		if err := os.WriteFile(f, []byte(""), 0644); err != nil {
 			t.Fatal(err)
 		}
-		if got := readLogTail(f, 5); got != "" {
-			t.Errorf("readLogTail(empty) = %q, want empty", got)
+		if got := ReadLogTail(f, 5); got != "" {
+			t.Errorf("ReadLogTail(empty) = %q, want empty", got)
 		}
 	})
 
@@ -186,9 +186,9 @@ func TestReadLogTail(t *testing.T) {
 		if err := os.WriteFile(f, []byte("a\nb\nc\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		got := readLogTail(f, 5)
+		got := ReadLogTail(f, 5)
 		if got != "a\nb\nc" {
-			t.Errorf("readLogTail(short, 5) = %q, want %q", got, "a\nb\nc")
+			t.Errorf("ReadLogTail(short, 5) = %q, want %q", got, "a\nb\nc")
 		}
 	})
 
@@ -197,9 +197,9 @@ func TestReadLogTail(t *testing.T) {
 		if err := os.WriteFile(f, []byte("1\n2\n3\n4\n5\n6\n7\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		got := readLogTail(f, 3)
+		got := ReadLogTail(f, 3)
 		if got != "5\n6\n7" {
-			t.Errorf("readLogTail(long, 3) = %q, want %q", got, "5\n6\n7")
+			t.Errorf("ReadLogTail(long, 3) = %q, want %q", got, "5\n6\n7")
 		}
 	})
 }

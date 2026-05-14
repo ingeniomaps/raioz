@@ -13,7 +13,7 @@ var _ interfaces.TunnelManager = (*ManagerImpl)(nil)
 // ManagerImpl adapts internal/tunnel to the TunnelManager port. The
 // backend selection logic (cloudflared vs bore) stays inside the
 // underlying package; this wrapper exists purely so the app layer can
-// program against the port — see ADR-015 / issue 035.
+// program against the port — see ADR-015.
 type ManagerImpl struct {
 	mgr *tunnelpkg.Manager
 }

@@ -7,8 +7,10 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"raioz/internal/config"
+	"raioz/internal/logging"
 )
 
 // --- stack helpers --------------------------------------------------------
@@ -130,6 +132,91 @@ func TestSpawnSibling_FailureIncludesDiagnosticHint(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "raioz up") {
 		t.Errorf("error should suggest the diagnostic command, got %v", err)
+	}
+}
+
+// TestSpawnSibling_PdeathsigKillsOrphans guards ADR-026
+// end-to-end on Linux: when the parent process exits without
+// reaping the spawn, the child must die via Pdeathsig. We simulate
+// that path by spawning a long-running fake binary, then cancelling
+// the parent ctx (mirrors a Ctrl+C). The actual Pdeathsig signal
+// comes from the kernel when this test process exits — but the
+// ctx-cancellation half (which is what cmd.Process.Kill rides on)
+// fires immediately and is what we can assert here.
+func TestSpawnSibling_PdeathsigKillsOrphans(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Pdeathsig is Linux-only")
+	}
+	// Fake binary sleeps long enough that ctx cancellation must be
+	// what stops it.
+	dir := t.TempDir()
+	binPath := filepath.Join(dir, "fakeraioz")
+	body := "#!/bin/sh\nsleep 30\n"
+	if err := os.WriteFile(binPath, []byte(body), 0o755); err != nil {
+		t.Fatalf("write fake raioz: %v", err)
+	}
+	prev := spawnRaiozBinary
+	spawnRaiozBinary = func() (string, error) { return binPath, nil }
+	t.Cleanup(func() { spawnRaiozBinary = prev })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sib := &config.SiblingInfo{Dir: t.TempDir(), Project: "kc"}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- spawnSibling(ctx, "/consumer", "kc", sib)
+	}()
+
+	// Let the spawn start, then cancel — emulates Ctrl+C on parent.
+	time.Sleep(150 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+		// spawnSibling returned: cmd.Wait observed ctx cancellation
+		// and the process is reaped. Test passes.
+	case <-time.After(5 * time.Second):
+		t.Fatal("spawnSibling did not return within 5s after ctx cancel — " +
+			"child likely orphaned")
+	}
+}
+
+// TestSpawnSibling_PropagatesCorrelationID asserts ADR-024:
+// the parent ctx's request ID is propagated to the spawned child via
+// the RAIOZ_CORRELATION_ID env var so audit/log records share the
+// value across the spawn tree.
+func TestSpawnSibling_PropagatesCorrelationID(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake binary scripts are POSIX-only")
+	}
+	// Fake raioz binary writes its inherited correlation env var to a
+	// known file so the parent test can verify propagation.
+	dir := t.TempDir()
+	probe := filepath.Join(dir, "captured-cid")
+	body := "#!/bin/sh\nprintf '%s' \"$RAIOZ_CORRELATION_ID\" > " + probe + "\n"
+	binPath := filepath.Join(dir, "fakeraioz")
+	if err := os.WriteFile(binPath, []byte(body), 0o755); err != nil {
+		t.Fatalf("write fake raioz: %v", err)
+	}
+	prev := spawnRaiozBinary
+	spawnRaiozBinary = func() (string, error) { return binPath, nil }
+	t.Cleanup(func() { spawnRaiozBinary = prev })
+
+	ctx := logging.WithRequestID(context.Background())
+	parentID := logging.GetRequestID(ctx)
+
+	sib := &config.SiblingInfo{Dir: t.TempDir(), Project: "kc"}
+	if err := spawnSibling(ctx, "/consumer", "kc", sib); err != nil {
+		t.Fatalf("spawnSibling: %v", err)
+	}
+
+	captured, err := os.ReadFile(probe)
+	if err != nil {
+		t.Fatalf("read probe file: %v", err)
+	}
+	if string(captured) != parentID {
+		t.Errorf("child saw RAIOZ_CORRELATION_ID=%q, want parent's %q",
+			string(captured), parentID)
 	}
 }
 

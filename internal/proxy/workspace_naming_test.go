@@ -11,7 +11,7 @@ func TestManager_ContainerName_PerProject(t *testing.T) {
 	defer naming.SetPrefix("")
 
 	m := NewManager("")
-	m.SetProjectName("api")
+	m.projectName = ("api")
 	// no workspace → legacy per-project naming
 	got := m.containerName()
 	if got != "raioz-proxy-api" {
@@ -24,8 +24,8 @@ func TestManager_ContainerName_WorkspaceShared(t *testing.T) {
 	defer naming.SetPrefix("")
 
 	m := NewManager("")
-	m.SetProjectName("api")
-	m.SetWorkspace("acme")
+	m.projectName = ("api")
+	m.workspaceName = ("acme")
 
 	got := m.containerName()
 	if got != "acme-proxy" {
@@ -38,7 +38,7 @@ func TestManager_CaddyVolume_PerProject(t *testing.T) {
 	defer naming.SetPrefix("")
 
 	m := NewManager("")
-	m.SetProjectName("api")
+	m.projectName = ("api")
 	got := m.caddyVolume()
 	if got != "raioz-caddy-api" {
 		t.Errorf("expected raioz-caddy-api, got %q", got)
@@ -50,8 +50,8 @@ func TestManager_CaddyVolume_WorkspaceShared(t *testing.T) {
 	defer naming.SetPrefix("")
 
 	m := NewManager("")
-	m.SetProjectName("api")
-	m.SetWorkspace("acme")
+	m.projectName = ("api")
+	m.workspaceName = ("acme")
 
 	got := m.caddyVolume()
 	if got != "acme-caddy" {
@@ -64,11 +64,11 @@ func TestManager_IsWorkspaceShared(t *testing.T) {
 	if m.isWorkspaceShared() {
 		t.Error("default Manager should not be in workspace-shared mode")
 	}
-	m.SetWorkspace("acme")
+	m.workspaceName = ("acme")
 	if !m.isWorkspaceShared() {
 		t.Error("after SetWorkspace(non-empty), must be shared")
 	}
-	m.SetWorkspace("")
+	m.workspaceName = ("")
 	if m.isWorkspaceShared() {
 		t.Error("SetWorkspace(\"\") must revert to per-project mode")
 	}

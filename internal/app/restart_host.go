@@ -14,15 +14,15 @@ import (
 
 // restartHostService stops and re-launches a single host service. Used by
 // RestartYAML to handle services declared with `command:` / `commands:`
-// (issue 013). Workflow:
+// . Workflow:
 //
 //  1. Look up the running PID in .raioz.state.json. Run the user's
 //     `stop:` command first when declared (typical for launchers like
 //     `make dev-docker` whose grandchildren can't be killed by PID).
 //  2. Otherwise, kill the process tree.
 //  3. Re-launch through HostRunner.StartService — the same path the up
-//     flow uses, so the settle window (issue 008) and proxy.target
-//     bookkeeping (issue 010) apply uniformly.
+//     flow uses, so the settle window and proxy.target
+//     bookkeeping apply uniformly.
 //  4. Persist the new PID back to .raioz.state.json so subsequent status
 //     / down still match.
 func (uc *RestartUseCase) restartHostService(

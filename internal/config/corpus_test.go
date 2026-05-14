@@ -43,6 +43,16 @@ func TestConfigCorpus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(corpusDir, name)
 
+			// Meta-orchestrator fixtures go through LoadMetaConfig — the
+			// same loader the CLI uses when `kind: meta`. They do not
+			// have a `project:` (the meta shape isn't a project).
+			if meta, isMeta, err := LoadMetaConfig(path); err == nil && isMeta {
+				if meta == nil || len(meta.Projects) == 0 {
+					t.Fatalf("LoadMetaConfig(%s): empty Projects list", name)
+				}
+				return
+			}
+
 			cfg, err := LoadYAML(path)
 			if err != nil {
 				t.Fatalf("LoadYAML(%s): %v", name, err)
@@ -59,7 +69,7 @@ func TestConfigCorpus(t *testing.T) {
 
 	if yamlCount < 15 {
 		t.Fatalf("corpus has %d fixtures; minimum is 15 per the corpus charter "+
-			"(see internal/config/testdata/configs/README.md or issue 027)",
+			"(see internal/config/testdata/configs/README.md)",
 			yamlCount)
 	}
 }

@@ -17,8 +17,7 @@ var _ interfaces.StateManager = (*MockStateManager)(nil)
 // touch them; migrate fixtures to MockDockerRunner.IsProjectActiveFunc
 // when they need to control project liveness.
 type MockStateManager struct {
-	// Deprecated noop fields (kept to avoid a sweeping test rewrite;
-	// remove in a follow-up once stale tests are cleaned up).
+	// Deprecated noop fields kept to avoid a sweeping test rewrite.
 	LoadFunc          func(ws *workspace.Workspace) (*models.Deps, error)
 	SaveFunc          func(ws *workspace.Workspace, deps *models.Deps) error
 	ExistsFunc        func(ws *workspace.Workspace) bool

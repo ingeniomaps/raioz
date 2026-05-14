@@ -13,7 +13,7 @@ import (
 // callers fall back to the workspace-generated compose path, which is
 // always present.
 //
-// Introduced by ADR-011 Phase 2 (issue 031a) so inspection commands
+// Introduced by ADR-011 Phase 2 so inspection commands
 // (`logs`, `exec`, `restart`, `status`) can find the user's compose
 // file without consulting the deprecated whole-Deps snapshot.
 func loadProjectComposePathFromLocalState(configPath string) string {

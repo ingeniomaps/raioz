@@ -49,7 +49,7 @@ func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
 	}
 
 	// ADR-011 Phase 2: liveness via Docker labels, ProjectComposePath
-	// via LocalState. See ADR-011 / issue 031a.
+	// via LocalState. See ADR-011.
 	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
 	if err != nil {
 		return errors.New(

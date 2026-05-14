@@ -1,0 +1,36 @@
+# Baseline allowlist for scripts/check-i18n-source.sh — issue 058.
+#
+# Format: <path-relative-to-repo>:<max-violations>
+#
+# Each entry caps how many raw English strings the matching grep
+# allows in `output.Print*` calls. The number must monotonically
+# decrease: a contributor either touches a violation in the file and
+# either drops the count (preferred) or i18n's it out entirely,
+# removing the entry. A NEW file is never allowed; remove its entry
+# to commit zero violations.
+#
+# Run `make check-i18n-source` to verify. To regenerate the live
+# numbers (only after migrating a file completely):
+#
+#   grep -rEn 'output\.Print[A-Z][a-zA-Z]*\("[A-Z]' internal \
+#       --include="*.go" | grep -v _test.go | cut -d: -f1 \
+#       | sort | uniq -c | sort -rn
+#
+internal/app/yaml_commands.go:5
+internal/app/list.go:5
+internal/app/status_orchestrated.go:4
+internal/app/init_scan.go:4
+internal/app/dev.go:4
+internal/app/upcase/watch_setup.go:3
+internal/app/down_proxy.go:3
+internal/cli/tunnel.go:2
+internal/cli/snapshot.go:2
+internal/app/yaml_check.go:2
+internal/app/upcase/log_stream.go:2
+internal/app/status_output.go:2
+internal/app/down_orchestrated.go:2
+internal/config/auto_detect.go:1
+internal/cli/migrate_yaml.go:1
+internal/cli/migrate.go:1
+internal/app/upcase/infra_health.go:1
+internal/app/down_compose.go:1

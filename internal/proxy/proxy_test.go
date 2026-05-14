@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -226,6 +227,9 @@ func TestProbeTCPDial_DetectsRealListener(t *testing.T) {
 }
 
 func TestProbeTCPDial_NobodyListening(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: Windows TCP dial semantics differ from Unix")
+	}
 	// Pick a port that's almost certainly free (high ephemeral, then close).
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	port := ln.Addr().(*net.TCPAddr).Port
@@ -239,6 +243,9 @@ func TestProbeTCPDial_NobodyListening(t *testing.T) {
 }
 
 func TestProbeTCPBind_RealOccupation(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: Windows TCP bind semantics differ from Unix")
+	}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listener: %v", err)

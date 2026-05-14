@@ -30,14 +30,14 @@ type LocalState struct {
 	// at up-time and consumed by inspection commands (`logs`, `exec`,
 	// `restart`) so they don't need to redetect or fall back to the
 	// legacy whole-Deps snapshot. Empty when no compose file was used
-	// (pure host services). Added in ADR-011 Phase 2 (issue 031a).
+	// (pure host services). Added in ADR-011 Phase 2.
 	ProjectComposePath string `json:"projectComposePath,omitempty"`
 
 	// ProjectRoot is the absolute path to the directory that holds
 	// `raioz.yaml` for this project. Captured at up-time so commands
 	// invoked from anywhere can locate the project source without
 	// requiring the user to be in the project directory. Added in
-	// ADR-011 Phase 2 (issue 031a).
+	// ADR-011 Phase 2.
 	ProjectRoot string `json:"projectRoot,omitempty"`
 }
 

@@ -1,5 +1,5 @@
 // Package proxy is a thin wrapper around internal/proxy so the wiring
-// layer (internal/cli/wiring.go, ADR-018 / issue 038) builds every
+// layer (internal/cli/wiring.go, ADR-018) builds every
 // port adapter from a single uniform location under internal/infra/.
 //
 // The wrapper exists for layering, not for behavior — every call

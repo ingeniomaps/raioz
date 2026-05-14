@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"raioz/internal/audit"
 	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
+	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
@@ -176,6 +178,13 @@ func (uc *DevUseCase) promote(
 		output.PrintWarning("Failed to save state: " + err.Error())
 	}
 
+	// Audit the promotion. Failure is logged at debug only —
+	// dev mode is already up; an audit miss is not user-visible.
+	if auditErr := audit.LogDevPromoted(ctx, name, absPath, originalImage); auditErr != nil {
+		logging.DebugWithContext(ctx, "audit LogDevPromoted failed",
+			"error", auditErr.Error())
+	}
+
 	output.PrintSuccess(fmt.Sprintf("%s: now running from %s", name, absPath))
 	return nil
 }
@@ -235,6 +244,12 @@ func (uc *DevUseCase) resetOverride(
 	localState.RemoveDevOverride(name)
 	if err := state.SaveLocalState(projectDir, localState); err != nil {
 		output.PrintWarning("Failed to save state: " + err.Error())
+	}
+
+	// Audit the revert. Best-effort; same rationale as promote.
+	if auditErr := audit.LogDevReverted(ctx, name, override.OriginalImage); auditErr != nil {
+		logging.DebugWithContext(ctx, "audit LogDevReverted failed",
+			"error", auditErr.Error())
 	}
 
 	output.PrintSuccess(fmt.Sprintf("%s: restored to %s", name, override.OriginalImage))

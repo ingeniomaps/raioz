@@ -16,7 +16,7 @@ import (
 // proxy state to serialize against in that mode.
 func TestWorkspaceLock_NoopInPerProjectMode(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("solo") // no SetWorkspace
+	m.projectName = ("solo") // no SetWorkspace
 
 	release, err := m.acquireWorkspaceLock()
 	if err != nil {

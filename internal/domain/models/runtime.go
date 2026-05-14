@@ -40,8 +40,8 @@ const (
 // (which is the "we didn't find anything" sentinel, not a real
 // runtime callers ever dispatch to).
 //
-// Used by the orchestrate registry's exhaustiveness test (issue 039 /
-// ADR-019) to verify every runtime has a runner. Adding a new Runtime
+// Used by the orchestrate registry's exhaustiveness test (ADR-019)
+// to verify every runtime has a runner. Adding a new Runtime
 // constant above must come with adding it here AND registering a
 // runner; the test catches the missing-runner case.
 func AllRuntimes() []Runtime {

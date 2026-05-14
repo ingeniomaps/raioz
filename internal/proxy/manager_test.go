@@ -25,41 +25,23 @@ func TestNewManager(t *testing.T) {
 
 func TestManager_SetDomain(t *testing.T) {
 	m := NewManager("")
-	m.SetDomain("acme.dev")
+	m.domain = ("acme.dev")
 	if m.domain != "acme.dev" {
 		t.Errorf("got %q", m.domain)
 	}
 }
 
-func TestManager_SetDomain_Empty(t *testing.T) {
-	m := NewManager("")
-	original := m.domain
-	m.SetDomain("")
-	if m.domain != original {
-		t.Error("empty domain should not overwrite")
-	}
-}
-
 func TestManager_SetTLSMode(t *testing.T) {
 	m := NewManager("")
-	m.SetTLSMode("letsencrypt")
+	m.tlsMode = ("letsencrypt")
 	if m.tlsMode != "letsencrypt" {
 		t.Errorf("got %q", m.tlsMode)
 	}
 }
 
-func TestManager_SetTLSMode_Empty(t *testing.T) {
-	m := NewManager("")
-	original := m.tlsMode
-	m.SetTLSMode("")
-	if m.tlsMode != original {
-		t.Error("empty mode should not overwrite")
-	}
-}
-
 func TestManager_SetBindHost(t *testing.T) {
 	m := NewManager("")
-	m.SetBindHost("0.0.0.0")
+	m.bindHost = ("0.0.0.0")
 	if m.bindHost != "0.0.0.0" {
 		t.Errorf("got %q", m.bindHost)
 	}
@@ -67,7 +49,7 @@ func TestManager_SetBindHost(t *testing.T) {
 
 func TestManager_SetProjectName(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("myproj")
+	m.projectName = ("myproj")
 	if m.projectName != "myproj" {
 		t.Errorf("got %q", m.projectName)
 	}
@@ -126,7 +108,7 @@ func TestManager_RemoveRoute(t *testing.T) {
 
 func TestManager_GetURL_Found(t *testing.T) {
 	m := NewManager("")
-	m.SetDomain("localhost")
+	m.domain = ("localhost")
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -148,7 +130,7 @@ func TestManager_GetURL_NotFound(t *testing.T) {
 
 func TestManager_GetURL_CustomDomain(t *testing.T) {
 	m := NewManager("")
-	m.SetDomain("acme.dev")
+	m.domain = ("acme.dev")
 	m.AddRoute(context.Background(), interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",

@@ -201,7 +201,6 @@ func recordUserDecision(projectName string, replace bool, sm interfaces.StateMan
 	// Update decision
 	decisions[projectName] = replace
 
-	// Save decisions (simple format for now)
 	var lines []string
 	lines = append(lines, "# User decisions for project replacement")
 	lines = append(lines, "# Format: project-name: true|false")

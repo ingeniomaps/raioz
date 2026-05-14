@@ -1,5 +1,5 @@
 // Package discovery is a thin wrapper around internal/discovery so the
-// wiring layer (internal/cli/wiring.go, ADR-018 / issue 038) builds
+// wiring layer (internal/cli/wiring.go, ADR-018) builds
 // every port adapter from a single uniform location under
 // internal/infra/.
 //

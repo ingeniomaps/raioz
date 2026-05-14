@@ -12,9 +12,9 @@ import (
 )
 
 // declaredServiceNames / declaredInfraNames / hasService / hasInfra are
-// trivial but they're the resolution surface for issue 012's "is this a
-// known target?" check. Pinning them prevents a future refactor from
-// silently dropping a kind.
+// trivial but they're the resolution surface for the selective-down
+// "is this a known target?" check. Pinning them prevents a future
+// refactor from silently dropping a kind.
 func TestHasServiceAndInfra(t *testing.T) {
 	deps := &models.Deps{
 		Services: map[string]models.Service{"api": {}, "web": {}},

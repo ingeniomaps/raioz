@@ -86,8 +86,8 @@ func TestValidateProxyIP_Empty(t *testing.T) {
 
 func TestManager_ResolveContainerIP_ExplicitWins(t *testing.T) {
 	m := NewManager("")
-	m.SetNetworkSubnet("172.28.0.0/16")
-	m.SetContainerIP("172.28.5.5")
+	m.networkSubnet = ("172.28.0.0/16")
+	m.containerIP = ("172.28.5.5")
 
 	got, err := m.resolveContainerIP()
 	if err != nil {
@@ -100,7 +100,7 @@ func TestManager_ResolveContainerIP_ExplicitWins(t *testing.T) {
 
 func TestManager_ResolveContainerIP_DefaultFromSubnet(t *testing.T) {
 	m := NewManager("")
-	m.SetNetworkSubnet("10.3.0.0/16")
+	m.networkSubnet = ("10.3.0.0/16")
 	// no SetContainerIP
 
 	got, err := m.resolveContainerIP()
@@ -125,8 +125,8 @@ func TestManager_ResolveContainerIP_NoSubnetNoIP(t *testing.T) {
 
 func TestManager_ResolveContainerIP_InvalidExplicit(t *testing.T) {
 	m := NewManager("")
-	m.SetNetworkSubnet("172.28.0.0/16")
-	m.SetContainerIP("10.0.0.5") // outside subnet
+	m.networkSubnet = ("172.28.0.0/16")
+	m.containerIP = ("10.0.0.5") // outside subnet
 
 	if _, err := m.resolveContainerIP(); err == nil {
 		t.Error("invalid explicit IP must propagate the validation error")

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"sync"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/logging"
@@ -17,6 +18,11 @@ import (
 
 // Manager implements interfaces.ProxyManager using Caddy as a Docker container.
 type Manager struct {
+	// routesMu guards the routes map. Writers (AddRoute/RemoveRoute)
+	// take the write lock; readers iterate via snapshotRoutes() so
+	// docker-exec calls in Start/Reload don't hold the lock for the
+	// full subprocess duration. ADR-028.
+	routesMu    sync.RWMutex
 	routes      map[string]interfaces.ProxyRoute
 	networkName string
 	projectName string // used for per-project container/volume naming
@@ -97,11 +103,12 @@ func (m *Manager) ContainerIP() string {
 // print" rather than an error condition.
 func (m *Manager) HostsLine() string {
 	ip := m.ContainerIP()
-	if ip == "" || len(m.routes) == 0 {
+	routes := m.snapshotRoutes()
+	if ip == "" || len(routes) == 0 {
 		return ""
 	}
-	hosts := make([]string, 0, len(m.routes))
-	for _, route := range m.routes {
+	hosts := make([]string, 0, len(routes))
+	for _, route := range routes {
 		hosts = append(hosts, route.Hostname+"."+m.domain)
 	}
 	sort.Strings(hosts) // stable output for diffs / docs
@@ -149,23 +156,16 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		return m.Reload(ctx)
 	}
 
-	// Remove any stale container left over from a prior failed run. Docker
-	// keeps containers that failed to start in `Created` / `Exited` state,
-	// and attempting `docker run --name <same>` on top of that returns
-	// "container name already in use" — in the old code that error bubbled
-	// up as a warning and `up` continued with a permanently broken proxy.
+	// Sweep stale container — otherwise `docker run --name <same>`
+	// after a prior failure returns "container name already in use".
 	if err := m.removeStaleContainer(ctx, containerName); err != nil {
 		logging.WarnWithContext(ctx, "Failed to remove stale proxy container",
 			"name", containerName, "error", err.Error())
 	}
 
-	// Pre-flight: fail fast if the host ports the proxy wants are already
-	// taken (another web server, a sibling raioz project, etc.). Without
-	// this, the `docker run` below returns a cryptic "port is already
-	// allocated" and the proxy ends up stuck in Created forever.
-	//
-	// Skipped entirely when publish is off — we're not binding the host
-	// ports at all in that mode.
+	// Pre-flight host-port check (skipped when publish is off — we
+	// aren't binding host ports). Catches sibling raioz / other
+	// servers occupying 80/443 before the docker run.
 	if m.publish {
 		if err := m.checkPortsAvailable(); err != nil {
 			return err
@@ -188,12 +188,9 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		}
 	}
 
-	// Catch the "Docker auto-created our bind-mount source as root" trap
-	// before generateCaddyfile fails with a cryptic "is a directory" or
-	// "permission denied". When the user upgraded from a pre-XDG build,
-	// or when a previous run left a corrupt tree, we want a single
-	// actionable error pointing to the exact `sudo rm -rf` command.
-	// Issue 015.
+	// The "Docker auto-created bind-mount source as root"
+	// trap. Surfaces a single actionable error before generateCaddyfile
+	// fails cryptically.
 	if err := m.assertProxyDirWritable(); err != nil {
 		return err
 	}
@@ -264,8 +261,8 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 	// Add network aliases for all routes so containers can resolve *.localhost.
 	// Each alias in route.Aliases needs its own --network-alias so
 	// container→container DNS works for every hostname, not just the
-	// primary.
-	for _, route := range m.routes {
+	// primary. Snapshot so the lock isn't held during docker run below.
+	for _, route := range m.snapshotRoutes() {
 		args = append(args, "--network-alias", route.Hostname+"."+m.domain)
 		for _, alias := range route.Aliases {
 			if alias == "" {
@@ -303,18 +300,24 @@ func (m *Manager) Stop(ctx context.Context) error {
 
 // AddRoute adds or updates a proxy route for a service.
 func (m *Manager) AddRoute(_ context.Context, route interfaces.ProxyRoute) error {
+	m.routesMu.Lock()
+	defer m.routesMu.Unlock()
 	m.routes[route.ServiceName] = route
 	return nil
 }
 
 // RemoveRoute removes a proxy route.
 func (m *Manager) RemoveRoute(_ context.Context, serviceName string) error {
+	m.routesMu.Lock()
+	defer m.routesMu.Unlock()
 	delete(m.routes, serviceName)
 	return nil
 }
 
 // GetURL returns the HTTPS URL for a service.
 func (m *Manager) GetURL(serviceName string) string {
+	m.routesMu.RLock()
+	defer m.routesMu.RUnlock()
 	route, ok := m.routes[serviceName]
 	if !ok {
 		return ""
@@ -347,7 +350,7 @@ func (m *Manager) Reload(ctx context.Context) error {
 	if output, err := reload.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to reload proxy: %w\n%s", err, string(output))
 	}
-	logging.InfoWithContext(ctx, "Proxy reloaded", "routes", len(m.routes))
+	logging.InfoWithContext(ctx, "Proxy reloaded", "routes", m.routesCount())
 	return nil
 }
 
@@ -389,5 +392,3 @@ func (m *Manager) removeStaleContainer(ctx context.Context, containerName string
 	}
 	return nil
 }
-
-// shouldn't require free 80/443 on the test host.

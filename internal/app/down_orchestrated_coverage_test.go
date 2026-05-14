@@ -270,7 +270,7 @@ func TestRunCustomStopCommands_FailingCommand(t *testing.T) {
 			},
 		},
 	}
-	// Issue 044: failures must surface, but every service still gets
+	// Failures must surface, but every service still gets
 	// a stop attempt (best-effort teardown).
 	failed := runCustomStopCommands(context.Background(), deps, tmpDir)
 	if len(failed) != 1 || failed[0] != "api" {

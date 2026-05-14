@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -31,6 +32,9 @@ func TestLoadProcessesStateMissingFile(t *testing.T) {
 }
 
 func TestSaveAndLoadProcessesState(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: Windows ACL doesn't map to Unix 0600 perms")
+	}
 	ws := newTestWorkspace(t)
 
 	processes := map[string]*ProcessInfo{

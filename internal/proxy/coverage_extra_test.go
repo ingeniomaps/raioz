@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 
 func TestGenerateCaddyfileContent_ZeroPort(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -85,7 +86,7 @@ func TestGenerateCaddyfileContent_AllRouteTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewManager("")
-			m.SetProjectName("test")
+			m.projectName = ("test")
 			m.AddRoute(nil, tt.route)
 
 			got := m.GenerateCaddyfileContent()
@@ -105,8 +106,8 @@ func TestGenerateCaddyfile_GlobalOptions_MkcertWithCerts(t *testing.T) {
 	t.Setenv("RAIOZ_HOME", home)
 
 	m := NewManager("/certs")
-	m.SetProjectName("test")
-	m.SetTLSMode("mkcert")
+	m.projectName = ("test")
+	m.tlsMode = ("mkcert")
 	m.networkName = "test-net"
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
@@ -137,9 +138,9 @@ func TestGenerateCaddyfile_GlobalOptions_LetsEncrypt(t *testing.T) {
 	t.Setenv("RAIOZ_HOME", home)
 
 	m := NewManager("")
-	m.SetProjectName("test")
-	m.SetTLSMode("letsencrypt")
-	m.SetDomain("acme.com")
+	m.projectName = ("test")
+	m.tlsMode = ("letsencrypt")
+	m.domain = ("acme.com")
 	m.networkName = "test-net"
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
@@ -228,6 +229,9 @@ func TestManager_AddRemoveRoute_Context(t *testing.T) {
 }
 
 func TestEnsureCerts_HomeDirUnavailable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
+	}
 	// Set HOME to empty which makes os.UserHomeDir fail on some systems
 	// but more reliably: test the existing-certs path with pre-created files
 	home := t.TempDir()

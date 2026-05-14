@@ -73,15 +73,18 @@ func (m *Manager) SaveProjectRoutes() error {
 	}
 
 	// Sort routes by service name so the file content is stable across
-	// runs (helpful for diff-friendly persistence and review).
-	names := make([]string, 0, len(m.routes))
-	for k := range m.routes {
+	// runs (helpful for diff-friendly persistence and review). Snapshot
+	// under RLock — workspace-shared mode can race AddRoute across
+	// concurrent up flows. ADR-028.
+	snap := m.snapshotRoutes()
+	names := make([]string, 0, len(snap))
+	for k := range snap {
 		names = append(names, k)
 	}
 	sort.Strings(names)
 	routes := make([]interfaces.ProxyRoute, 0, len(names))
 	for _, n := range names {
-		routes = append(routes, m.routes[n])
+		routes = append(routes, snap[n])
 	}
 
 	pp := persistedProject{

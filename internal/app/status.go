@@ -21,7 +21,7 @@ type StatusOptions struct {
 	JSON        bool
 	// Services restricts the report to a subset. Empty means "everything"
 	// (legacy behavior). When non-empty, services and deps not listed are
-	// hidden from the report. Issue 014.
+	// hidden from the report.
 	Services []string
 }
 

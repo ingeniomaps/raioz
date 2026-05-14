@@ -10,7 +10,6 @@ import (
 
 // MetaConfig is the resolved meta-orchestrator view of a raioz.yaml whose
 // kind is "meta". The Workspace + Path of each sub-project are absolute.
-// Issue 011.
 type MetaConfig struct {
 	Workspace string
 	BaseDir   string
@@ -26,6 +25,10 @@ type MetaProject struct {
 	// raioz.yaml lives).
 	Path     string
 	Optional bool
+	// Profiles list the opt-in tags. Empty = always-on. Non-empty means
+	// the project is skipped unless one of the user's active profiles
+	// matches. See YAMLMetaProject.Profiles for the user-facing semantics.
+	Profiles []string
 }
 
 // LoadMetaConfig parses the file at path as a meta-orchestrator config.
@@ -75,6 +78,7 @@ func LoadMetaConfig(path string) (*MetaConfig, bool, error) {
 			Name:     filepath.Base(p.Path),
 			Path:     abs,
 			Optional: p.Optional,
+			Profiles: append([]string(nil), p.Profiles...),
 		})
 		byPath[p.Path] = len(resolved) - 1
 	}

@@ -11,6 +11,7 @@ import (
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -18,21 +19,12 @@ import (
 )
 
 // startProxy wires Caddy routes for every service/dependency and starts the
-// proxy container. Extracted from processOrchestration to keep that file
-// under the 400-line repo cap.
+// proxy container. Routing rules: docker services resolve via container DNS
+// on the shared network; host services via host.docker.internal; ports come
+// from detections (already populated by the allocator).
 //
-// The routing rules match the current proxy behavior:
-//
-//  1. Docker services resolve via container DNS on the shared network.
-//  2. Host services resolve via host.docker.internal so the proxy (which
-//     runs inside Docker) can reach the developer's host process.
-//  3. Ports come from detections — which at this point already contain the
-//     allocator's resolved port for host services.
-//
-// Returns an error when the proxy cannot start. The caller treats this as a
-// hard `up` failure: once `proxy: true` is in raioz.yaml the user has
-// explicitly asked for unified HTTPS, and silently continuing with a broken
-// proxy produces a half-working dev environment that's worse than none.
+// Returns an error when the proxy cannot start — caller treats this as hard
+// `up` failure since `proxy: true` is an explicit HTTPS request.
 func (uc *UseCase) startProxy(
 	ctx context.Context,
 	deps *models.Deps,
@@ -40,7 +32,8 @@ func (uc *UseCase) startProxy(
 	serviceNames []string,
 	networkName string,
 ) error {
-	// ADR-013: single Configure call replaces the 4-8 setter dance.
+	// ADR-013 / ADR-032: single Configure call; TLS string normalized
+	// through ParseTLSMode (legacy mkcert/letsencrypt aliases accepted).
 	cfg := interfaces.ProxyConfig{
 		ProjectName:   deps.Project.Name,
 		Workspace:     deps.Workspace,
@@ -48,13 +41,15 @@ func (uc *UseCase) startProxy(
 	}
 	if deps.ProxyConfig != nil {
 		cfg.Domain = deps.ProxyConfig.Domain
-		cfg.TLSMode = deps.ProxyConfig.TLS
+		if mode, ok := interfaces.ParseTLSMode(deps.ProxyConfig.TLS); ok {
+			cfg.TLSMode = mode
+		}
 		cfg.ContainerIP = deps.ProxyConfig.IP
 		cfg.Publish = deps.ProxyConfig.Publish
 	}
 	uc.deps.ProxyManager.Configure(cfg)
 
-	output.PrintProgress("Starting proxy...")
+	output.PrintProgress(i18n.T("up.proxy.starting"))
 
 	enrichDetectionsWithExposedPorts(ctx, deps, detections)
 
@@ -86,7 +81,7 @@ func (uc *UseCase) startProxy(
 		return uc.handleProxyStartFailure(ctx, networkName, serviceNames, err)
 	}
 
-	output.PrintProgressDone("Proxy started")
+	output.PrintProgressDone(i18n.T("up.proxy.started"))
 	printProxyURLs(uc.deps.ProxyManager, serviceNames)
 	printHostsHintIfUnpublished(uc.deps.ProxyManager)
 	return nil
@@ -106,16 +101,14 @@ func printHostsHintIfUnpublished(pm interfaces.ProxyManager) {
 		return
 	}
 	output.PrintInfo("")
-	output.PrintInfo("Proxy is not bound to host ports (proxy.publish: false).")
-	output.PrintInfo("Add this line to /etc/hosts to reach the URLs above:")
+	output.PrintInfo(i18n.T("up.proxy.unpublished_intro"))
+	output.PrintInfo(i18n.T("up.proxy.hosts_line_hint"))
 	output.PrintInfo("")
 	output.PrintInfo("    " + line)
 	output.PrintInfo("")
-	output.PrintInfo("Tip: `raioz hosts` prints this line on demand.")
+	output.PrintInfo(i18n.T("up.proxy.hosts_tip"))
 	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
-		output.PrintWarning(
-			"On " + runtime.GOOS + " the Docker bridge IP is NOT reachable from the host. " +
-				"Re-enable proxy.publish: true (or omit it) to bind 80/443 instead.")
+		output.PrintWarning(i18n.T("up.proxy.unpublished_warning_os", runtime.GOOS))
 	}
 }
 
@@ -145,7 +138,7 @@ func (uc *UseCase) handleProxyStartFailure(
 	ctx context.Context, networkName string, serviceNames []string, firstErr error,
 ) error {
 	logging.ErrorWithContext(ctx, "Failed to start proxy", "error", firstErr.Error())
-	output.PrintError("Proxy failed to start: " + firstErr.Error())
+	output.PrintError(i18n.T("up.proxy.start_failed", firstErr.Error()))
 
 	if !stdinIsInteractiveFn() {
 		return fmt.Errorf("proxy start failed: %w", firstErr)
@@ -153,16 +146,16 @@ func (uc *UseCase) handleProxyStartFailure(
 
 	switch proxyFailurePrompt() {
 	case proxyActionRetry:
-		output.PrintProgress("Retrying proxy start...")
+		output.PrintProgress(i18n.T("up.proxy.retrying"))
 		if err := uc.deps.ProxyManager.Start(ctx, networkName); err != nil {
-			output.PrintError("Retry failed: " + err.Error())
+			output.PrintError(i18n.T("up.proxy.retry_failed", err.Error()))
 			return fmt.Errorf("proxy start failed on retry: %w", err)
 		}
-		output.PrintProgressDone("Proxy started")
+		output.PrintProgressDone(i18n.T("up.proxy.started"))
 		printProxyURLs(uc.deps.ProxyManager, serviceNames)
 		return nil
 	case proxyActionSkip:
-		output.PrintInfo("Continuing without proxy. Services remain reachable by port/container name.")
+		output.PrintInfo(i18n.T("up.proxy.skip_continue"))
 		return nil
 	default:
 		return fmt.Errorf("proxy start failed: %w", firstErr)
@@ -175,11 +168,11 @@ func (uc *UseCase) handleProxyStartFailure(
 // the original error — safe default when something unexpected happens.
 func promptProxyFailureAction() int {
 	output.PrintInfo("")
-	output.PrintInfo("How would you like to proceed?")
-	output.PrintInfo("  [1] Retry (I've freed the ports)")
-	output.PrintInfo("  [2] Skip the proxy for this run (services keep working without https://*.localhost)")
-	output.PrintInfo("  [3] Cancel up")
-	output.PrintPrompt("Your choice [1-3]: ")
+	output.PrintInfo(i18n.T("up.proxy.prompt_header"))
+	output.PrintInfo(i18n.T("up.proxy.prompt_opt_retry"))
+	output.PrintInfo(i18n.T("up.proxy.prompt_opt_skip"))
+	output.PrintInfo(i18n.T("up.proxy.prompt_opt_cancel"))
+	output.PrintPrompt(i18n.T("up.proxy.prompt_input"))
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')

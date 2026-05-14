@@ -209,10 +209,9 @@ func (uc *UseCase) processLocalProject(
 	}
 
 	// If command was "up" and executed successfully, detect project
-	// docker-compose.yml. We keep the path on the in-memory deps so
-	// callers in the same run can consume it; ADR-011 Phase 1 no longer
-	// persists it to .state.json (sub-issue 031a will move it to
-	// LocalState for cross-command access).
+	// docker-compose.yml. Keep the path on the in-memory deps so callers
+	// in the same run can consume it; ADR-011 Phase 1 no longer persists
+	// it to .state.json.
 	if commandType == "up" {
 		projectComposePath := uc.deps.HostRunner.DetectComposePath(projectDir, command, "")
 		if projectComposePath != "" {

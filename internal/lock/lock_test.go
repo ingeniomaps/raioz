@@ -115,7 +115,7 @@ func TestRelease(t *testing.T) {
 		}
 	})
 
-	// Issue 007: callers release the lock early to allow other workspace
+	// Callers release the lock early to allow other workspace
 	// projects to run `raioz up`, then a deferred Release() runs at process
 	// exit. The second call must be a silent no-op.
 	t.Run("double release is idempotent", func(t *testing.T) {
@@ -131,7 +131,7 @@ func TestRelease(t *testing.T) {
 		}
 	})
 
-	// Issue 007: after early release, a new Acquire on the same workspace
+	// After early release, a new Acquire on the same workspace
 	// must succeed — that's the whole point of the change.
 	t.Run("acquire succeeds after early release", func(t *testing.T) {
 		lock1, err := Acquire(ws)

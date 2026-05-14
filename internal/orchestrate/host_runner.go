@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"raioz/internal/domain/interfaces"
@@ -38,22 +39,73 @@ func init() {
 
 // HostRunner handles services that run directly on the host (npm, go, make, python, rust).
 type HostRunner struct {
-	// processes tracks running host process PIDs by service name
+	// mu guards processes + launchers. All access goes through the
+	// helpers below so the lock pattern stays uniform (ADR-028). Lazy
+	// init: a fresh HostRunner has nil maps; the first helper that
+	// touches them initializes under the write lock.
+	mu        sync.Mutex
 	processes map[string]int
 	// Services that triggered the launcher pattern at Start time. Stop
 	// drains an in-progress build before invoking stop: (ADR-025).
 	launchers map[string]bool
 }
 
-// Start runs the detected start command in the service directory.
-func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
+// recordPID stores svcName→pid under the write lock. Lazy-inits the
+// underlying map so a freshly constructed HostRunner doesn't need an
+// explicit setup phase.
+func (r *HostRunner) recordPID(svcName string, pid int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.processes == nil {
 		r.processes = make(map[string]int)
 	}
+	r.processes[svcName] = pid
+}
+
+// markLauncher records that svcName was started via the launcher
+// pattern (ADR-025 clean-exit-in-settle-window path).
+func (r *HostRunner) markLauncher(svcName string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.launchers == nil {
 		r.launchers = make(map[string]bool)
 	}
+	r.launchers[svcName] = true
+}
 
+// isLauncher reports whether Stop should run the launcher drain
+// (ADR-025) before invoking stop:.
+func (r *HostRunner) isLauncher(svcName string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.launchers[svcName]
+}
+
+// takePID atomically reads and removes the recorded PID for svcName,
+// returning (0, false) when no PID was tracked. Used by Stop to
+// retrieve-and-clear in one critical section so a concurrent Start
+// of the same service can't observe a half-cleaned state.
+func (r *HostRunner) takePID(svcName string) (int, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	pid, ok := r.processes[svcName]
+	if ok {
+		delete(r.processes, svcName)
+	}
+	return pid, ok
+}
+
+// peekPID is a read-only PID lookup. Used by Status and GetPID where
+// the caller does not want side effects.
+func (r *HostRunner) peekPID(svcName string) (int, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	pid, ok := r.processes[svcName]
+	return pid, ok
+}
+
+// Start runs the detected start command in the service directory.
+func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
 	command := svc.Detection.DevCommand
 	if command == "" {
 		command = svc.Detection.StartCommand
@@ -106,13 +158,25 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 		return fmt.Errorf("failed to start service '%s': %w", svc.Name, err)
 	}
 
-	// Issue 008: detect processes that fork+exec ok but die immediately
+	// Detect processes that fork+exec ok but die immediately
 	// (port already bound, missing binary, panic at boot). Same goroutine
 	// also handles reaping after the settle window — the channel buffer
 	// absorbs the eventual exit so we don't leak a zombie.
+	//
+	// The drain goroutine ALSO closes logFile once cmd exits. Without
+	// that explicit close, the "still alive after the settle window"
+	// path leaves the parent's copy of the fd open and a long watch-mode
+	// session leaks one handle per Start until GC runs the finalizer.
+	// Closing inside the goroutine guarantees release exactly once,
+	// when the child actually dies — regardless of which select branch
+	// fired above. See ADR-034.
 	logPath := naming.LogFile(svc.ProjectName, svc.Name)
 	waitCh := make(chan error, 1)
-	go func() { waitCh <- cmd.Wait() }()
+	go func() {
+		err := cmd.Wait()
+		_ = logFile.Close()
+		waitCh <- err
+	}()
 
 	if window := host.SettleWindow(); window > 0 {
 		select {
@@ -130,7 +194,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				// label-based handle on the launched processes /
 				// containers. Warn loudly so `raioz down` doesn't
 				// silently leak resources.
-				r.launchers[svc.Name] = true
+				r.markLauncher(svc.Name)
 				if svc.StopCommand == "" {
 					output.PrintWarning(fmt.Sprintf(
 						"Service '%s' exited 0 within the settle window — likely a "+
@@ -146,16 +210,17 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				waitForLauncherContainer(ctx, svc)
 				break
 			}
-			logFile.Close()
+			// logFile already closed by the drain goroutine.
 			return host.FormatEarlyExitError(svc.Name, window, exitErr, logPath)
 		case <-time.After(window):
-			// process is still alive — fall through.
+			// process is still alive — fall through. Drain goroutine
+			// keeps running; logFile gets released when cmd exits.
 		}
 	}
 
-	r.processes[svc.Name] = cmd.Process.Pid
-	// Don't close logFile — the child process owns the fd now
-	// Go's finalizer will close it when the process is collected
+	r.recordPID(svc.Name, cmd.Process.Pid)
+	// logFile is owned by the drain goroutine; it closes the parent's
+	// copy of the fd when cmd.Wait() returns. See ADR-034.
 
 	logging.InfoWithContext(ctx, "Host service started",
 		"service", svc.Name, "pid", cmd.Process.Pid)
@@ -175,7 +240,7 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 	// Custom stop command path
 	if svc.StopCommand != "" {
 		// ADR-025: drain an in-progress launcher build before stop:.
-		if r.launchers != nil && r.launchers[svc.Name] {
+		if r.isLauncher(svc.Name) {
 			drainLauncherBeforeStop(ctx, svc)
 		}
 		logging.InfoWithContext(ctx, "Running custom stop command",
@@ -197,11 +262,9 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 			return fmt.Errorf("stop command failed for service '%s': %w", svc.Name, err)
 		}
 
-		// Also drop the PID bookkeeping if we have one, so subsequent status
-		// checks don't point at a dead process.
-		if r.processes != nil {
-			delete(r.processes, svc.Name)
-		}
+		// Drop the PID bookkeeping (if any) so subsequent status checks
+		// don't point at a dead process.
+		_, _ = r.takePID(svc.Name)
 		return nil
 	}
 
@@ -211,15 +274,10 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 	// server holding the port. Signalling the group ensures the grandchild
 	// actually receives the signal; otherwise the subsequent Start() races
 	// the still-alive grandchild and loses with EADDRINUSE.
-	if r.processes == nil {
-		return nil
-	}
-
-	pid, ok := r.processes[svc.Name]
+	pid, ok := r.takePID(svc.Name)
 	if !ok || pid == 0 {
 		return nil
 	}
-	defer delete(r.processes, svc.Name)
 
 	// Graceful tree kill. Ignore errors from the KillProcessTree path —
 	// the poll below is the real barrier.
@@ -250,11 +308,7 @@ func (r *HostRunner) Restart(ctx context.Context, svc interfaces.ServiceContext)
 
 // Status checks if the host process is still running.
 func (r *HostRunner) Status(_ context.Context, svc interfaces.ServiceContext) (string, error) {
-	if r.processes == nil {
-		return "stopped", nil
-	}
-
-	pid, ok := r.processes[svc.Name]
+	pid, ok := r.peekPID(svc.Name)
 	if !ok || pid == 0 {
 		return "stopped", nil
 	}
@@ -294,16 +348,11 @@ func (r *HostRunner) Logs(ctx context.Context, svc interfaces.ServiceContext, fo
 
 // GetPID returns the PID of a running host service, or 0 if not tracked.
 func (r *HostRunner) GetPID(serviceName string) int {
-	if r.processes == nil {
-		return 0
-	}
-	return r.processes[serviceName]
+	pid, _ := r.peekPID(serviceName)
+	return pid
 }
 
 // SetPID records a PID for a service (for restoring state).
 func (r *HostRunner) SetPID(serviceName string, pid int) {
-	if r.processes == nil {
-		r.processes = make(map[string]int)
-	}
-	r.processes[serviceName] = pid
+	r.recordPID(serviceName, pid)
 }
