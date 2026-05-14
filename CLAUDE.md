@@ -180,6 +180,7 @@ and how to add new ADRs.
 - **[ADR-007](docs/decisions/007-image-classification-bare-name.md)** — `proxy.IsNonHTTPImage` matches by **bare image name** (last path segment minus tag/digest), NOT substring (substring tagged `redis/redisinsight` as Redis). New entries go in `nonHTTPImageNames`.
 - **[ADR-008](docs/decisions/008-sibling-projects-as-deps.md)** — Sibling raioz projects as deps via `project:` (mode A) or `siblingProject:` + `image:` (mode B). `raioz down` never touches the sibling. Cycle detection via `RAIOZ_SIBLING_STACK`. Mode A spawn uses `os.Executable()`. Workspace coherence required.
 - **[ADR-022](docs/decisions/022-unified-state-paths.md)** — `naming.RaiozStateDir()` is the single source of truth for runtime state location. Resolution: `RAIOZ_HOME` → `$XDG_STATE_HOME/raioz` → `~/.local/state/raioz`. `audit`, `ignore`, `workspace` all delegate to it; do NOT add a fourth private copy. `MigrateLegacyStateDirs` runs once from `rootCmd.PersistentPreRun` to lift `~/.raioz` and `/opt/raioz-proyecto` into the unified root on upgrade.
+- **[ADR-023](docs/decisions/023-state-mirrors-reality.md)** — State files mirror reality. `raioz down` deletes `raioz.root.json` via `root.Delete(ws)` after a successful full teardown (skipped when leftover containers survive, and when only a subset of services was downed). New state files under `RaiozStateDir()` inherit this contract: `up` writes, `down` deletes.
 
 ### `raioz hosts`
 Prints the `/etc/hosts` line for the current project's proxy, ready for

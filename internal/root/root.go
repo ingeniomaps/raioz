@@ -110,6 +110,20 @@ func Save(ws *workspace.Workspace, root *RootConfig) error {
 	return nil
 }
 
+// Delete removes raioz.root.json for the given workspace. Absent file
+// is not an error — `raioz down` calls this once per project teardown
+// and a fresh project naturally has no file yet. ADR-023 captures the
+// "state mirrors reality" invariant this enforces: stale root config
+// can't outlive the containers that justified it, otherwise the next
+// `up` runs DetectAssistedServiceDrift against months-old snapshots.
+func Delete(ws *workspace.Workspace) error {
+	path := GetRootPath(ws)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("delete root config %q: %w", path, err)
+	}
+	return nil
+}
+
 // GenerateFromDeps generates a RootConfig from a Deps configuration
 // This is used when creating a new root config from .raioz.json
 // assistedServices is a map of service names to their "addedBy" identifier for dependency assist

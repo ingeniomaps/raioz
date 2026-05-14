@@ -6,10 +6,62 @@ import (
 	"path/filepath"
 	"testing"
 
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/state"
 )
+
+// TestDownUseCase_downOrchestrated_DeletesRootConfig is the ADR-023
+// regression guard: when downOrchestrated finishes and no
+// raioz-labeled containers survive for the project, the per-project
+// raioz.root.json must be removed so the next up doesn't run drift
+// detection against months-old state.
+func TestDownUseCase_downOrchestrated_DeletesRootConfig(t *testing.T) {
+	initI18nForTest(t)
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "raioz.yaml")
+	_ = os.WriteFile(configPath, []byte("project: test"), 0o644)
+
+	// Seed a workspace root with a populated raioz.root.json. The
+	// mock workspace manager returns this same workspace so the use
+	// case operates on it directly.
+	wsRoot := filepath.Join(tmpDir, "ws-root")
+	if err := os.MkdirAll(wsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir ws root: %v", err)
+	}
+	rootPath := filepath.Join(wsRoot, "raioz.root.json")
+	if err := os.WriteFile(rootPath, []byte(`{"project":"test"}`), 0o644); err != nil {
+		t.Fatalf("seed root.json: %v", err)
+	}
+
+	deps := newFullMockDeps()
+	deps.ConfigLoader = &mocks.MockConfigLoader{
+		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				SchemaVersion: "2.0",
+				Project:       models.Project{Name: "test"},
+				Network:       models.NetworkConfig{Name: "testnet"},
+				Services:      map[string]models.Service{},
+				Infra:         map[string]models.InfraEntry{},
+			}, nil, nil
+		},
+	}
+	deps.Workspace = &mocks.MockWorkspaceManager{
+		ResolveFunc: func(name string) (*interfaces.Workspace, error) {
+			return &interfaces.Workspace{Root: wsRoot}, nil
+		},
+	}
+
+	uc := NewDownUseCase(deps)
+	if err := uc.downOrchestrated(context.Background(), DownOptions{ConfigPath: configPath}); err != nil {
+		t.Fatalf("downOrchestrated() error = %v", err)
+	}
+
+	if _, err := os.Stat(rootPath); !os.IsNotExist(err) {
+		t.Errorf("raioz.root.json still present after down: %v", err)
+	}
+}
 
 func TestDownUseCase_downOrchestrated_NoConfig(t *testing.T) {
 	initI18nForTest(t)

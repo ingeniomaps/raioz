@@ -22,6 +22,37 @@ func TestGetRootPath(t *testing.T) {
 	}
 }
 
+// TestDelete covers the two contractual cases for ADR-023:
+// removing the existing file, and tolerating an absent file silently.
+// The second case is load-bearing because raioz down calls Delete on
+// every project teardown — a fresh project has no file yet, and that
+// must not surface as an error.
+func TestDelete(t *testing.T) {
+	t.Run("removes existing file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		ws := &workspace.Workspace{Root: tmpDir}
+		path := GetRootPath(ws)
+		if err := os.WriteFile(path, []byte(`{"project":"x"}`), 0o644); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+
+		if err := Delete(ws); err != nil {
+			t.Fatalf("Delete() error = %v", err)
+		}
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("file still present after Delete(): %v", err)
+		}
+	})
+
+	t.Run("absent file is not an error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		ws := &workspace.Workspace{Root: tmpDir}
+		if err := Delete(ws); err != nil {
+			t.Errorf("Delete() on absent file = %v, want nil", err)
+		}
+	})
+}
+
 func TestExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	ws := &workspace.Workspace{
