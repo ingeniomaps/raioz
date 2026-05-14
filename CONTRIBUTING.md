@@ -35,6 +35,10 @@ make integration-test
 # 5. Open a pull request targeting `develop` (NOT main)
 ```
 
+The `Lint`, `Unit tests`, and `Integration E2E` jobs run on every
+PR; the Windows runtime job runs on push to `develop`/`main` only.
+See [docs/CI.md](docs/CI.md) for the full matrix.
+
 ## Code standards
 
 | Rule | Limit | Check |

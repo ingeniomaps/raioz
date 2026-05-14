@@ -106,3 +106,32 @@ jobs:
         run: cd /tmp/ci-test && raioz down && sleep 1 && ! curl -sf http://localhost:8080/ 2>/dev/null
       - name: Test up-down-up cycle (no orphans)
         run: cd /tmp/ci-test && raioz up && sleep 3 && curl -sf http://localhost:8080/ && raioz down
+
+  test-windows:
+    # Issue 050: runtime-behavior gate on Windows. The cross-compile
+    # check in `test` catches build-time forks (e.g. v0.5.1's
+    # syscall.Flock regression); this job catches differences that
+    # only surface when the binary actually runs — os.Rename
+    # semantics, LockFileEx vs Flock, taskkill vs Setpgid, XDG path
+    # fallbacks, etc. Scope: the OS-sensitive packages only, so the
+    # job stays under the Linux-suite wall-clock. Gated on push so
+    # PRs don't pay the slower Windows runner; the cross-compile
+    # gate still runs on every PR.
+    name: Unit tests (Windows, OS-sensitive packages)
+    runs-on: windows-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+      - name: Test OS-sensitive packages
+        shell: bash
+        run: |
+          go test ./internal/naming/... \
+                  ./internal/host/... \
+                  ./internal/audit/... \
+                  ./internal/workspace/... \
+                  ./internal/proxy/... \
+                  ./internal/lock/... \
+                  ./internal/ignore/...
