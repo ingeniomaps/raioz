@@ -2,6 +2,7 @@ package upcase
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 // Returns true if user wants to continue, false if should abort
 // Also returns list of services added via dependency assist for metadata tracking
 func (uc *UseCase) handleDependencyAssist(
+	ctx context.Context,
 	deps *models.Deps, ws *interfaces.Workspace, dryRun bool,
 ) (bool, []string, error) {
 	// Create service path resolver function
@@ -150,7 +152,7 @@ func (uc *UseCase) handleDependencyAssist(
 
 			// Log audit event
 			reason := fmt.Sprintf("dependency assist: required by %s", dep.RequiredBy)
-			if err := audit.LogServiceAssisted(dep.ServiceName, dep.RequiredBy, reason); err != nil {
+			if err := audit.LogServiceAssisted(ctx, dep.ServiceName, dep.RequiredBy, reason); err != nil {
 				// Log audit error but don't fail
 				output.PrintWarning(i18n.T("output.failed_log_audit", err))
 			}
@@ -172,6 +174,7 @@ func (uc *UseCase) handleDependencyAssist(
 // Returns true if user wants to continue, false if should abort
 // Also returns list of conflict resolutions for audit logging
 func (uc *UseCase) handleDependencyConflicts(
+	ctx context.Context,
 	deps *models.Deps, ws *interfaces.Workspace, dryRun bool,
 ) (bool, []string, error) {
 	// Create service path resolver function
@@ -259,7 +262,7 @@ func (uc *UseCase) handleDependencyConflicts(
 		if resolution != "" {
 			// Log audit event
 			reason := fmt.Sprintf("conflict resolution: %s (differences: %v)", resolution, conflict.Differences)
-			if err := audit.LogConflictResolved(conflict.ServiceName, resolution, reason); err != nil {
+			if err := audit.LogConflictResolved(ctx, conflict.ServiceName, resolution, reason); err != nil {
 				// Log audit error but don't fail
 				output.PrintWarning(i18n.T("output.failed_log_audit", err))
 			}

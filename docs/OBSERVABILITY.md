@@ -145,7 +145,7 @@ gap between this matrix and reality.
 | `up` lifecycle complete | `info` / `error` | **yes** | success/failure | `[ok]`/`[error]` |
 | `down` lifecycle start | `info` | **yes** | — | progress line |
 | `down` lifecycle complete | `info` / `error` | **yes** | success/failure | `[ok]`/`[error]` |
-| `restart` lifecycle start/complete | `info` | planned | — | progress |
+| `restart` lifecycle start/complete | `info` | **yes** (YAML mode) | — | progress |
 | Recoverable warning | `warn` | planned | — | `[!!]` line |
 | Service marked ready by health check | `info` | planned | — | `[ok]` row |
 | Service exit inside settle window | `warn` | planned | — | `[!!]` block |
@@ -157,7 +157,7 @@ gap between this matrix and reality.
 | Dev-mode promotion (`raioz dev`) | `info` | **yes** | success | confirmation block |
 | Dev-mode revert (`raioz dev --reset`) | `info` | **yes** | — | confirmation line |
 | Dependency assist added a dep | `info` | **yes** | — | brief note |
-| Sibling project deferred (mode A) | `info` | planned | — | one-line note |
+| Sibling project deferred (mode A/B) | `info` | **yes** | — | one-line note |
 | Drift detected vs `.raioz.json` | `warn` | **yes** | — | `[!!]` summary |
 | Conflict resolved by user choice | `info` | **yes** | — | confirmation |
 | Dev-build warning (ADR-021) | — | — | — | stderr warning (once) |

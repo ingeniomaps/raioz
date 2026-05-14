@@ -3,6 +3,7 @@ package audit
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -94,7 +95,7 @@ func TestLog_Appends(t *testing.T) {
 func TestLogDependencyAdded(t *testing.T) {
 	path := setupAuditHome(t)
 
-	err := LogDependencyAdded("postgres", "auto-detect", "found in docker-compose")
+	err := LogDependencyAdded(context.Background(), "postgres", "auto-detect", "found in docker-compose")
 	if err != nil {
 		t.Fatalf("LogDependencyAdded: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestLogDependencyAdded(t *testing.T) {
 func TestLogDevPromoted(t *testing.T) {
 	path := setupAuditHome(t)
 
-	err := LogDevPromoted("postgres", "/local/postgres", "postgres:16")
+	err := LogDevPromoted(context.Background(), "postgres", "/local/postgres", "postgres:16")
 	if err != nil {
 		t.Fatalf("LogDevPromoted: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestLogDevPromoted(t *testing.T) {
 func TestLogDevReverted(t *testing.T) {
 	path := setupAuditHome(t)
 
-	err := LogDevReverted("redis", "redis:7")
+	err := LogDevReverted(context.Background(), "redis", "redis:7")
 	if err != nil {
 		t.Fatalf("LogDevReverted: %v", err)
 	}
@@ -145,7 +146,7 @@ func TestLogDevReverted(t *testing.T) {
 func TestLogConfigChanged(t *testing.T) {
 	path := setupAuditHome(t)
 
-	err := LogConfigChanged("workspace1", []string{"added api", "removed worker"})
+	err := LogConfigChanged(context.Background(), "workspace1", []string{"added api", "removed worker"})
 	if err != nil {
 		t.Fatalf("LogConfigChanged: %v", err)
 	}
@@ -162,7 +163,7 @@ func TestLogConfigChanged(t *testing.T) {
 func TestLogConflictResolved(t *testing.T) {
 	path := setupAuditHome(t)
 
-	err := LogConflictResolved("api", "stop", "user chose to stop")
+	err := LogConflictResolved(context.Background(), "api", "stop", "user chose to stop")
 	if err != nil {
 		t.Fatalf("LogConflictResolved: %v", err)
 	}
@@ -176,7 +177,7 @@ func TestLogConflictResolved(t *testing.T) {
 func TestLogServiceAssisted(t *testing.T) {
 	path := setupAuditHome(t)
 
-	err := LogServiceAssisted("worker", "auto-detect", "found Dockerfile")
+	err := LogServiceAssisted(context.Background(), "worker", "auto-detect", "found Dockerfile")
 	if err != nil {
 		t.Fatalf("LogServiceAssisted: %v", err)
 	}
@@ -190,7 +191,7 @@ func TestLogServiceAssisted(t *testing.T) {
 func TestLogDriftDetected(t *testing.T) {
 	path := setupAuditHome(t)
 
-	err := LogDriftDetected("api", "/path/to/config", []string{"image changed", "port added"})
+	err := LogDriftDetected(context.Background(), "api", "/path/to/config", []string{"image changed", "port added"})
 	if err != nil {
 		t.Fatalf("LogDriftDetected: %v", err)
 	}

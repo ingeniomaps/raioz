@@ -145,6 +145,35 @@ func TestLogLifecycle_CorrelationIDInheritsFromEnv(t *testing.T) {
 	}
 }
 
+// TestLogSiblingDeferred guards the schema of the sibling-deferred
+// event: dependency/sibling/mode trio survive marshal+unmarshal,
+// correlation_id flows from ctx.
+func TestLogSiblingDeferred(t *testing.T) {
+	path := pinAuditPath(t)
+
+	ctx := logging.WithRequestID(context.Background())
+	if err := LogSiblingDeferred(ctx, "postgres", "keycloak", "modeA-already-up"); err != nil {
+		t.Fatalf("LogSiblingDeferred: %v", err)
+	}
+
+	ev := readAuditEvents(t, path)[0]
+	if ev.Type != EventTypeSiblingDeferred {
+		t.Errorf("Type = %q, want %q", ev.Type, EventTypeSiblingDeferred)
+	}
+	if ev.Details["dependency"] != "postgres" {
+		t.Errorf("dependency = %v", ev.Details["dependency"])
+	}
+	if ev.Details["sibling"] != "keycloak" {
+		t.Errorf("sibling = %v", ev.Details["sibling"])
+	}
+	if ev.Details["mode"] != "modeA-already-up" {
+		t.Errorf("mode = %v", ev.Details["mode"])
+	}
+	if ev.CorrelationID == "" {
+		t.Error("CorrelationID must propagate from ctx")
+	}
+}
+
 // TestLogLifecycle_WorkspaceOmittedWhenEmpty documents that empty
 // workspace stays out of Details — keeps records compact for the
 // common "no workspace declared" case.

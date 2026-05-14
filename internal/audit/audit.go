@@ -38,6 +38,11 @@ const (
 	// complete; status distinguishes success from failure on complete.
 	// See OBSERVABILITY.md and issue 048.
 	EventTypeLifecycle EventType = "lifecycle"
+
+	// Sibling project resolved its dep via the live sibling (ADR-008
+	// mode A/B). Pairs with a lifecycle event for the spawned child
+	// when mode A; mode B leaves the dep declaration unstarted.
+	EventTypeSiblingDeferred EventType = "sibling_deferred"
 )
 
 // LifecyclePhase enumerates the phase value carried in a lifecycle
@@ -155,68 +160,88 @@ func rotateIfOverCap(path string, capBytes int64) {
 	_ = os.Rename(path, rotated)
 }
 
-// LogDependencyAdded logs when a dependency is added via dependency assist
-func LogDependencyAdded(serviceName string, source string, reason string) error {
+// LogDependencyAdded logs when a dependency is added via dependency assist.
+func LogDependencyAdded(ctx context.Context, serviceName, source, reason string) error {
 	details := map[string]interface{}{
 		"service": serviceName,
 		"source":  source,
 		"reason":  reason,
 	}
 	message := fmt.Sprintf("Dependency added: %s (source: %s)", serviceName, source)
-	return Log(EventTypeDependencyAdded, details, message)
+	return LogWithContext(ctx, EventTypeDependencyAdded, details, message)
 }
 
 // LogDevPromoted logs when a dependency is promoted to local development.
-func LogDevPromoted(depName string, localPath string, originalImage string) error {
+func LogDevPromoted(ctx context.Context, depName, localPath, originalImage string) error {
 	details := map[string]interface{}{
 		"dependency":     depName,
 		"local_path":     localPath,
 		"original_image": originalImage,
 	}
 	message := fmt.Sprintf("Dev promoted: %s -> %s (was: %s)", depName, localPath, originalImage)
-	return Log(EventTypeDevPromoted, details, message)
+	return LogWithContext(ctx, EventTypeDevPromoted, details, message)
 }
 
 // LogDevReverted logs when a dependency is reverted from local to image.
-func LogDevReverted(depName string, originalImage string) error {
+func LogDevReverted(ctx context.Context, depName, originalImage string) error {
 	details := map[string]interface{}{
 		"dependency":     depName,
 		"original_image": originalImage,
 	}
 	message := fmt.Sprintf("Dev reverted: %s -> %s", depName, originalImage)
-	return Log(EventTypeDevReverted, details, message)
+	return LogWithContext(ctx, EventTypeDevReverted, details, message)
 }
 
-// LogConfigChanged logs when configuration root is changed
-func LogConfigChanged(workspaceName string, changes []string) error {
+// LogConfigChanged logs when configuration root is changed.
+func LogConfigChanged(ctx context.Context, workspaceName string, changes []string) error {
 	details := map[string]interface{}{
 		"workspace": workspaceName,
 		"changes":   changes,
 	}
-	message := fmt.Sprintf("Configuration changed in workspace: %s (%d changes)", workspaceName, len(changes))
-	return Log(EventTypeConfigChanged, details, message)
+	message := fmt.Sprintf(
+		"Configuration changed in workspace: %s (%d changes)",
+		workspaceName, len(changes),
+	)
+	return LogWithContext(ctx, EventTypeConfigChanged, details, message)
 }
 
-// LogConflictResolved logs when a conflict is resolved
-func LogConflictResolved(serviceName string, resolution string, reason string) error {
+// LogConflictResolved logs when a conflict is resolved.
+func LogConflictResolved(ctx context.Context, serviceName, resolution, reason string) error {
 	details := map[string]interface{}{
 		"service":    serviceName,
 		"resolution": resolution,
 		"reason":     reason,
 	}
 	message := fmt.Sprintf("Conflict resolved: %s (resolution: %s)", serviceName, resolution)
-	return Log(EventTypeConflictResolved, details, message)
+	return LogWithContext(ctx, EventTypeConflictResolved, details, message)
 }
 
-// LogServiceAssisted logs when a service is added via dependency assist
-func LogServiceAssisted(serviceName string, addedBy string, reason string) error {
+// LogServiceAssisted logs when a service is added via dependency assist.
+func LogServiceAssisted(ctx context.Context, serviceName, addedBy, reason string) error {
 	details := map[string]interface{}{
 		"service":  serviceName,
 		"added_by": addedBy,
 		"reason":   reason,
 	}
 	message := fmt.Sprintf("Service assisted: %s (added by: %s)", serviceName, addedBy)
-	return Log(EventTypeServiceAssisted, details, message)
+	return LogWithContext(ctx, EventTypeServiceAssisted, details, message)
+}
+
+// LogSiblingDeferred logs when a sibling raioz project is alive and a
+// mode A/B dep skips its own dispatch in favor of the sibling (ADR-008).
+// Pairs the consumer and sibling identities so audit reconstructs which
+// projects depended on which siblings at up time.
+func LogSiblingDeferred(ctx context.Context, depName, siblingProject, mode string) error {
+	details := map[string]interface{}{
+		"dependency": depName,
+		"sibling":    siblingProject,
+		"mode":       mode,
+	}
+	message := fmt.Sprintf(
+		"Sibling deferred: dep %s served by %s (%s)",
+		depName, siblingProject, mode,
+	)
+	return LogWithContext(ctx, EventTypeSiblingDeferred, details, message)
 }
 
 // lifecycleDetails packs the fields common to every lifecycle event
@@ -271,14 +296,17 @@ func LogLifecycleComplete(
 	return LogWithContext(ctx, EventTypeLifecycle, d, msg)
 }
 
-// LogDriftDetected logs when configuration drift is detected in a service
-func LogDriftDetected(serviceName string, servicePath string, differences []string) error {
+// LogDriftDetected logs when configuration drift is detected in a service.
+func LogDriftDetected(ctx context.Context, serviceName, servicePath string, differences []string) error {
 	details := map[string]interface{}{
 		"service":     serviceName,
 		"config_path": servicePath,
 		"differences": differences,
 		"count":       len(differences),
 	}
-	message := fmt.Sprintf("Drift detected in service: %s (%d differences)", serviceName, len(differences))
-	return Log(EventTypeDriftDetected, details, message)
+	message := fmt.Sprintf(
+		"Drift detected in service: %s (%d differences)",
+		serviceName, len(differences),
+	)
+	return LogWithContext(ctx, EventTypeDriftDetected, details, message)
 }

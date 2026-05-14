@@ -59,7 +59,7 @@ func (uc *UseCase) validate(ctx context.Context, deps *models.Deps, ws *interfac
 	}
 
 	// Check for dependency conflicts first (before checking permissions)
-	shouldContinue, _, err := uc.handleDependencyConflicts(deps, ws, dryRun)
+	shouldContinue, _, err := uc.handleDependencyConflicts(ctx, deps, ws, dryRun)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeDependencyCycle,
@@ -82,7 +82,7 @@ func (uc *UseCase) validate(ctx context.Context, deps *models.Deps, ws *interfac
 	}
 
 	// Check for missing dependencies
-	shouldContinue, _, err = uc.handleDependencyAssist(deps, ws, dryRun)
+	shouldContinue, _, err = uc.handleDependencyAssist(ctx, deps, ws, dryRun)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeInvalidConfig,

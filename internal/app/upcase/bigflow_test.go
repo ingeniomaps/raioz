@@ -139,7 +139,7 @@ func TestHandleDependencyConflictsNone(t *testing.T) {
 			},
 		},
 	})
-	shouldContinue, _, err := uc.handleDependencyConflicts(
+	shouldContinue, _, err := uc.handleDependencyConflicts(context.Background(),
 		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err != nil {
@@ -168,7 +168,7 @@ func TestHandleDependencyConflictsDetectError(t *testing.T) {
 			},
 		},
 	})
-	_, _, err := uc.handleDependencyConflicts(
+	_, _, err := uc.handleDependencyConflicts(context.Background(),
 		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err == nil {
@@ -196,7 +196,7 @@ func TestHandleDependencyConflictsDryRun(t *testing.T) {
 			},
 		},
 	})
-	shouldContinue, _, err := uc.handleDependencyConflicts(
+	shouldContinue, _, err := uc.handleDependencyConflicts(context.Background(),
 		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, true,
 	)
 	if err != nil {
@@ -227,7 +227,7 @@ func TestHandleDependencyAssistNone(t *testing.T) {
 			},
 		},
 	})
-	ok, added, err := uc.handleDependencyAssist(
+	ok, added, err := uc.handleDependencyAssist(context.Background(),
 		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err != nil {
@@ -261,7 +261,7 @@ func TestHandleDependencyAssistDryRun(t *testing.T) {
 			},
 		},
 	})
-	ok, _, err := uc.handleDependencyAssist(
+	ok, _, err := uc.handleDependencyAssist(context.Background(),
 		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, true,
 	)
 	if err != nil {
@@ -290,7 +290,7 @@ func TestHandleDependencyAssistDetectError(t *testing.T) {
 			},
 		},
 	})
-	_, _, err := uc.handleDependencyAssist(
+	_, _, err := uc.handleDependencyAssist(context.Background(),
 		&models.Deps{}, &workspace.Workspace{Root: "/tmp"}, false,
 	)
 	if err == nil {
