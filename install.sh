@@ -23,6 +23,18 @@ BINARY_NAME="raioz"
 GITHUB_REPO="${GITHUB_REPO:-ingeniomaps/raioz}"
 GITHUB_URL="https://github.com/${GITHUB_REPO}"
 
+# Single EXIT trap cleans up the download tempdir if download_release
+# created one. Lives at script scope so `set -u` never trips on an
+# unset variable when the trap fires after a code path that did not
+# touch the downloader (e.g., dev mode or an early failure).
+RAIOZ_INSTALL_TMP=""
+cleanup_install_tmp() {
+    if [ -n "${RAIOZ_INSTALL_TMP:-}" ] && [ -d "$RAIOZ_INSTALL_TMP" ]; then
+        rm -rf "$RAIOZ_INSTALL_TMP"
+    fi
+}
+trap cleanup_install_tmp EXIT
+
 # pick_install_dir chooses where to install. Honors INSTALL_DIR if set,
 # otherwise picks the first preferred bin directory that already lives
 # on the user's PATH — so the freshly installed binary actually wins
@@ -125,7 +137,7 @@ download_release() {
     info "Downloading ${archive}..."
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    trap 'rm -rf "$tmp_dir"' EXIT
+    RAIOZ_INSTALL_TMP="$tmp_dir"
 
     http_get "$url" "${tmp_dir}/${archive}" \
         || fail "Download failed: ${url}\nBuild from source: make build && make install"
