@@ -6,6 +6,91 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-05-14
+
+Minor release. Tightens the proxy port contract, lands meta-orchestrator
+opt-in profiles, and closes several quality gaps flagged by the audit
+sweep (issues 048-064). One BREAKING change in the internal
+`ProxyManager` port; user-facing YAML stays backward compatible.
+
+### Added
+
+- **Meta-orchestrator profiles** (issue 048). `kind: meta` configs gain
+  a `profiles:` field per sub-project. Empty list = always-on;
+  non-empty = skipped unless the user passes `--meta-profile <name>`
+  matching one. `raioz down` deliberately ignores profiles so a sub
+  started under a different set can't strand. Distinct from the
+  service-level `--profile` flag (no namespace collision).
+- **Lifecycle audit events** (ADR-026 / issue 048). `up`/`down`/`restart`
+  emit start+complete pairs with a propagated `correlation_id` so
+  recursive sibling spawns share IDs across audit logs. `dev`
+  promote/revert and sibling-deferred verdicts also emit events.
+- **`version:` schema gate** (ADR-031 / issue 054). Missing, newer,
+  older, or malformed `version:` values now emit distinct warnings
+  instead of silent acceptance. Escalation plan published: v0.7
+  hard-errors past-version, v1.0 hard-errors any mismatch.
+- **i18n source-discipline lint** (ADR-027 / issue 058). New
+  `make check-i18n-source` enforces a shrinking baseline so new
+  `output.Print*` calls must route through `i18n.T(...)`.
+- **App-layer infra-imports ratchet** (ADR-029 / issue 049). Baseline
+  list of files allowed to import `internal/{docker,proxy,orchestrate}`
+  directly; new files fail outright. Wired into `make check`.
+- **Windows runtime CI** (ADR-030 / issue 050). New
+  `Unit tests (Windows)` job runs on push to develop/main against
+  OS-sensitive packages. PRs keep the cheaper cross-compile gate.
+- **Goreleaser dry-run on every PR** (ADR-033 / issue 056). Catches
+  packaging-time regressions (archive templates, changelog regex,
+  `verify-stamp.sh` script) before tag.
+- **`raioz doctor::checkEnvironment`** (ADR-035 / issue 062). Surfaces
+  resolved duration env vars and flags typos like
+  `RAIOZ_LAUNCHER_TIMEOUT=60` (missing unit) loudly.
+- Documentation: `docs/SECURITY.md`, `docs/STATE.md`, `docs/LOCKS.md`,
+  unified env-var reference in `CONFIG_REFERENCE.md` (issues
+  051 / 052 / 053 / 063).
+
+### Changed
+
+- **BREAKING (internal)** `ProxyManager` port keeps only
+  `Configure(cfg ProxyConfig)` (ADR-013 Phase 2 / ADR-032 /
+  issue 055). The eight per-field setters (`SetDomain`, `SetTLSMode`,
+  …) are gone. `ProxyConfig.TLSMode` is the typed
+  `interfaces.TLSMode` enum (`TLSModeLocal` / `TLSModeACME` /
+  `TLSModeManual`), not a string. User YAML still accepts the legacy
+  aliases `mkcert` / `letsencrypt` through `ParseTLSMode`.
+- Malformed duration env vars now warn once per (process, var) via
+  `sync.Map` dedup (ADR-035 / issue 062).
+- Shared-map mutexes for `proxy.Manager.routes` and
+  `orchestrate.HostRunner.{processes,launchers}` (ADR-028 /
+  issue 059).
+- Removed transient `issue NNN` references from source comments;
+  durable ADR cites stay. Trimmed verbose follow-up/TODO-style intent
+  notes (issue 064 + comment audit).
+
+### Fixed
+
+- `HostRunner.Start` now closes the parent's log fd in the wait
+  goroutine so long watch-mode sessions stop accumulating handles
+  until GC (ADR-034 / issue 061). Linux regression test polls
+  `/proc/self/fd`.
+- Sibling spawns reap on parent exit via signal context +
+  `Pdeathsig = SIGTERM` (ADR-026 / issue 057). macOS/Windows fall
+  back to ctx cancel.
+- `install.sh` no longer drops into dev mode when piped via stdin
+  and cleans its tempdir via a global EXIT trap.
+- Coverage for the destructive `down --conflicting` /
+  `--all-projects` / `sweepLauncherOrphans` / `downSelectiveServices`
+  paths went from 0% to 80-100% (issue 060). Package coverage
+  71.3% → 73.8%.
+
+### Notes
+
+- `--meta-profile` and the service-level `--profile` flag are
+  separate namespaces and can be combined in the same command.
+- The corpus test now routes `kind: meta` fixtures through
+  `LoadMetaConfig` so the meta shape is part of the locked contract.
+- Internal cleanup: dead `readLogTail` wrapper deleted, orphan
+  comments stripped (issue 064).
+
 ## [0.5.2] - 2026-05-14
 
 Patch release. Closes the version-stamping gap that left every
