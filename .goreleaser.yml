@@ -5,9 +5,9 @@ builds:
     binary: raioz
     ldflags:
       - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
+      - -X raioz/internal/cli.Version=v{{.Version}}
+      - -X raioz/internal/cli.Commit={{.ShortCommit}}
+      - -X raioz/internal/cli.BuildDate={{.Date}}
     goos:
       - linux
       - darwin

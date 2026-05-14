@@ -23,9 +23,48 @@ jobs:
       - name: Run tests
         run: go test ./...
 
-      - uses: goreleaser/goreleaser-action@v7
+      # Build all archives but DON'T publish yet, so we can verify the
+      # binary's version stamp before pushing to GitHub Releases.
+      - name: Build release artifacts
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: '~> v2'
-          args: release --clean
+          args: release --clean --skip=publish,announce,validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Guard against the ldflags-package mismatch that produced
+      # unstamped v0.4.0 / v0.5.x binaries. See docs/issues/019.
+      - name: Smoke-test version stamp on linux/amd64
+        run: |
+          set -euo pipefail
+          archive=$(ls dist/raioz_*_linux_amd64.tar.gz 2>/dev/null | head -n1)
+          [ -n "$archive" ] || { echo "::error::no linux/amd64 archive in dist/"; exit 1; }
+          mkdir -p /tmp/raioz-smoke
+          tar -xzf "$archive" -C /tmp/raioz-smoke
+          out="$(/tmp/raioz-smoke/raioz version)"
+          echo "$out"
+          if echo "$out" | grep -qE "version (dev|unknown)"; then
+            echo "::error::Release binary is unstamped (reports 'version dev'). Refusing to publish."
+            exit 1
+          fi
+          if ! echo "$out" | grep -qE "^raioz version v[0-9]+\.[0-9]+\.[0-9]+"; then
+            echo "::error::Version line does not look like a semver tag"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "^Commit: "; then
+            echo "::error::Commit line missing — ldflags partially broken"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q "^Build date: "; then
+            echo "::error::Build date line missing — ldflags partially broken"
+            exit 1
+          fi
+
+      - name: Publish release
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
