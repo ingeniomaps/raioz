@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"raioz/internal/app"
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 	"raioz/internal/proxy"
 
@@ -46,11 +46,11 @@ Typical usage:
   raioz hosts`,
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		// Reuse the same yaml-or-json discovery as status/up so the command
 		// works no matter what the project has on disk.
 		proj := app.ResolveYAMLProject(deps, "")
-		var cfgDeps *config.Deps
+		var cfgDeps *models.Deps
 		if proj != nil {
 			cfgDeps = proj.Deps
 		} else {
@@ -88,7 +88,7 @@ Typical usage:
 // requiring a live Manager instance. Precedence: explicit proxy.ip >
 // derived <subnet>.1.1. Errors when neither is set since the whole point of
 // this command is producing a stable IP.
-func resolveProxyIPForHosts(deps *config.Deps) (string, error) {
+func resolveProxyIPForHosts(deps *models.Deps) (string, error) {
 	if deps.ProxyConfig != nil && deps.ProxyConfig.IP != "" {
 		if err := proxy.ValidateProxyIP(deps.ProxyConfig.IP, deps.Network.GetSubnet()); err != nil {
 			return "", err
@@ -107,7 +107,7 @@ func resolveProxyIPForHosts(deps *config.Deps) (string, error) {
 // hosts command shows exactly the entries the proxy will actually serve.
 // Services always count; deps only when the image isn't on the binary
 // protocol blocklist or the user opted in via routing:.
-func proxiedHostnamesFromConfig(deps *config.Deps) []string {
+func proxiedHostnamesFromConfig(deps *models.Deps) []string {
 	domain := "localhost"
 	if deps.ProxyConfig != nil && deps.ProxyConfig.Domain != "" {
 		domain = deps.ProxyConfig.Domain
@@ -137,7 +137,7 @@ func proxiedHostnamesFromConfig(deps *config.Deps) []string {
 // workspaceLabel returns a stable identifier for the trailing comment so
 // users / scripts can find raioz-managed hosts entries. Falls back to the
 // project name when there's no workspace.
-func workspaceLabel(deps *config.Deps) string {
+func workspaceLabel(deps *models.Deps) string {
 	if deps.Workspace != "" {
 		return deps.Workspace
 	}

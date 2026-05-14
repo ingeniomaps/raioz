@@ -3,27 +3,27 @@ package validate
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestValidateTransitiveDependencies(t *testing.T) {
 	tests := []struct {
 		name       string
-		deps       *config.Deps
+		deps       *models.Deps
 		wantIssues bool
 		wantError  bool
 	}{
 		{
 			name: "valid transitive dependencies",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service3"},
 						},
 					},
@@ -35,15 +35,15 @@ func TestValidateTransitiveDependencies(t *testing.T) {
 		},
 		{
 			name: "missing transitive dependency",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"missing-service"},
 						},
 					},
@@ -108,25 +108,25 @@ func TestExtractMajorVersion(t *testing.T) {
 func TestValidateVersionCompatibility(t *testing.T) {
 	tests := []struct {
 		name        string
-		deps        *config.Deps
+		deps        *models.Deps
 		wantIssues  bool
 		wantVersion bool
 	}{
 		{
 			name: "compatible versions (same major)",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind: "image",
 							Tag:  "v1.2.3",
 						},
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind: "image",
 							Tag:  "v1.3.0",
 						},
@@ -138,19 +138,19 @@ func TestValidateVersionCompatibility(t *testing.T) {
 		},
 		{
 			name: "incompatible versions (different major)",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind: "image",
 							Tag:  "v1.2.3",
 						},
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind: "image",
 							Tag:  "v2.0.0",
 						},

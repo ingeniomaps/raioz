@@ -3,8 +3,8 @@ package mocks
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // Compile-time check
@@ -12,41 +12,41 @@ var _ interfaces.GitRepository = (*MockGitRepository)(nil)
 
 // MockGitRepository is a mock implementation of interfaces.GitRepository
 type MockGitRepository struct {
-	EnsureRepoFunc                 func(src config.SourceConfig, baseDir string) error
-	EnsureRepoWithForceFunc        func(src config.SourceConfig, baseDir string, force bool) error
-	EnsureReadonlyRepoFunc         func(src config.SourceConfig, baseDir string) error
-	EnsureEditableRepoFunc         func(src config.SourceConfig, baseDir string) error
+	EnsureRepoFunc                 func(src models.SourceConfig, baseDir string) error
+	EnsureRepoWithForceFunc        func(src models.SourceConfig, baseDir string, force bool) error
+	EnsureReadonlyRepoFunc         func(src models.SourceConfig, baseDir string) error
+	EnsureEditableRepoFunc         func(src models.SourceConfig, baseDir string) error
 	ForceRecloneFunc               func(ctx context.Context, repoPath string, repo string, branch string) error
 	UpdateReposIfBranchChangedFunc func(
 		ctx context.Context,
-		repoPathResolver func(string, config.Service) string,
-		oldDeps, newDeps *config.Deps,
+		repoPathResolver func(string, models.Service) string,
+		oldDeps, newDeps *models.Deps,
 	) error
-	IsReadonlyFunc func(src config.SourceConfig) bool
+	IsReadonlyFunc func(src models.SourceConfig) bool
 }
 
-func (m *MockGitRepository) EnsureRepo(src config.SourceConfig, baseDir string) error {
+func (m *MockGitRepository) EnsureRepo(src models.SourceConfig, baseDir string) error {
 	if m.EnsureRepoFunc != nil {
 		return m.EnsureRepoFunc(src, baseDir)
 	}
 	return nil
 }
 
-func (m *MockGitRepository) EnsureRepoWithForce(src config.SourceConfig, baseDir string, force bool) error {
+func (m *MockGitRepository) EnsureRepoWithForce(src models.SourceConfig, baseDir string, force bool) error {
 	if m.EnsureRepoWithForceFunc != nil {
 		return m.EnsureRepoWithForceFunc(src, baseDir, force)
 	}
 	return nil
 }
 
-func (m *MockGitRepository) EnsureReadonlyRepo(src config.SourceConfig, baseDir string) error {
+func (m *MockGitRepository) EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 	if m.EnsureReadonlyRepoFunc != nil {
 		return m.EnsureReadonlyRepoFunc(src, baseDir)
 	}
 	return nil
 }
 
-func (m *MockGitRepository) EnsureEditableRepo(src config.SourceConfig, baseDir string) error {
+func (m *MockGitRepository) EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 	if m.EnsureEditableRepoFunc != nil {
 		return m.EnsureEditableRepoFunc(src, baseDir)
 	}
@@ -62,8 +62,8 @@ func (m *MockGitRepository) ForceReclone(ctx context.Context, repoPath string, r
 
 func (m *MockGitRepository) UpdateReposIfBranchChanged(
 	ctx context.Context,
-	repoPathResolver func(string, config.Service) string,
-	oldDeps, newDeps *config.Deps,
+	repoPathResolver func(string, models.Service) string,
+	oldDeps, newDeps *models.Deps,
 ) error {
 	if m.UpdateReposIfBranchChangedFunc != nil {
 		return m.UpdateReposIfBranchChangedFunc(ctx, repoPathResolver, oldDeps, newDeps)
@@ -71,7 +71,7 @@ func (m *MockGitRepository) UpdateReposIfBranchChanged(
 	return nil
 }
 
-func (m *MockGitRepository) IsReadonly(src config.SourceConfig) bool {
+func (m *MockGitRepository) IsReadonly(src models.SourceConfig) bool {
 	if m.IsReadonlyFunc != nil {
 		return m.IsReadonlyFunc(src)
 	}

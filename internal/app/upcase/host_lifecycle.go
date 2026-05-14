@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
@@ -83,7 +83,7 @@ func saveHostPIDs(
 ) {
 	localState, _ := state.LoadLocalState(projectDir)
 	if localState == nil {
-		localState = &state.LocalState{
+		localState = &models.LocalState{
 			HostPIDs: make(map[string]int),
 		}
 	}
@@ -110,9 +110,9 @@ func saveHostPIDs(
 			if !ok {
 				continue
 			}
-			if det.Runtime == detect.RuntimeCompose ||
-				det.Runtime == detect.RuntimeDockerfile ||
-				det.Runtime == detect.RuntimeImage {
+			if det.Runtime == models.RuntimeCompose ||
+				det.Runtime == models.RuntimeDockerfile ||
+				det.Runtime == models.RuntimeImage {
 				continue // Docker-managed, not a host process
 			}
 			pid := dispatcher.GetHostPID(name)

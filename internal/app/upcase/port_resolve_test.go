@@ -1,21 +1,21 @@
 package upcase
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 )
 
 // --- resolveDepPublishPorts --------------------------------------------------
 
 func TestResolveDepPublishPorts_AllocatorResultTakesPrecedence(t *testing.T) {
-	entry := config.InfraEntry{
-		Inline: &config.Infra{
+	entry := models.InfraEntry{
+		Inline: &models.Infra{
 			Image: "postgres",
 			Ports: []string{"9999:5432"}, // legacy
 		},
@@ -37,8 +37,8 @@ func TestResolveDepPublishPorts_AllocatorResultTakesPrecedence(t *testing.T) {
 }
 
 func TestResolveDepPublishPorts_FallsBackToLegacyPorts(t *testing.T) {
-	entry := config.InfraEntry{
-		Inline: &config.Infra{
+	entry := models.InfraEntry{
+		Inline: &models.Infra{
 			Image: "postgres",
 			Ports: []string{"5432:5432"},
 		},
@@ -53,8 +53,8 @@ func TestResolveDepPublishPorts_FallsBackToLegacyPorts(t *testing.T) {
 }
 
 func TestResolveDepPublishPorts_NilAllocsUsesLegacy(t *testing.T) {
-	entry := config.InfraEntry{
-		Inline: &config.Infra{
+	entry := models.InfraEntry{
+		Inline: &models.Infra{
 			Image: "redis",
 			Ports: []string{"6379:6379"},
 		},
@@ -66,8 +66,8 @@ func TestResolveDepPublishPorts_NilAllocsUsesLegacy(t *testing.T) {
 }
 
 func TestResolveDepPublishPorts_NoAllocNoLegacyReturnsNil(t *testing.T) {
-	entry := config.InfraEntry{
-		Inline: &config.Infra{Image: "redis"},
+	entry := models.InfraEntry{
+		Inline: &models.Infra{Image: "redis"},
 	}
 	allocs := &PortAllocResult{Deps: map[string]DepPortAllocation{}}
 	got := resolveDepPublishPorts("redis", entry, allocs)
@@ -77,7 +77,7 @@ func TestResolveDepPublishPorts_NoAllocNoLegacyReturnsNil(t *testing.T) {
 }
 
 func TestResolveDepPublishPorts_ExternalEntryReturnsNil(t *testing.T) {
-	entry := config.InfraEntry{Inline: nil}
+	entry := models.InfraEntry{Inline: nil}
 	allocs := &PortAllocResult{Deps: map[string]DepPortAllocation{}}
 	got := resolveDepPublishPorts("ext", entry, allocs)
 	if got != nil {
@@ -97,7 +97,7 @@ func TestResolveDepPublishPorts_MultipleMappings(t *testing.T) {
 			},
 		},
 	}
-	entry := config.InfraEntry{Inline: &config.Infra{Image: "multi"}}
+	entry := models.InfraEntry{Inline: &models.Infra{Image: "multi"}}
 	got := resolveDepPublishPorts("multi", entry, allocs)
 	if len(got) != 2 {
 		t.Fatalf("want 2 entries, got %d", len(got))
@@ -212,16 +212,16 @@ func TestApplyPortChange_UnknownServiceNoop(t *testing.T) {
 // --- buildProxyRoute ---------------------------------------------------------
 
 func TestBuildProxyRoute_DockerService(t *testing.T) {
-	deps := &config.Deps{
-		Project:  config.Project{Name: "myproj"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "myproj"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
-	det := detect.DetectResult{
-		Runtime: detect.RuntimeCompose,
+	det := models.DetectResult{
+		Runtime: models.RuntimeCompose,
 		Port:    8080,
 	}
-	route := buildProxyRoute(deps, "api", &det)
+	route := buildProxyRoute(context.Background(), nil, deps, "api", &det)
 	if route.ServiceName != "api" {
 		t.Errorf("ServiceName = %s, want api", route.ServiceName)
 	}
@@ -237,16 +237,16 @@ func TestBuildProxyRoute_DockerService(t *testing.T) {
 }
 
 func TestBuildProxyRoute_HostService(t *testing.T) {
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
-	det := detect.DetectResult{
-		Runtime: detect.RuntimeNPM,
+	det := models.DetectResult{
+		Runtime: models.RuntimeNPM,
 		Port:    3000,
 	}
-	route := buildProxyRoute(deps, "web", &det)
+	route := buildProxyRoute(context.Background(), nil, deps, "web", &det)
 	if route.Target != "host.docker.internal" {
 		t.Errorf("Target = %s, want host.docker.internal", route.Target)
 	}
@@ -256,36 +256,36 @@ func TestBuildProxyRoute_HostService(t *testing.T) {
 }
 
 func TestBuildProxyRoute_CustomHostname(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Services: map[string]models.Service{
 			"api": {Hostname: "backend"},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
-	det := detect.DetectResult{Runtime: detect.RuntimeGo, Port: 8080}
-	route := buildProxyRoute(deps, "api", &det)
+	det := models.DetectResult{Runtime: models.RuntimeGo, Port: 8080}
+	route := buildProxyRoute(context.Background(), nil, deps, "api", &det)
 	if route.Hostname != "backend" {
 		t.Errorf("Hostname = %s, want backend", route.Hostname)
 	}
 }
 
 func TestBuildProxyRoute_RoutingFlags(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Services: map[string]models.Service{
 			"ws-svc": {
-				Routing: &config.RoutingConfig{
+				Routing: &models.RoutingConfig{
 					WS:     true,
 					Stream: true,
 					GRPC:   false,
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
-	det := detect.DetectResult{Runtime: detect.RuntimeNPM, Port: 3000}
-	route := buildProxyRoute(deps, "ws-svc", &det)
+	det := models.DetectResult{Runtime: models.RuntimeNPM, Port: 3000}
+	route := buildProxyRoute(context.Background(), nil, deps, "ws-svc", &det)
 	if !route.WebSocket {
 		t.Error("WebSocket should be true")
 	}
@@ -298,20 +298,20 @@ func TestBuildProxyRoute_RoutingFlags(t *testing.T) {
 }
 
 func TestBuildProxyRoute_FallbackPortFromInfra(t *testing.T) {
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
 			"redis": {
-				Inline: &config.Infra{
+				Inline: &models.Infra{
 					Image: "redis",
 					Ports: []string{"6379:6379"},
 				},
 			},
 		},
 	}
-	det := detect.DetectResult{Runtime: detect.RuntimeImage, Port: 0}
-	route := buildProxyRoute(deps, "redis", &det)
+	det := models.DetectResult{Runtime: models.RuntimeImage, Port: 0}
+	route := buildProxyRoute(context.Background(), nil, deps, "redis", &det)
 	if route.Port != 6379 {
 		t.Errorf("Port = %d, want 6379 (from infra ports)", route.Port)
 	}

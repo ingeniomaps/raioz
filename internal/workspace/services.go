@@ -3,7 +3,7 @@ package workspace
 import (
 	"path/filepath"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/git"
 )
 
@@ -11,7 +11,7 @@ import (
 // For readonly services, returns ReadonlyServicesDir
 // For editable services, returns LocalServicesDir
 // Falls back to ServicesDir for backward compatibility
-func GetServiceDir(ws *Workspace, svc config.Service) string {
+func GetServiceDir(ws *Workspace, svc models.Service) string {
 	if svc.Source.Kind == "git" {
 		if git.IsReadonly(svc.Source) {
 			return ws.ReadonlyServicesDir
@@ -26,7 +26,7 @@ func GetServiceDir(ws *Workspace, svc config.Service) string {
 // serviceName is used for context (useful for logging, etc.)
 // If Source.Path is an absolute path (from override), it's used as-is
 // Otherwise, it's resolved relative to the workspace directory
-func GetServicePath(ws *Workspace, serviceName string, svc config.Service) string {
+func GetServicePath(ws *Workspace, serviceName string, svc models.Service) string {
 	// If Source.Path is already absolute (from override), use it directly
 	if filepath.IsAbs(svc.Source.Path) {
 		return svc.Source.Path

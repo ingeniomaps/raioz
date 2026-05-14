@@ -31,7 +31,7 @@ var execCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewExecUseCase(deps)
 
 		serviceName := args[0]

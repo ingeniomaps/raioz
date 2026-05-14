@@ -3,8 +3,8 @@ package upcase
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 )
 
@@ -12,7 +12,7 @@ import (
 // projectEnvPath is the resolved path from project.env (if project.env is ["."] and .env exists)
 // projectDir is the directory where .raioz.json is located
 func (uc *UseCase) generateEnvFilesFromTemplates(
-	ctx context.Context, deps *config.Deps, ws *interfaces.Workspace,
+	ctx context.Context, deps *models.Deps, ws *interfaces.Workspace,
 	projectEnvPath string, projectDir string,
 ) error {
 	// Process all services

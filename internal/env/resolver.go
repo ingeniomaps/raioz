@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	raiozErr "raioz/internal/errors"
 	pathvalidate "raioz/internal/path"
 	"raioz/internal/workspace"
@@ -17,7 +17,7 @@ import (
 // If project.env is ["."], uses .env in project directory as primary (read-only if exists).
 // If .env doesn't exist, creates it normally.
 // projectDir is the directory where .raioz.json is located.
-func ResolveProjectEnv(ws *workspace.Workspace, deps *config.Deps, projectDir string) (string, error) {
+func ResolveProjectEnv(ws *workspace.Workspace, deps *models.Deps, projectDir string) (string, error) {
 	if deps.Project.Env == nil {
 		return "", nil
 	}
@@ -116,7 +116,7 @@ func ResolveProjectEnv(ws *workspace.Workspace, deps *config.Deps, projectDir st
 // projectDir is the directory where .raioz.json is located.
 func ResolveEnvFiles(
 	ws *workspace.Workspace,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName string,
 	envFiles []string,
 	projectEnvPath string,
@@ -189,7 +189,7 @@ func ResolveEnvFiles(
 // resolveServiceEnvFile resolves a single service/infra env file reference.
 func resolveServiceEnvFile(
 	ws *workspace.Workspace,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName, envFile, projectEnvPath, projectDir string,
 ) (string, error) {
 	// Check project-relative paths first
@@ -286,9 +286,9 @@ func resolveServiceEnvFile(
 // If envValue contains direct variables (object), it creates/updates the appropriate .env file.
 func ResolveEnvFileForService(
 	ws *workspace.Workspace,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName string,
-	envValue *config.EnvValue,
+	envValue *models.EnvValue,
 	projectDir string,
 	servicePath string,
 ) (string, error) {

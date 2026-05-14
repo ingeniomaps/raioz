@@ -48,27 +48,24 @@ func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
 		).WithContext("project", projectName).WithError(err)
 	}
 
-	if !uc.deps.StateManager.Exists(ws) {
-		return errors.New(
-			errors.ErrCodeWorkspaceError,
-			i18n.T("error.logs_not_running"),
-		).WithContext("project", projectName)
-	}
-
-	stateDeps, err := uc.deps.StateManager.Load(ws)
+	// ADR-011 Phase 2: liveness via Docker labels, ProjectComposePath
+	// via LocalState. See ADR-011 / issue 031a.
+	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeStateLoadError,
 			i18n.T("error.state_load_previous"),
 		).WithError(err)
 	}
+	if !active {
+		return errors.New(
+			errors.ErrCodeWorkspaceError,
+			i18n.T("error.logs_not_running"),
+		).WithContext("project", projectName)
+	}
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
-
-	var projectComposePath string
-	if stateDeps != nil {
-		projectComposePath = stateDeps.ProjectComposePath
-	}
+	projectComposePath := loadProjectComposePathFromLocalState(opts.ConfigPath)
 	services, projectComposeServices, err := uc.resolveServices(ctx, opts, composePath, projectComposePath)
 	if err != nil {
 		return err
@@ -90,13 +87,13 @@ func (uc *LogsUseCase) Execute(ctx context.Context, opts LogsOptions) error {
 	}
 
 	// View logs from project compose if it exists
-	if len(projectComposeServices) > 0 && stateDeps != nil && stateDeps.ProjectComposePath != "" {
+	if len(projectComposeServices) > 0 && projectComposePath != "" {
 		logsOpts := interfaces.LogsOptions{
 			Follow:   opts.Follow,
 			Tail:     opts.Tail,
 			Services: projectComposeServices,
 		}
-		if err := uc.deps.DockerRunner.ViewLogsWithContext(ctx, stateDeps.ProjectComposePath, logsOpts); err != nil {
+		if err := uc.deps.DockerRunner.ViewLogsWithContext(ctx, projectComposePath, logsOpts); err != nil {
 			return errors.New(
 				errors.ErrCodeDockerNotRunning,
 				i18n.T("error.logs_view_failed"),

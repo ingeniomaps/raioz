@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
-	"runtime"
+
+	"raioz/internal/naming"
 )
 
 const ignoreFileName = "ignore.json"
@@ -16,51 +16,12 @@ type IgnoreConfig struct {
 	Services []string `json:"services"` // List of ignored service names
 }
 
-// getBaseDirForIgnore returns the base directory for storing ignore file
-// Uses same logic as workspace.GetBaseDir but specifically for config files
-func getBaseDirForIgnore() (string, error) {
-	// Check for override environment variable
-	if home := os.Getenv("RAIOZ_HOME"); home != "" {
-		if err := os.MkdirAll(home, 0755); err != nil {
-			return "", fmt.Errorf("failed to create RAIOZ_HOME directory '%s': %w", home, err)
-		}
-		return home, nil
-	}
-
-	// Try /opt/raioz-proyecto first (preferred location)
-	optBase := "/opt/raioz-proyecto"
-	if err := os.MkdirAll(optBase, 0755); err == nil {
-		return optBase, nil
-	}
-
-	// Failed to create in /opt, use fallback
-	usr, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current user: %w", err)
-	}
-
-	homeDir := usr.HomeDir
-	if homeDir == "" {
-		return "", fmt.Errorf("home directory is empty")
-	}
-
-	fallbackBase := filepath.Join(homeDir, ".raioz")
-	if runtime.GOOS == "windows" {
-		fallbackBase = filepath.Join(homeDir, ".raioz")
-	}
-
-	if err := os.MkdirAll(fallbackBase, 0755); err != nil {
-		return "", fmt.Errorf("failed to create fallback directory '%s': %w", fallbackBase, err)
-	}
-
-	return fallbackBase, nil
-}
-
-// GetIgnorePath returns the path to the ignore file
+// GetIgnorePath returns the path to the ignore file.
+// Location delegated to naming.RaiozStateDir() — ADR-022.
 func GetIgnorePath() (string, error) {
-	baseDir, err := getBaseDirForIgnore()
-	if err != nil {
-		return "", fmt.Errorf("failed to get base directory for ignore: %w", err)
+	baseDir := naming.RaiozStateDir()
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create ignore state dir %q: %w", baseDir, err)
 	}
 	return filepath.Join(baseDir, ignoreFileName), nil
 }

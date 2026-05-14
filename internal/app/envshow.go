@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/discovery"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/env"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
@@ -96,9 +96,9 @@ func (uc *EnvShowUseCase) Execute(
 
 func resolveFileVars(
 	appDeps *Dependencies,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName string,
-	svc config.Service,
+	svc models.Service,
 	projectDir string,
 ) []EnvEntry {
 	ws, err := appDeps.Workspace.Resolve(deps.GetWorkspaceName())
@@ -129,19 +129,19 @@ func resolveFileVars(
 }
 
 func resolveDiscoveryVars(
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName string,
 	projectDir string,
 ) []EnvEntry {
-	detections := make(map[string]detect.DetectResult)
+	detections := make(map[string]models.DetectResult)
 	for name, svc := range deps.Services {
 		path := filepath.Join(projectDir, svc.Source.Path)
 		detections[name] = detect.Detect(path)
 	}
 	for name, entry := range deps.Infra {
 		if entry.Inline != nil && entry.Inline.Image != "" {
-			detections[name] = detect.DetectResult{
-				Runtime: detect.RuntimeImage,
+			detections[name] = models.DetectResult{
+				Runtime: models.RuntimeImage,
 			}
 		}
 	}
@@ -192,7 +192,7 @@ func parseFirstPort(portStr string) int {
 	return port
 }
 
-func joinServiceNames(deps *config.Deps) string {
+func joinServiceNames(deps *models.Deps) string {
 	names := make([]string, 0, len(deps.Services))
 	for name := range deps.Services {
 		names = append(names, name)

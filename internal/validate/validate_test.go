@@ -3,43 +3,43 @@ package validate
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestValidateProject(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		wantErr bool
 	}{
 		{
 			name: "valid project",
-			deps: &config.Deps{
+			deps: &models.Deps{
 				SchemaVersion: "1.0",
-				Network:       config.NetworkConfig{Name: "test-network"},
-				Project: config.Project{
+				Network:       models.NetworkConfig{Name: "test-network"},
+				Project: models.Project{
 					Name: "test-project",
 				},
-				Services: map[string]config.Service{
+				Services: map[string]models.Service{
 					"test": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind:   "git",
 							Repo:   "git@github.com:test/repo.git",
 							Branch: "main",
 							Path:   "services/test",
 						},
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							Mode:       "dev",
 							Dockerfile: "Dockerfile",
 							Ports:      []string{},
 							Volumes:    []string{},
 							DependsOn:  []string{},
 						},
-						Env: &config.EnvValue{Files: []string{}},
+						Env: &models.EnvValue{Files: []string{}},
 					},
 				},
-				Infra: map[string]config.InfraEntry{},
-				Env: config.EnvConfig{
+				Infra: map[string]models.InfraEntry{},
+				Env: models.EnvConfig{
 					UseGlobal: true,
 					Files:     []string{},
 				},
@@ -48,37 +48,37 @@ func TestValidateProject(t *testing.T) {
 		},
 		{
 			name: "missing project name",
-			deps: &config.Deps{
+			deps: &models.Deps{
 				SchemaVersion: "1.0",
-				Network:       config.NetworkConfig{Name: "test-network"},
-				Project:       config.Project{},
-				Services:      map[string]config.Service{},
-				Infra:         map[string]config.InfraEntry{},
-				Env:           config.EnvConfig{},
+				Network:       models.NetworkConfig{Name: "test-network"},
+				Project:       models.Project{},
+				Services:      map[string]models.Service{},
+				Infra:         map[string]models.InfraEntry{},
+				Env:           models.EnvConfig{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "missing service source fields for git",
-			deps: &config.Deps{
+			deps: &models.Deps{
 				SchemaVersion: "1.0",
-				Network:       config.NetworkConfig{Name: "test"},
-				Project: config.Project{
+				Network:       models.NetworkConfig{Name: "test"},
+				Project: models.Project{
 					Name: "test",
 				},
-				Services: map[string]config.Service{
+				Services: map[string]models.Service{
 					"test": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind: "git",
 							// Missing repo, branch, path
 						},
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							Mode: "dev",
 						},
 					},
 				},
-				Infra: map[string]config.InfraEntry{},
-				Env:   config.EnvConfig{},
+				Infra: map[string]models.InfraEntry{},
+				Env:   models.EnvConfig{},
 			},
 			wantErr: true,
 		},

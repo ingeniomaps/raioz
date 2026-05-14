@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 )
 
 // ValidateVolumes validates volume configurations before creating
-func ValidateVolumes(deps *config.Deps, baseDir string, projectName string) error {
+func ValidateVolumes(deps *models.Deps, baseDir string, projectName string) error {
 	// Collect all volume names
 	volumeNames := make(map[string]bool)
 	volumePaths := make(map[string]string) // volume name -> service name
@@ -56,7 +56,7 @@ func ValidateVolumes(deps *config.Deps, baseDir string, projectName string) erro
 }
 
 // ValidateNetworks validates network configurations before creating
-func ValidateNetworks(ctx context.Context, deps *config.Deps) error {
+func ValidateNetworks(ctx context.Context, deps *models.Deps) error {
 	// Network name is already validated in validateProject
 	// Here we can add additional checks like network conflicts with other projects
 	// For now, we just ensure the network name is valid

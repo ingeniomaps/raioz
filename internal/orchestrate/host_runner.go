@@ -9,22 +9,49 @@ import (
 	"time"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 )
 
+// register routes every script/native-runtime dispatch (npm, go, make,
+// python, …) to HostRunner. Each runtime here corresponds to one
+// runner-on-the-host execution path; adding a new host language means
+// adding it to this list AND to models.AllRuntimes().
+func init() {
+	hostRuntimes := []models.Runtime{
+		models.RuntimeNPM, models.RuntimeGo, models.RuntimeMake,
+		models.RuntimeJust, models.RuntimeTask,
+		models.RuntimePython, models.RuntimeRust, models.RuntimePHP,
+		models.RuntimeJava, models.RuntimeDotnet, models.RuntimeRuby,
+		models.RuntimeElixir, models.RuntimeDart, models.RuntimeSwift,
+		models.RuntimeScala, models.RuntimeClojure, models.RuntimeZig,
+		models.RuntimeGleam, models.RuntimeHaskell, models.RuntimeDeno,
+		models.RuntimeBun,
+	}
+	for _, rt := range hostRuntimes {
+		register(rt, func(d *Dispatcher) runner { return d.host })
+	}
+}
+
 // HostRunner handles services that run directly on the host (npm, go, make, python, rust).
 type HostRunner struct {
 	// processes tracks running host process PIDs by service name
 	processes map[string]int
+	// Services that triggered the launcher pattern at Start time. Stop
+	// drains an in-progress build before invoking stop: (ADR-025).
+	launchers map[string]bool
 }
 
 // Start runs the detected start command in the service directory.
 func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
 	if r.processes == nil {
 		r.processes = make(map[string]int)
+	}
+	if r.launchers == nil {
+		r.launchers = make(map[string]bool)
 	}
 
 	command := svc.Detection.DevCommand
@@ -103,6 +130,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				// label-based handle on the launched processes /
 				// containers. Warn loudly so `raioz down` doesn't
 				// silently leak resources.
+				r.launchers[svc.Name] = true
 				if svc.StopCommand == "" {
 					output.PrintWarning(fmt.Sprintf(
 						"Service '%s' exited 0 within the settle window — likely a "+
@@ -113,6 +141,9 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 					logging.WarnWithContext(ctx, "Launcher pattern without stop: declared",
 						"service", svc.Name, "command", command)
 				}
+				// ADR-025: don't claim ready before the launcher's
+				// container materializes. No-op without proxy.target:.
+				waitForLauncherContainer(ctx, svc)
 				break
 			}
 			logFile.Close()
@@ -143,6 +174,10 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) error {
 	// Custom stop command path
 	if svc.StopCommand != "" {
+		// ADR-025: drain an in-progress launcher build before stop:.
+		if r.launchers != nil && r.launchers[svc.Name] {
+			drainLauncherBeforeStop(ctx, svc)
+		}
 		logging.InfoWithContext(ctx, "Running custom stop command",
 			"service", svc.Name, "command", svc.StopCommand, "path", svc.Path)
 

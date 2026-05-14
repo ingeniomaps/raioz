@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	raiozErr "raioz/internal/errors"
 	"raioz/internal/workspace"
 )
@@ -18,7 +18,7 @@ import (
 // If the file already exists, variables are merged (new values override existing ones)
 func CreateOrUpdateEnvFile(
 	ws *workspace.Workspace,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceName string,
 	variables map[string]string,
 	servicePath string,
@@ -103,7 +103,7 @@ func EnsureEnvDirs(ws *workspace.Workspace) error {
 // WriteGlobalEnvVariables writes global.env as the union of env.files (project-relative) and env.variables.
 // global = env.files content + env.variables; neither replaces the other.
 // projectDir is the directory of the .raioz.json (for resolving env.files like ".env.global").
-func WriteGlobalEnvVariables(ws *workspace.Workspace, deps *config.Deps, projectDir string) error {
+func WriteGlobalEnvVariables(ws *workspace.Workspace, deps *models.Deps, projectDir string) error {
 	// Skip if nothing to write
 	if !deps.Env.UseGlobal && len(deps.Env.Files) == 0 && len(deps.Env.Variables) == 0 {
 		return nil

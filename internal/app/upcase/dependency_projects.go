@@ -8,16 +8,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/state"
 )
 
 // checkDependencyProjects checks if any dependency matches a running project and handles replacement
-func (uc *UseCase) checkDependencyProjects(ctx context.Context, deps *config.Deps) error {
+func (uc *UseCase) checkDependencyProjects(ctx context.Context, deps *models.Deps) error {
 	// Load global state to check for running projects
 	globalState, err := uc.deps.StateManager.LoadGlobalState()
 	if err != nil {
@@ -79,7 +78,7 @@ func (uc *UseCase) checkDependencyProjects(ctx context.Context, deps *config.Dep
 // askReplaceRunningProject asks the user if they want to replace a running project
 func askReplaceRunningProject(
 	ctx context.Context, projectName string,
-	projectState state.ProjectState, sm interfaces.StateManager,
+	projectState models.ProjectState, sm interfaces.StateManager,
 ) (bool, error) {
 	// Check if user has a saved decision
 	savedDecision, err := loadUserDecision(projectName, sm)
@@ -126,7 +125,7 @@ func askReplaceRunningProject(
 
 // stopRunningProject stops a running project by executing its down command
 func (uc *UseCase) stopRunningProject(
-	ctx context.Context, projectName string, projectState state.ProjectState,
+	ctx context.Context, projectName string, projectState models.ProjectState,
 ) error {
 	// Try to find the .raioz.json in the project workspace
 	configPath := filepath.Join(projectState.Workspace, ".raioz.json")

@@ -4,8 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 // --- parseHealthCommandOutput --------------------------------------------------
@@ -52,30 +51,30 @@ func TestParseHealthCommandOutput(t *testing.T) {
 func TestGetServiceHealthCommand(t *testing.T) {
 	tests := []struct {
 		name string
-		svc  config.Service
+		svc  models.Service
 		mode string
 		want string
 	}{
 		{
 			name: "no commands",
-			svc:  config.Service{},
+			svc:  models.Service{},
 			mode: "dev",
 			want: "",
 		},
 		{
 			name: "root health only",
-			svc: config.Service{
-				Commands: &config.ServiceCommands{Health: "check.sh"},
+			svc: models.Service{
+				Commands: &models.ServiceCommands{Health: "check.sh"},
 			},
 			mode: "dev",
 			want: "check.sh",
 		},
 		{
 			name: "dev takes precedence over root",
-			svc: config.Service{
-				Commands: &config.ServiceCommands{
+			svc: models.Service{
+				Commands: &models.ServiceCommands{
 					Health: "root.sh",
-					Dev:    &config.EnvironmentCommands{Health: "dev.sh"},
+					Dev:    &models.EnvironmentCommands{Health: "dev.sh"},
 				},
 			},
 			mode: "dev",
@@ -83,10 +82,10 @@ func TestGetServiceHealthCommand(t *testing.T) {
 		},
 		{
 			name: "prod mode uses prod command",
-			svc: config.Service{
-				Commands: &config.ServiceCommands{
-					Dev:  &config.EnvironmentCommands{Health: "dev.sh"},
-					Prod: &config.EnvironmentCommands{Health: "prod.sh"},
+			svc: models.Service{
+				Commands: &models.ServiceCommands{
+					Dev:  &models.EnvironmentCommands{Health: "dev.sh"},
+					Prod: &models.EnvironmentCommands{Health: "prod.sh"},
 				},
 			},
 			mode: "prod",
@@ -94,9 +93,9 @@ func TestGetServiceHealthCommand(t *testing.T) {
 		},
 		{
 			name: "empty mode defaults to dev",
-			svc: config.Service{
-				Commands: &config.ServiceCommands{
-					Dev: &config.EnvironmentCommands{Health: "dev.sh"},
+			svc: models.Service{
+				Commands: &models.ServiceCommands{
+					Dev: &models.EnvironmentCommands{Health: "dev.sh"},
 				},
 			},
 			mode: "",
@@ -104,8 +103,8 @@ func TestGetServiceHealthCommand(t *testing.T) {
 		},
 		{
 			name: "prod mode falls back to root when no prod",
-			svc: config.Service{
-				Commands: &config.ServiceCommands{Health: "root.sh"},
+			svc: models.Service{
+				Commands: &models.ServiceCommands{Health: "root.sh"},
 			},
 			mode: "prod",
 			want: "root.sh",
@@ -127,24 +126,24 @@ func TestGetServiceHealthCommand(t *testing.T) {
 func TestGetLocalProjectCommand(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		cmdType string
 		mode    string
 		want    string
 	}{
 		{
 			name:    "nil commands",
-			deps:    &config.Deps{Project: config.Project{Name: "p"}},
+			deps:    &models.Deps{Project: models.Project{Name: "p"}},
 			cmdType: "up",
 			mode:    "dev",
 			want:    "",
 		},
 		{
 			name: "up with dev command",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{
 					Up:  "make",
-					Dev: &config.EnvironmentCommands{Up: "make dev"},
+					Dev: &models.EnvironmentCommands{Up: "make dev"},
 				},
 			}},
 			cmdType: "up",
@@ -153,9 +152,9 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "up default mode is dev",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{
-					Dev: &config.EnvironmentCommands{Up: "make dev"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{
+					Dev: &models.EnvironmentCommands{Up: "make dev"},
 				},
 			}},
 			cmdType: "up",
@@ -164,9 +163,9 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "up prod",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{
-					Prod: &config.EnvironmentCommands{Up: "make prod"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{
+					Prod: &models.EnvironmentCommands{Up: "make prod"},
 				},
 			}},
 			cmdType: "up",
@@ -175,8 +174,8 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "up falls back to root",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{Up: "make"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{Up: "make"},
 			}},
 			cmdType: "up",
 			mode:    "dev",
@@ -184,9 +183,9 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "down dev",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{
-					Dev: &config.EnvironmentCommands{Down: "make stop"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{
+					Dev: &models.EnvironmentCommands{Down: "make stop"},
 				},
 			}},
 			cmdType: "down",
@@ -195,9 +194,9 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "down prod",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{
-					Prod: &config.EnvironmentCommands{Down: "make stop prod"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{
+					Prod: &models.EnvironmentCommands{Down: "make stop prod"},
 				},
 			}},
 			cmdType: "down",
@@ -206,8 +205,8 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "down root fallback",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{Down: "make down"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{Down: "make down"},
 			}},
 			cmdType: "down",
 			mode:    "dev",
@@ -215,9 +214,9 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "health dev",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{
-					Dev: &config.EnvironmentCommands{Health: "check.sh"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{
+					Dev: &models.EnvironmentCommands{Health: "check.sh"},
 				},
 			}},
 			cmdType: "health",
@@ -226,9 +225,9 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "health prod",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{
-					Prod: &config.EnvironmentCommands{Health: "prod-check.sh"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{
+					Prod: &models.EnvironmentCommands{Health: "prod-check.sh"},
 				},
 			}},
 			cmdType: "health",
@@ -237,8 +236,8 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "health root fallback",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{Health: "check"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{Health: "check"},
 			}},
 			cmdType: "health",
 			mode:    "dev",
@@ -246,8 +245,8 @@ func TestGetLocalProjectCommand(t *testing.T) {
 		},
 		{
 			name: "unknown command type",
-			deps: &config.Deps{Project: config.Project{
-				Commands: &config.ProjectCommands{Up: "make"},
+			deps: &models.Deps{Project: models.Project{
+				Commands: &models.ProjectCommands{Up: "make"},
 			}},
 			cmdType: "restart",
 			mode:    "dev",
@@ -281,7 +280,7 @@ func TestIsYAMLMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := &config.Deps{SchemaVersion: tt.version}
+			d := &models.Deps{SchemaVersion: tt.version}
 			got := isYAMLMode(d)
 			if got != tt.want {
 				t.Errorf("isYAMLMode(%q) = %v, want %v", tt.version, got, tt.want)
@@ -293,7 +292,7 @@ func TestIsYAMLMode(t *testing.T) {
 // --- buildServiceContext -------------------------------------------------------
 
 func TestBuildServiceContext(t *testing.T) {
-	det := detect.DetectResult{Runtime: detect.RuntimeGo, StartCommand: "go run ."}
+	det := models.DetectResult{Runtime: models.RuntimeGo, StartCommand: "go run ."}
 	envVars := map[string]string{"FOO": "bar"}
 	ports := []string{"8080:8080"}
 	deps := []string{"postgres"}
@@ -327,7 +326,7 @@ func TestBuildServiceContext(t *testing.T) {
 	if ctx.EnvVars["FOO"] != "bar" {
 		t.Errorf("EnvVars[FOO] = %q, want bar", ctx.EnvVars["FOO"])
 	}
-	if ctx.Detection.Runtime != detect.RuntimeGo {
+	if ctx.Detection.Runtime != models.RuntimeGo {
 		t.Errorf("Detection.Runtime = %q, want go", ctx.Detection.Runtime)
 	}
 }
@@ -336,14 +335,14 @@ func TestBuildServiceContext(t *testing.T) {
 
 func TestInfraPorts(t *testing.T) {
 	t.Run("inline with ports", func(t *testing.T) {
-		entry := config.InfraEntry{Inline: &config.Infra{Ports: []string{"5432"}}}
+		entry := models.InfraEntry{Inline: &models.Infra{Ports: []string{"5432"}}}
 		got := infraPorts(entry)
 		if len(got) != 1 || got[0] != "5432" {
 			t.Errorf("got %v, want [5432]", got)
 		}
 	})
 	t.Run("nil inline", func(t *testing.T) {
-		entry := config.InfraEntry{}
+		entry := models.InfraEntry{}
 		got := infraPorts(entry)
 		if got != nil {
 			t.Errorf("expected nil, got %v", got)
@@ -353,14 +352,14 @@ func TestInfraPorts(t *testing.T) {
 
 func TestServicePorts(t *testing.T) {
 	t.Run("docker ports", func(t *testing.T) {
-		svc := config.Service{Docker: &config.DockerConfig{Ports: []string{"3000:3000"}}}
+		svc := models.Service{Docker: &models.DockerConfig{Ports: []string{"3000:3000"}}}
 		got := servicePorts(svc)
 		if len(got) != 1 || got[0] != "3000:3000" {
 			t.Errorf("got %v, want [3000:3000]", got)
 		}
 	})
 	t.Run("no docker", func(t *testing.T) {
-		svc := config.Service{}
+		svc := models.Service{}
 		got := servicePorts(svc)
 		if got != nil {
 			t.Errorf("expected nil, got %v", got)
@@ -372,8 +371,8 @@ func TestServicePorts(t *testing.T) {
 
 func TestOrderedServiceNames(t *testing.T) {
 	t.Run("no dependencies", func(t *testing.T) {
-		deps := &config.Deps{
-			Services: map[string]config.Service{
+		deps := &models.Deps{
+			Services: map[string]models.Service{
 				"a": {},
 				"b": {},
 			},
@@ -384,8 +383,8 @@ func TestOrderedServiceNames(t *testing.T) {
 		}
 	})
 	t.Run("linear chain", func(t *testing.T) {
-		deps := &config.Deps{
-			Services: map[string]config.Service{
+		deps := &models.Deps{
+			Services: map[string]models.Service{
 				"web": {DependsOn: []string{"api"}},
 				"api": {DependsOn: []string{"db"}},
 				"db":  {},
@@ -408,11 +407,11 @@ func TestOrderedServiceNames(t *testing.T) {
 		}
 	})
 	t.Run("ignores infra deps", func(t *testing.T) {
-		deps := &config.Deps{
-			Services: map[string]config.Service{
+		deps := &models.Deps{
+			Services: map[string]models.Service{
 				"api": {DependsOn: []string{"postgres"}},
 			},
-			Infra: map[string]config.InfraEntry{
+			Infra: map[string]models.InfraEntry{
 				"postgres": {},
 			},
 		}
@@ -542,14 +541,14 @@ func TestMergeVolumesOnlyNew(t *testing.T) {
 
 func TestCloneService(t *testing.T) {
 	enabled := true
-	orig := config.Service{
-		Source:    config.SourceConfig{Kind: "git", Repo: "r"},
+	orig := models.Service{
+		Source:    models.SourceConfig{Kind: "git", Repo: "r"},
 		DependsOn: []string{"a", "b"},
 		Volumes:   []string{"/x:/y"},
 		Profiles:  []string{"dev"},
 		Enabled:   &enabled,
 		Hostname:  "api.local",
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Mode:      "dev",
 			Ports:     []string{"3000"},
 			Volumes:   []string{"/a:/b"},
@@ -591,7 +590,7 @@ func TestCloneService(t *testing.T) {
 }
 
 func TestCloneServiceNilDocker(t *testing.T) {
-	orig := config.Service{Source: config.SourceConfig{Kind: "local"}}
+	orig := models.Service{Source: models.SourceConfig{Kind: "local"}}
 	cloned := cloneService(orig)
 	if cloned.Docker != nil {
 		t.Errorf("Docker should stay nil, got %+v", cloned.Docker)
@@ -599,14 +598,14 @@ func TestCloneServiceNilDocker(t *testing.T) {
 }
 
 // TestCloneService_PreservesAllFields_Issue006: generative guard. Populates
-// every exported field of config.Service via reflection, clones it, then
+// every exported field of models.Service via reflection, clones it, then
 // walks the clone and fails for any field that came back zero. Prevents
 // the recurring "someone added a field but forgot to copy it in
 // cloneService" bug — already happened twice (ProxyOverride in the past,
 // HostnameAliases now). If this test fails on a new field X, adding
 // `X: s.X` (or deep-copy equivalent) to cloneService is the fix.
 func TestCloneService_PreservesAllFields_Issue006(t *testing.T) {
-	var orig config.Service
+	var orig models.Service
 	setAllFieldsNonZero(reflect.ValueOf(&orig).Elem())
 
 	cloned := cloneService(orig)
@@ -629,9 +628,9 @@ func TestCloneService_PreservesAllFields_Issue006(t *testing.T) {
 // cloneInfraEntry. Infra has a bigger footprint (Seed, Expose, Publish…)
 // and the same historical pattern of silent drops on merge.
 func TestCloneInfraEntry_PreservesAllFields_Issue006(t *testing.T) {
-	var orig config.Infra
+	var orig models.Infra
 	setAllFieldsNonZero(reflect.ValueOf(&orig).Elem())
-	entry := config.InfraEntry{Path: "/p", Inline: &orig}
+	entry := models.InfraEntry{Path: "/p", Inline: &orig}
 
 	cloned := cloneInfraEntry(entry)
 	if cloned.Inline == nil {
@@ -676,7 +675,7 @@ func setAllFieldsNonZero(v reflect.Value) {
 		v.Set(reflect.MakeSlice(v.Type(), 1, 1))
 	case reflect.Map:
 		v.Set(reflect.MakeMapWithSize(v.Type(), 0))
-	case reflect.Ptr:
+	case reflect.Pointer:
 		// Non-nil pointer to a fresh element. Recurse so nested structs
 		// also come back non-zero (a pointer to an all-zero struct would
 		// report zero for its fields but the POINTER itself is non-zero,
@@ -697,7 +696,7 @@ func setAllFieldsNonZero(v reflect.Value) {
 // drops the extra hostnames the user declared — same class of bug as the
 // previously-fixed ProxyOverride drop that already lives in cloneService.
 func TestCloneService_HostnameAliases_Issue006(t *testing.T) {
-	orig := config.Service{
+	orig := models.Service{
 		Hostname:        "sso",
 		HostnameAliases: []string{"accounts", "login"},
 	}
@@ -720,9 +719,9 @@ func TestCloneService_HostnameAliases_Issue006(t *testing.T) {
 
 func TestCloneInfraEntry(t *testing.T) {
 	t.Run("with inline", func(t *testing.T) {
-		orig := config.InfraEntry{
+		orig := models.InfraEntry{
 			Path: "/some/path",
-			Inline: &config.Infra{
+			Inline: &models.Infra{
 				Image:   "postgres",
 				Tag:     "16",
 				Ports:   []string{"5432"},
@@ -747,7 +746,7 @@ func TestCloneInfraEntry(t *testing.T) {
 		}
 	})
 	t.Run("nil inline", func(t *testing.T) {
-		orig := config.InfraEntry{Path: "/p"}
+		orig := models.InfraEntry{Path: "/p"}
 		cloned := cloneInfraEntry(orig)
 		if cloned.Inline != nil {
 			t.Error("Inline should stay nil")
@@ -758,8 +757,8 @@ func TestCloneInfraEntry(t *testing.T) {
 	// reached a dep under aliases (e.g. `pg.example.dev` + `db.example.dev`
 	// for the same postgres) across a workspace merge.
 	t.Run("hostname and aliases round-trip", func(t *testing.T) {
-		orig := config.InfraEntry{
-			Inline: &config.Infra{
+		orig := models.InfraEntry{
+			Inline: &models.Infra{
 				Image:           "axllent/mailpit",
 				Hostname:        "mail",
 				HostnameAliases: []string{"smtp", "inbox"},
@@ -785,10 +784,10 @@ func TestCloneInfraEntry(t *testing.T) {
 // --- inferServicePort additional cases ----------------------------------------
 
 func TestInferServicePortConfigPriority(t *testing.T) {
-	svc := config.Service{
-		Docker: &config.DockerConfig{Ports: []string{"4242:80"}},
+	svc := models.Service{
+		Docker: &models.DockerConfig{Ports: []string{"4242:80"}},
 	}
-	det := detect.DetectResult{Runtime: detect.RuntimeGo}
+	det := models.DetectResult{Runtime: models.RuntimeGo}
 	got := inferServicePort(svc, det)
 	if got != 4242 {
 		t.Errorf("config port should win, got %d", got)
@@ -796,8 +795,8 @@ func TestInferServicePortConfigPriority(t *testing.T) {
 }
 
 func TestInferServicePortUnknownRuntime(t *testing.T) {
-	svc := config.Service{}
-	det := detect.DetectResult{Runtime: detect.Runtime("weird")}
+	svc := models.Service{}
+	det := models.DetectResult{Runtime: models.Runtime("weird")}
 	got := inferServicePort(svc, det)
 	if got != 0 {
 		t.Errorf("expected 0 for unknown runtime, got %d", got)

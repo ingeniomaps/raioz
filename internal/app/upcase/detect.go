@@ -6,18 +6,19 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
 
 // DetectionMap maps service/dependency names to their detected runtime results.
-type DetectionMap map[string]detect.DetectResult
+type DetectionMap map[string]models.DetectResult
 
 // BuildDetectionMap is the read-only equivalent of detectRuntimes exported for
 // callers outside the upcase package (notably `raioz check`) that need the
 // runtime classification to feed into the port allocator without paying for
 // the progress output and logging the full up flow emits.
-func BuildDetectionMap(deps *config.Deps) DetectionMap {
+func BuildDetectionMap(deps *models.Deps) DetectionMap {
 	results := make(DetectionMap)
 
 	for name, svc := range deps.Services {
@@ -49,7 +50,7 @@ func BuildDetectionMap(deps *config.Deps) DetectionMap {
 // For services: scans the path directory OR honors explicit overrides from raioz.yaml
 // (source.command, source.composeFiles).
 // For dependencies: returns RuntimeImage.
-func detectRuntimes(ctx context.Context, deps *config.Deps) DetectionMap {
+func detectRuntimes(ctx context.Context, deps *models.Deps) DetectionMap {
 	results := make(DetectionMap)
 
 	// Detect services
@@ -92,7 +93,7 @@ func detectRuntimes(ctx context.Context, deps *config.Deps) DetectionMap {
 // buildServiceContext creates a ServiceContext for orchestration from config and detection.
 func buildServiceContext(
 	name string,
-	detection detect.DetectResult,
+	detection models.DetectResult,
 	networkName string,
 	envVars map[string]string,
 	ports []string,
@@ -115,6 +116,6 @@ func buildServiceContext(
 }
 
 // isYAMLMode returns true if the current config was loaded from a raioz.yaml file.
-func isYAMLMode(deps *config.Deps) bool {
+func isYAMLMode(deps *models.Deps) bool {
 	return deps.SchemaVersion == "2.0"
 }

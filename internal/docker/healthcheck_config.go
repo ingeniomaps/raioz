@@ -1,14 +1,12 @@
 package docker
 
-import (
-	"raioz/internal/config"
-)
+import "raioz/internal/domain/models"
 
-// HealthcheckToMap converts config.HealthcheckConfig to the map format
+// HealthcheckToMap converts models.HealthcheckConfig to the map format
 // used in docker-compose (same as Docker). Omits zero/empty fields.
 // When Disable is true, the returned map only contains "disable": true
 // so Compose disables the healthcheck.
-func HealthcheckToMap(h *config.HealthcheckConfig) map[string]any {
+func HealthcheckToMap(h *models.HealthcheckConfig) map[string]any {
 	if h == nil {
 		return nil
 	}

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -22,16 +22,16 @@ func TestEnvShowUseCase_Execute_WithService(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:       config.Project{Name: "test"},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "test"},
 				SchemaVersion: "1.0",
-				Services: map[string]config.Service{
+				Services: map[string]models.Service{
 					"api": {
-						Source: config.SourceConfig{Path: "."},
+						Source: models.SourceConfig{Path: "."},
 					},
 				},
-				Infra: map[string]config.InfraEntry{},
+				Infra: map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
@@ -59,17 +59,17 @@ func TestEnvShowUseCase_Execute_WithDiscovery(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:       config.Project{Name: "test"},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "test"},
 				SchemaVersion: "2.0",
-				Services: map[string]config.Service{
+				Services: map[string]models.Service{
 					"api": {
-						Source: config.SourceConfig{Path: "."},
+						Source: models.SourceConfig{Path: "."},
 					},
 				},
-				Infra: map[string]config.InfraEntry{
-					"postgres": {Inline: &config.Infra{
+				Infra: map[string]models.InfraEntry{
+					"postgres": {Inline: &models.Infra{
 						Image: "postgres",
 						Ports: []string{"5432"},
 					}},
@@ -108,16 +108,16 @@ func TestResolveDiscoveryVars_Basic(t *testing.T) {
 	initI18nForTest(t)
 	tmpDir := t.TempDir()
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "test"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "test"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Path: "."},
-				Docker: &config.DockerConfig{Ports: []string{"3000"}},
+				Source: models.SourceConfig{Path: "."},
+				Docker: &models.DockerConfig{Ports: []string{"3000"}},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{
 				Image: "postgres:16",
 				Ports: []string{"5432"},
 			}},
@@ -144,10 +144,10 @@ func TestResolveFileVars_WorkspaceResolveError(t *testing.T) {
 		},
 	}
 
-	cfgDeps := &config.Deps{
-		Project: config.Project{Name: "test"},
+	cfgDeps := &models.Deps{
+		Project: models.Project{Name: "test"},
 	}
-	svc := config.Service{Source: config.SourceConfig{Path: "."}}
+	svc := models.Service{Source: models.SourceConfig{Path: "."}}
 
 	entries := resolveFileVars(deps, cfgDeps, "api", svc, "/tmp")
 	if len(entries) != 0 {

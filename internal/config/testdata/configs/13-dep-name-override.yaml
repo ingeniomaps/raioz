@@ -1,0 +1,15 @@
+# 13-dep-name-override — `dependencies.<n>.name:` literal container name.
+#
+# Escape hatch for when external tooling expects a specific container
+# name (IDE integrations, backup scripts, monitoring agents). Without
+# `name:`, raioz derives the name from workspace/project. Locks the
+# field so it doesn't get accidentally dropped on a future schema
+# trim.
+
+project: name-override
+
+dependencies:
+  postgres:
+    image: postgres:16
+    name: my-pg
+    ports: ["5432"]

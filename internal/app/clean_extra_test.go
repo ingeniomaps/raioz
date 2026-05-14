@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestCleanUseCase_Execute_CleanVolumesWithForce(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, dockerRunner := newTestDepsForClean(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	var cleanVolumesCalled bool
 	dockerRunner.CleanUnusedVolumesWithContextFunc = func(ctx context.Context, dryRun, force bool) ([]string, error) {
@@ -38,8 +38,8 @@ func TestCleanUseCase_Execute_CleanVolumesWithForce(t *testing.T) {
 func TestCleanUseCase_Execute_CleanVolumesDryRun(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, dockerRunner := newTestDepsForClean(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	dockerRunner.CleanUnusedVolumesWithContextFunc = func(ctx context.Context, dryRun, force bool) ([]string, error) {
 		if !dryRun {
@@ -64,8 +64,8 @@ func TestCleanUseCase_Execute_CleanVolumesDryRun(t *testing.T) {
 func TestCleanUseCase_Execute_Networks(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, dockerRunner := newTestDepsForClean(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	var networksCalled bool
 	dockerRunner.CleanUnusedNetworksWithContextFunc = func(ctx context.Context, dryRun bool) ([]string, error) {
@@ -91,8 +91,8 @@ func TestCleanUseCase_Execute_Networks(t *testing.T) {
 func TestCleanUseCase_Execute_Images(t *testing.T) {
 	initI18nForTest(t)
 	deps, configLoader, _, dockerRunner := newTestDepsForClean(t)
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	var imagesCalled bool
 	dockerRunner.CleanUnusedImagesWithContextFunc = func(ctx context.Context, dryRun bool) ([]string, error) {

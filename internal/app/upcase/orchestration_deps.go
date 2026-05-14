@@ -3,7 +3,7 @@ package upcase
 import (
 	"fmt"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // resolveDepPublishPorts decides which `ports:` list to pass to ImageRunner
@@ -21,7 +21,7 @@ import (
 //     reachable from inside the Docker network.
 func resolveDepPublishPorts(
 	name string,
-	entry config.InfraEntry,
+	entry models.InfraEntry,
 	portAllocs *PortAllocResult,
 ) []string {
 	if portAllocs != nil {

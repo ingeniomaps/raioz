@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // dockerAvailable returns true if a docker binary is in PATH.
@@ -122,10 +122,10 @@ func TestDockerRunnerImpl_ResolveRelativeVolumes(t *testing.T) {
 
 func TestDockerRunnerImpl_BuildServiceVolumesMap(t *testing.T) {
 	r := NewDockerRunner()
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Volumes: []string{"data:/var/data"},
 				},
 			},
@@ -160,7 +160,7 @@ func TestDockerRunnerImpl_FormatSharedVolumesWarning(t *testing.T) {
 
 func TestDockerRunnerImpl_ValidateAllImages_Empty(t *testing.T) {
 	r := NewDockerRunner()
-	deps := &config.Deps{}
+	deps := &models.Deps{}
 	_ = r.ValidateAllImages(deps)
 }
 
@@ -299,7 +299,7 @@ func TestDockerRunnerImpl_ValidatePorts(t *testing.T) {
 		t.Skip("docker not available")
 	}
 	r := NewDockerRunner()
-	deps := &config.Deps{}
+	deps := &models.Deps{}
 	_, _ = r.ValidatePorts(deps, t.TempDir(), "test")
 }
 
@@ -371,8 +371,8 @@ func TestDockerRunnerImpl_ViewLogsWithContext_MissingFile(t *testing.T) {
 
 func TestDockerRunnerImpl_GenerateCompose(t *testing.T) {
 	r := NewDockerRunner()
-	deps := &config.Deps{
-		Project: config.Project{Name: "test"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "test"},
 	}
 	ws := &interfaces.Workspace{
 		Root: t.TempDir(),

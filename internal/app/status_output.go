@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -16,7 +16,7 @@ import (
 // outputJSON outputs status in JSON format
 func (uc *StatusUseCase) outputJSON(
 	servicesInfo map[string]*interfaces.ServiceInfo,
-	disabledServices []string, stateDeps *config.Deps,
+	disabledServices []string, stateDeps *models.Deps,
 	activeWorkspace string,
 ) error {
 	jsonData := map[string]any{
@@ -43,7 +43,7 @@ func (uc *StatusUseCase) outputJSON(
 // outputHumanReadable outputs status in human-readable format
 func (uc *StatusUseCase) outputHumanReadable(
 	servicesInfo map[string]*interfaces.ServiceInfo,
-	disabledServices []string, stateDeps *config.Deps,
+	disabledServices []string, stateDeps *models.Deps,
 	activeWorkspace string,
 ) error {
 	// Table output - these are user-facing output, not logs

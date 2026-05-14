@@ -6,6 +6,9 @@ updates:
   # Enable version updates for Go modules
   - package-ecosystem: "gomod"
     directory: "/"
+    # PRs target develop so they ride the next release through the
+    # normal develop -> main flow instead of landing on main directly.
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -29,6 +32,7 @@ updates:
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
       day: "monday"

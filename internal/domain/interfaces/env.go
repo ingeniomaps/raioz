@@ -1,7 +1,7 @@
 package interfaces
 
 import (
-	models "raioz/internal/domain/models"
+	"raioz/internal/domain/models"
 )
 
 // EnvManager defines operations for managing environment variables and env files

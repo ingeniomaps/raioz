@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // getEnviron returns the current environment variables.
@@ -25,7 +25,7 @@ func (uc *CIUseCase) validateFastPreflight() error {
 }
 
 // validateFast performs fast validation without compatibility checks
-func (uc *CIUseCase) validateFast(deps *config.Deps) error {
+func (uc *CIUseCase) validateFast(deps *models.Deps) error {
 	// Schema validation
 	if err := uc.deps.Validator.ValidateSchema(deps); err != nil {
 		return fmt.Errorf("schema validation failed: %w", err)

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"raioz/internal/audit"
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -18,10 +18,10 @@ import (
 // Returns true if user wants to continue, false if should abort
 // Also returns list of services added via dependency assist for metadata tracking
 func (uc *UseCase) handleDependencyAssist(
-	deps *config.Deps, ws *interfaces.Workspace, dryRun bool,
+	deps *models.Deps, ws *interfaces.Workspace, dryRun bool,
 ) (bool, []string, error) {
 	// Create service path resolver function
-	servicePathResolver := func(name string, svc config.Service) string {
+	servicePathResolver := func(name string, svc models.Service) string {
 		return uc.deps.Workspace.GetServicePath(ws, name, svc)
 	}
 
@@ -37,7 +37,7 @@ func (uc *UseCase) handleDependencyAssist(
 	}
 
 	// Group missing dependencies by service
-	missingByService := make(map[string][]config.MissingDependency)
+	missingByService := make(map[string][]models.MissingDependency)
 	for _, dep := range missing {
 		missingByService[dep.RequiredBy] = append(missingByService[dep.RequiredBy], dep)
 	}
@@ -78,7 +78,7 @@ func (uc *UseCase) handleDependencyAssist(
 	output.PrintInfo(i18n.T("app.missing_deps_opt_stub"))
 	output.PrintInfo("")
 
-	var servicesToAdd []config.MissingDependency
+	var servicesToAdd []models.MissingDependency
 	var servicesToIgnore []string
 
 	reader := bufio.NewReader(os.Stdin)
@@ -140,7 +140,7 @@ func (uc *UseCase) handleDependencyAssist(
 		for _, dep := range servicesToAdd {
 			// Copy service config from found config
 			if deps.Services == nil {
-				deps.Services = make(map[string]config.Service)
+				deps.Services = make(map[string]models.Service)
 			}
 
 			// Add service with origin and addedBy metadata (stored in raioz.root.json)
@@ -172,10 +172,10 @@ func (uc *UseCase) handleDependencyAssist(
 // Returns true if user wants to continue, false if should abort
 // Also returns list of conflict resolutions for audit logging
 func (uc *UseCase) handleDependencyConflicts(
-	deps *config.Deps, ws *interfaces.Workspace, dryRun bool,
+	deps *models.Deps, ws *interfaces.Workspace, dryRun bool,
 ) (bool, []string, error) {
 	// Create service path resolver function
-	servicePathResolver := func(name string, svc config.Service) string {
+	servicePathResolver := func(name string, svc models.Service) string {
 		return uc.deps.Workspace.GetServicePath(ws, name, svc)
 	}
 

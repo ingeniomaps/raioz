@@ -1,8 +1,8 @@
 package mocks
 
 import (
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -18,9 +18,9 @@ type MockWorkspaceManager struct {
 	GetStatePathFunc            func(ws *workspace.Workspace) string
 	GetActiveWorkspaceFunc      func() (string, error)
 	GetRootFunc                 func(ws *workspace.Workspace) string
-	GetServicePathFunc          func(ws *workspace.Workspace, serviceName string, svc config.Service) string
-	GetServiceDirFunc           func(ws *workspace.Workspace, svc config.Service) string
-	MigrateLegacyServicesFunc   func(ws *workspace.Workspace, deps *config.Deps) error
+	GetServicePathFunc          func(ws *workspace.Workspace, serviceName string, svc models.Service) string
+	GetServiceDirFunc           func(ws *workspace.Workspace, svc models.Service) string
+	MigrateLegacyServicesFunc   func(ws *workspace.Workspace, deps *models.Deps) error
 	ListWorkspacesFunc          func() ([]string, error)
 	WorkspaceExistsFunc         func(workspaceName string) (bool, error)
 	SetActiveWorkspaceFunc      func(workspaceName string) error
@@ -76,21 +76,21 @@ func (m *MockWorkspaceManager) GetRoot(ws *workspace.Workspace) string {
 	return ""
 }
 
-func (m *MockWorkspaceManager) GetServicePath(ws *workspace.Workspace, serviceName string, svc config.Service) string {
+func (m *MockWorkspaceManager) GetServicePath(ws *workspace.Workspace, serviceName string, svc models.Service) string {
 	if m.GetServicePathFunc != nil {
 		return m.GetServicePathFunc(ws, serviceName, svc)
 	}
 	return ""
 }
 
-func (m *MockWorkspaceManager) GetServiceDir(ws *workspace.Workspace, svc config.Service) string {
+func (m *MockWorkspaceManager) GetServiceDir(ws *workspace.Workspace, svc models.Service) string {
 	if m.GetServiceDirFunc != nil {
 		return m.GetServiceDirFunc(ws, svc)
 	}
 	return ""
 }
 
-func (m *MockWorkspaceManager) MigrateLegacyServices(ws *workspace.Workspace, deps *config.Deps) error {
+func (m *MockWorkspaceManager) MigrateLegacyServices(ws *workspace.Workspace, deps *models.Deps) error {
 	if m.MigrateLegacyServicesFunc != nil {
 		return m.MigrateLegacyServicesFunc(ws, deps)
 	}

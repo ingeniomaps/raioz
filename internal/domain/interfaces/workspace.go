@@ -1,12 +1,14 @@
 package interfaces
 
 import (
-	models "raioz/internal/domain/models"
+	"raioz/internal/domain/models"
+	workspacepkg "raioz/internal/workspace"
 )
 
-// Workspace represents a workspace structure (domain model)
-// This is an alias for the concrete type, keeping it in interfaces allows domain layer to reference it
-type Workspace = models.Workspace
+// Workspace represents a workspace structure (domain model).
+// This is an alias for the concrete type, keeping it in interfaces allows
+// the domain layer to reference it.
+type Workspace = workspacepkg.Workspace
 
 // WorkspaceManager defines operations for workspace management
 type WorkspaceManager interface {

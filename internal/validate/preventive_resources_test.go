@@ -4,21 +4,21 @@ import (
 	"context"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestValidateVolumes(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		wantErr bool
 	}{
 		{
 			name: "valid named volume",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"web": {
-						Docker: &config.DockerConfig{Volumes: []string{"data:/var/data"}},
+						Docker: &models.DockerConfig{Volumes: []string{"data:/var/data"}},
 					},
 				},
 			},
@@ -26,10 +26,10 @@ func TestValidateVolumes(t *testing.T) {
 		},
 		{
 			name: "bind mount ignored for naming check",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"web": {
-						Docker: &config.DockerConfig{Volumes: []string{"/host:/container"}},
+						Docker: &models.DockerConfig{Volumes: []string{"/host:/container"}},
 					},
 				},
 			},
@@ -37,8 +37,8 @@ func TestValidateVolumes(t *testing.T) {
 		},
 		{
 			name: "nil docker skipped",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"web": {Docker: nil},
 				},
 			},
@@ -46,10 +46,10 @@ func TestValidateVolumes(t *testing.T) {
 		},
 		{
 			name: "invalid volume name uppercase",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"web": {
-						Docker: &config.DockerConfig{Volumes: []string{"BadName:/app"}},
+						Docker: &models.DockerConfig{Volumes: []string{"BadName:/app"}},
 					},
 				},
 			},
@@ -57,10 +57,10 @@ func TestValidateVolumes(t *testing.T) {
 		},
 		{
 			name: "volume name with space",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"web": {
-						Docker: &config.DockerConfig{Volumes: []string{"bad name:/app"}},
+						Docker: &models.DockerConfig{Volumes: []string{"bad name:/app"}},
 					},
 				},
 			},
@@ -68,8 +68,8 @@ func TestValidateVolumes(t *testing.T) {
 		},
 		{
 			name: "empty services",
-			deps: &config.Deps{
-				Services: map[string]config.Service{},
+			deps: &models.Deps{
+				Services: map[string]models.Service{},
 			},
 			wantErr: false,
 		},
@@ -88,20 +88,20 @@ func TestValidateVolumes(t *testing.T) {
 func TestValidateNetworks(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		wantErr bool
 	}{
 		{
 			name: "valid network",
-			deps: &config.Deps{
-				Network: config.NetworkConfig{Name: "my-network"},
+			deps: &models.Deps{
+				Network: models.NetworkConfig{Name: "my-network"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid network with space",
-			deps: &config.Deps{
-				Network: config.NetworkConfig{Name: "bad network"},
+			deps: &models.Deps{
+				Network: models.NetworkConfig{Name: "bad network"},
 			},
 			wantErr: true,
 		},

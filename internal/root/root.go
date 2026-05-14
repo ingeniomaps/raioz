@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -36,11 +36,11 @@ type RootConfig struct {
 	SchemaVersion string                       `json:"schemaVersion"`
 	GeneratedAt   string                       `json:"generatedAt"`   // ISO 8601 timestamp
 	LastUpdatedAt string                       `json:"lastUpdatedAt"` // ISO 8601 timestamp
-	Network       config.NetworkConfig         `json:"network"`       // Network configuration (shared by workspace)
-	Project       config.Project               `json:"project"`
-	Services      map[string]config.Service    `json:"services"`
-	Infra         map[string]config.InfraEntry `json:"infra"`
-	Env           config.EnvConfig             `json:"env"`
+	Network       models.NetworkConfig         `json:"network"`       // Network configuration (shared by workspace)
+	Project       models.Project               `json:"project"`
+	Services      map[string]models.Service    `json:"services"`
+	Infra         map[string]models.InfraEntry `json:"infra"`
+	Env           models.EnvConfig             `json:"env"`
 	// Metadata tracks the origin of each service
 	Metadata map[string]ServiceMetadata `json:"metadata,omitempty"`
 }
@@ -110,11 +110,21 @@ func Save(ws *workspace.Workspace, root *RootConfig) error {
 	return nil
 }
 
+// Delete removes raioz.root.json. Absent file is not an error — `raioz
+// down` calls this on every teardown including fresh projects. ADR-023.
+func Delete(ws *workspace.Workspace) error {
+	path := GetRootPath(ws)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("delete root config %q: %w", path, err)
+	}
+	return nil
+}
+
 // GenerateFromDeps generates a RootConfig from a Deps configuration
 // This is used when creating a new root config from .raioz.json
 // assistedServices is a map of service names to their "addedBy" identifier for dependency assist
 func GenerateFromDeps(
-	deps *config.Deps, appliedOverrides []string,
+	deps *models.Deps, appliedOverrides []string,
 	assistedServices map[string]string,
 ) (*RootConfig, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -125,7 +135,7 @@ func GenerateFromDeps(
 		LastUpdatedAt: now,
 		Network:       deps.Network,
 		Project:       deps.Project,
-		Services:      make(map[string]config.Service),
+		Services:      make(map[string]models.Service),
 		Infra:         deps.Infra,
 		Env:           deps.Env,
 		Metadata:      make(map[string]ServiceMetadata),
@@ -166,7 +176,7 @@ func GenerateFromDeps(
 // This preserves existing metadata and updates services
 // assistedServices is a map of service names to their "addedBy" identifier for dependency assist
 func UpdateFromDeps(
-	root *RootConfig, deps *config.Deps,
+	root *RootConfig, deps *models.Deps,
 	appliedOverrides []string,
 	assistedServices map[string]string,
 ) error {
@@ -244,8 +254,8 @@ func UpdateFromDeps(
 
 // ToDeps converts a RootConfig back to a Deps configuration
 // This is used when loading root config as the source of truth
-func (r *RootConfig) ToDeps() *config.Deps {
-	return &config.Deps{
+func (r *RootConfig) ToDeps() *models.Deps {
+	return &models.Deps{
 		SchemaVersion: r.SchemaVersion,
 		Network:       r.Network,
 		Project:       r.Project,
@@ -256,7 +266,7 @@ func (r *RootConfig) ToDeps() *config.Deps {
 }
 
 // AddAssistedService adds a service that was added via dependency assist
-func (r *RootConfig) AddAssistedService(name string, svc config.Service, addedBy string, reason string) {
+func (r *RootConfig) AddAssistedService(name string, svc models.Service, addedBy string, reason string) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	r.Services[name] = svc
 	r.Metadata[name] = ServiceMetadata{

@@ -8,8 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/state"
+	"raioz/internal/domain/models"
 )
 
 // declaredServiceNames / declaredInfraNames / hasService / hasInfra are
@@ -17,9 +16,9 @@ import (
 // known target?" check. Pinning them prevents a future refactor from
 // silently dropping a kind.
 func TestHasServiceAndInfra(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{"api": {}, "web": {}},
-		Infra:    map[string]config.InfraEntry{"postgres": {}, "redis": {}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{"api": {}, "web": {}},
+		Infra:    map[string]models.InfraEntry{"postgres": {}, "redis": {}},
 	}
 
 	if !hasService(deps, "api") || !hasService(deps, "web") {
@@ -61,9 +60,9 @@ func captureStdout(t *testing.T, fn func()) string {
 }
 
 func TestStopSelectiveDep_ModeASkipped(t *testing.T) {
-	deps := &config.Deps{
-		Infra: map[string]config.InfraEntry{
-			"keycloak": {Inline: &config.Infra{Project: "/abs/sibling"}},
+	deps := &models.Deps{
+		Infra: map[string]models.InfraEntry{
+			"keycloak": {Inline: &models.Infra{Project: "/abs/sibling"}},
 		},
 	}
 	out := captureStdout(t, func() {
@@ -77,15 +76,15 @@ func TestStopSelectiveDep_ModeASkipped(t *testing.T) {
 }
 
 func TestStopSelectiveDep_ModeBDeferredSkipped(t *testing.T) {
-	deps := &config.Deps{
-		Infra: map[string]config.InfraEntry{
-			"keycloak": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Infra: map[string]models.InfraEntry{
+			"keycloak": {Inline: &models.Infra{
 				Image:          "keycloak",
 				SiblingProject: "/abs/sibling",
 			}},
 		},
 	}
-	ls := &state.LocalState{DeferredToSibling: []string{"keycloak"}}
+	ls := &models.LocalState{DeferredToSibling: []string{"keycloak"}}
 	out := captureStdout(t, func() {
 		stopSelectiveDep(context.Background(), deps, "consumer", "keycloak", ls)
 	})
@@ -99,9 +98,9 @@ func TestStopSelectiveDep_RegularDepNotSkipped(t *testing.T) {
 	// no Project/Sibling/deferred state must reach the actual teardown
 	// code path. We don't run the docker call here; the absence of the
 	// skip message is the assertion.
-	deps := &config.Deps{
-		Infra: map[string]config.InfraEntry{
-			"redis": {Inline: &config.Infra{Image: "redis", Tag: "7"}},
+	deps := &models.Deps{
+		Infra: map[string]models.InfraEntry{
+			"redis": {Inline: &models.Infra{Image: "redis", Tag: "7"}},
 		},
 	}
 	out := captureStdout(t, func() {
@@ -113,9 +112,9 @@ func TestStopSelectiveDep_RegularDepNotSkipped(t *testing.T) {
 }
 
 func TestDeclaredNamesIncludeEverything(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{"api": {}, "web": {}},
-		Infra:    map[string]config.InfraEntry{"postgres": {}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{"api": {}, "web": {}},
+		Infra:    map[string]models.InfraEntry{"postgres": {}},
 	}
 
 	svcs := declaredServiceNames(deps)

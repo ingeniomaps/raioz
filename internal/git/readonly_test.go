@@ -3,18 +3,18 @@ package git
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestIsReadonly(t *testing.T) {
 	tests := []struct {
 		name     string
-		source   config.SourceConfig
+		source   models.SourceConfig
 		expected bool
 	}{
 		{
 			name: "readonly access",
-			source: config.SourceConfig{
+			source: models.SourceConfig{
 				Kind:   "git",
 				Access: "readonly",
 			},
@@ -22,7 +22,7 @@ func TestIsReadonly(t *testing.T) {
 		},
 		{
 			name: "editable access",
-			source: config.SourceConfig{
+			source: models.SourceConfig{
 				Kind:   "git",
 				Access: "editable",
 			},
@@ -30,14 +30,14 @@ func TestIsReadonly(t *testing.T) {
 		},
 		{
 			name: "empty access (default editable)",
-			source: config.SourceConfig{
+			source: models.SourceConfig{
 				Kind: "git",
 			},
 			expected: false,
 		},
 		{
 			name: "image source (not applicable)",
-			source: config.SourceConfig{
+			source: models.SourceConfig{
 				Kind:   "image",
 				Access: "readonly",
 			},

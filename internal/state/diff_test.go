@@ -3,59 +3,59 @@ package state
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestCompareDeps(t *testing.T) {
 	tests := []struct {
 		name        string
-		oldDeps     *config.Deps
-		newDeps     *config.Deps
+		oldDeps     *models.Deps
+		newDeps     *models.Deps
 		wantChanges int
 	}{
 		{
 			name:        "no previous state",
 			oldDeps:     nil,
-			newDeps:     &config.Deps{},
+			newDeps:     &models.Deps{},
 			wantChanges: 0,
 		},
 		{
 			name: "same config",
-			oldDeps: &config.Deps{
-				Network: config.NetworkConfig{Name: "test-net"},
-				Project: config.Project{Name: "test"},
+			oldDeps: &models.Deps{
+				Network: models.NetworkConfig{Name: "test-net"},
+				Project: models.Project{Name: "test"},
 			},
-			newDeps: &config.Deps{
-				Network: config.NetworkConfig{Name: "test-net"},
-				Project: config.Project{Name: "test"},
+			newDeps: &models.Deps{
+				Network: models.NetworkConfig{Name: "test-net"},
+				Project: models.Project{Name: "test"},
 			},
 			wantChanges: 0,
 		},
 		{
 			name: "network changed",
-			oldDeps: &config.Deps{
-				Network: config.NetworkConfig{Name: "old-net"},
-				Project: config.Project{Name: "test"},
+			oldDeps: &models.Deps{
+				Network: models.NetworkConfig{Name: "old-net"},
+				Project: models.Project{Name: "test"},
 			},
-			newDeps: &config.Deps{
-				Network: config.NetworkConfig{Name: "new-net"},
-				Project: config.Project{Name: "test"},
+			newDeps: &models.Deps{
+				Network: models.NetworkConfig{Name: "new-net"},
+				Project: models.Project{Name: "test"},
 			},
 			wantChanges: 1,
 		},
 		{
 			name: "service branch changed",
-			oldDeps: &config.Deps{
-				Services: map[string]config.Service{
+			oldDeps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Source: config.SourceConfig{Kind: "git", Branch: "main"},
+						Source: models.SourceConfig{Kind: "git", Branch: "main"},
 					},
 				},
 			},
-			newDeps: &config.Deps{
-				Services: map[string]config.Service{
+			newDeps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Source: config.SourceConfig{Kind: "git", Branch: "develop"},
+						Source: models.SourceConfig{Kind: "git", Branch: "develop"},
 					},
 				},
 			},
@@ -63,13 +63,13 @@ func TestCompareDeps(t *testing.T) {
 		},
 		{
 			name: "service added",
-			oldDeps: &config.Deps{
-				Services: map[string]config.Service{},
+			oldDeps: &models.Deps{
+				Services: map[string]models.Service{},
 			},
-			newDeps: &config.Deps{
-				Services: map[string]config.Service{
+			newDeps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Source: config.SourceConfig{Kind: "git"},
+						Source: models.SourceConfig{Kind: "git"},
 					},
 				},
 			},

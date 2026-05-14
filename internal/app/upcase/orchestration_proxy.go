@@ -8,10 +8,9 @@ import (
 	"runtime"
 	"strings"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -36,20 +35,24 @@ import (
 // proxy produces a half-working dev environment that's worse than none.
 func (uc *UseCase) startProxy(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 	serviceNames []string,
 	networkName string,
 ) error {
-	uc.deps.ProxyManager.SetProjectName(deps.Project.Name)
-	uc.deps.ProxyManager.SetWorkspace(deps.Workspace)
-	uc.deps.ProxyManager.SetNetworkSubnet(deps.Network.GetSubnet())
-	if deps.ProxyConfig != nil {
-		uc.deps.ProxyManager.SetDomain(deps.ProxyConfig.Domain)
-		uc.deps.ProxyManager.SetTLSMode(deps.ProxyConfig.TLS)
-		uc.deps.ProxyManager.SetContainerIP(deps.ProxyConfig.IP)
-		uc.deps.ProxyManager.SetPublish(deps.ProxyConfig.Publish)
+	// ADR-013: single Configure call replaces the 4-8 setter dance.
+	cfg := interfaces.ProxyConfig{
+		ProjectName:   deps.Project.Name,
+		Workspace:     deps.Workspace,
+		NetworkSubnet: deps.Network.GetSubnet(),
 	}
+	if deps.ProxyConfig != nil {
+		cfg.Domain = deps.ProxyConfig.Domain
+		cfg.TLSMode = deps.ProxyConfig.TLS
+		cfg.ContainerIP = deps.ProxyConfig.IP
+		cfg.Publish = deps.ProxyConfig.Publish
+	}
+	uc.deps.ProxyManager.Configure(cfg)
 
 	output.PrintProgress("Starting proxy...")
 
@@ -62,7 +65,7 @@ func (uc *UseCase) startProxy(
 			continue
 		}
 		detection := detections[name]
-		route := buildProxyRoute(deps, name, &detection)
+		route := buildProxyRoute(ctx, docker.NewLookup(), deps, name, &detection)
 		if err := uc.deps.ProxyManager.AddRoute(ctx, route); err != nil {
 			logging.WarnWithContext(ctx, "Failed to add proxy route",
 				"service", name, "error", err.Error())
@@ -226,7 +229,7 @@ func printProxyURLs(pm interfaces.ProxyManager, serviceNames []string) {
 // didn't explicitly declare routing on it. Explicit `routing:` in raioz.yaml
 // is the opt-in escape hatch for deps where the user knows they do speak
 // HTTP (e.g. a custom image that happens to reuse a DB name).
-func shouldProxy(deps *config.Deps, name string) bool {
+func shouldProxy(deps *models.Deps, name string) bool {
 	if _, isService := deps.Services[name]; isService {
 		return true
 	}
@@ -259,7 +262,7 @@ func isNonHTTPImage(image string) bool {
 // buildProxyRoute handles it.
 func enrichDetectionsWithExposedPorts(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 ) {
 	for name, entry := range deps.Infra {
@@ -291,7 +294,7 @@ func enrichDetectionsWithExposedPorts(
 // detection. This is the escape hatch for entries whose runtime raioz can't
 // fully introspect — services with `command:` that launches a hidden compose
 // stack (BUG-13), or dependencies using `compose:` / a non-default port.
-func proxyTargetOverride(deps *config.Deps, name string) (string, int) {
+func proxyTargetOverride(deps *models.Deps, name string) (string, int) {
 	if svc, ok := deps.Services[name]; ok && svc.ProxyOverride != nil {
 		return svc.ProxyOverride.Target, svc.ProxyOverride.Port
 	}
@@ -304,9 +307,11 @@ func proxyTargetOverride(deps *config.Deps, name string) (string, int) {
 // buildProxyRoute turns (service name, detection) into a ProxyRoute, honoring
 // custom hostnames and routing config (ws/sse/grpc) from raioz.yaml.
 func buildProxyRoute(
-	deps *config.Deps,
+	ctx context.Context,
+	lookup naming.ContainerLookup,
+	deps *models.Deps,
 	name string,
-	detection *detect.DetectResult,
+	detection *models.DetectResult,
 ) interfaces.ProxyRoute {
 	hostname := name
 	var target string
@@ -327,7 +332,12 @@ func buildProxyRoute(
 			if entry.Inline != nil {
 				nameOverride = entry.Inline.Name
 			}
-			target = naming.DepContainer(deps.Project.Name, name, nameOverride)
+			// Resolve against live Docker so a user-supplied compose with
+			// container_name: routes to the actual container, not the
+			// canonical raioz name. Falls back to canonical when nothing
+			// is found (test paths pass nil lookup → canonical).
+			target = naming.ContainerTarget(ctx, lookup,
+				deps.Project.Name, name, nameOverride)
 		} else {
 			target = naming.Container(deps.Project.Name, name)
 		}

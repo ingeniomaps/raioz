@@ -1,8 +1,8 @@
 package env
 
 import (
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	envpkg "raioz/internal/env"
 	workspacepkg "raioz/internal/workspace"
 )
@@ -20,7 +20,7 @@ func NewEnvManager() interfaces.EnvManager {
 
 // ResolveProjectEnv resolves project.env configuration
 func (m *EnvManagerImpl) ResolveProjectEnv(
-	ws *interfaces.Workspace, deps *config.Deps, projectDir string,
+	ws *interfaces.Workspace, deps *models.Deps, projectDir string,
 ) (string, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return envpkg.ResolveProjectEnv(wsConcrete, deps, projectDir)
@@ -28,8 +28,8 @@ func (m *EnvManagerImpl) ResolveProjectEnv(
 
 // GenerateEnvFromTemplate generates a .env file from a template if found
 func (m *EnvManagerImpl) GenerateEnvFromTemplate(
-	ws *interfaces.Workspace, deps *config.Deps,
-	serviceName string, servicePath string, svc config.Service,
+	ws *interfaces.Workspace, deps *models.Deps,
+	serviceName string, servicePath string, svc models.Service,
 	projectEnvPath string, projectDir string,
 ) error {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
@@ -40,14 +40,14 @@ func (m *EnvManagerImpl) GenerateEnvFromTemplate(
 }
 
 // WriteGlobalEnvVariables writes global environment variables to the workspace
-func (m *EnvManagerImpl) WriteGlobalEnvVariables(ws *interfaces.Workspace, deps *config.Deps, projectDir string) error {
+func (m *EnvManagerImpl) WriteGlobalEnvVariables(ws *interfaces.Workspace, deps *models.Deps, projectDir string) error {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 	return envpkg.WriteGlobalEnvVariables(wsConcrete, deps, projectDir)
 }
 
 // ResolveEnvFiles resolves and returns paths to env files for a service or infra
 func (m *EnvManagerImpl) ResolveEnvFiles(
-	ws *interfaces.Workspace, deps *config.Deps,
+	ws *interfaces.Workspace, deps *models.Deps,
 	serviceName string, envFiles []string,
 	projectEnvPath string, includeProjectLevel bool, projectDir string,
 ) ([]string, error) {

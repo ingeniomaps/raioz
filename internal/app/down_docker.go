@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -19,7 +19,7 @@ import (
 // Returns remainingNetworkProjects count and whether the network is in use by containers.
 func (uc *DownUseCase) handleNetworkAndVolumes(
 	ctx context.Context,
-	stateDeps *config.Deps,
+	stateDeps *models.Deps,
 	ws *interfaces.Workspace,
 	projectName, workspaceName string,
 ) (int, bool) {
@@ -84,7 +84,7 @@ func (uc *DownUseCase) handleNetworkAndVolumes(
 }
 
 // handleProjectComposeDown stops docker-compose services from the project directory.
-func (uc *DownUseCase) handleProjectComposeDown(ctx context.Context, stateDeps *config.Deps, opts DownOptions) {
+func (uc *DownUseCase) handleProjectComposeDown(ctx context.Context, stateDeps *models.Deps, opts DownOptions) {
 	var projectComposePath string
 	if stateDeps.ProjectComposePath != "" {
 		projectComposePath = stateDeps.ProjectComposePath
@@ -126,7 +126,7 @@ func (uc *DownUseCase) handleProjectComposeDown(ctx context.Context, stateDeps *
 // executeProjectDownCommand executes the project.commands.down if defined.
 func (uc *DownUseCase) executeProjectDownCommand(
 	ctx context.Context,
-	stateDeps *config.Deps,
+	stateDeps *models.Deps,
 	ws *interfaces.Workspace,
 	opts DownOptions,
 	workspaceName string,
@@ -205,7 +205,7 @@ func (uc *DownUseCase) runDownCommand(
 
 // stopCommandOnlyProjectContainers attempts to stop containers for command-only projects.
 func (uc *DownUseCase) stopCommandOnlyProjectContainers(
-	ctx context.Context, stateDeps *config.Deps, workspaceName string,
+	ctx context.Context, stateDeps *models.Deps, workspaceName string,
 ) {
 	projName := stateDeps.Project.Name
 	hasExplicit := stateDeps.HasExplicitWorkspace()

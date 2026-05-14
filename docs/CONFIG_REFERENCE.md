@@ -64,14 +64,124 @@ dependencies:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
+| `version` | string | no | — | Schema version this file targets. Currently `"1"`. A warning is emitted when absent. See [Versioning](#versioning). |
 | `project` | string | yes | — | Project name. Used for Docker resource naming. Lowercase, hyphens, max 63 chars. |
 | `workspace` | string | no | — | Groups projects on same Docker network. When set, resources use `{workspace}-` prefix instead of `raioz-`. |
 | `network` | string or object | no | auto-derived | Pin Docker network name and/or subnet. See [Network config](#network-config). |
 | `proxy` | bool or object | no | `false` | Enable Caddy reverse proxy with HTTPS. See [Proxy config](#proxy-config). |
-| `pre` | string or list | no | — | Commands to run before `raioz up` (e.g., fetch secrets). |
+| `pre` | string or list | no | — | Commands to run before anything else (env rendering, secrets fetch). Failure aborts `up`. |
+| `preUp` | string or list | no | — | Commands to run after dependencies/sibling-spawn are up, but before this project's services start. Use when bootstrap (`make createdb`, schema seeding) needs a workspace dep already reachable. Failure aborts `up`. See [Pre-up vs pre](#pre-up-vs-pre). |
 | `post` | string or list | no | — | Commands to run after `raioz up` (e.g., cleanup). |
 | `services` | map | no | — | Local services to develop. Keys are service names. See [Service config](#service-config). |
 | `dependencies` | map | no | — | Docker images to run. Keys are dependency names. See [Dependency config](#dependency-config). |
+
+---
+
+## Pre-up vs pre
+
+`pre:` and `preUp:` look similar but fire at different phases of
+`raioz up`:
+
+```
+pre:    →  (env rendering, secrets fetch, local file generation)
+           ↓
+        infra + sibling-spawn  ←  workspace dependencies come up here
+           ↓
+preUp:  →  (bootstrap that talks to those deps — createdb, migrate)
+           ↓
+        this project's services start
+           ↓
+post:   →  (cleanup)
+```
+
+Use `pre:` when the hook only touches the local filesystem (write a
+file, decrypt a secret, render a template). Use `preUp:` when the
+hook needs the workspace's dependencies — typically a sibling
+raioz project's database — to already be reachable.
+
+A common case is `preUp: make createdb` for a service that depends
+on a workspace-shared postgres declared as a sibling project (see
+[Sibling raioz projects as deps](#sibling-raioz-projects-as-deps)).
+The hook runs on the host, so reach the dep via its published host
+port (e.g. `PG_HOST=localhost PG_PORT=5432 make createdb`) rather
+than the container DNS name (which the host can't resolve).
+
+A `preUp:` failure aborts the run before any service starts; this
+is intentional. If the bootstrap can't succeed, the services that
+depend on it shouldn't come up.
+
+## Versioning
+
+`version:` declares which raioz.yaml schema your file targets. Today the
+only valid value is `"1"`. Declaring it locks the expected shape so future
+raioz binaries can either accept it or emit an actionable migration error
+instead of silently misinterpreting your config.
+
+```yaml
+version: "1"
+project: my-app
+# ...
+```
+
+### Current behavior
+
+| Field state                                  | Behavior                                  |
+| -------------------------------------------- | ----------------------------------------- |
+| `version: "1"`                               | Loads silently. Recommended.              |
+| Field absent                                 | Loads with a warning. Still works.        |
+| Field set to anything else (e.g. `"2"`)      | Loads (no validation yet). Future-only.   |
+
+`raioz init` and `raioz migrate yaml` both write `version: "1"` into newly
+generated files.
+
+### Field evolution policy
+
+Every public field in `raioz.yaml` carries a `// since: vX.Y.Z` marker
+next to its declaration in `internal/config/yaml_types.go` (and
+`internal/domain/models/config_proxy.go` for the proxy fields). The
+marker is enforced by `make check-since` — adding a field without one
+fails CI.
+
+- **Adding** a field to the schema does not require bumping the version
+  (optional fields are backward compatible). Add the `since:` marker
+  AND add a fixture in `internal/config/testdata/configs/` exercising
+  the new field (`make check-configs` ensures the schema diff comes
+  with a corresponding fixture diff).
+- **Removing or changing semantics** of a field requires a version bump
+  AND one minor release of grace where the change emits a deprecation
+  warning.
+- A future major release may **require** `version:` and refuse to load
+  configs that don't declare it. The current warning gives the field
+  time to land in real-world configs.
+
+#### Inspecting your config
+
+`raioz yaml lint` reports, for every field your `raioz.yaml` populates,
+the raioz version that introduced it. Useful when you inherit a config
+from a teammate and want to know whether your binary supports it:
+
+```text
+$ raioz yaml lint
+raioz yaml lint: raioz.yaml
+  declared version: 1
+  fields in use:    14
+
+  [ok]   project (since v0.1.0)
+  [ok]   proxy.publish (since v0.1.0)
+  [ok]   dependencies.keycloak.project (since v0.4.0)
+  ...
+```
+
+When `version:` is missing, every used field is flagged as `[warn]`
+with a suggestion to declare it. Add `version: "1"` to silence the
+warnings and lock the expected schema.
+
+> Limitation: only fields declared in `internal/config/yaml_types.go`
+> are scanned at runtime today; fields in nested types from
+> `internal/domain/models/` (ProxyConfig, RoutingConfig) are validated
+> at build time by `make check-since` but skipped silently by `raioz
+> yaml lint`. Acceptable while those types are stable; revisit if a new
+> proxy / routing field needs end-user-visible lint coverage.
 
 ---
 
@@ -158,6 +268,28 @@ Behavior:
 - **`requiredHostname:`** is checked against the sibling's declared
   hostnames (`hostname:` on services + `hostnameAliases:`), not the
   live Caddyfile. Skipped when mode B falls back to the image.
+
+#### Sibling lifecycle expectations
+
+After raioz decides to defer to a sibling (mode A active or mode B
+with sibling up), the sibling is re-probed once just before consumer
+services start. If the sibling was torn down in another terminal in
+that window, raioz fails fast with `SIBLING_DOWN` and a suggestion to
+bring it back up:
+
+```text
+[error] [SIBLING_DOWN] sibling project 'keycloak' for dep 'keycloak' appears to be down ...
+  Suggestion: Bring the sibling back up: `cd /path/to/keycloak && raioz up`, then re-run this project's up.
+```
+
+raioz does **not** auto-recover by re-spawning the sibling. That would
+violate the "down never touches the sibling" invariant (ADR-008) and
+hide which project owns the lifecycle. The recovery is explicit.
+
+If the sibling dies *after* the consumer is already running, raioz
+won't notice until the next `raioz up` — connections from inside
+consumer services will see DNS failures. Re-run `raioz up` on the
+sibling and the consumer to recover.
 
 When neither `ports`, `expose`, nor `proxy.port` resolve a target port,
 raioz reads the image's manifest via `docker image inspect` and uses
@@ -258,6 +390,36 @@ Needed when `command:` launches a compose stack whose containers raioz
 can't introspect. Without the override, raioz classifies the service as
 "host" and the proxy ends up pointing at `host.docker.internal` with no
 port.
+
+### Launcher-pattern container wait
+
+When `command:` is a launcher (a script that detaches a container or
+daemon and exits 0 quickly — for example `make dev-docker` invoking
+`docker compose up -d --build`), raioz used to report "ready" the
+instant the launcher returned. For a first-time build that can leave
+"ready" claimed while the container is still being built. ADR-025
+fixes this:
+
+- On `raioz up`, if `proxy.target:` points at a container name (not
+  `host.docker.internal` or an IP/FQDN), raioz polls Docker for that
+  container after the launcher exits. The user sees `Waiting for
+  launcher container 'X' to appear (up to <T>)...` and a
+  `Launcher container 'X' ready` confirmation. On timeout, raioz
+  warns and continues; the run is not aborted.
+- On `raioz down`, if the container hasn't appeared yet (build still
+  running), raioz waits before invoking `stop:` so the build doesn't
+  finish post-stop and leave an orphan.
+
+Environment variables (Go duration strings, e.g. `90s`, `2m`):
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the container. `0s` opts out (legacy behavior). |
+| `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container. `0s` opts out. |
+
+Skipped automatically when `proxy.target:` is empty or
+host-shaped (a dotted name, IP literal, `localhost`, or
+`host.docker.internal`) — there's no container to wait for.
 
 ---
 

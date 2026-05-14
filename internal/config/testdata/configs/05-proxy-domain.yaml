@@ -1,0 +1,17 @@
+# 05-proxy-domain — proxy as an object with custom domain.
+#
+# Exercises ProxyConfig in object form. Domain is the most-used field
+# beyond enabled; this fixture also picks mode/tls explicitly to
+# document the defaults aren't relied on implicitly.
+
+project: domain-proxy
+
+proxy:
+  domain: my-app.dev
+  mode: subdomain
+  tls: mkcert
+
+services:
+  web:
+    path: ./web
+    hostname: app

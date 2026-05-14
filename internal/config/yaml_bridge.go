@@ -66,9 +66,12 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 		deps.ProxyConfig = cfg.Proxy
 	}
 
-	// Convert pre/post hooks
+	// Convert pre / preUp / post hooks
 	if len(cfg.Pre) > 0 {
 		deps.PreHook = strings.Join(cfg.Pre, " && ")
+	}
+	if len(cfg.PreUp) > 0 {
+		deps.PreUpHook = strings.Join(cfg.PreUp, " && ")
 	}
 	if len(cfg.Post) > 0 {
 		deps.PostHook = strings.Join(cfg.Post, " && ")
@@ -275,6 +278,22 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 	return InfraEntry{Inline: infra}
 }
 
+// schemaVersionWarnings returns advisory warnings about the schema
+// version declared (or missing) in the config. Missing version is not
+// an error today — `raioz init` and `raioz migrate yaml` write it on
+// new configs, but existing files without it still load. See
+// docs/CONFIG_REFERENCE.md#versioning for the evolution policy.
+func schemaVersionWarnings(cfg *RaiozConfig) []string {
+	if cfg == nil || cfg.Version != "" {
+		return nil
+	}
+	return []string{
+		"no 'version:' field declared in raioz.yaml; add `version: \"" +
+			CurrentSchemaVersion + "\"` to lock the schema your config " +
+			"targets — see docs/CONFIG_REFERENCE.md#versioning",
+	}
+}
+
 // yamlDeprecationWarnings walks a parsed RaiozConfig looking for legacy
 // fields that still work but are superseded by newer, clearer alternatives.
 // Returns a flat list of human-readable warnings; callers (cli/up.go) print
@@ -342,7 +361,8 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 		return nil, nil, err
 	}
 
-	warnings := yamlDeprecationWarnings(cfg)
+	warnings := schemaVersionWarnings(cfg)
+	warnings = append(warnings, yamlDeprecationWarnings(cfg)...)
 
 	// Strict re-parse on the raw bytes for unknown-field detection. Any
 	// read error here is purely diagnostic — the lenient load already

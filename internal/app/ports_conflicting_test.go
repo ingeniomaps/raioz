@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -77,7 +77,7 @@ func TestPrintConflictingPortsTable(t *testing.T) {
 func TestListConflictingPorts_NoConfig(t *testing.T) {
 	deps := &Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},

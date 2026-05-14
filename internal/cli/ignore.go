@@ -21,7 +21,7 @@ var ignoreAddCmd = &cobra.Command{
 		"The services will not be cloned, built, or started during raioz up.",
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
 		for _, svc := range args {
 			if err := useCase.Add(svc, configPath); err != nil {
@@ -41,7 +41,7 @@ var ignoreRemoveCmd = &cobra.Command{
 		"The services will be processed normally on the next raioz up.",
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
 		for _, svc := range args {
 			if err := useCase.Remove(svc); err != nil {
@@ -58,7 +58,7 @@ var ignoreListCmd = &cobra.Command{
 	Short: "List ignored services",
 	Long:  "List all services that are currently in the ignore list.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
 		return useCase.List()
 	},

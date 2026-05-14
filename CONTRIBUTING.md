@@ -72,6 +72,36 @@ See `CLAUDE.md` for the full architecture reference.
 - **DI**: Dependencies injected via struct, never created inline in app/.
 - **Tests**: Table-driven with `t.Run`. Mocks in `internal/mocks/`.
 - **Commits**: Conventional Commits, English, imperative, max 50 char subject. Full convention and examples in `.claude/skills/commit/SKILL.md` (also usable via the `/commit` Claude Code skill).
+- **Observability**: Four non-overlapping channels (`logging`, `audit`, `notify`, `output`). When adding a new event, read [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) first — it has the channel rules, the event matrix, and a worked example.
+
+## Building with reproducible version metadata
+
+`raioz version` reports a commit and build date that come from
+`-ldflags` injected by `make build`. A binary built without those
+flags (`go build`, `go run`, plain `go install`) reports `dev` /
+`unknown` and prints a one-time stderr warning telling the user the
+build can't be traced to a commit. `raioz doctor` also marks this as
+a yellow `Build info` warning. See ADR-021.
+
+To produce a binary you can attach to a bug report, use either:
+
+```bash
+make build               # writes ./raioz with the right -ldflags
+
+# Or, manually:
+VERSION=$(git describe --tags --always)
+COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date -u +%Y-%m-%dT%H:%M:%S)
+go build \
+  -ldflags "-X 'raioz/internal/cli.Version=$VERSION' \
+            -X 'raioz/internal/cli.Commit=$COMMIT' \
+            -X 'raioz/internal/cli.BuildDate=$DATE'" \
+  -o raioz ./cmd/raioz
+```
+
+`go install github.com/ingeniomaps/raioz/cmd/raioz@latest` ships
+without the injected stamps; the warning surfaces the trade-off so
+users can pick `make build` when reproducibility matters.
 
 ## Make targets
 

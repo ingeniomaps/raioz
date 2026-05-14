@@ -1,21 +1,20 @@
 package interfaces
 
 import (
-	models "raioz/internal/domain/models"
+	"raioz/internal/domain/models"
 )
 
-// StateManager defines operations for managing project state
+// StateManager defines operations for managing project state.
+//
+// ADR-011 Phase 3 removed the legacy whole-Deps snapshot. The methods
+// that used to expose it — Load, Save, Exists, CompareDeps, and
+// FormatChanges — are deleted. Liveness is probed via
+// DockerRunner.IsProjectActive; runtime overrides live in LocalState
+// (state.LoadLocalState / state.SaveLocalState). The remaining methods
+// here cover the global state file (cross-project, persisted at the
+// raioz home) and per-workspace preferences, which Phase 3 leaves
+// alone.
 type StateManager interface {
-	// Load loads the project state
-	Load(ws *Workspace) (*models.Deps, error)
-	// Save saves the project state
-	Save(ws *Workspace, deps *models.Deps) error
-	// Exists checks if state file exists
-	Exists(ws *Workspace) bool
-	// CompareDeps compares two dependency configurations
-	CompareDeps(oldDeps, newDeps *models.Deps) ([]models.ConfigChange, error)
-	// FormatChanges formats configuration changes for display
-	FormatChanges(changes []models.ConfigChange) string
 	// UpdateProjectState updates the global project state
 	UpdateProjectState(projectName string, projectState *models.ProjectState) error
 	// RemoveProject removes a project from global state

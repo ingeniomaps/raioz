@@ -3,7 +3,7 @@ package upcase
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestIsNonHTTPImage(t *testing.T) {
@@ -43,9 +43,9 @@ func TestIsNonHTTPImage(t *testing.T) {
 }
 
 func TestShouldProxy_ServiceAlwaysProxied(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{"api": {}},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Services: map[string]models.Service{"api": {}},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	if !shouldProxy(deps, "api") {
 		t.Error("services must always get proxy routes")
@@ -53,10 +53,10 @@ func TestShouldProxy_ServiceAlwaysProxied(t *testing.T) {
 }
 
 func TestShouldProxy_PostgresSkippedByDefault(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres:16"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres:16"}},
 		},
 	}
 	if shouldProxy(deps, "postgres") {
@@ -65,10 +65,10 @@ func TestShouldProxy_PostgresSkippedByDefault(t *testing.T) {
 }
 
 func TestShouldProxy_RedisSkippedByDefault(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
-			"cache": {Inline: &config.Infra{Image: "redis:7"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
+			"cache": {Inline: &models.Infra{Image: "redis:7"}},
 		},
 	}
 	if shouldProxy(deps, "cache") {
@@ -77,10 +77,10 @@ func TestShouldProxy_RedisSkippedByDefault(t *testing.T) {
 }
 
 func TestShouldProxy_HTTPImageProxied(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
-			"admin": {Inline: &config.Infra{Image: "nginx:alpine"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
+			"admin": {Inline: &models.Infra{Image: "nginx:alpine"}},
 		},
 	}
 	if !shouldProxy(deps, "admin") {
@@ -91,12 +91,12 @@ func TestShouldProxy_HTTPImageProxied(t *testing.T) {
 func TestShouldProxy_RoutingOptIn(t *testing.T) {
 	// User forces routing on a postgres container (e.g. a bespoke image that
 	// actually speaks HTTP on top of pg). Must override the heuristic.
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
-			"pgweb": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
+			"pgweb": {Inline: &models.Infra{
 				Image:   "custom/postgres-admin-ui",
-				Routing: &config.RoutingConfig{},
+				Routing: &models.RoutingConfig{},
 			}},
 		},
 	}
@@ -108,9 +108,9 @@ func TestShouldProxy_RoutingOptIn(t *testing.T) {
 func TestShouldProxy_UnknownName(t *testing.T) {
 	// A name not in Services or Infra (legacy path) defaults to true so we
 	// don't silently drop legitimate routes.
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 	if !shouldProxy(deps, "mystery") {
 		t.Error("unknown names default to proxy-yes")

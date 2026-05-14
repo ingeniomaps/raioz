@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 )
 
 // --- stopRunningProject ------------------------------------------------------
@@ -28,7 +27,7 @@ func TestStopRunningProjectConfigNotFound(t *testing.T) {
 	})
 
 	// Use non-existent workspace directory
-	ps := state.ProjectState{
+	ps := models.ProjectState{
 		Name:      "myproj",
 		Workspace: "/nonexistent/path",
 	}
@@ -55,7 +54,7 @@ func TestStopRunningProjectLoadConfigError(t *testing.T) {
 	removeCalled := false
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, stderrors.New("parse error")
 			},
 		},
@@ -67,7 +66,7 @@ func TestStopRunningProjectLoadConfigError(t *testing.T) {
 		},
 	})
 
-	ps := state.ProjectState{
+	ps := models.ProjectState{
 		Name:      "myproj",
 		Workspace: dir,
 	}
@@ -103,9 +102,9 @@ func TestStopRunningProjectSuccess(t *testing.T) {
 	removeCalled := false
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "myproj"},
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "myproj"},
 				}, nil, nil
 			},
 		},
@@ -117,7 +116,7 @@ func TestStopRunningProjectSuccess(t *testing.T) {
 		},
 	})
 
-	ps := state.ProjectState{
+	ps := models.ProjectState{
 		Name:      "myproj",
 		Workspace: dir,
 	}
@@ -147,7 +146,7 @@ func TestAskReplaceRunningProjectSavedDecisionTrue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ps := state.ProjectState{Name: "proj", Workspace: "/tmp"}
+	ps := models.ProjectState{Name: "proj", Workspace: "/tmp"}
 	shouldReplace, err := askReplaceRunningProject(context.Background(), "proj", ps, sm)
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +170,7 @@ func TestAskReplaceRunningProjectSavedDecisionFalse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ps := state.ProjectState{Name: "proj", Workspace: "/tmp"}
+	ps := models.ProjectState{Name: "proj", Workspace: "/tmp"}
 	shouldReplace, err := askReplaceRunningProject(context.Background(), "proj", ps, sm)
 	if err != nil {
 		t.Fatal(err)
@@ -199,13 +198,13 @@ func TestCheckDependencyProjectsMatchingCommandProject(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-				return &state.GlobalState{
-					Projects: map[string]state.ProjectState{
+			LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+				return &models.GlobalState{
+					Projects: map[string]models.ProjectState{
 						"db": {
 							Name:      "db",
 							Workspace: "/tmp/db",
-							Services:  []state.ServiceState{}, // Empty = command-based
+							Services:  []models.ServiceState{}, // Empty = command-based
 						},
 					},
 				}, nil
@@ -214,9 +213,9 @@ func TestCheckDependencyProjectsMatchingCommandProject(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"api": {DependsOn: []string{"db"}},
 		},
 	}
@@ -243,13 +242,13 @@ func TestCheckDependencyProjectsDockerDependsOn(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
-			LoadGlobalStateFunc: func() (*state.GlobalState, error) {
-				return &state.GlobalState{
-					Projects: map[string]state.ProjectState{
+			LoadGlobalStateFunc: func() (*models.GlobalState, error) {
+				return &models.GlobalState{
+					Projects: map[string]models.ProjectState{
 						"redis": {
 							Name:      "redis",
 							Workspace: "/tmp/redis",
-							Services:  []state.ServiceState{},
+							Services:  []models.ServiceState{},
 						},
 					},
 				}, nil
@@ -258,12 +257,12 @@ func TestCheckDependencyProjectsDockerDependsOn(t *testing.T) {
 		},
 	})
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"api": {
 				DependsOn: []string{"redis"},
-				Docker:    &config.DockerConfig{DependsOn: []string{"redis"}},
+				Docker:    &models.DockerConfig{DependsOn: []string{"redis"}},
 			},
 		},
 	}

@@ -6,6 +6,202 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-14
+
+The headline is **architecture hardening**: the legacy `.state.json`
+snapshot API is gone (ADR-011 phases 1-3), domain model types own
+themselves (ADR-009), runner dispatch goes through a package-init
+registry instead of a 23-case switch (ADR-019), and snapshot / tunnel
+/ proxy lifecycles route through use-case ports (ADR-014/015/016)
+behind matching adapters under `internal/infra/`. Eight ADRs that
+used to live as prose in `CLAUDE.md` are now standalone documents.
+Plus a `preUp:` hook for bootstrap that needs sibling-spawned deps,
+a unified `naming.RaiozStateDir()` with XDG-conformant resolution,
+audit-log rotation, and a launcher-pattern container wait so
+`raioz up` no longer claims "ready" while `docker compose up
+-d --build` is still building.
+
+### Added
+
+- **`preUp:` hook** (ADR-024) — runs after infra and sibling-spawn but
+  before the project's own services. Use it for bootstrap that needs
+  a workspace dep already reachable (`make createdb` against a
+  sibling-spawned postgres). `pre:` keeps its pre-everything contract.
+  Failure aborts. YAML-mode only. The hook runs on the host — reach
+  deps via published `localhost:port`, not container DNS.
+- **`naming.RaiozStateDir()`** as the single source of truth for
+  runtime state (ADR-022). Resolution: `RAIOZ_HOME` →
+  `$XDG_STATE_HOME/raioz` → `~/.local/state/raioz`. `audit`, `ignore`,
+  and `workspace` all delegate; `MigrateLegacyStateDirs` runs once
+  from `rootCmd.PersistentPreRun` to lift `~/.raioz` and
+  `/opt/raioz-proyecto` into the unified root on upgrade.
+- **Audit-log rotation** (ADR-020). `internal/audit/audit.Log`
+  rotates `audit.log` to `audit.log.1` once it crosses a 10 MiB soft
+  cap. Rotation failures don't drop events.
+- **Dev-build warning** (ADR-021). A binary built without `-ldflags`
+  (plain `go build`, `go install`) prints a one-time stderr warning
+  at startup pointing at `make build` / the right ldflags;
+  `raioz doctor` surfaces the same signal as a yellow `Build info`
+  check. `CONTRIBUTING.md` documents the reproducible build invocation.
+- **`raioz yaml lint`** subcommand. Reports each field your
+  `raioz.yaml` uses alongside the version that introduced it, and
+  warns when `version:` is missing. Powered by `since: vX.Y.Z`
+  markers on every yaml-tagged field plus an AST walker.
+- **Optional `version:` field** at the top of `raioz.yaml`. Loading
+  emits a warning when absent; `raioz init` and `raioz migrate yaml`
+  write `version: "1"` on new files. Locks the schema for future
+  binaries.
+- **Workspace-scoped proxy reload lock** (ADR-010). A second
+  `raioz up` in the same workspace could render a different Caddyfile
+  and reload Caddy in arbitrary order. A flock now serializes
+  `SaveProjectRoutes`, `RemoveProjectRoutes`, and `Reload` within
+  and across processes.
+- **`ResolveContainer`** in `internal/naming` probes the canonical
+  name then falls back to `com.raioz.*` labels, closing the gap
+  where compose deps with a custom `container_name:` made the proxy
+  and discovery point at the wrong container.
+- **Sibling re-probe before dispatch.** A `raioz down` of a sibling
+  between `decideSibling` and the consumer's dispatch left env vars
+  wired at containers that no longer existed. The re-probe now
+  fails fast with `SIBLING_DOWN` and a `cd <sibling> && raioz up`
+  hint.
+- **Eight new ADRs** under `docs/decisions/` covering wiring, the
+  CLI thin-viz exception, runner registry, audit rotation, dev-build
+  warning, unified state paths, state-mirrors-reality, the `preUp:`
+  hook, and the launcher-pattern container wait. Old prose in
+  `CLAUDE.md` collapsed to an index.
+- **`docs/OBSERVABILITY.md`** — when to use `logging` vs `audit` vs
+  `notify` vs `output`, the event matrix, and a worked example of
+  how `raioz up` materializes across all four. Linked from
+  `ARCHITECTURE.md`, `CLAUDE.md`, and `CONTRIBUTING.md`.
+- `raioz switch` — closes the remaining gap from #24 (camino B).
+  Detects active raioz projects (cross-workspace) holding host
+  ports declared in the cwd's `raioz.yaml`, prompts with the list
+  of offenders + the ports they hold, stops them on confirmation,
+  then runs `raioz up`. `--yes` skips the prompt for scripting;
+  `--keep proj1,proj2` spares specific projects from teardown.
+  Detection shares `docker.ValidatePorts` with `down --conflicting`
+  and `ports --conflicting` so the three commands stay aligned.
+
+### Changed
+
+- **Domain model types own themselves** (ADR-009). `Deps`, `Service`,
+  `Infra`, `ProjectState`, and the state graph moved to
+  `internal/domain/models`; every caller now uses `models.X`.
+  `go list -deps raioz/internal/domain/...` no longer shows
+  `config`, `state`, `detect`, or `infra` — the inversion holds.
+- **`DockerRunner` segregated into six interfaces** (ADR-012 Plan B).
+  Six narrow ports (`ContainerManager`, `ComposeRunner`,
+  `NetworkManager`, `VolumeManager`, `ImageValidator`,
+  `PortValidator`) replace the 46-method aggregate. The aggregate
+  keeps embedding all six so existing callers compile unchanged,
+  but new tests can mock only the surface they exercise.
+- **Snapshot / tunnel / proxy lifecycles** now route through
+  use-case ports (ADR-014/015/016): `interfaces.SnapshotManager` +
+  `internal/app/snapshotcase`, `interfaces.TunnelManager` +
+  `internal/app/tunnelcase`, and `internal/app/proxycase` with
+  `Status` / `Stop` use cases plus a preflight composable from
+  three probes (mkcert + ports 80/443 gated on `publish:`).
+  Adapters under `internal/infra/{snapshot,tunnel,proxy}` wrap the
+  concrete packages.
+- **Proxy configuration via a single value** (ADR-013 Phase 1).
+  `interfaces.ProxyConfig` + `ProxyManager.Configure` replace the
+  4-8 setter dance with a struct literal. Eight per-field setters
+  marked `Deprecated`; the migration is opportunistic.
+- **Adapter wiring moved to `internal/cli/wiring.go`** (ADR-018).
+  `internal/app/dependencies.go` now owns only the struct shape and
+  `NewDependenciesWithMocks`; production wiring lives next to the
+  CLI. Two new thin adapters (`internal/infra/proxy` and
+  `internal/infra/discovery`) bring every adapter under
+  `internal/infra/`. `wiring_test.go` guards every port is wired.
+- **Runner dispatch via package-init registry** (ADR-019). Replaces
+  the 23-case switch in `Dispatcher.selectRunner` with a `runtime →
+  selector` map populated by each runner file's `init()`.
+  `models.AllRuntimes()` returns the canonical list;
+  `TestAllRuntimesHaveRunner` enforces exhaustiveness — a new
+  `Runtime` constant added without a `register()` call now fails CI
+  instead of silently hitting "unsupported runtime" at first dispatch.
+- **CLI thin-viz exception codified with a lint gate** (ADR-017).
+  Every `internal/cli/*.go` must import `raioz/internal/app` unless
+  it appears on the exempt list (scaffolding, parent commands,
+  pure-viz commands, plus one tagged tech-debt). The list lives in
+  three coordinated places — the lint script, `ARCHITECTURE.md`,
+  the ADR — so silent expansions surface in review.
+  `make check-cli-layering` wires the gate into `make check`.
+- **Naming label filters** (`internal/naming/labels.go`) replace
+  three container-filter sites that built the `com.raioz.*` label
+  map by string literal. A rename of any key would have silently
+  bypassed them; `make check-labels` now prevents the regression.
+- **Schema fixture corpus** under `internal/config/testdata/configs/`
+  isolates 18 documented `raioz.yaml` combinations.
+  `TestConfigCorpus` parses every fixture through `LoadYAML`;
+  `check-config-fixtures.sh` fails CI when `yaml_types.go` changes
+  without a matching fixture diff.
+- **Toolchain minimum raised to Go 1.26.** CI workflows (`ci.yml`,
+  `release.yml`) and `go.mod` now require 1.26; 1.24 fell out of
+  the Go team's support window. `golangci-lint` pinned to
+  **v2.12.2** (built with Go 1.26.2); v2.1.6 refused to lint a
+  Go 1.26 project.
+- `golang.org/x/sys` bumped 0.38.0 → 0.44.0 — includes a windows
+  `uint16` overflow fix in `NewNTUnicodeString` that directly
+  affects raioz's proctree code path.
+
+### Fixed
+
+- **Launcher-pattern premature ready** (ADR-025). When a host
+  `command:` exits cleanly inside the settle window and the user
+  declared `proxy.target:` with a container name, HostRunner now
+  polls Docker for that container after the launcher exits (up to
+  `RAIOZ_LAUNCHER_TIMEOUT`, default 60s) before reporting ready.
+  `raioz down` drains in-progress builds before invoking `stop:`
+  (`RAIOZ_LAUNCHER_DRAIN_TIMEOUT`, default 30s) so no orphan
+  containers when the build finishes post-stop. Host-shaped targets
+  (`host.docker.internal`, IPs, dotted names) skip the wait.
+- **Custom `stop:` env inheritance + visible failures.** `cmd.Env`
+  ran as nil-or-RAIOZ_ENV_FILE-only, so the child had no `PATH` and
+  `make dev-docker-stop` / `docker compose down` wrappers failed
+  silently while raioz printed "Project stopped" and left containers
+  running. Seed `cmd.Env` from `os.Environ()` before overrides,
+  collect per-service failures, render an `[error]` block, and
+  return `ErrCodeServiceStopFailed` so `raioz down` exits non-zero
+  when a service couldn't be stopped.
+- **`raioz.root.json` cleanup on `down`** (ADR-023). `up` wrote a
+  per-project snapshot drift detection reads on the next `up`;
+  `down` never deleted it, so a project that hasn't run in months
+  still surfaced as "drift" against current config. `root.Delete(ws)`
+  is now invoked from `downOrchestrated` when no raioz-labeled
+  containers survive the teardown. Selective downs (`raioz down svc`)
+  leave the file alone.
+- **Atomic proxy route persistence** (cef0fa2). Two `raioz up` in
+  the same workspace could race on each other's route files: the
+  Caddyfile reader would observe a partial write and silently drop
+  that project. Writes now use temp + rename, parse failures log
+  instead of silencing.
+- gosec G702 (command injection via taint) and G703 (path traversal
+  via taint) now excluded by design — same class as G204 + G306,
+  raioz orchestrates other binaries and reads user-configurable
+  paths as its contract.
+- **`staticcheck` / `govet` quickfixes** (3106126). 25
+  `staticcheck QF1012` (`WriteString` of `fmt.Sprintf` collapsed to
+  `fmt.Fprintf`) and one `govet inline` (`reflect.Ptr` →
+  `reflect.Pointer`), surfaced by the v2.12.2 bump.
+
+### Removed
+
+- **Legacy `.state.json` snapshot API** (ADR-011 phases 1-3).
+  `state.{Save,Load,Exists}` and the matching `StateManager`
+  methods plus `CompareDeps` / `FormatChanges` are gone, along with
+  the infra adapter wrappers. The workspace-project conflict prompt
+  in `upcase/dependency_assist.go` retired with them — without the
+  snapshot there is no way to materialize the previous project's
+  config for a diff, and reconstructing from labels alone yields an
+  unactionable merge prompt. `raioz down --conflicting` covers the
+  multi-project workspace collision case via labels.
+- `CheckAlignment` now keeps only the branch-drift path; the
+  config-vs-state comparison disappeared with the snapshot.
+- `scripts/lint-state-legacy.sh` and its make target — there's
+  nothing left to guard.
+
 ## [0.4.0] - 2026-05-12
 
 The headline is multi-project orchestration: a raioz project can now

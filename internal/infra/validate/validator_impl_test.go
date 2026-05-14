@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestNewValidator(t *testing.T) {
@@ -19,21 +19,21 @@ func TestNewValidator(t *testing.T) {
 func TestValidatorImpl_ValidateSchema(t *testing.T) {
 	v := NewValidator()
 	// Empty deps should not pass schema but shouldn't crash
-	deps := &config.Deps{}
+	deps := &models.Deps{}
 	_ = v.ValidateSchema(deps)
 }
 
 func TestValidatorImpl_ValidateProject(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{
-		Project: config.Project{Name: "valid-project"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "valid-project"},
 	}
 	_ = v.ValidateProject(deps)
 }
 
 func TestValidatorImpl_ValidateProject_Missing(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{}
+	deps := &models.Deps{}
 	if err := v.ValidateProject(deps); err == nil {
 		t.Error("expected error for missing project name")
 	}
@@ -41,32 +41,32 @@ func TestValidatorImpl_ValidateProject_Missing(t *testing.T) {
 
 func TestValidatorImpl_ValidateServices(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
 	}
 	_ = v.ValidateServices(deps)
 }
 
 func TestValidatorImpl_ValidateInfra(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{
-		Infra: map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Infra: map[string]models.InfraEntry{},
 	}
 	_ = v.ValidateInfra(deps)
 }
 
 func TestValidatorImpl_ValidateDependencies(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
 	}
 	_ = v.ValidateDependencies(deps)
 }
 
 func TestValidatorImpl_All(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
 	}
 	_ = v.All(deps)
 }
@@ -106,8 +106,8 @@ func TestValidatorImpl_PreflightCheckWithContext(t *testing.T) {
 
 func TestValidatorImpl_ValidateBeforeUp_Nil(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
 	}
 
 	// With nil context and workspace, should fall through to validate.All
@@ -116,8 +116,8 @@ func TestValidatorImpl_ValidateBeforeUp_Nil(t *testing.T) {
 
 func TestValidatorImpl_ValidateBeforeUp_TypedNil(t *testing.T) {
 	v := NewValidator()
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
 	}
 	ctx := context.Background()
 	// Pass a non-workspace to hit the fallback path

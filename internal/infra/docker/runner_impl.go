@@ -3,9 +3,10 @@ package docker
 import (
 	"context"
 
-	"raioz/internal/config"
 	dockerpkg "raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
+	"raioz/internal/naming"
 	workspacepkg "raioz/internal/workspace"
 )
 
@@ -73,11 +74,11 @@ func (r *DockerRunnerImpl) FindManagedContainerByService(
 		return ""
 	}
 	labels := map[string]string{
-		"com.raioz.managed": "true",
-		"com.raioz.service": service,
+		naming.LabelManaged: "true",
+		naming.LabelService: service,
 	}
 	if project != "" {
-		labels["com.raioz.project"] = project
+		labels[naming.LabelProject] = project
 	}
 	names := dockerpkg.ListContainersByLabels(ctx, labels)
 	if len(names) == 0 {
@@ -89,7 +90,7 @@ func (r *DockerRunnerImpl) FindManagedContainerByService(
 // GetServicesInfoWithContext returns detailed information about services
 func (r *DockerRunnerImpl) GetServicesInfoWithContext(
 	ctx context.Context, composePath string, serviceNames []string,
-	projectName string, services map[string]config.Service,
+	projectName string, services map[string]models.Service,
 	ws *interfaces.Workspace,
 ) (map[string]*interfaces.ServiceInfo, error) {
 	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use

@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"raioz/internal/config"
 	dockerpkg "raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
@@ -24,7 +24,7 @@ func findConfigFile() string {
 
 // YAMLProject holds resolved info for a YAML-mode project.
 type YAMLProject struct {
-	Deps        *config.Deps
+	Deps        *models.Deps
 	ProjectName string
 	NetworkName string
 	ConfigPath  string
@@ -101,29 +101,24 @@ func (p *YAMLProject) resolveInfraContainerName(name string) string {
 	return naming.Container(p.ProjectName, name)
 }
 
-// ContainerStatus returns status of a specific container.
-//
-// Resolution order (issue 009):
-//  1. The canonical name from naming.DepContainer / naming.Container.
-//  2. Fallback: any container labeled com.raioz.project + com.raioz.service
-//     matching this project + service. Needed for deps brought up via
-//     `compose:` whose container_name is dictated by the user's compose,
-//     not by raioz naming rules.
+// ContainerStatus returns status of a specific container. Routes both
+// the canonical-name probe and the label-based fallback (issue 009)
+// through naming.ResolveContainer — the single resolver shared by proxy,
+// discovery, and down.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
-	canonical := p.resolveInfraContainerName(name)
-	if state := dockerInspectStatus(ctx, canonical); state != "" {
-		return state
-	}
-
-	// Fallback: labels.
-	if actual := dockerpkg.ListContainersByLabels(ctx, map[string]string{
-		"com.raioz.managed": "true",
-		"com.raioz.project": p.ProjectName,
-		"com.raioz.service": name,
-	}); len(actual) > 0 && actual[0] != canonical {
-		if state := dockerInspectStatus(ctx, actual[0]); state != "" {
-			return state
+	var override string
+	if p.Deps != nil {
+		if entry, ok := p.Deps.Infra[name]; ok && entry.Inline != nil {
+			override = entry.Inline.Name
 		}
+	}
+	resolved, _ := naming.ResolveContainer(ctx, dockerpkg.NewLookup(),
+		p.ProjectName, name, override)
+	if resolved == "" {
+		return "stopped"
+	}
+	if state := dockerInspectStatus(ctx, resolved); state != "" {
+		return state
 	}
 	return "stopped"
 }

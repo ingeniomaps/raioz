@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // setupRaiozHome creates a temp dir and sets RAIOZ_HOME to it.
@@ -124,7 +124,7 @@ func TestWorkspaceManagerImpl_GetServicePath(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	svc := config.Service{}
+	svc := models.Service{}
 	path := m.GetServicePath(ws, "api", svc)
 	if path == "" {
 		t.Error("expected non-empty service path")
@@ -140,7 +140,7 @@ func TestWorkspaceManagerImpl_GetServiceDir(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	svc := config.Service{}
+	svc := models.Service{}
 	dir := m.GetServiceDir(ws, svc)
 	if dir == "" {
 		t.Error("expected non-empty service dir")
@@ -245,8 +245,8 @@ func TestWorkspaceManagerImpl_MigrateLegacyServices(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
 	}
 	if err := m.MigrateLegacyServices(ws, deps); err != nil {
 		t.Errorf("MigrateLegacyServices: %v", err)

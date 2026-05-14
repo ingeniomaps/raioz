@@ -1,12 +1,13 @@
 package upcase
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 // TestBuildProxyRoute_HostnameAliases_Issue006: aliases declared on a
@@ -14,21 +15,21 @@ import (
 // network-alias registration) sees every hostname the user wants routed
 // to the upstream.
 func TestBuildProxyRoute_HostnameAliases_Issue006(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "demo"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "demo"},
+		Services: map[string]models.Service{
 			"keycloak": {
 				Hostname:        "sso",
 				HostnameAliases: []string{"accounts", "login"},
-				ProxyOverride: &config.ServiceProxyOverride{
+				ProxyOverride: &models.ServiceProxyOverride{
 					Target: "demo-keycloak",
 					Port:   8080,
 				},
 			},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeMake, Port: 0}
-	route := buildProxyRoute(deps, "keycloak", det)
+	det := &models.DetectResult{Runtime: models.RuntimeMake, Port: 0}
+	route := buildProxyRoute(context.Background(), nil, deps, "keycloak", det)
 	if route.Hostname != "sso" {
 		t.Errorf("Hostname = %q, want sso", route.Hostname)
 	}
@@ -41,20 +42,20 @@ func TestBuildProxyRoute_OverrideBeatsDetection(t *testing.T) {
 	// Service classified as host (no Docker detection) — without override,
 	// target would be host.docker.internal with no port. The yaml-declared
 	// override must be honored verbatim.
-	deps := &config.Deps{
-		Project: config.Project{Name: "hypixo"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "hypixo"},
+		Services: map[string]models.Service{
 			"keycloak": {
-				ProxyOverride: &config.ServiceProxyOverride{
+				ProxyOverride: &models.ServiceProxyOverride{
 					Target: "hypixo-keycloak",
 					Port:   8080,
 				},
 			},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeMake, Port: 0}
+	det := &models.DetectResult{Runtime: models.RuntimeMake, Port: 0}
 
-	route := buildProxyRoute(deps, "keycloak", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "keycloak", det)
 	if route.Target != "hypixo-keycloak" {
 		t.Errorf("Target = %q, want hypixo-keycloak", route.Target)
 	}
@@ -64,15 +65,15 @@ func TestBuildProxyRoute_OverrideBeatsDetection(t *testing.T) {
 }
 
 func TestBuildProxyRoute_NoOverrideFallsBackToDetection(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Services: map[string]models.Service{
 			"api": {},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 3000}
+	det := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 3000}
 
-	route := buildProxyRoute(deps, "api", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "api", det)
 	if route.Target == "" || route.Target == "host.docker.internal" {
 		t.Errorf("expected Docker container target, got %q", route.Target)
 	}
@@ -82,8 +83,8 @@ func TestBuildProxyRoute_NoOverrideFallsBackToDetection(t *testing.T) {
 }
 
 func TestProxyTargetOverride_Unset(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{"api": {}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{"api": {}},
 	}
 	if target, port := proxyTargetOverride(deps, "api"); target != "" || port != 0 {
 		t.Errorf("expected empty override, got %q:%d", target, port)
@@ -94,21 +95,21 @@ func TestProxyTargetOverride_Unset(t *testing.T) {
 // a dependency. Regression guard for v0.1.0 where
 // `dependencies.<n>.proxy:` was silently dropped.
 func TestBuildProxyRoute_DepOverrideBeatsDetection(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "hypixo"},
-		Infra: map[string]config.InfraEntry{
-			"redisinsight": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Project: models.Project{Name: "hypixo"},
+		Infra: map[string]models.InfraEntry{
+			"redisinsight": {Inline: &models.Infra{
 				Image: "redis/redisinsight",
-				ProxyOverride: &config.ServiceProxyOverride{
+				ProxyOverride: &models.ServiceProxyOverride{
 					Target: "hypixo-redisinsight",
 					Port:   5540,
 				},
 			}},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 0}
+	det := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 0}
 
-	route := buildProxyRoute(deps, "redisinsight", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "redisinsight", det)
 	if route.Target != "hypixo-redisinsight" {
 		t.Errorf("Target = %q, want hypixo-redisinsight", route.Target)
 	}
@@ -121,18 +122,18 @@ func TestBuildProxyRoute_DepOverrideBeatsDetection(t *testing.T) {
 // and the user declared `expose:` on the dep, the proxy should pick the
 // first exposed port instead of leaving the route at port 0 (v0.1.1 fix).
 func TestBuildProxyRoute_ExposeFallback(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Infra: map[string]config.InfraEntry{
-			"pgadmin": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Infra: map[string]models.InfraEntry{
+			"pgadmin": {Inline: &models.Infra{
 				Image:  "dpage/pgadmin4",
 				Expose: []int{80, 443},
 			}},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 0}
+	det := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 0}
 
-	route := buildProxyRoute(deps, "pgadmin", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "pgadmin", det)
 	if route.Port != 80 {
 		t.Errorf("Port = %d, want 80 (from Expose[0])", route.Port)
 	}
@@ -143,19 +144,19 @@ func TestBuildProxyRoute_ExposeFallback(t *testing.T) {
 // https://<hostname>.<domain> instead of https://<entry-name>.<domain>
 // (issue #001).
 func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "demo"},
-		Infra: map[string]config.InfraEntry{
-			"mailpit": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Project: models.Project{Name: "demo"},
+		Infra: map[string]models.InfraEntry{
+			"mailpit": {Inline: &models.Infra{
 				Image:    "axllent/mailpit",
 				Hostname: "mail",
 				Expose:   []int{8025},
 			}},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 8025}
+	det := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 8025}
 
-	route := buildProxyRoute(deps, "mailpit", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "mailpit", det)
 	if route.Hostname != "mail" {
 		t.Errorf("Hostname = %q, want mail", route.Hostname)
 	}
@@ -167,20 +168,20 @@ func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
 // image like mailpit (1025 SMTP / 8025 UI) gets routed to the wrong upstream
 // port (issue #003).
 func TestBuildProxyRoute_DepProxyPortOnlyOverridesPort(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "demo"},
-		Infra: map[string]config.InfraEntry{
-			"mailpit": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Project: models.Project{Name: "demo"},
+		Infra: map[string]models.InfraEntry{
+			"mailpit": {Inline: &models.Infra{
 				Image: "axllent/mailpit",
-				ProxyOverride: &config.ServiceProxyOverride{
+				ProxyOverride: &models.ServiceProxyOverride{
 					Port: 8025,
 				},
 			}},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
+	det := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 1025}
 
-	route := buildProxyRoute(deps, "mailpit", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "mailpit", det)
 	if route.Port != 8025 {
 		t.Errorf("Port = %d, want 8025 (user override)", route.Port)
 	}
@@ -192,19 +193,19 @@ func TestBuildProxyRoute_DepProxyPortOnlyOverridesPort(t *testing.T) {
 // TestBuildProxyRoute_PortsBeatsExpose: legacy `ports:` wins when both are
 // set, preserving backwards-compat behavior.
 func TestBuildProxyRoute_PortsBeatsExpose(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Infra: map[string]config.InfraEntry{
-			"dep": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Infra: map[string]models.InfraEntry{
+			"dep": {Inline: &models.Infra{
 				Image:  "example/dep",
 				Ports:  []string{"9000:9000"},
 				Expose: []int{80},
 			}},
 		},
 	}
-	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 0}
+	det := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 0}
 
-	route := buildProxyRoute(deps, "dep", det)
+	route := buildProxyRoute(context.Background(), nil, deps, "dep", det)
 	if route.Port != 9000 {
 		t.Errorf("Port = %d, want 9000 (Ports wins over Expose)", route.Port)
 	}
@@ -257,8 +258,8 @@ dependencies:
 
 	// Detection picked the SMTP port (1025) — this is the failure mode
 	// from the issue. The override must win.
-	det := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 1025}
-	route := buildProxyRoute(deps, "mailpit", det)
+	det := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 1025}
+	route := buildProxyRoute(context.Background(), nil, deps, "mailpit", det)
 	if route.Hostname != "mail" {
 		t.Errorf("route.Hostname = %q, want mail", route.Hostname)
 	}
@@ -274,8 +275,8 @@ dependencies:
 	if ri.Hostname != "insight" {
 		t.Errorf("redisinsight.Hostname = %q, want insight", ri.Hostname)
 	}
-	det2 := &detect.DetectResult{Runtime: detect.RuntimeCompose, Port: 5540}
-	route2 := buildProxyRoute(deps, "redisinsight", det2)
+	det2 := &models.DetectResult{Runtime: models.RuntimeCompose, Port: 5540}
+	route2 := buildProxyRoute(context.Background(), nil, deps, "redisinsight", det2)
 	if route2.Hostname != "insight" {
 		t.Errorf("route2.Hostname = %q, want insight", route2.Hostname)
 	}

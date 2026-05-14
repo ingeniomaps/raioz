@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -89,7 +89,7 @@ func (uc *StatusUseCase) showOrchestratedStatus(ctx context.Context, opts Status
 // Services are always per-project, so naming.Container is correct here. For
 // dependencies (which may be workspace-shared or have a name override) use
 // queryDepStatus instead.
-func (uc *StatusUseCase) queryServiceStatus(ctx context.Context, name string, deps *config.Deps) string {
+func (uc *StatusUseCase) queryServiceStatus(ctx context.Context, name string, deps *models.Deps) string {
 	return uc.queryStatusByContainer(ctx, naming.Container(deps.Project.Name, name))
 }
 
@@ -102,7 +102,7 @@ func (uc *StatusUseCase) queryServiceStatus(ctx context.Context, name string, de
 // the labels are stamped on every raioz-managed container, so this finds the
 // actual container regardless of its name. See issue 009.
 func (uc *StatusUseCase) queryDepStatus(
-	ctx context.Context, name string, entry config.InfraEntry, deps *config.Deps,
+	ctx context.Context, name string, entry models.InfraEntry, deps *models.Deps,
 ) string {
 	var nameOverride string
 	if entry.Inline != nil {
@@ -135,7 +135,7 @@ func (uc *StatusUseCase) queryStatusByContainer(ctx context.Context, containerNa
 }
 
 // infraImageRef returns the image:tag reference for an infra entry.
-func infraImageRef(entry config.InfraEntry) string {
+func infraImageRef(entry models.InfraEntry) string {
 	if entry.Inline != nil {
 		ref := entry.Inline.Image
 		if entry.Inline.Tag != "" {

@@ -3,12 +3,11 @@ package workspace
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
-	"runtime"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 )
 
 const (
@@ -24,67 +23,14 @@ type Workspace struct {
 	EnvDir              string
 }
 
-// GetBaseDir determines the base directory for raioz workspace
-// It tries /opt/raioz-proyecto first, then falls back to user home directory
-// Can be overridden with RAIOZ_HOME environment variable
+// GetBaseDir returns the base directory for raioz state.
+// Location delegated to naming.RaiozStateDir() — ADR-022.
 func GetBaseDir() (string, error) {
-	// Check for override environment variable
-	if home := os.Getenv("RAIOZ_HOME"); home != "" {
-		// Try to create directory to verify permissions
-		if err := os.MkdirAll(home, 0755); err != nil {
-			return "", fmt.Errorf("failed to create RAIOZ_HOME directory '%s': %w", home, err)
-		}
-		return home, nil
+	base := naming.RaiozStateDir()
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create workspace base dir %q: %w", base, err)
 	}
-
-	// Try /opt/raioz-proyecto first (preferred location)
-	optBase := "/opt/raioz-proyecto"
-	if err := os.MkdirAll(optBase, 0755); err == nil {
-		// Successfully created/accessed /opt/raioz-proyecto
-		return optBase, nil
-	}
-
-	// Failed to create in /opt, use fallback
-	fallbackBase, err := getFallbackBaseDir()
-	if err != nil {
-		return "", fmt.Errorf(
-			"failed to use /opt/raioz-proyecto and fallback directory: %w",
-			err,
-		)
-	}
-
-	// Try to create fallback directory
-	if err := os.MkdirAll(fallbackBase, 0755); err != nil {
-		return "", fmt.Errorf(
-			"failed to create fallback directory '%s': %w",
-			fallbackBase, err,
-		)
-	}
-
-	return fallbackBase, nil
-}
-
-// getFallbackBaseDir returns the fallback base directory based on OS
-func getFallbackBaseDir() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current user: %w", err)
-	}
-
-	homeDir := usr.HomeDir
-	if homeDir == "" {
-		return "", fmt.Errorf("home directory is empty")
-	}
-
-	// Use .raioz in user home directory
-	fallbackBase := filepath.Join(homeDir, ".raioz")
-
-	// Normalize path separators for Windows
-	if runtime.GOOS == "windows" {
-		fallbackBase = filepath.Join(homeDir, ".raioz")
-	}
-
-	return fallbackBase, nil
+	return base, nil
 }
 
 // Resolve resolves the workspace for a given project
@@ -143,39 +89,28 @@ func Resolve(project string) (*Workspace, error) {
 		EnvDir:              envDir,
 	}
 
-	// Try to load .raioz.json to check for legacy services to migrate
-	// This is a best-effort migration, errors are non-fatal
-	if deps, _, err := tryLoadDepsForMigration(project); err == nil && deps != nil {
-		if err := CheckAndMigrateLegacyServices(ws, deps); err != nil {
-			// Log but don't fail - migration is best-effort
-			logging.Warn("Migration warning", "error", err)
+	// Try to load .raioz.json to check for legacy services to migrate.
+	// Hook injected by callers that can import internal/config; nil means
+	// "no legacy migration available", which is fine for fresh workspaces.
+	if LoadDepsForMigration != nil {
+		if deps, _, err := LoadDepsForMigration(project); err == nil && deps != nil {
+			if err := CheckAndMigrateLegacyServices(ws, deps); err != nil {
+				logging.Warn("Migration warning", "error", err)
+			}
 		}
 	}
 
 	return ws, nil
 }
 
-// tryLoadDepsForMigration attempts to load .raioz.json for migration purposes
-// Returns nil if .raioz.json cannot be found or loaded (non-fatal)
-func tryLoadDepsForMigration(project string) (*config.Deps, []string, error) {
-	// Try common locations for .raioz.json (and legacy deps.json for backward compatibility)
-	possiblePaths := []string{
-		".raioz.json",
-		"./.raioz.json",
-		filepath.Join(".", ".raioz.json"),
-		"deps.json",                     // Legacy support
-		"./deps.json",                   // Legacy support
-		filepath.Join(".", "deps.json"), // Legacy support
-	}
-
-	for _, path := range possiblePaths {
-		if deps, warnings, err := config.LoadDeps(path); err == nil {
-			return deps, warnings, nil
-		}
-	}
-
-	return nil, nil, fmt.Errorf(".raioz.json not found for migration")
-}
+// LoadDepsForMigration is an optional hook that, when set, lets Resolve
+// detect a legacy .raioz.json at the project root and migrate its services
+// automatically. The hook is set by callers that can afford to import
+// internal/config (typically internal/infra/workspace via init()). Keeping
+// it as a hook rather than a direct import preserves the domain isolation
+// boundary required by ADR-009: nothing under internal/workspace pulls in
+// internal/config, even transitively.
+var LoadDepsForMigration func(project string) (*models.Deps, []string, error)
 
 // GetBaseDirFromWorkspace extracts the base directory from a workspace
 // This is useful when you need to know the base directory after workspace is resolved

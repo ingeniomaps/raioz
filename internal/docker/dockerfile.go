@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	pathvalidate "raioz/internal/path"
 	"raioz/internal/workspace"
 )
@@ -34,7 +34,7 @@ func ValidateDockerfile(servicePath string, dockerfile string) (bool, error) {
 func GenerateDockerfileWrapper(
 	ws *workspace.Workspace,
 	serviceName string,
-	svc config.Service,
+	svc models.Service,
 ) (string, error) {
 	// Determine base image based on runtime or default
 	baseImage := getBaseImageForRuntime(svc.Docker.Runtime)
@@ -138,7 +138,7 @@ func getInstallCommand(runtime string) string {
 func EnsureDockerfile(
 	ws *workspace.Workspace,
 	serviceName string,
-	svc config.Service,
+	svc models.Service,
 ) (string, error) {
 	if svc.Source.Kind != "git" {
 		return "", nil // Not applicable for image services

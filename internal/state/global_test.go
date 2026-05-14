@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // setupGlobalHome creates a temp dir and sets RAIOZ_HOME so global state writes
@@ -239,8 +239,8 @@ func TestUpdateLastExecution_Existing(t *testing.T) {
 }
 
 func TestBuildServiceStates_Empty(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
 	}
 	got := BuildServiceStates(deps, nil)
 	if len(got) != 0 {
@@ -249,20 +249,20 @@ func TestBuildServiceStates_Empty(t *testing.T) {
 }
 
 func TestBuildServiceStates_WithServices(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:  "image",
 					Image: "myapi",
 					Tag:   "v1",
 				},
-				Docker: &config.DockerConfig{
+				Docker: &models.DockerConfig{
 					Mode: "prod",
 				},
 			},
 			"worker": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind: "git",
 				},
 			},
@@ -290,8 +290,8 @@ func TestBuildServiceStates_WithServices(t *testing.T) {
 }
 
 func TestBuildServiceStates_WithInfo(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {},
 		},
 	}

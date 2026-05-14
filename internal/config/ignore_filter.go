@@ -36,6 +36,7 @@ func FilterIgnoredServices(deps *Deps) (*Deps, []string, error) {
 		Proxy:              deps.Proxy,
 		ProxyConfig:        deps.ProxyConfig,
 		PreHook:            deps.PreHook,
+		PreUpHook:          deps.PreUpHook,
 		PostHook:           deps.PostHook,
 	}
 

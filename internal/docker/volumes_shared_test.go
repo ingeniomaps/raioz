@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestDetectSharedVolumes(t *testing.T) {
@@ -197,26 +197,26 @@ func TestFormatSharedVolumesWarning(t *testing.T) {
 }
 
 func TestBuildServiceVolumesMap(t *testing.T) {
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "image", Image: "nginx"},
-				Docker: &config.DockerConfig{
+				Source: models.SourceConfig{Kind: "image", Image: "nginx"},
+				Docker: &models.DockerConfig{
 					Volumes: []string{"api-data:/data", "./src:/app"},
 				},
 			},
 			"host-svc": {
-				Source: config.SourceConfig{Kind: "git", Command: "npm start"},
+				Source: models.SourceConfig{Kind: "git", Command: "npm start"},
 				// Docker nil -> skipped
 			},
 			"no-vols": {
-				Source: config.SourceConfig{Kind: "image", Image: "busybox"},
-				Docker: &config.DockerConfig{},
+				Source: models.SourceConfig{Kind: "image", Image: "busybox"},
+				Docker: &models.DockerConfig{},
 			},
 		},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{
 				Image:   "postgres",
 				Volumes: []string{"pgdata:/var/lib/postgresql/data"},
 			}},

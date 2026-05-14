@@ -5,16 +5,15 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 func TestInferServicePort_FromEnv(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, ".env"), []byte("PORT=9090\n"), 0644)
 
-	svc := config.Service{Source: config.SourceConfig{Path: dir}}
-	det := detect.DetectResult{Runtime: detect.RuntimeGo}
+	svc := models.Service{Source: models.SourceConfig{Path: dir}}
+	det := models.DetectResult{Runtime: models.RuntimeGo}
 
 	port := inferServicePort(svc, det)
 	if port != 9090 {
@@ -24,26 +23,26 @@ func TestInferServicePort_FromEnv(t *testing.T) {
 
 func TestInferServicePort_RuntimeDefault(t *testing.T) {
 	tests := []struct {
-		runtime detect.Runtime
+		runtime models.Runtime
 		port    int
 	}{
-		{detect.RuntimeGo, 8080},
-		{detect.RuntimeNPM, 3000},
-		{detect.RuntimePython, 5000},
-		{detect.RuntimeRust, 8080},
-		{detect.RuntimePHP, 8000},
-		{detect.RuntimeJava, 8080},
-		{detect.RuntimeDotnet, 5000},
-		{detect.RuntimeRuby, 3000},
-		{detect.RuntimeElixir, 4000},
-		{detect.RuntimeDeno, 3000},
-		{detect.RuntimeBun, 3000},
+		{models.RuntimeGo, 8080},
+		{models.RuntimeNPM, 3000},
+		{models.RuntimePython, 5000},
+		{models.RuntimeRust, 8080},
+		{models.RuntimePHP, 8000},
+		{models.RuntimeJava, 8080},
+		{models.RuntimeDotnet, 5000},
+		{models.RuntimeRuby, 3000},
+		{models.RuntimeElixir, 4000},
+		{models.RuntimeDeno, 3000},
+		{models.RuntimeBun, 3000},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.runtime), func(t *testing.T) {
-			svc := config.Service{} // no path, no ports
-			det := detect.DetectResult{Runtime: tt.runtime}
+			svc := models.Service{} // no path, no ports
+			det := models.DetectResult{Runtime: tt.runtime}
 			port := inferServicePort(svc, det)
 			if port != tt.port {
 				t.Errorf("expected %d, got %d", tt.port, port)

@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestNewGitRepository(t *testing.T) {
@@ -20,13 +20,13 @@ func TestGitRepositoryImpl_IsReadonly(t *testing.T) {
 
 	cases := []struct {
 		name string
-		src  config.SourceConfig
+		src  models.SourceConfig
 		want bool
 	}{
-		{"git-readonly", config.SourceConfig{Kind: "git", Access: "readonly"}, true},
-		{"git-editable", config.SourceConfig{Kind: "git", Access: "editable"}, false},
-		{"git-default", config.SourceConfig{Kind: "git"}, false},
-		{"non-git", config.SourceConfig{Access: "readonly"}, false},
+		{"git-readonly", models.SourceConfig{Kind: "git", Access: "readonly"}, true},
+		{"git-editable", models.SourceConfig{Kind: "git", Access: "editable"}, false},
+		{"git-default", models.SourceConfig{Kind: "git"}, false},
+		{"non-git", models.SourceConfig{Access: "readonly"}, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -40,7 +40,7 @@ func TestGitRepositoryImpl_IsReadonly(t *testing.T) {
 
 func TestGitRepositoryImpl_EnsureRepoWithForce_ReadonlyForce(t *testing.T) {
 	r := NewGitRepository()
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "git",
 		Path:   "svc",
 		Repo:   "https://example.com/repo.git",
@@ -61,7 +61,7 @@ func TestGitRepositoryImpl_EnsureRepo_InvalidRepo(t *testing.T) {
 	}
 
 	r := NewGitRepository()
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Path:   "svc",
 		Repo:   "not-a-real-url",
 		Branch: "main",
@@ -78,7 +78,7 @@ func TestGitRepositoryImpl_EnsureReadonlyRepo_InvalidRepo(t *testing.T) {
 		t.Skip("git not installed")
 	}
 	r := NewGitRepository()
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Path: "svc",
 		Repo: "not-a-real-url",
 	}
@@ -90,7 +90,7 @@ func TestGitRepositoryImpl_EnsureEditableRepo_InvalidRepo(t *testing.T) {
 		t.Skip("git not installed")
 	}
 	r := NewGitRepository()
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Path: "svc",
 		Repo: "not-a-real-url",
 	}
@@ -109,12 +109,12 @@ func TestGitRepositoryImpl_ForceReclone_InvalidRepo(t *testing.T) {
 func TestGitRepositoryImpl_UpdateReposIfBranchChanged(t *testing.T) {
 	r := NewGitRepository()
 
-	resolver := func(name string, svc config.Service) string { return "" }
-	oldDeps := &config.Deps{
-		Services: map[string]config.Service{},
+	resolver := func(name string, svc models.Service) string { return "" }
+	oldDeps := &models.Deps{
+		Services: map[string]models.Service{},
 	}
-	newDeps := &config.Deps{
-		Services: map[string]config.Service{},
+	newDeps := &models.Deps{
+		Services: map[string]models.Service{},
 	}
 
 	err := r.UpdateReposIfBranchChanged(context.Background(), resolver, oldDeps, newDeps)

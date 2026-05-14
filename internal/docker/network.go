@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/runtime"
 )
@@ -296,7 +296,7 @@ func GetNetworkProjects(networkName string, baseDir string) ([]string, error) {
 
 		// Parse JSON to check network
 		var state struct {
-			Network config.NetworkConfig `json:"network"`
+			Network models.NetworkConfig `json:"network"`
 		}
 
 		if err := json.Unmarshal(data, &state); err != nil {

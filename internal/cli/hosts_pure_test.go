@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestResolveProxyIPForHosts(t *testing.T) {
 	t.Run("explicit proxy IP wins", func(t *testing.T) {
-		deps := &config.Deps{
-			Network:     config.NetworkConfig{Name: "n", Subnet: "172.28.0.0/16", IsObject: true},
-			ProxyConfig: &config.ProxyConfig{IP: "172.28.1.1"},
+		deps := &models.Deps{
+			Network:     models.NetworkConfig{Name: "n", Subnet: "172.28.0.0/16", IsObject: true},
+			ProxyConfig: &models.ProxyConfig{IP: "172.28.1.1"},
 		}
 		got, err := resolveProxyIPForHosts(deps)
 		if err != nil {
@@ -24,8 +24,8 @@ func TestResolveProxyIPForHosts(t *testing.T) {
 	})
 
 	t.Run("derived from subnet when proxy.ip absent", func(t *testing.T) {
-		deps := &config.Deps{
-			Network: config.NetworkConfig{Name: "n", Subnet: "172.28.0.0/16", IsObject: true},
+		deps := &models.Deps{
+			Network: models.NetworkConfig{Name: "n", Subnet: "172.28.0.0/16", IsObject: true},
 		}
 		got, err := resolveProxyIPForHosts(deps)
 		if err != nil {
@@ -37,16 +37,16 @@ func TestResolveProxyIPForHosts(t *testing.T) {
 	})
 
 	t.Run("error when neither subnet nor proxy.ip set", func(t *testing.T) {
-		deps := &config.Deps{}
+		deps := &models.Deps{}
 		if _, err := resolveProxyIPForHosts(deps); err == nil {
 			t.Error("expected error when no IP source declared")
 		}
 	})
 
 	t.Run("invalid explicit proxy.ip propagates", func(t *testing.T) {
-		deps := &config.Deps{
-			Network:     config.NetworkConfig{Name: "n", Subnet: "172.28.0.0/16", IsObject: true},
-			ProxyConfig: &config.ProxyConfig{IP: "999.999.999.999"},
+		deps := &models.Deps{
+			Network:     models.NetworkConfig{Name: "n", Subnet: "172.28.0.0/16", IsObject: true},
+			ProxyConfig: &models.ProxyConfig{IP: "999.999.999.999"},
 		}
 		if _, err := resolveProxyIPForHosts(deps); err == nil {
 			t.Error("expected validation error for malformed IP")
@@ -56,14 +56,14 @@ func TestResolveProxyIPForHosts(t *testing.T) {
 
 func TestProxiedHostnamesFromConfig(t *testing.T) {
 	t.Run("services and HTTP deps included, sorted", func(t *testing.T) {
-		deps := &config.Deps{
-			Services: map[string]config.Service{
+		deps := &models.Deps{
+			Services: map[string]models.Service{
 				"web": {},
 				"api": {Hostname: "api-v2"},
 			},
-			Infra: map[string]config.InfraEntry{
-				"adminer":  {Inline: &config.Infra{Image: "adminer"}},
-				"postgres": {Inline: &config.Infra{Image: "postgres:16"}},
+			Infra: map[string]models.InfraEntry{
+				"adminer":  {Inline: &models.Infra{Image: "adminer"}},
+				"postgres": {Inline: &models.Infra{Image: "postgres:16"}},
 			},
 		}
 		got := proxiedHostnamesFromConfig(deps)
@@ -74,9 +74,9 @@ func TestProxiedHostnamesFromConfig(t *testing.T) {
 	})
 
 	t.Run("custom domain used for suffix", func(t *testing.T) {
-		deps := &config.Deps{
-			Services:    map[string]config.Service{"api": {}},
-			ProxyConfig: &config.ProxyConfig{Domain: "acme.dev"},
+		deps := &models.Deps{
+			Services:    map[string]models.Service{"api": {}},
+			ProxyConfig: &models.ProxyConfig{Domain: "acme.dev"},
 		}
 		got := proxiedHostnamesFromConfig(deps)
 		if len(got) != 1 || !strings.HasSuffix(got[0], ".acme.dev") {
@@ -85,11 +85,11 @@ func TestProxiedHostnamesFromConfig(t *testing.T) {
 	})
 
 	t.Run("non-HTTP dep with routing override is included", func(t *testing.T) {
-		deps := &config.Deps{
-			Infra: map[string]config.InfraEntry{
-				"postgres": {Inline: &config.Infra{
+		deps := &models.Deps{
+			Infra: map[string]models.InfraEntry{
+				"postgres": {Inline: &models.Infra{
 					Image:   "postgres:16",
-					Routing: &config.RoutingConfig{},
+					Routing: &models.RoutingConfig{},
 				}},
 			},
 		}
@@ -100,8 +100,8 @@ func TestProxiedHostnamesFromConfig(t *testing.T) {
 	})
 
 	t.Run("path-based infra entries skipped", func(t *testing.T) {
-		deps := &config.Deps{
-			Infra: map[string]config.InfraEntry{
+		deps := &models.Deps{
+			Infra: map[string]models.InfraEntry{
 				"adminer": {Path: "deps/adminer.yml"}, // no Inline
 			},
 		}
@@ -114,9 +114,9 @@ func TestProxiedHostnamesFromConfig(t *testing.T) {
 
 func TestWorkspaceLabel(t *testing.T) {
 	t.Run("workspace wins when set", func(t *testing.T) {
-		deps := &config.Deps{
+		deps := &models.Deps{
 			Workspace: "acme",
-			Project:   config.Project{Name: "store"},
+			Project:   models.Project{Name: "store"},
 		}
 		if got := workspaceLabel(deps); got != "acme" {
 			t.Errorf("got %q, want acme", got)
@@ -124,8 +124,8 @@ func TestWorkspaceLabel(t *testing.T) {
 	})
 
 	t.Run("falls back to project name", func(t *testing.T) {
-		deps := &config.Deps{
-			Project: config.Project{Name: "store"},
+		deps := &models.Deps{
+			Project: models.Project{Name: "store"},
 		}
 		if got := workspaceLabel(deps); got != "store" {
 			t.Errorf("got %q, want store", got)

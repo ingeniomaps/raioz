@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 )
 
@@ -17,8 +17,8 @@ func (uc *StatusUseCase) getHostServiceInfo(
 	ctx context.Context,
 	ws *interfaces.Workspace,
 	serviceName string,
-	svc config.Service,
-	deps *config.Deps,
+	svc models.Service,
+	deps *models.Deps,
 	hostProcesses map[string]*host.ProcessInfo,
 ) *interfaces.ServiceInfo {
 	info := &interfaces.ServiceInfo{

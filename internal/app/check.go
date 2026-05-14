@@ -29,6 +29,7 @@ func NewCheckUseCase(deps *Dependencies) *CheckUseCase {
 			ConfigLoader: deps.ConfigLoader,
 			Workspace:    deps.Workspace,
 			StateManager: deps.StateManager,
+			DockerRunner: deps.DockerRunner,
 		}),
 	}
 }

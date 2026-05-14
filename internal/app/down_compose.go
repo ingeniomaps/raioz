@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
+	"sort"
+
 	"raioz/internal/detect"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
@@ -21,7 +23,7 @@ import (
 // used at `up` time. Required because the default prefix-based cleanup only
 // matches containers named `raioz-<project>-<svc>`, and docker compose names
 // its own containers `<dir>-<svc>-N` instead.
-func stopComposeServices(ctx context.Context, deps *config.Deps) {
+func stopComposeServices(ctx context.Context, deps *models.Deps) {
 	for name, svc := range deps.Services {
 		if svc.Source.Command != "" {
 			continue
@@ -33,7 +35,7 @@ func stopComposeServices(ctx context.Context, deps *config.Deps) {
 				continue
 			}
 			dr := detect.Detect(svc.Source.Path)
-			if dr.Runtime != detect.RuntimeCompose || len(dr.ComposeFiles) == 0 {
+			if dr.Runtime != models.RuntimeCompose || len(dr.ComposeFiles) == 0 {
 				continue
 			}
 			files = dr.ComposeFiles
@@ -62,10 +64,11 @@ func stopComposeServices(ctx context.Context, deps *config.Deps) {
 	}
 }
 
-// runCustomStopCommands executes each service's `stop:` command from raioz.yaml,
-// running in the project directory with the service's configured env vars merged
-// in. Failures are logged but do not abort the overall down flow.
-func runCustomStopCommands(ctx context.Context, deps *config.Deps, projectDir string) {
+// runCustomStopCommands runs each service's `stop:` and returns the
+// sorted names of failures. Best-effort: every service still gets a
+// stop attempt so a partial down doesn't strand later services.
+func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir string) []string {
+	var failed []string
 	for name, svc := range deps.Services {
 		if svc.Commands == nil || svc.Commands.Down == "" {
 			continue
@@ -82,20 +85,32 @@ func runCustomStopCommands(ctx context.Context, deps *config.Deps, projectDir st
 		}
 		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
 		cmd.Dir = projectDir
-
-		if svc.Env != nil {
-			for _, f := range svc.Env.GetFilePaths() {
-				if f == "" {
-					continue
-				}
-				cmd.Env = append(cmd.Env, "RAIOZ_ENV_FILE="+f)
-			}
-		}
+		cmd.Env = buildStopCmdEnv(svc)
 
 		if out, err := cmd.CombinedOutput(); err != nil {
 			logging.WarnWithContext(ctx, "Custom stop command failed",
 				"service", name, "error", err.Error(), "output", string(out))
 			output.PrintWarning(fmt.Sprintf("Stop command for %s failed: %v", name, err))
+			failed = append(failed, name)
 		}
 	}
+	sort.Strings(failed)
+	return failed
+}
+
+// Seeds the env from os.Environ() so the child sees PATH/DOCKER_HOST/
+// etc.; without this `make stop` wrappers can't find `docker`.
+// RAIOZ_ENV_FILE overrides come after so they win on duplicate keys.
+func buildStopCmdEnv(svc models.Service) []string {
+	env := os.Environ()
+	if svc.Env == nil {
+		return env
+	}
+	for _, f := range svc.Env.GetFilePaths() {
+		if f == "" {
+			continue
+		}
+		env = append(env, "RAIOZ_ENV_FILE="+f)
+	}
+	return env
 }

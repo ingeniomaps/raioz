@@ -11,15 +11,14 @@ import (
 	"sync"
 	"syscall"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
 )
 
 // streamForeground streams logs from all services until Ctrl+C (no file watching).
-func streamForeground(ctx context.Context, deps *config.Deps, detections DetectionMap) {
+func streamForeground(ctx context.Context, deps *models.Deps, detections DetectionMap) {
 	output.PrintInfo("Streaming logs (Ctrl+C to stop)")
 	fmt.Println()
 
@@ -55,7 +54,7 @@ const colorReset = "\033[0m"
 // Multiplexes output with colored service name prefixes. Blocks until ctx is cancelled.
 func streamAllLogs(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 ) {
 	var wg sync.WaitGroup
@@ -80,9 +79,9 @@ func streamAllLogs(
 		if !ok {
 			continue
 		}
-		if det.Runtime == detect.RuntimeCompose ||
-			det.Runtime == detect.RuntimeDockerfile ||
-			det.Runtime == detect.RuntimeImage {
+		if det.Runtime == models.RuntimeCompose ||
+			det.Runtime == models.RuntimeDockerfile ||
+			det.Runtime == models.RuntimeImage {
 			continue
 		}
 

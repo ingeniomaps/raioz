@@ -3,14 +3,14 @@ package interfaces
 import (
 	"context"
 
-	"raioz/internal/detect"
+	models "raioz/internal/domain/models"
 )
 
 // ServiceContext holds all information needed to start/stop a service.
 type ServiceContext struct {
 	Name          string
 	Path          string
-	Detection     detect.DetectResult
+	Detection     models.DetectResult
 	NetworkName   string
 	EnvVars       map[string]string
 	Ports         []string
@@ -35,6 +35,10 @@ type ServiceContext struct {
 	// interpolation in the user's compose resolves correctly. Populated
 	// alongside ExternalComposeFiles.
 	EnvFilePaths []string
+
+	// ProxyTarget forwards `proxy.target:` to runners. HostRunner uses
+	// it for the launcher-pattern container wait/drain (ADR-025).
+	ProxyTarget string
 }
 
 // Orchestrator defines operations for starting and stopping services

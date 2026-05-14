@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/env"
 	"raioz/internal/workspace"
 )
@@ -14,8 +14,8 @@ import (
 func addServiceToCompose(
 	services map[string]any,
 	name string,
-	svc config.Service,
-	deps *config.Deps,
+	svc models.Service,
+	deps *models.Deps,
 	ws *workspace.Workspace,
 	projectDir, networkName string,
 	serviceVolumeMap map[string]string,

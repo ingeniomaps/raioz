@@ -5,6 +5,9 @@ import (
 	"io"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
+	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/state"
 )
 
@@ -19,13 +22,14 @@ type Dependencies struct {
 	ConfigLoader interfaces.ConfigLoader
 	Workspace    interfaces.WorkspaceManager
 	StateManager interfaces.StateManager
+	DockerRunner interfaces.DockerRunner
 }
 
 // CheckResult holds the outcome of a check operation
 type CheckResult struct {
 	ConfigValid      bool
 	ValidationErrors []string
-	AlignmentIssues  []state.AlignmentIssue
+	AlignmentIssues  []models.AlignmentIssue
 	NoState          bool
 	Output           string
 	HasIssues        bool
@@ -51,9 +55,12 @@ func NewUseCase(deps *Dependencies) *UseCase {
 }
 
 // Execute runs config validation and alignment check, returns result.
-func (uc *UseCase) Execute(_ context.Context, opts Options) (*CheckResult, error) {
+func (uc *UseCase) Execute(ctx context.Context, opts Options) (*CheckResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	// Resolve workspace
-	_, ws, err := uc.resolveWorkspace(opts)
+	projectName, workspaceName, ws, err := uc.resolveWorkspace(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +81,17 @@ func (uc *UseCase) Execute(_ context.Context, opts Options) (*CheckResult, error
 		result.HasIssues = true
 	}
 
-	// Check alignment if state exists
-	if !uc.deps.StateManager.Exists(ws) {
+	// ADR-011 Phase 2: project is "alive" when Docker has containers
+	// for it. Without an active project there's nothing to compare
+	// against — report NoState=true and skip alignment.
+	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
+	if err != nil {
+		return nil, errors.New(
+			errors.ErrCodeStateLoadError,
+			i18n.T("error.state_load_previous"),
+		).WithError(err)
+	}
+	if !active {
 		result.NoState = true
 		return result, nil
 	}

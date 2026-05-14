@@ -3,20 +3,20 @@ package docker
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestValidateDependencyCycle(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "no dependencies",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {},
 					"service2": {},
 				},
@@ -25,16 +25,16 @@ func TestValidateDependencyCycle(t *testing.T) {
 		},
 		{
 			name: "valid dependencies",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {},
 					"service2": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
 					"service3": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
@@ -44,15 +44,15 @@ func TestValidateDependencyCycle(t *testing.T) {
 		},
 		{
 			name: "circular dependency - two services",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
 					"service2": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
@@ -63,20 +63,20 @@ func TestValidateDependencyCycle(t *testing.T) {
 		},
 		{
 			name: "circular dependency - three services",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service3"},
 						},
 					},
 					"service2": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
 					"service3": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service2"},
 						},
 					},
@@ -87,10 +87,10 @@ func TestValidateDependencyCycle(t *testing.T) {
 		},
 		{
 			name: "self-dependency",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service1"},
 						},
 					},
@@ -101,12 +101,12 @@ func TestValidateDependencyCycle(t *testing.T) {
 		},
 		{
 			name: "multiple dependencies",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"service1": {},
 					"service2": {},
 					"service3": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service1", "service2"},
 						},
 					},
@@ -116,21 +116,21 @@ func TestValidateDependencyCycle(t *testing.T) {
 		},
 		{
 			name: "diamond dependency (valid)",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"base": {},
 					"service1": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"base"},
 						},
 					},
 					"service2": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"base"},
 						},
 					},
 					"service3": {
-						Docker: &config.DockerConfig{
+						Docker: &models.DockerConfig{
 							DependsOn: []string{"service1", "service2"},
 						},
 					},
@@ -180,14 +180,14 @@ func indexOf(s, substr string) int {
 }
 
 func TestGetAllServiceNames(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"service1": {},
 			"service2": {},
 		},
-		Infra: map[string]config.InfraEntry{
-			"infra1": {Inline: &config.Infra{}},
-			"infra2": {Inline: &config.Infra{}},
+		Infra: map[string]models.InfraEntry{
+			"infra1": {Inline: &models.Infra{}},
+			"infra2": {Inline: &models.Infra{}},
 		},
 	}
 

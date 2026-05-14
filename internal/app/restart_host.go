@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/state"
@@ -76,7 +77,7 @@ func (uc *RestartUseCase) restartHostService(
 	// Persist new PID. We update only this service's entry; the rest of
 	// the state file is left intact.
 	if localState == nil {
-		localState = &state.LocalState{
+		localState = &models.LocalState{
 			HostPIDs: map[string]int{},
 			Project:  proj.ProjectName,
 		}

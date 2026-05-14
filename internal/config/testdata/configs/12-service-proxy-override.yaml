@@ -1,0 +1,18 @@
+# 12-service-proxy-override — `services.<n>.proxy.{target, port}`.
+#
+# Bypasses runtime detection for proxy routing. Required when
+# `command:` launches a stack raioz can't introspect (e.g. `make start`
+# spawning its own compose project). Without this override the proxy
+# ends up pointing at host.docker.internal with no port — see BUG-13.
+
+project: keycloak-host
+proxy: true
+
+services:
+  keycloak:
+    path: ./keycloak
+    command: make start
+    stop: make stop
+    proxy:
+      target: hypixo-keycloak
+      port: 8080

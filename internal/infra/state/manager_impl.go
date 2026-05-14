@@ -3,8 +3,8 @@ package state
 import (
 	"fmt"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	statepkg "raioz/internal/state"
 	workspacepkg "raioz/internal/workspace"
 )
@@ -18,37 +18,6 @@ type StateManagerImpl struct{}
 // NewStateManager creates a new StateManager implementation
 func NewStateManager() interfaces.StateManager {
 	return &StateManagerImpl{}
-}
-
-// Load loads the project state
-func (m *StateManagerImpl) Load(ws *interfaces.Workspace) (*config.Deps, error) {
-	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return statepkg.Load(wsConcrete)
-}
-
-// Save saves the project state
-func (m *StateManagerImpl) Save(ws *interfaces.Workspace, deps *config.Deps) error {
-	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return statepkg.Save(wsConcrete, deps)
-}
-
-// Exists checks if state file exists
-func (m *StateManagerImpl) Exists(ws *interfaces.Workspace) bool {
-	// Convert interfaces.Workspace (alias) to concrete workspace.Workspace for internal use
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return statepkg.Exists(wsConcrete)
-}
-
-// CompareDeps compares two dependency configurations
-func (m *StateManagerImpl) CompareDeps(oldDeps, newDeps *config.Deps) ([]statepkg.ConfigChange, error) {
-	return statepkg.CompareDeps(oldDeps, newDeps)
-}
-
-// FormatChanges formats configuration changes for display
-func (m *StateManagerImpl) FormatChanges(changes []statepkg.ConfigChange) string {
-	return statepkg.FormatChanges(changes)
 }
 
 // UpdateProjectState updates the global project state
@@ -106,7 +75,7 @@ func (m *StateManagerImpl) SetWorkspaceProjectPreference(
 
 // BuildServiceStates builds ServiceState list from deps and service info
 func (m *StateManagerImpl) BuildServiceStates(
-	deps *config.Deps, serviceInfos map[string]*statepkg.ServiceInfo,
+	deps *models.Deps, serviceInfos map[string]*statepkg.ServiceInfo,
 ) []statepkg.ServiceState {
 	return statepkg.BuildServiceStates(deps, serviceInfos)
 }

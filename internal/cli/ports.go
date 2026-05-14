@@ -19,7 +19,7 @@ var portsCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		portsUseCase := app.NewPortsUseCase(deps)
 
 		return portsUseCase.Execute(ctx, app.PortsOptions{

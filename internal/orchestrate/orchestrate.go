@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // Dispatcher routes service operations to the correct runner.
@@ -87,24 +87,15 @@ func (d *Dispatcher) GetHostPID(serviceName string) int {
 	return d.host.GetPID(serviceName)
 }
 
-func (d *Dispatcher) selectRunner(runtime detect.Runtime) (runner, error) {
-	switch runtime {
-	case detect.RuntimeCompose:
-		return d.compose, nil
-	case detect.RuntimeDockerfile:
-		return d.dockerfile, nil
-	case detect.RuntimeNPM, detect.RuntimeGo, detect.RuntimeMake,
-		detect.RuntimeJust, detect.RuntimeTask,
-		detect.RuntimePython, detect.RuntimeRust, detect.RuntimePHP,
-		detect.RuntimeJava, detect.RuntimeDotnet, detect.RuntimeRuby,
-		detect.RuntimeElixir, detect.RuntimeDart, detect.RuntimeSwift,
-		detect.RuntimeScala, detect.RuntimeClojure, detect.RuntimeZig,
-		detect.RuntimeGleam, detect.RuntimeHaskell, detect.RuntimeDeno,
-		detect.RuntimeBun:
-		return d.host, nil
-	case detect.RuntimeImage:
-		return d.image, nil
-	default:
-		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
+// selectRunner resolves the runner for a runtime via the package-init
+// registry (ADR-019 / issue 039). Each runner-file registers in its
+// init(); the registry is exhaustive-checked by
+// TestAllRuntimesHaveRunner. A runtime missing here is a programming
+// error — return a typed error so callers can present it.
+func (d *Dispatcher) selectRunner(rt models.Runtime) (runner, error) {
+	sel, ok := runnerRegistry[rt]
+	if !ok {
+		return nil, fmt.Errorf("unsupported runtime: %s", rt)
 	}
+	return sel(d), nil
 }

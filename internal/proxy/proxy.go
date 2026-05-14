@@ -331,6 +331,12 @@ func (m *Manager) GetURL(serviceName string) string {
 // with "device or resource busy" because the bind mount target is
 // read-only on the container side — keep the path simple.
 func (m *Manager) Reload(ctx context.Context) error {
+	release, err := m.acquireWorkspaceLock()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	if _, err := m.generateCaddyfile(); err != nil {
 		return err
 	}

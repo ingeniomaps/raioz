@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	testhelpers "raioz/internal/testing"
 )
 
@@ -65,7 +66,7 @@ func TestLoadDeps_MissingRequiredFields(t *testing.T) {
 
 	t.Run("missing network", func(t *testing.T) {
 		deps := testhelpers.CreateMinimalTestDeps()
-		deps.Network = config.NetworkConfig{Name: "", IsObject: false}
+		deps.Network = models.NetworkConfig{Name: "", IsObject: false}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
 		_, _, _ = config.LoadDeps(depsPath)
@@ -77,8 +78,8 @@ func TestLoadDeps_InvalidServiceConfig(t *testing.T) {
 
 	t.Run("invalid source kind", func(t *testing.T) {
 		deps := testhelpers.CreateMinimalTestDeps()
-		deps.Services["invalid-service"] = config.Service{
-			Source: config.SourceConfig{Kind: "invalid-kind"},
+		deps.Services["invalid-service"] = models.Service{
+			Source: models.SourceConfig{Kind: "invalid-kind"},
 		}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
@@ -91,8 +92,8 @@ func TestLoadDeps_InvalidServiceConfig(t *testing.T) {
 
 	t.Run("empty source", func(t *testing.T) {
 		deps := testhelpers.CreateMinimalTestDeps()
-		deps.Services["empty-source"] = config.Service{
-			Source: config.SourceConfig{},
+		deps.Services["empty-source"] = models.Service{
+			Source: models.SourceConfig{},
 		}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
@@ -109,7 +110,7 @@ func TestLoadDeps_EmptyValues(t *testing.T) {
 
 	t.Run("empty services map", func(t *testing.T) {
 		deps := testhelpers.CreateMinimalTestDeps()
-		deps.Services = map[string]config.Service{}
+		deps.Services = map[string]models.Service{}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
 		loaded, _, err := config.LoadDeps(depsPath)
@@ -123,7 +124,7 @@ func TestLoadDeps_EmptyValues(t *testing.T) {
 
 	t.Run("empty infra map", func(t *testing.T) {
 		deps := testhelpers.CreateMinimalTestDeps()
-		deps.Infra = map[string]config.InfraEntry{}
+		deps.Infra = map[string]models.InfraEntry{}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
 		loaded, _, err := config.LoadDeps(depsPath)
@@ -155,8 +156,8 @@ func TestLoadDeps_SpecialCharacters(t *testing.T) {
 
 	t.Run("service name with special characters", func(t *testing.T) {
 		deps := testhelpers.CreateMinimalTestDeps()
-		deps.Services["service_123-test"] = config.Service{
-			Source: config.SourceConfig{
+		deps.Services["service_123-test"] = models.Service{
+			Source: models.SourceConfig{
 				Kind:  "image",
 				Image: "nginx",
 				Tag:   "alpine",
@@ -179,8 +180,8 @@ func TestLoadDeps_VeryLongServiceName(t *testing.T) {
 
 	longServiceName := "service-" + strings.Repeat("x", 100)
 	deps := testhelpers.CreateMinimalTestDeps()
-	deps.Services[longServiceName] = config.Service{
-		Source: config.SourceConfig{
+	deps.Services[longServiceName] = models.Service{
+		Source: models.SourceConfig{
 			Kind:  "image",
 			Image: "nginx",
 			Tag:   "alpine",
@@ -202,7 +203,7 @@ func TestLoadDeps_UnicodeCharacters(t *testing.T) {
 
 	deps := testhelpers.CreateMinimalTestDeps()
 	deps.Project.Name = "test-项目-123"
-	deps.Network = config.NetworkConfig{Name: "test-network-网络", IsObject: false}
+	deps.Network = models.NetworkConfig{Name: "test-network-网络", IsObject: false}
 	depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
 	loaded, _, err := config.LoadDeps(depsPath)
@@ -222,13 +223,13 @@ func TestLoadDeps_PortConflicts(t *testing.T) {
 	svc1.Docker.Ports = []string{"8080:8080"}
 	deps.Services["service1"] = svc1
 
-	deps.Services["service2"] = config.Service{
-		Source: config.SourceConfig{
+	deps.Services["service2"] = models.Service{
+		Source: models.SourceConfig{
 			Kind:  "image",
 			Image: "test/image2",
 			Tag:   "latest",
 		},
-		Docker: &config.DockerConfig{
+		Docker: &models.DockerConfig{
 			Mode:  "dev",
 			Ports: []string{"8080:8081"},
 		},

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -20,7 +20,7 @@ func TestEnvShowUseCase_Execute_ConfigLoadError(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return nil, nil, fmt.Errorf("fail")
 		},
 	}
@@ -38,11 +38,11 @@ func TestEnvShowUseCase_Execute_ServiceNotFound(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:  config.Project{Name: "test"},
-				Services: map[string]config.Service{},
-				Infra:    map[string]config.InfraEntry{},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:  models.Project{Name: "test"},
+				Services: map[string]models.Service{},
+				Infra:    map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
@@ -60,10 +60,10 @@ func TestEnvShowUseCase_Execute_ServiceIsInfra(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project: config.Project{Name: "test"},
-				Infra: map[string]config.InfraEntry{
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project: models.Project{Name: "test"},
+				Infra: map[string]models.InfraEntry{
 					"redis": {},
 				},
 			}, nil, nil
@@ -96,8 +96,8 @@ func TestParseFirstPort(t *testing.T) {
 }
 
 func TestJoinServiceNames(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {},
 			"web": {},
 		},
@@ -109,7 +109,7 @@ func TestJoinServiceNames(t *testing.T) {
 }
 
 func TestJoinServiceNames_Empty(t *testing.T) {
-	deps := &config.Deps{Services: map[string]config.Service{}}
+	deps := &models.Deps{Services: map[string]models.Service{}}
 	if got := joinServiceNames(deps); got != "" {
 		t.Errorf("expected empty, got %q", got)
 	}

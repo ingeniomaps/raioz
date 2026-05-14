@@ -5,6 +5,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -15,7 +16,7 @@ import (
 // bootstrapResult holds the results of bootstrap phase
 type bootstrapResult struct {
 	ctx              context.Context
-	deps             *config.Deps
+	deps             *models.Deps
 	ws               *interfaces.Workspace
 	appliedOverrides []string
 }

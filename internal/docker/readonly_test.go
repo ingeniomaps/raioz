@@ -3,7 +3,7 @@ package docker
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/git"
 )
 
@@ -11,14 +11,14 @@ func TestApplyReadonlyToVolumes(t *testing.T) {
 	tests := []struct {
 		name     string
 		volumes  []string
-		svc      config.Service
+		svc      models.Service
 		expected []string
 	}{
 		{
 			name:    "readonly service with bind mount",
 			volumes: []string{"./service:/app"},
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "readonly",
 				},
@@ -28,8 +28,8 @@ func TestApplyReadonlyToVolumes(t *testing.T) {
 		{
 			name:    "editable service with bind mount",
 			volumes: []string{"./service:/app"},
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "editable",
 				},
@@ -39,8 +39,8 @@ func TestApplyReadonlyToVolumes(t *testing.T) {
 		{
 			name:    "readonly service with named volume",
 			volumes: []string{"data:/data"},
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "readonly",
 				},
@@ -50,8 +50,8 @@ func TestApplyReadonlyToVolumes(t *testing.T) {
 		{
 			name:    "readonly service with explicit :rw",
 			volumes: []string{"./service:/app:rw"},
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "readonly",
 				},
@@ -61,8 +61,8 @@ func TestApplyReadonlyToVolumes(t *testing.T) {
 		{
 			name:    "readonly service with already :ro",
 			volumes: []string{"./service:/app:ro"},
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "readonly",
 				},
@@ -72,8 +72,8 @@ func TestApplyReadonlyToVolumes(t *testing.T) {
 		{
 			name:    "image service (not applicable)",
 			volumes: []string{"./service:/app"},
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind: "image",
 				},
 			},
@@ -100,13 +100,13 @@ func TestApplyReadonlyToVolumes(t *testing.T) {
 func TestGetVolumeMountMode(t *testing.T) {
 	tests := []struct {
 		name     string
-		svc      config.Service
+		svc      models.Service
 		expected string
 	}{
 		{
 			name: "readonly git service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "readonly",
 				},
@@ -115,8 +115,8 @@ func TestGetVolumeMountMode(t *testing.T) {
 		},
 		{
 			name: "editable git service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Access: "editable",
 				},
@@ -125,8 +125,8 @@ func TestGetVolumeMountMode(t *testing.T) {
 		},
 		{
 			name: "image service",
-			svc: config.Service{
-				Source: config.SourceConfig{
+			svc: models.Service{
+				Source: models.SourceConfig{
 					Kind: "image",
 				},
 			},
@@ -146,8 +146,8 @@ func TestGetVolumeMountMode(t *testing.T) {
 
 // Test that readonly services are detected correctly
 func TestReadonlyServiceDetection(t *testing.T) {
-	readonlySvc := config.Service{
-		Source: config.SourceConfig{
+	readonlySvc := models.Service{
+		Source: models.SourceConfig{
 			Kind:   "git",
 			Access: "readonly",
 		},
@@ -157,8 +157,8 @@ func TestReadonlyServiceDetection(t *testing.T) {
 		t.Error("Expected readonly service to be detected as readonly")
 	}
 
-	editableSvc := config.Service{
-		Source: config.SourceConfig{
+	editableSvc := models.Service{
+		Source: models.SourceConfig{
 			Kind:   "git",
 			Access: "editable",
 		},

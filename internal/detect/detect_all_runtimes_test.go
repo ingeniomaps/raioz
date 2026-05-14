@@ -4,181 +4,183 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"raioz/internal/domain/models"
 )
 
 func TestDetect_AllRuntimes(t *testing.T) {
 	tests := []struct {
 		name     string
 		files    map[string]string // filename → content
-		expected Runtime
+		expected models.Runtime
 		command  string // substring of expected start command
 	}{
 		{
 			name:     "Java/Maven",
 			files:    map[string]string{"pom.xml": "<project></project>"},
-			expected: RuntimeJava,
+			expected: models.RuntimeJava,
 			command:  "mvnw",
 		},
 		{
 			name:     "Java/Gradle",
 			files:    map[string]string{"build.gradle": "plugins {}"},
-			expected: RuntimeJava,
+			expected: models.RuntimeJava,
 			command:  "gradlew",
 		},
 		{
 			name:     "Java/Gradle Kotlin",
 			files:    map[string]string{"build.gradle.kts": "plugins {}"},
-			expected: RuntimeJava,
+			expected: models.RuntimeJava,
 			command:  "gradlew",
 		},
 		{
 			name:     "C#/.NET csproj",
 			files:    map[string]string{"MyApp.csproj": "<Project></Project>"},
-			expected: RuntimeDotnet,
+			expected: models.RuntimeDotnet,
 			command:  "dotnet",
 		},
 		{
 			name:     "Ruby/Gemfile",
 			files:    map[string]string{"Gemfile": "source 'https://rubygems.org'"},
-			expected: RuntimeRuby,
+			expected: models.RuntimeRuby,
 			command:  "bundle",
 		},
 		{
 			name:     "Ruby/Rails",
 			files:    map[string]string{"Gemfile": "gem 'rails'", "config/routes.rb": "Rails.application.routes.draw {}"},
-			expected: RuntimeRuby,
+			expected: models.RuntimeRuby,
 			command:  "rails server",
 		},
 		{
 			name:     "Elixir",
 			files:    map[string]string{"mix.exs": "defmodule MyApp do end"},
-			expected: RuntimeElixir,
+			expected: models.RuntimeElixir,
 			command:  "phx.server",
 		},
 		{
 			name:     "Dart",
 			files:    map[string]string{"pubspec.yaml": "name: myapp"},
-			expected: RuntimeDart,
+			expected: models.RuntimeDart,
 			command:  "dart run",
 		},
 		{
 			name:     "Swift",
 			files:    map[string]string{"Package.swift": "import PackageDescription"},
-			expected: RuntimeSwift,
+			expected: models.RuntimeSwift,
 			command:  "swift run",
 		},
 		{
 			name:     "Scala",
 			files:    map[string]string{"build.sbt": "name := \"myapp\""},
-			expected: RuntimeScala,
+			expected: models.RuntimeScala,
 			command:  "sbt run",
 		},
 		{
 			name:     "Clojure/deps.edn",
 			files:    map[string]string{"deps.edn": "{:deps {}}"},
-			expected: RuntimeClojure,
+			expected: models.RuntimeClojure,
 			command:  "clj",
 		},
 		{
 			name:     "Clojure/Leiningen",
 			files:    map[string]string{"project.clj": "(defproject myapp)"},
-			expected: RuntimeClojure,
+			expected: models.RuntimeClojure,
 			command:  "lein run",
 		},
 		{
 			name:     "Zig",
 			files:    map[string]string{"build.zig": "const std = @import(\"std\");"},
-			expected: RuntimeZig,
+			expected: models.RuntimeZig,
 			command:  "zig build run",
 		},
 		{
 			name:     "Gleam",
 			files:    map[string]string{"gleam.toml": "name = \"myapp\""},
-			expected: RuntimeGleam,
+			expected: models.RuntimeGleam,
 			command:  "gleam run",
 		},
 		{
 			name:     "Haskell/Stack",
 			files:    map[string]string{"stack.yaml": "resolver: lts-21"},
-			expected: RuntimeHaskell,
+			expected: models.RuntimeHaskell,
 			command:  "stack run",
 		},
 		{
 			name:     "Haskell/Cabal",
 			files:    map[string]string{"myapp.cabal": "name: myapp"},
-			expected: RuntimeHaskell,
+			expected: models.RuntimeHaskell,
 			command:  "cabal run",
 		},
 		{
 			name:     "Deno",
 			files:    map[string]string{"deno.json": "{}"},
-			expected: RuntimeDeno,
+			expected: models.RuntimeDeno,
 			command:  "deno task dev",
 		},
 		{
 			name:     "Bun",
 			files:    map[string]string{"bunfig.toml": "[install]"},
-			expected: RuntimeBun,
+			expected: models.RuntimeBun,
 			command:  "bun run dev",
 		},
 		{
 			name:     "Just",
 			files:    map[string]string{"justfile": "dev:\n\techo hello"},
-			expected: RuntimeJust,
+			expected: models.RuntimeJust,
 			command:  "just dev",
 		},
 		{
 			name:     "Task",
 			files:    map[string]string{"Taskfile.yml": "version: 3"},
-			expected: RuntimeTask,
+			expected: models.RuntimeTask,
 			command:  "task dev",
 		},
 		{
 			name:     "Node.js/yarn",
 			files:    map[string]string{"package.json": `{"scripts":{"dev":"next dev"}}`, "yarn.lock": ""},
-			expected: RuntimeNPM,
+			expected: models.RuntimeNPM,
 			command:  "yarn",
 		},
 		{
 			name:     "Node.js/pnpm",
 			files:    map[string]string{"package.json": `{"scripts":{"dev":"vite"}}`, "pnpm-lock.yaml": ""},
-			expected: RuntimeNPM,
+			expected: models.RuntimeNPM,
 			command:  "pnpm",
 		},
 		{
 			name:     "Node.js/bun lockfile",
 			files:    map[string]string{"package.json": `{"scripts":{"dev":"next dev"}}`, "bun.lockb": ""},
-			expected: RuntimeNPM,
+			expected: models.RuntimeNPM,
 			command:  "bun",
 		},
 		// Existing runtimes (regression tests)
 		{
 			name:     "Go",
 			files:    map[string]string{"go.mod": "module example.com/app\ngo 1.22"},
-			expected: RuntimeGo,
+			expected: models.RuntimeGo,
 			command:  "go run",
 		},
 		{
 			name:     "Go/air",
 			files:    map[string]string{"go.mod": "module example.com/app\ngo 1.22", ".air.toml": "[build]"},
-			expected: RuntimeGo,
+			expected: models.RuntimeGo,
 			command:  "air",
 		},
 		{
 			name:     "PHP",
 			files:    map[string]string{"composer.json": "{}"},
-			expected: RuntimePHP,
+			expected: models.RuntimePHP,
 			command:  "php",
 		},
 		{
 			name:     "Python",
 			files:    map[string]string{"pyproject.toml": "[build-system]"},
-			expected: RuntimePython,
+			expected: models.RuntimePython,
 		},
 		{
 			name:     "Rust",
 			files:    map[string]string{"Cargo.toml": "[package]"},
-			expected: RuntimeRust,
+			expected: models.RuntimeRust,
 			command:  "cargo run",
 		},
 	}

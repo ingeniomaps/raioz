@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestMigrateLegacyServices(t *testing.T) {
@@ -47,14 +47,14 @@ func TestMigrateLegacyServices(t *testing.T) {
 		EnvDir:              filepath.Join(baseDir, "env"),
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"legacy-service": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Repo:   "git@github.com:org/legacy.git",
 					Branch: "main",
@@ -63,7 +63,7 @@ func TestMigrateLegacyServices(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	// Perform migration
@@ -123,14 +123,14 @@ func TestMigrateLegacyServicesReadonly(t *testing.T) {
 		EnvDir:              filepath.Join(baseDir, "env"),
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"readonly-service": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Repo:   "git@github.com:org/readonly.git",
 					Branch: "main",
@@ -139,7 +139,7 @@ func TestMigrateLegacyServicesReadonly(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	// Perform migration
@@ -195,14 +195,14 @@ func TestMigrateLegacyServicesSkipIfExists(t *testing.T) {
 		EnvDir:              filepath.Join(baseDir, "env"),
 	}
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{
+		Services: map[string]models.Service{
 			"existing-service": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Repo:   "git@github.com:org/existing.git",
 					Branch: "main",
@@ -211,7 +211,7 @@ func TestMigrateLegacyServicesSkipIfExists(t *testing.T) {
 				},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	// Perform migration - should skip since service already exists in new location

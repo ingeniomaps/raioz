@@ -5,13 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 // inferServicePort tries to determine the port a host service listens on.
 // It checks: config ports, .env PORT variable, then runtime defaults.
-func inferServicePort(svc config.Service, detection detect.DetectResult) int {
+func inferServicePort(svc models.Service, detection models.DetectResult) int {
 	// 1. Config ports (e.g., ports: ["3000"])
 	if svc.Docker != nil && len(svc.Docker.Ports) > 0 {
 		if p := parseFirstPort(svc.Docker.Ports[0]); p > 0 {
@@ -36,35 +35,35 @@ func inferServicePort(svc config.Service, detection detect.DetectResult) int {
 
 	// 3. Runtime defaults
 	switch detection.Runtime {
-	case detect.RuntimeGo:
+	case models.RuntimeGo:
 		return 8080
-	case detect.RuntimeNPM:
+	case models.RuntimeNPM:
 		return 3000
-	case detect.RuntimePython:
+	case models.RuntimePython:
 		return 5000
-	case detect.RuntimeRust:
+	case models.RuntimeRust:
 		return 8080
-	case detect.RuntimePHP:
+	case models.RuntimePHP:
 		return 8000
-	case detect.RuntimeJava, detect.RuntimeScala, detect.RuntimeClojure:
+	case models.RuntimeJava, models.RuntimeScala, models.RuntimeClojure:
 		return 8080
-	case detect.RuntimeDotnet:
+	case models.RuntimeDotnet:
 		return 5000
-	case detect.RuntimeRuby:
+	case models.RuntimeRuby:
 		return 3000
-	case detect.RuntimeElixir:
+	case models.RuntimeElixir:
 		return 4000
-	case detect.RuntimeDart:
+	case models.RuntimeDart:
 		return 8080
-	case detect.RuntimeSwift:
+	case models.RuntimeSwift:
 		return 8080
-	case detect.RuntimeZig:
+	case models.RuntimeZig:
 		return 8080
-	case detect.RuntimeGleam:
+	case models.RuntimeGleam:
 		return 8080
-	case detect.RuntimeHaskell:
+	case models.RuntimeHaskell:
 		return 3000
-	case detect.RuntimeDeno, detect.RuntimeBun:
+	case models.RuntimeDeno, models.RuntimeBun:
 		return 3000
 	}
 

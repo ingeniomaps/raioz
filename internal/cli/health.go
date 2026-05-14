@@ -30,7 +30,7 @@ var healthCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewHealthUseCase(deps)
 		return useCase.Execute(ctx, app.HealthOptions{
 			ConfigPath: configPath,

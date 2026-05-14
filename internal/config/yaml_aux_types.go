@@ -1,5 +1,15 @@
 package config
 
+import "raioz/internal/domain/models"
+
+// RoutingConfig and YAMLWatch live canonically in internal/domain/models;
+// the aliases here keep `models.RoutingConfig` / `models.YAMLWatch` callers
+// compiling (see ADR-009 / issue 023).
+type (
+	RoutingConfig = models.RoutingConfig
+	YAMLWatch     = models.YAMLWatch
+)
+
 // YAMLIntSlice accepts either a single int (`expose: 5432`) or a list
 // (`expose: [5432, 9090]`) so the common single-port case stays tidy.
 type YAMLIntSlice []int
@@ -68,39 +78,6 @@ func (p *YAMLPublish) UnmarshalYAML(unmarshal func(any) error) error {
 // YAMLDevConfig allows a dependency to specify a local path for development override.
 type YAMLDevConfig struct {
 	Path string `yaml:"path"`
-}
-
-// RoutingConfig defines proxy routing behavior for a service.
-type RoutingConfig struct {
-	WS     bool `yaml:"ws,omitempty" json:"ws,omitempty"`
-	Stream bool `yaml:"stream,omitempty" json:"stream,omitempty"`
-	GRPC   bool `yaml:"grpc,omitempty" json:"grpc,omitempty"`
-	Tunnel bool `yaml:"tunnel,omitempty" json:"tunnel,omitempty"`
-}
-
-// YAMLWatch can be a bool (true/false) or a string ("native").
-type YAMLWatch struct {
-	Enabled bool
-	Mode    string // "" (raioz watches), "native" (service has its own hot-reload)
-}
-
-// UnmarshalYAML implements yaml.Unmarshaler for YAMLWatch.
-func (w *YAMLWatch) UnmarshalYAML(unmarshal func(any) error) error {
-	var b bool
-	if err := unmarshal(&b); err == nil {
-		w.Enabled = b
-		w.Mode = ""
-		return nil
-	}
-
-	var s string
-	if err := unmarshal(&s); err == nil {
-		w.Enabled = true
-		w.Mode = s
-		return nil
-	}
-
-	return nil
 }
 
 // YAMLStringSlice is a helper type that allows a YAML field to be either a single string or a list.

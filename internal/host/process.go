@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/workspace"
 )
@@ -41,8 +41,8 @@ var startSettleWindow = 500 * time.Millisecond
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
 func StartService(
 	ctx context.Context, ws *workspace.Workspace,
-	deps *config.Deps, serviceName string,
-	svc config.Service, projectDir string,
+	deps *models.Deps, serviceName string,
+	svc models.Service, projectDir string,
 ) (*ProcessInfo, error) {
 	// Validate that source.command is specified
 	if svc.Source.Command == "" {

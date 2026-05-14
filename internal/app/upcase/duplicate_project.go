@@ -40,24 +40,16 @@ func (uc *UseCase) checkAndHandleDuplicateProject(ctx context.Context, projectNa
 		return nil
 	}
 
-	// Check if state exists (project is running from workspace)
-	if !uc.deps.StateManager.Exists(ws) {
-		// No state, project is not running from workspace
-		return nil
-	}
-
-	// Load workspace state to see which project is actually running there
-	stateDeps, err := uc.deps.StateManager.Load(ws)
+	// ADR-011 Phase 2: liveness comes from Docker labels rather than
+	// the legacy snapshot. IsProjectActive filters by both workspace and
+	// project, so a true result implies the SAME project is running —
+	// the old "load state, compare project name" check collapses into a
+	// single label probe.
+	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
 	if err != nil {
-		return fmt.Errorf("failed to load workspace state: %w", err)
+		return fmt.Errorf("probe workspace project: %w", err)
 	}
-	if stateDeps == nil {
-		return nil
-	}
-	// Only intervene if the SAME project is running from workspace (same project name).
-	// If a different project is in the workspace (e.g. "roax-base" with postgres/pgadmin),
-	// do not stop it — the local project (e.g. "nginx") can run alongside.
-	if stateDeps.Project.Name != projectName {
+	if !active {
 		return nil
 	}
 

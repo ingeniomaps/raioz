@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // CreateTestDepsJSON creates a temporary .raioz.json file for testing
-func CreateTestDepsJSON(tdir string, deps *config.Deps) (string, error) {
+func CreateTestDepsJSON(tdir string, deps *models.Deps) (string, error) {
 	depsPath := filepath.Join(tdir, ".raioz.json")
 	data, err := json.MarshalIndent(deps, "", "  ")
 	if err != nil {
@@ -25,16 +25,16 @@ func CreateTestDepsJSON(tdir string, deps *config.Deps) (string, error) {
 }
 
 // CreateMinimalTestDeps creates a minimal valid Deps configuration for testing
-func CreateMinimalTestDeps() *config.Deps {
-	return &config.Deps{
+func CreateMinimalTestDeps() *models.Deps {
+	return &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-network", IsObject: false},
-		Project: config.Project{
+		Network:       models.NetworkConfig{Name: "test-network", IsObject: false},
+		Project: models.Project{
 			Name: "test-project",
 		},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
-		Env: config.EnvConfig{
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Files:     []string{},
 		},
@@ -42,38 +42,38 @@ func CreateMinimalTestDeps() *config.Deps {
 }
 
 // CreateTestDepsWithService creates a test Deps with one service
-func CreateTestDepsWithService(serviceName string, sourceKind string) *config.Deps {
+func CreateTestDepsWithService(serviceName string, sourceKind string) *models.Deps {
 	deps := CreateMinimalTestDeps()
 
-	var sourceConfig config.SourceConfig
-	var dockerConfig config.DockerConfig
+	var sourceConfig models.SourceConfig
+	var dockerConfig models.DockerConfig
 
 	switch sourceKind {
 	case "git":
-		sourceConfig = config.SourceConfig{
+		sourceConfig = models.SourceConfig{
 			Kind:   "git",
 			Repo:   "git@github.com:test/repo.git",
 			Branch: "main",
 			Path:   fmt.Sprintf("services/%s", serviceName),
 		}
 	case "image":
-		sourceConfig = config.SourceConfig{
+		sourceConfig = models.SourceConfig{
 			Kind:  "image",
 			Image: "test/image",
 			Tag:   "latest",
 		}
 	default:
-		sourceConfig = config.SourceConfig{
+		sourceConfig = models.SourceConfig{
 			Kind: sourceKind,
 		}
 	}
 
-	dockerConfig = config.DockerConfig{
+	dockerConfig = models.DockerConfig{
 		Mode:  "dev",
 		Ports: []string{"3000:3000"},
 	}
 
-	deps.Services[serviceName] = config.Service{
+	deps.Services[serviceName] = models.Service{
 		Source: sourceConfig,
 		Docker: &dockerConfig,
 	}
@@ -82,9 +82,9 @@ func CreateTestDepsWithService(serviceName string, sourceKind string) *config.De
 }
 
 // CreateTestDepsWithInfra creates a test Deps with one infra service
-func CreateTestDepsWithInfra(infraName string) *config.Deps {
+func CreateTestDepsWithInfra(infraName string) *models.Deps {
 	deps := CreateMinimalTestDeps()
-	deps.Infra[infraName] = config.InfraEntry{Inline: &config.Infra{
+	deps.Infra[infraName] = models.InfraEntry{Inline: &models.Infra{
 		Image: "postgres",
 		Tag:   "15",
 		Ports: []string{"5432:5432"},

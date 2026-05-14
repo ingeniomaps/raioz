@@ -17,7 +17,7 @@ var devCmd = &cobra.Command{
 	Args:         cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewDevUseCase(deps)
 
 		configPath := ResolveConfigPath(devConfigPath)

@@ -8,6 +8,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/output"
 
 	"gopkg.in/yaml.v3"
@@ -48,6 +49,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	fmt.Println()
 
 	cfg := config.RaiozConfig{
+		Version:  config.CurrentSchemaVersion,
 		Project:  projectName,
 		Services: make(map[string]config.YAMLService),
 		Deps:     make(map[string]config.YAMLDependency),
@@ -60,7 +62,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	// Check root directory if no subdirectory services found
 	if len(cfg.Services) == 0 {
 		rootResult := detect.Detect(dir)
-		if rootResult.Runtime != detect.RuntimeUnknown {
+		if rootResult.Runtime != models.RuntimeUnknown {
 			svc := buildServiceFromDetection(projectName, ".", rootResult)
 			cfg.Services[projectName] = svc
 			output.PrintInfo(fmt.Sprintf("  . → %s (%s)", rootResult.Runtime, rootResult.StartCommand))
@@ -162,7 +164,7 @@ func (uc *InitScanUseCase) scanServices(dir string, cfg *config.RaiozConfig) {
 		subPath := filepath.Join(dir, entry.Name())
 		result := detect.Detect(subPath)
 
-		if result.Runtime == detect.RuntimeUnknown {
+		if result.Runtime == models.RuntimeUnknown {
 			continue
 		}
 
@@ -198,7 +200,7 @@ func (uc *InitScanUseCase) scanRootCompose(dir string, cfg *config.RaiozConfig) 
 	}
 }
 
-func buildServiceFromDetection(_, path string, result detect.DetectResult) config.YAMLService {
+func buildServiceFromDetection(_, path string, result models.DetectResult) config.YAMLService {
 	svc := config.YAMLService{
 		Path: path,
 	}
@@ -206,7 +208,7 @@ func buildServiceFromDetection(_, path string, result detect.DetectResult) confi
 		svc.Ports = config.YAMLStringSlice{fmt.Sprintf("%d", result.Port)}
 	}
 	if result.HasHotReload {
-		svc.Watch = config.YAMLWatch{Enabled: true, Mode: "native"}
+		svc.Watch = models.YAMLWatch{Enabled: true, Mode: "native"}
 	}
 	return svc
 }

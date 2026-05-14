@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -26,9 +26,9 @@ func TestCheckAndHandleDuplicateProjectWorkspaceResolveError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "p"},
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "p"},
 				}, nil, nil
 			},
 		},
@@ -61,8 +61,8 @@ func TestCheckAndHandleDuplicateProjectNoState(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -70,9 +70,10 @@ func TestCheckAndHandleDuplicateProjectNoState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -98,8 +99,8 @@ func TestCheckAndHandleDuplicateProjectDifferentProject(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -107,14 +108,15 @@ func TestCheckAndHandleDuplicateProjectDifferentProject(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
-			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "other-project"},
-				}, nil
+		StateManager: &mocks.MockStateManager{},
+		// ADR-011 Phase 2: IsProjectActive(p) filters by both project
+		// and workspace labels, so "different project running in this
+		// workspace" collapses to "p is not active". The dedicated
+		// "different project" branch this test used to cover is now
+		// folded into the no-state branch.
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -138,7 +140,7 @@ func TestCheckAndHandleDuplicateProjectConfigLoadError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, stderrors.New("config load error")
 			},
 		},
@@ -165,8 +167,8 @@ func TestCheckAndHandleDuplicateProjectStateLoadError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -174,12 +176,12 @@ func TestCheckAndHandleDuplicateProjectStateLoadError(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
-			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return nil, stderrors.New("state load error")
+		StateManager: &mocks.MockStateManager{},
+		// ADR-011 Phase 2: the "state load failed" path is now the
+		// "Docker liveness probe failed" path.
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, stderrors.New("docker probe error")
 			},
 		},
 	})
@@ -205,8 +207,8 @@ func TestCheckAndHandleDuplicateProjectNilStateDeps(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -214,12 +216,13 @@ func TestCheckAndHandleDuplicateProjectNilStateDeps(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
-			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return nil, nil // nil state deps
+		StateManager: &mocks.MockStateManager{},
+		// ADR-011 Phase 2: "nil state deps" is no longer a distinct case
+		// since there's no state to load. Equivalent: project is not
+		// active in Docker.
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -271,8 +274,8 @@ func TestCheckAndHandleDuplicateProjectWithHostProcessesLoadError(t *testing.T) 
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
-				return &config.Deps{Project: config.Project{Name: "p"}}, nil, nil
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
+				return &models.Deps{Project: models.Project{Name: "p"}}, nil, nil
 			},
 		},
 		Workspace: &mocks.MockWorkspaceManager{
@@ -293,9 +296,9 @@ func TestCheckAndHandleDuplicateProjectWithHostProcessesLoadError(t *testing.T) 
 			ExistsFunc: func(ws *workspace.Workspace) bool {
 				return true
 			},
-			LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-				return &config.Deps{
-					Project: config.Project{Name: "p"},
+			LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "p"},
 				}, nil
 			},
 			RemoveProjectFunc: func(name string) error {

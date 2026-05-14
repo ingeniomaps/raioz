@@ -5,64 +5,39 @@ import (
 	"fmt"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/root"
-	"raioz/internal/state"
 )
 
 // processState loads state, detects changes, and returns old deps, changes, added services, and assisted services map
 func (uc *UseCase) processState(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	configPath string,
-) (*config.Deps, []state.ConfigChange, []string, map[string]string, error) {
-	// Load previous state
-	oldDeps, err := uc.deps.StateManager.Load(ws)
-	if err != nil {
-		return nil, nil, nil, nil, errors.New(
-			errors.ErrCodeStateLoadError,
-			i18n.T("error.state_load_previous"),
-		).WithSuggestion(
-			i18n.T("error.state_load_previous_suggestion"),
-		).WithContext("workspace", ws.Root).WithError(err)
-	}
-
-	// Compare deps to detect changes
-	changes, err := uc.deps.StateManager.CompareDeps(oldDeps, deps)
-	if err != nil {
-		return nil, nil, nil, nil, errors.New(
-			errors.ErrCodeStateLoadError,
-			i18n.T("error.state_compare_failed"),
-		).WithSuggestion(
-			i18n.T("error.state_compare_suggestion"),
-		).WithError(err)
-	}
-
-	// Log changes if any
-	if len(changes) > 0 {
-		changeSummary := uc.deps.StateManager.FormatChanges(changes)
-		logging.InfoWithContext(ctx, "Configuration changes detected", "changes_count", len(changes))
-		logging.DebugWithContext(ctx, "Changes", "changes", changeSummary)
-	}
-
-	// Calculate addedServices and assistedServicesMap from dependency assist
-	// Note: addedServices and assistedServicesMap should be calculated in validateUp,
-	// but for now we return empty values here
+) (*models.Deps, []models.ConfigChange, []string, map[string]string, error) {
+	// ADR-011 Phase 2: drift detection between the previous snapshot
+	// and the current raioz.yaml is gone. raioz `up` is convergent and
+	// idempotent, so logging "configuration changes detected" carried
+	// information but not correctness. If users miss the log line,
+	// reintroduce drift via a hashed snapshot in LocalState — see
+	// 031b's notes on LocalState.LastUpConfigHash.
+	_ = ctx
+	_ = ws
+	_ = configPath
 	addedServices := []string{}
 	assistedServicesMap := make(map[string]string)
-
-	return oldDeps, changes, addedServices, assistedServicesMap, nil
+	return nil, nil, addedServices, assistedServicesMap, nil
 }
 
 // saveState saves state, generates/updates root config, detects drift, and logs audit events
 func (uc *UseCase) saveState(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	composePath string,
 	serviceNames []string,
@@ -70,18 +45,14 @@ func (uc *UseCase) saveState(
 	assistedServicesMap map[string]string,
 	appliedOverrides []string,
 ) error {
-	// Save state
-	if err := uc.deps.StateManager.Save(ws, deps); err != nil {
-		return errors.New(
-			errors.ErrCodeStateSaveError,
-			i18n.T("error.state_save_failed"),
-		).WithSuggestion(
-			i18n.T("error.state_save_suggestion"),
-		).WithContext("workspace", ws.Root).WithError(err)
-	}
-
-	// Only log at debug level - technical detail not useful for end users
-	logging.DebugWithContext(ctx, "State saved successfully", "workspace", ws.Root)
+	// ADR-011 Phase 1: the legacy whole-Deps snapshot at .state.json is no
+	// longer written. The auto-cleanup at the top of Execute deletes any
+	// stale file left from older binaries. Reader migration is tracked in
+	// sub-issue 031a; deleting StateManager.Save/Load/Exists altogether is
+	// 031b.
+	_ = ws
+	_ = deps
+	logging.DebugWithContext(ctx, "Legacy state snapshot intentionally skipped (ADR-011)")
 
 	// Generate or update root config with applied overrides
 	if root.Exists(ws) {
@@ -166,13 +137,13 @@ func (uc *UseCase) saveState(
 // updateGlobalState updates the global state with project information
 func (uc *UseCase) updateGlobalState(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	composePath string,
 	serviceNames []string,
 ) error {
 	// Get service info
-	services := make(map[string]config.Service)
+	services := make(map[string]models.Service)
 	for _, name := range serviceNames {
 		if svc, exists := deps.Services[name]; exists {
 			services[name] = svc
@@ -194,10 +165,10 @@ func (uc *UseCase) updateGlobalState(
 		serviceInfos = nil
 	}
 
-	// Convert interfaces.ServiceInfo to state.ServiceInfo
-	stateServiceInfos := make(map[string]*state.ServiceInfo)
+	// Convert interfaces.ServiceInfo to models.ServiceInfo
+	stateServiceInfos := make(map[string]*models.ServiceInfo)
 	for name, info := range serviceInfos {
-		stateServiceInfos[name] = &state.ServiceInfo{
+		stateServiceInfos[name] = &models.ServiceInfo{
 			Status:  info.Status,
 			Version: info.Commit,
 			Image:   info.Image,
@@ -208,7 +179,7 @@ func (uc *UseCase) updateGlobalState(
 	serviceStates := uc.deps.StateManager.BuildServiceStates(deps, stateServiceInfos)
 
 	// Create project state
-	projectState := &state.ProjectState{
+	projectState := &models.ProjectState{
 		Name:          deps.Project.Name,
 		Workspace:     deps.GetWorkspaceName(),
 		LastExecution: time.Now(),

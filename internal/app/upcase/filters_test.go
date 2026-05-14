@@ -3,7 +3,7 @@ package upcase
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -14,10 +14,10 @@ func TestApplyFiltersNoProfile(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error {
 				return nil
 			},
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},
@@ -36,20 +36,20 @@ func TestApplyFiltersWithProfile(t *testing.T) {
 	initI18nUp(t)
 
 	deps := validDeps()
-	deps.Services["web"] = config.Service{
-		Source:   config.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
-		Docker:   &config.DockerConfig{Mode: "prod", Ports: []string{"80:80"}},
+	deps.Services["web"] = models.Service{
+		Source:   models.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
+		Docker:   &models.DockerConfig{Mode: "prod", Ports: []string{"80:80"}},
 		Profiles: []string{"frontend"},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error {
 				return nil
 			},
-			FilterByProfileFunc: func(deps *config.Deps, profile string) *config.Deps {
+			FilterByProfileFunc: func(deps *models.Deps, profile string) *models.Deps {
 				filtered := *deps
-				filtered.Services = make(map[string]config.Service)
+				filtered.Services = make(map[string]models.Service)
 				for name, svc := range deps.Services {
 					if len(svc.Profiles) == 0 || contains(svc.Profiles, profile) {
 						filtered.Services[name] = svc
@@ -57,7 +57,7 @@ func TestApplyFiltersWithProfile(t *testing.T) {
 				}
 				return &filtered
 			},
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},
@@ -82,16 +82,16 @@ func TestApplyFiltersEmptyAfterProfile(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error {
 				return nil
 			},
-			FilterByProfileFunc: func(deps *config.Deps, profile string) *config.Deps {
+			FilterByProfileFunc: func(deps *models.Deps, profile string) *models.Deps {
 				filtered := *deps
-				filtered.Services = make(map[string]config.Service)
-				filtered.Infra = make(map[string]config.InfraEntry)
+				filtered.Services = make(map[string]models.Service)
+				filtered.Infra = make(map[string]models.InfraEntry)
 				return &filtered
 			},
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},
@@ -106,19 +106,19 @@ func TestApplyFiltersEmptyAfterProfile(t *testing.T) {
 func TestApplyFiltersNoServicesNoInfraNoCommands(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project:       config.Project{Name: "empty"},
-		Services:      map[string]config.Service{},
-		Infra:         map[string]config.InfraEntry{},
+		Project:       models.Project{Name: "empty"},
+		Services:      map[string]models.Service{},
+		Infra:         map[string]models.InfraEntry{},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error {
 				return nil
 			},
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},

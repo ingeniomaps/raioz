@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -15,7 +15,7 @@ import (
 
 // preHookExec runs pre-hooks before starting services. A pre-hook failure
 // aborts `raioz up` — use it for critical setup (secrets, env rendering).
-func (uc *UseCase) preHookExec(ctx context.Context, deps *config.Deps, projectDir string) error {
+func (uc *UseCase) preHookExec(ctx context.Context, deps *models.Deps, projectDir string) error {
 	if deps.PreHook == "" {
 		return nil
 	}
@@ -40,10 +40,37 @@ func (uc *UseCase) preHookExec(ctx context.Context, deps *config.Deps, projectDi
 	return nil
 }
 
+// preUpHookExec runs `preUp:` between infra/sibling-spawn and
+// service start. Failure aborts the up (ADR-024).
+func (uc *UseCase) preUpHookExec(ctx context.Context, deps *models.Deps, projectDir string) error {
+	if deps.PreUpHook == "" {
+		return nil
+	}
+
+	output.PrintProgress(i18n.T("up.running_pre_up_hook"))
+	logging.InfoWithContext(ctx, "Executing pre-up hook", "command", deps.PreUpHook)
+
+	commands := strings.Split(deps.PreUpHook, " && ")
+	for _, cmdStr := range commands {
+		cmdStr = strings.TrimSpace(cmdStr)
+		if cmdStr == "" {
+			continue
+		}
+		cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+		cmd.Dir = projectDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return errors.PreUpHookFailed(cmdStr, fmt.Errorf("%w\n%s", err, string(out)))
+		}
+	}
+
+	output.PrintProgressDone(i18n.T("up.pre_up_hook_done"))
+	return nil
+}
+
 // postHookExec runs post-hooks after starting services. Post-hook failures
 // are logged as warnings and do NOT fail `raioz up` — services are already
 // running and the user can inspect the warning.
-func (uc *UseCase) postHookExec(ctx context.Context, deps *config.Deps, projectDir string) {
+func (uc *UseCase) postHookExec(ctx context.Context, deps *models.Deps, projectDir string) {
 	if deps.PostHook == "" {
 		return
 	}

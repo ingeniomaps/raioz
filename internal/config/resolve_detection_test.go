@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 func TestResolveServiceDetection_ComposeOverride(t *testing.T) {
@@ -17,8 +17,8 @@ func TestResolveServiceDetection_ComposeOverride(t *testing.T) {
 
 	result := ResolveServiceDetection(svc, "/some/path")
 
-	if result.Runtime != detect.RuntimeCompose {
-		t.Errorf("runtime = %q, want %q", result.Runtime, detect.RuntimeCompose)
+	if result.Runtime != models.RuntimeCompose {
+		t.Errorf("runtime = %q, want %q", result.Runtime, models.RuntimeCompose)
 	}
 	if result.ComposeFile != "docker-compose.yml" {
 		t.Errorf("ComposeFile = %q, want %q", result.ComposeFile, "docker-compose.yml")
@@ -37,8 +37,8 @@ func TestResolveServiceDetection_CommandOverride(t *testing.T) {
 
 	result := ResolveServiceDetection(svc, "/some/path")
 
-	if result.Runtime != detect.RuntimeMake {
-		t.Errorf("runtime = %q, want %q", result.Runtime, detect.RuntimeMake)
+	if result.Runtime != models.RuntimeMake {
+		t.Errorf("runtime = %q, want %q", result.Runtime, models.RuntimeMake)
 	}
 	if result.StartCommand != "make dev" {
 		t.Errorf("StartCommand = %q, want %q", result.StartCommand, "make dev")
@@ -51,8 +51,8 @@ func TestResolveServiceDetection_CommandOverride(t *testing.T) {
 func TestResolveServiceDetection_EmptyPath(t *testing.T) {
 	svc := Service{}
 	result := ResolveServiceDetection(svc, "")
-	if result.Runtime != detect.RuntimeUnknown {
-		t.Errorf("runtime = %q, want %q", result.Runtime, detect.RuntimeUnknown)
+	if result.Runtime != models.RuntimeUnknown {
+		t.Errorf("runtime = %q, want %q", result.Runtime, models.RuntimeUnknown)
 	}
 }
 
@@ -64,8 +64,8 @@ func TestResolveServiceDetection_FallbackDetect(t *testing.T) {
 	svc := Service{}
 	result := ResolveServiceDetection(svc, tmpDir)
 
-	if result.Runtime != detect.RuntimeMake {
-		t.Errorf("runtime = %q, want %q (Makefile should be detected)", result.Runtime, detect.RuntimeMake)
+	if result.Runtime != models.RuntimeMake {
+		t.Errorf("runtime = %q, want %q (Makefile should be detected)", result.Runtime, models.RuntimeMake)
 	}
 }
 
@@ -79,8 +79,8 @@ func TestResolveServiceDetection_ComposeOverrideWinsOverCommand(t *testing.T) {
 	}
 
 	result := ResolveServiceDetection(svc, "/some/path")
-	if result.Runtime != detect.RuntimeCompose {
-		t.Errorf("runtime = %q, want %q (compose should win over command)", result.Runtime, detect.RuntimeCompose)
+	if result.Runtime != models.RuntimeCompose {
+		t.Errorf("runtime = %q, want %q (compose should win over command)", result.Runtime, models.RuntimeCompose)
 	}
 }
 

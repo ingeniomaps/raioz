@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -93,7 +93,7 @@ func GetLoggingConfig(mode string) map[string]any {
 func AddDevBindMount(
 	serviceConfig map[string]any,
 	serviceName string,
-	svc config.Service,
+	svc models.Service,
 	ws *workspace.Workspace,
 ) {
 	if svc.Docker.Mode != "dev" {
@@ -156,7 +156,7 @@ func AddDevBindMount(
 func ApplyModeConfig(
 	serviceConfig map[string]any,
 	serviceName string,
-	svc config.Service,
+	svc models.Service,
 	ws *workspace.Workspace,
 ) {
 	// Default to "dev" if mode is not specified (docker is optional now)

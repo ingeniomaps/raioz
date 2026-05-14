@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestContainerInspect_JSONParsing(t *testing.T) {
@@ -198,7 +198,7 @@ func TestGetServicesInfoWithContext_InvalidPath(t *testing.T) {
 	result, err := GetServicesInfoWithContext(
 		context.Background(), "/nonexistent/path.yml",
 		[]string{"svc1", "svc2"}, "proj",
-		map[string]config.Service{}, nil,
+		map[string]models.Service{}, nil,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -220,7 +220,7 @@ func TestGetServicesInfoWithContext_EmptyList(t *testing.T) {
 	result, err := GetServicesInfoWithContext(
 		context.Background(), "/tmp/fake.yml",
 		[]string{}, "proj",
-		map[string]config.Service{}, nil,
+		map[string]models.Service{}, nil,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -257,7 +257,7 @@ func TestGetServicesInfo_Wrapper(t *testing.T) {
 		"/nonexistent/path.yml",
 		[]string{"svc1"},
 		"proj",
-		map[string]config.Service{},
+		map[string]models.Service{},
 		nil,
 	)
 	if err != nil {

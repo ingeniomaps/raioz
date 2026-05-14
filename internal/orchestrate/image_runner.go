@@ -9,11 +9,17 @@ import (
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 
 	"gopkg.in/yaml.v3"
 )
+
+// register routes RuntimeImage dispatches to ImageRunner.
+func init() {
+	register(models.RuntimeImage, func(d *Dispatcher) runner { return d.image })
+}
 
 // ImageRunner handles dependencies that are Docker images (postgres, redis, etc.).
 // It generates a minimal compose file per dependency and runs it.

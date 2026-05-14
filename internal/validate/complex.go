@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 )
 
 // ValidateComplexConfiguration performs additional validations for complex configurations
 // This is called after basic validation to catch complex issues
-func ValidateComplexConfiguration(deps *config.Deps) error {
+func ValidateComplexConfiguration(deps *models.Deps) error {
 	// Validate circular dependencies (already done in validateDependencies, but double-check)
 	if err := docker.ValidateDependencyCycle(deps); err != nil {
 		return err
@@ -38,7 +38,7 @@ func ValidateComplexConfiguration(deps *config.Deps) error {
 }
 
 // ValidateProfileConsistency validates that profiles are used consistently (root, services and infra)
-func ValidateProfileConsistency(deps *config.Deps) error {
+func ValidateProfileConsistency(deps *models.Deps) error {
 	for _, p := range deps.Profiles {
 		if !profileNameRegex.MatchString(p) {
 			return errors.New(
@@ -79,7 +79,7 @@ func ValidateProfileConsistency(deps *config.Deps) error {
 }
 
 // ValidateEnvReferences validates environment variable references
-func ValidateEnvReferences(deps *config.Deps) error {
+func ValidateEnvReferences(deps *models.Deps) error {
 	// Check that env files referenced in configuration exist
 	// This is a preventive check to avoid runtime errors
 	for _, envFile := range deps.Env.Files {
@@ -115,7 +115,7 @@ func ValidateEnvReferences(deps *config.Deps) error {
 }
 
 // ValidateVolumeMounts validates volume mount configurations
-func ValidateVolumeMounts(deps *config.Deps) error {
+func ValidateVolumeMounts(deps *models.Deps) error {
 	for name, svc := range deps.Services {
 		// Skip if docker is nil (host execution - no docker volumes)
 		if svc.Docker == nil {

@@ -3,13 +3,13 @@ package docker
 import (
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestHealthcheckToMap(t *testing.T) {
 	tests := []struct {
 		name     string
-		hc       *config.HealthcheckConfig
+		hc       *models.HealthcheckConfig
 		wantNil  bool
 		wantKeys []string
 		wantVals map[string]any
@@ -21,7 +21,7 @@ func TestHealthcheckToMap(t *testing.T) {
 		},
 		{
 			name: "disabled",
-			hc: &config.HealthcheckConfig{
+			hc: &models.HealthcheckConfig{
 				Disable: true,
 			},
 			wantKeys: []string{"disable"},
@@ -29,7 +29,7 @@ func TestHealthcheckToMap(t *testing.T) {
 		},
 		{
 			name: "disabled overrides other fields",
-			hc: &config.HealthcheckConfig{
+			hc: &models.HealthcheckConfig{
 				Disable:  true,
 				Interval: "30s",
 				Test:     []string{"CMD", "true"},
@@ -38,7 +38,7 @@ func TestHealthcheckToMap(t *testing.T) {
 		},
 		{
 			name: "full config",
-			hc: &config.HealthcheckConfig{
+			hc: &models.HealthcheckConfig{
 				Test:          []string{"CMD", "curl", "-f", "http://localhost/"},
 				Interval:      "30s",
 				Timeout:       "10s",
@@ -52,7 +52,7 @@ func TestHealthcheckToMap(t *testing.T) {
 		},
 		{
 			name: "partial config",
-			hc: &config.HealthcheckConfig{
+			hc: &models.HealthcheckConfig{
 				Test:     []string{"CMD-SHELL", "echo ok"},
 				Interval: "10s",
 			},
@@ -60,7 +60,7 @@ func TestHealthcheckToMap(t *testing.T) {
 		},
 		{
 			name:    "empty config",
-			hc:      &config.HealthcheckConfig{},
+			hc:      &models.HealthcheckConfig{},
 			wantNil: false,
 		},
 	}

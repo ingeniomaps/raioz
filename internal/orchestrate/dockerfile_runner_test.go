@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"testing"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/runtime"
 )
 
@@ -32,8 +32,8 @@ func makeDockerfileSvc(t *testing.T) interfaces.ServiceContext {
 		NetworkName:   "proj-net",
 		Ports:         []string{"8080:8080"},
 		EnvVars:       map[string]string{"FOO": "bar"},
-		Detection: detect.DetectResult{
-			Runtime:    detect.RuntimeDockerfile,
+		Detection: models.DetectResult{
+			Runtime:    models.RuntimeDockerfile,
 			Dockerfile: "Dockerfile",
 		},
 	}

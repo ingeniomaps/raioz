@@ -6,10 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/mocks"
-	"raioz/internal/state"
 	"raioz/internal/workspace"
 )
 
@@ -20,19 +19,19 @@ func initI18n(t *testing.T) {
 	i18n.Init("en")
 }
 
-func testDeps() *config.Deps {
-	return &config.Deps{
+func testDeps() *models.Deps {
+	return &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-net"},
-		Project:       config.Project{Name: "test-project"},
-		Services: map[string]config.Service{
+		Network:       models.NetworkConfig{Name: "test-net"},
+		Project:       models.Project{Name: "test-project"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "image", Image: "org/api", Tag: "latest"},
-				Docker: &config.DockerConfig{Mode: "prod", Ports: []string{"3000:3000"}},
+				Source: models.SourceConfig{Kind: "image", Image: "org/api", Tag: "latest"},
+				Docker: &models.DockerConfig{Mode: "prod", Ports: []string{"3000:3000"}},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
-		Env:   config.EnvConfig{UseGlobal: true, Files: []string{"global"}},
+		Infra: map[string]models.InfraEntry{},
+		Env:   models.EnvConfig{UseGlobal: true, Files: []string{"global"}},
 	}
 }
 
@@ -51,7 +50,7 @@ func TestResolveWorkspaceFromConfig(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -62,7 +61,7 @@ func TestResolveWorkspaceFromConfig(t *testing.T) {
 		},
 	})
 
-	name, resolved, err := uc.resolveWorkspace(Options{ConfigPath: ".raioz.json"})
+	name, _, resolved, err := uc.resolveWorkspace(Options{ConfigPath: ".raioz.json"})
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -79,13 +78,13 @@ func TestResolveWorkspaceNoConfig(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
 	})
 
-	_, _, err := uc.resolveWorkspace(Options{ConfigPath: "nonexistent.json"})
+	_, _, _, err := uc.resolveWorkspace(Options{ConfigPath: "nonexistent.json"})
 	if err == nil {
 		t.Error("expected error when config cannot be loaded")
 	}
@@ -98,7 +97,7 @@ func TestResolveWorkspaceWithProjectName(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -109,7 +108,7 @@ func TestResolveWorkspaceWithProjectName(t *testing.T) {
 		},
 	})
 
-	name, _, err := uc.resolveWorkspace(Options{ProjectName: "my-proj", ConfigPath: ".raioz.json"})
+	name, _, _, err := uc.resolveWorkspace(Options{ProjectName: "my-proj", ConfigPath: ".raioz.json"})
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -124,7 +123,7 @@ func TestLoadConfig(t *testing.T) {
 	cfgDeps := testDeps()
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -144,7 +143,7 @@ func TestLoadConfigError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, os.ErrNotExist
 			},
 		},
@@ -172,9 +171,9 @@ func TestValidateConfigInvalid(t *testing.T) {
 	initI18n(t)
 
 	uc := NewUseCase(&Dependencies{})
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "invalid",
-		Project:       config.Project{Name: ""},
+		Project:       models.Project{Name: ""},
 	}
 
 	errs := uc.validateConfig(deps)
@@ -190,8 +189,8 @@ func TestCheckAlignmentNoIssues(t *testing.T) {
 	ws := &workspace.Workspace{Root: tmpDir, ServicesDir: filepath.Join(tmpDir, "services")}
 
 	deps := testDeps()
-	state.Save(ws, deps)
-
+	// ADR-011 Phase 3: state.Save no longer exists; checkAlignment now
+	// only reports branch drift, which this test doesn't exercise.
 	uc := NewUseCase(&Dependencies{})
 	issues, err := uc.checkAlignment(ws, deps)
 	if err != nil {
@@ -210,7 +209,7 @@ func TestExecuteNoState(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -219,9 +218,12 @@ func TestExecuteNoState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			// ADR-011 Phase 2: NoState now means "project not active in
+			// Docker" rather than "state file absent".
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -243,7 +245,7 @@ func TestExecuteWithConfigError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -261,11 +263,10 @@ func TestExecuteWithAlignedState(t *testing.T) {
 	tmpDir := t.TempDir()
 	ws := &workspace.Workspace{Root: tmpDir, ServicesDir: filepath.Join(tmpDir, "services")}
 	cfgDeps := testDeps()
-	state.Save(ws, cfgDeps)
-
+	// ADR-011 Phase 3: state.Save removed.
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -274,9 +275,10 @@ func TestExecuteWithAlignedState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return true
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return true, nil
 			},
 		},
 	})
@@ -297,14 +299,14 @@ func TestExecuteWithInvalidConfig(t *testing.T) {
 	initI18n(t)
 
 	ws := &workspace.Workspace{Root: "/tmp/test"}
-	badDeps := &config.Deps{
+	badDeps := &models.Deps{
 		SchemaVersion: "invalid",
-		Project:       config.Project{Name: ""},
+		Project:       models.Project{Name: ""},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return badDeps, nil, nil
 			},
 		},
@@ -313,9 +315,10 @@ func TestExecuteWithInvalidConfig(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})

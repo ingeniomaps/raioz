@@ -4,31 +4,31 @@ import (
 	"context"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
 func TestValidateGitRepositories(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		wantErr bool
 	}{
 		{
 			name: "no git services",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
-					"web": {Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"}},
+			deps: &models.Deps{
+				Services: map[string]models.Service{
+					"web": {Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"}},
 				},
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid git service",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind:   "git",
 							Repo:   "https://github.com/user/repo.git",
 							Branch: "main",
@@ -41,10 +41,10 @@ func TestValidateGitRepositories(t *testing.T) {
 		},
 		{
 			name: "valid git ssh url",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind:   "git",
 							Repo:   "git@github.com:user/repo.git",
 							Branch: "develop",
@@ -56,10 +56,10 @@ func TestValidateGitRepositories(t *testing.T) {
 		},
 		{
 			name: "missing repo",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{Kind: "git", Branch: "main"},
+						Source: models.SourceConfig{Kind: "git", Branch: "main"},
 					},
 				},
 			},
@@ -67,10 +67,10 @@ func TestValidateGitRepositories(t *testing.T) {
 		},
 		{
 			name: "missing branch",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{Kind: "git", Repo: "https://github.com/x/y.git"},
+						Source: models.SourceConfig{Kind: "git", Repo: "https://github.com/x/y.git"},
 					},
 				},
 			},
@@ -78,10 +78,10 @@ func TestValidateGitRepositories(t *testing.T) {
 		},
 		{
 			name: "dangerous char in branch",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind:   "git",
 							Repo:   "https://github.com/x/y.git",
 							Branch: "main;rm -rf /",
@@ -93,10 +93,10 @@ func TestValidateGitRepositories(t *testing.T) {
 		},
 		{
 			name: "dangerous char in repo",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind:   "git",
 							Repo:   "https://github.com/x/y.git|evil",
 							Branch: "main",
@@ -108,10 +108,10 @@ func TestValidateGitRepositories(t *testing.T) {
 		},
 		{
 			name: "invalid url prefix",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind:   "git",
 							Repo:   "github.com/x/y.git",
 							Branch: "main",
@@ -123,10 +123,10 @@ func TestValidateGitRepositories(t *testing.T) {
 		},
 		{
 			name: "path traversal in path",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"app": {
-						Source: config.SourceConfig{
+						Source: models.SourceConfig{
 							Kind:   "git",
 							Repo:   "https://github.com/x/y.git",
 							Branch: "main",
@@ -152,88 +152,88 @@ func TestValidateGitRepositories(t *testing.T) {
 func TestValidateDockerImages(t *testing.T) {
 	tests := []struct {
 		name    string
-		deps    *config.Deps
+		deps    *models.Deps
 		wantErr bool
 	}{
 		{
 			name: "valid image service",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"web": {
-						Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
+						Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
 					},
 				},
-				Infra: map[string]config.InfraEntry{},
+				Infra: map[string]models.InfraEntry{},
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing image field",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
-					"web": {Source: config.SourceConfig{Kind: "image", Tag: "latest"}},
+			deps: &models.Deps{
+				Services: map[string]models.Service{
+					"web": {Source: models.SourceConfig{Kind: "image", Tag: "latest"}},
 				},
-				Infra: map[string]config.InfraEntry{},
+				Infra: map[string]models.InfraEntry{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "missing tag field",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
-					"web": {Source: config.SourceConfig{Kind: "image", Image: "nginx"}},
+			deps: &models.Deps{
+				Services: map[string]models.Service{
+					"web": {Source: models.SourceConfig{Kind: "image", Image: "nginx"}},
 				},
-				Infra: map[string]config.InfraEntry{},
+				Infra: map[string]models.InfraEntry{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid image name with dangerous char",
-			deps: &config.Deps{
-				Services: map[string]config.Service{
+			deps: &models.Deps{
+				Services: map[string]models.Service{
 					"web": {
-						Source: config.SourceConfig{Kind: "image", Image: "nginx;evil", Tag: "latest"},
+						Source: models.SourceConfig{Kind: "image", Image: "nginx;evil", Tag: "latest"},
 					},
 				},
-				Infra: map[string]config.InfraEntry{},
+				Infra: map[string]models.InfraEntry{},
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid inline infra",
-			deps: &config.Deps{
-				Services: map[string]config.Service{},
-				Infra: map[string]config.InfraEntry{
-					"db": {Inline: &config.Infra{Image: "postgres", Tag: "15"}},
+			deps: &models.Deps{
+				Services: map[string]models.Service{},
+				Infra: map[string]models.InfraEntry{
+					"db": {Inline: &models.Infra{Image: "postgres", Tag: "15"}},
 				},
 			},
 			wantErr: false,
 		},
 		{
 			name: "infra with empty image",
-			deps: &config.Deps{
-				Services: map[string]config.Service{},
-				Infra: map[string]config.InfraEntry{
-					"db": {Inline: &config.Infra{Image: ""}},
+			deps: &models.Deps{
+				Services: map[string]models.Service{},
+				Infra: map[string]models.InfraEntry{
+					"db": {Inline: &models.Infra{Image: ""}},
 				},
 			},
 			wantErr: true,
 		},
 		{
 			name: "infra with invalid image name",
-			deps: &config.Deps{
-				Services: map[string]config.Service{},
-				Infra: map[string]config.InfraEntry{
-					"db": {Inline: &config.Infra{Image: "postgres`evil`"}},
+			deps: &models.Deps{
+				Services: map[string]models.Service{},
+				Infra: map[string]models.InfraEntry{
+					"db": {Inline: &models.Infra{Image: "postgres`evil`"}},
 				},
 			},
 			wantErr: true,
 		},
 		{
 			name: "path-based infra skipped",
-			deps: &config.Deps{
-				Services: map[string]config.Service{},
-				Infra: map[string]config.InfraEntry{
+			deps: &models.Deps{
+				Services: map[string]models.Service{},
+				Infra: map[string]models.InfraEntry{
 					"db": {Path: "./infra/db.yml"},
 				},
 			},
@@ -273,18 +273,18 @@ func TestValidateBeforeUp_EmptyDeps(t *testing.T) {
 	// (either preflight or config validation), but must not panic.
 	dir := t.TempDir()
 	ws := &workspace.Workspace{Root: dir}
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-net"},
-		Project:       config.Project{Name: "test"},
-		Services: map[string]config.Service{
+		Network:       models.NetworkConfig{Name: "test-net"},
+		Project:       models.Project{Name: "test"},
+		Services: map[string]models.Service{
 			"web": {
-				Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
-				Docker: &config.DockerConfig{Mode: "dev"},
+				Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
+				Docker: &models.DockerConfig{Mode: "dev"},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
-		Env:   config.EnvConfig{},
+		Infra: map[string]models.InfraEntry{},
+		Env:   models.EnvConfig{},
 	}
 	// Don't assert the result — just that it doesn't panic
 	_ = ValidateBeforeUp(context.Background(), deps, ws)

@@ -3,18 +3,17 @@ package upcase
 import (
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 // --- BuildDetectionMap -------------------------------------------------------
 
 func TestBuildDetectionMapServicesWithPath(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Path: "/tmp/api", Command: "go run ."}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Path: "/tmp/api", Command: "go run ."}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	results := BuildDetectionMap(deps)
@@ -24,11 +23,11 @@ func TestBuildDetectionMapServicesWithPath(t *testing.T) {
 }
 
 func TestBuildDetectionMapServicesWithCommand(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"worker": {Source: config.SourceConfig{Command: "node worker.js"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"worker": {Source: models.SourceConfig{Command: "node worker.js"}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	results := BuildDetectionMap(deps)
@@ -38,11 +37,11 @@ func TestBuildDetectionMapServicesWithCommand(t *testing.T) {
 }
 
 func TestBuildDetectionMapServicesWithComposeFiles(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"web": {Source: config.SourceConfig{ComposeFiles: []string{"docker-compose.yml"}}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"web": {Source: models.SourceConfig{ComposeFiles: []string{"docker-compose.yml"}}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	results := BuildDetectionMap(deps)
@@ -52,11 +51,11 @@ func TestBuildDetectionMapServicesWithComposeFiles(t *testing.T) {
 }
 
 func TestBuildDetectionMapSkipsEmptyService(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"empty": {Source: config.SourceConfig{}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"empty": {Source: models.SourceConfig{}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	results := BuildDetectionMap(deps)
@@ -66,10 +65,10 @@ func TestBuildDetectionMapSkipsEmptyService(t *testing.T) {
 }
 
 func TestBuildDetectionMapInfraWithTag(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
-			"postgres": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
+			"postgres": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
 		},
 	}
 
@@ -78,16 +77,16 @@ func TestBuildDetectionMapInfraWithTag(t *testing.T) {
 	if !ok {
 		t.Fatal("expected postgres in detection map")
 	}
-	if r.Runtime != detect.RuntimeImage {
+	if r.Runtime != models.RuntimeImage {
 		t.Errorf("runtime = %q, want image", r.Runtime)
 	}
 }
 
 func TestBuildDetectionMapInfraWithoutTag(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
-			"redis": {Inline: &config.Infra{Image: "redis"}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
+			"redis": {Inline: &models.Infra{Image: "redis"}},
 		},
 	}
 
@@ -96,15 +95,15 @@ func TestBuildDetectionMapInfraWithoutTag(t *testing.T) {
 	if !ok {
 		t.Fatal("expected redis in detection map")
 	}
-	if r.Runtime != detect.RuntimeImage {
+	if r.Runtime != models.RuntimeImage {
 		t.Errorf("runtime = %q, want image", r.Runtime)
 	}
 }
 
 func TestBuildDetectionMapInfraNilInline(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{},
-		Infra: map[string]config.InfraEntry{
+	deps := &models.Deps{
+		Services: map[string]models.Service{},
+		Infra: map[string]models.InfraEntry{
 			"ext": {Path: "/some/path"},
 		},
 	}
@@ -114,19 +113,19 @@ func TestBuildDetectionMapInfraNilInline(t *testing.T) {
 	if !ok {
 		t.Fatal("expected ext in detection map")
 	}
-	if r.Runtime != detect.RuntimeImage {
+	if r.Runtime != models.RuntimeImage {
 		t.Errorf("runtime = %q, want image", r.Runtime)
 	}
 }
 
 func TestBuildDetectionMapMixed(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
-			"api":   {Source: config.SourceConfig{Path: "/tmp/api", Command: "go run ."}},
-			"empty": {Source: config.SourceConfig{}},
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"api":   {Source: models.SourceConfig{Path: "/tmp/api", Command: "go run ."}},
+			"empty": {Source: models.SourceConfig{}},
 		},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres", Tag: "16"}},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
 		},
 	}
 

@@ -30,6 +30,7 @@ type MockProxyManager struct {
 	RemainingProjectsFunc   func() int
 	SetPublishFunc          func(*bool)
 	HostsLineFunc           func() string
+	ConfigureFunc           func(cfg interfaces.ProxyConfig)
 
 	// Track calls
 	AddedRoutes               []interfaces.ProxyRoute
@@ -190,4 +191,20 @@ func (m *MockProxyManager) HostsLine() string {
 		return m.HostsLineFunc()
 	}
 	return ""
+}
+
+func (m *MockProxyManager) Configure(cfg interfaces.ProxyConfig) {
+	// Echo each field into the corresponding setter so existing tests
+	// that inspect m.ProjectName / m.Domain / etc. keep working.
+	m.SetDomain(cfg.Domain)
+	m.SetTLSMode(cfg.TLSMode)
+	m.SetBindHost(cfg.BindHost)
+	m.SetProjectName(cfg.ProjectName)
+	m.SetWorkspace(cfg.Workspace)
+	m.SetNetworkSubnet(cfg.NetworkSubnet)
+	m.SetContainerIP(cfg.ContainerIP)
+	m.SetPublish(cfg.Publish)
+	if m.ConfigureFunc != nil {
+		m.ConfigureFunc(cfg)
+	}
 }

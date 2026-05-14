@@ -7,6 +7,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 
 	"github.com/spf13/cobra"
 )
@@ -61,6 +62,21 @@ func init() {
 					"lang", langFlag, "error", err)
 			}
 		}
+		// ADR-021: warn (once) when the binary has no version stamps.
+		// Skip for `raioz version`, which already prints "(Development
+		// build)" — duplicating the warning there is noise.
+		if cmd.Name() != "version" {
+			MaybePrintDevBuildWarning()
+		}
+		// ADR-022: best-effort migration of legacy state dirs into
+		// the unified RaiozStateDir(). Notes only at debug level.
+		if notes, err := naming.MigrateLegacyStateDirs(); err != nil {
+			logging.Debug("legacy state migration failed", "error", err)
+		} else {
+			for _, n := range notes {
+				logging.Debug(n)
+			}
+		}
 	}
 
 	rootCmd.AddCommand(upCmd)
@@ -91,6 +107,8 @@ func init() {
 	rootCmd.AddCommand(envCmd)
 	rootCmd.AddCommand(cloneCmd)
 	rootCmd.AddCommand(hostsCmd)
+	rootCmd.AddCommand(switchCmd)
+	rootCmd.AddCommand(yamlCmd)
 }
 
 // detectLangFlag scans os.Args for --lang <value> or --lang=<value> before

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -70,8 +70,8 @@ func TestCleanUseCase_Execute_CleanAll(t *testing.T) {
 func TestCleanUseCase_Execute_CleanProject(t *testing.T) {
 	deps, configLoader, _, dockerRunner := newTestDepsForClean(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 
 	var cleanProjectCalled bool
@@ -95,7 +95,7 @@ func TestCleanUseCase_Execute_NoProject(t *testing.T) {
 	deps, configLoader, _, _ := newTestDepsForClean(t)
 
 	// No config found and no project name
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return nil, nil, fmt.Errorf("not found")
 	}
 

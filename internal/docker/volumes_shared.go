@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // SharedVolume represents a volume that is shared between multiple services
@@ -73,7 +73,7 @@ func FormatSharedVolumesWarning(sharedVolumes map[string][]string) string {
 
 // BuildServiceVolumesMap builds a map of service volumes from Deps configuration
 // This extracts named volumes from both services and infra
-func BuildServiceVolumesMap(deps *config.Deps) (map[string]ServiceVolumes, error) {
+func BuildServiceVolumesMap(deps *models.Deps) (map[string]ServiceVolumes, error) {
 	serviceVolumes := make(map[string]ServiceVolumes)
 
 	// Process services

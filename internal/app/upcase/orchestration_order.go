@@ -1,8 +1,6 @@
 package upcase
 
-import (
-	"raioz/internal/config"
-)
+import "raioz/internal/domain/models"
 
 // orderedServiceNames returns service names sorted by dependency order via
 // Kahn's algorithm. Dependencies on infra are ignored here — only
@@ -10,7 +8,7 @@ import (
 // this ordering runs.
 //
 // Extracted from orchestration.go to keep that file under the 400-line cap.
-func orderedServiceNames(deps *config.Deps) []string {
+func orderedServiceNames(deps *models.Deps) []string {
 	// Build adjacency list. graph[A] = [B, C] means "B and C depend on A",
 	// so A must start first. inDegree[X] counts how many services must
 	// start before X.

@@ -27,7 +27,7 @@ var ciCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath := ResolveConfigPath(configPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		ciUseCase := app.NewCIUseCase(deps)
 
 		result, err := ciUseCase.Execute(app.CIOptions{

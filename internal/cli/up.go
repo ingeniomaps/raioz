@@ -57,7 +57,7 @@ var upCmd = &cobra.Command{
 		}
 
 		// Initialize dependencies and use case
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		upUseCase := app.NewUpUseCase(deps)
 
 		// Positional args fold into --only so `raioz up api web` works the

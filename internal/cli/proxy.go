@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
-	"raioz/internal/app"
+	"raioz/internal/app/proxycase"
 
 	"github.com/spf13/cobra"
 )
@@ -19,26 +20,19 @@ var proxyStatusCmd = &cobra.Command{
 	Short:        "Show proxy status",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		deps := app.NewDependencies()
-
-		if deps.ProxyManager == nil {
+		deps := newDependencies()
+		uc := proxycase.StatusUseCase{Deps: &proxycase.Dependencies{
+			ConfigLoader: deps.ConfigLoader,
+			ProxyManager: deps.ProxyManager,
+		}}
+		running, err := uc.Execute(cmd.Context(), proxycase.StatusOptions{})
+		if errors.Is(err, proxycase.ErrProxyNotConfigured) {
 			fmt.Println("Proxy is not configured")
 			return nil
 		}
-
-		if proj := app.ResolveYAMLProject(deps, ""); proj != nil {
-			deps.ProxyManager.SetProjectName(proj.ProjectName)
-			if proj.Deps != nil {
-				deps.ProxyManager.SetWorkspace(proj.Deps.Workspace)
-			}
-		}
-
-		running, err := deps.ProxyManager.Status(ctx)
 		if err != nil {
 			return err
 		}
-
 		if running {
 			fmt.Println("Proxy: running")
 		} else {
@@ -53,22 +47,17 @@ var proxyStopCmd = &cobra.Command{
 	Short:        "Stop the proxy",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		deps := app.NewDependencies()
-
-		if deps.ProxyManager == nil {
+		deps := newDependencies()
+		uc := proxycase.StopUseCase{Deps: &proxycase.Dependencies{
+			ConfigLoader: deps.ConfigLoader,
+			ProxyManager: deps.ProxyManager,
+		}}
+		err := uc.Execute(cmd.Context(), proxycase.StopOptions{})
+		if errors.Is(err, proxycase.ErrProxyNotConfigured) {
 			fmt.Println("Proxy is not configured")
 			return nil
 		}
-
-		if proj := app.ResolveYAMLProject(deps, ""); proj != nil {
-			deps.ProxyManager.SetProjectName(proj.ProjectName)
-			if proj.Deps != nil {
-				deps.ProxyManager.SetWorkspace(proj.Deps.Workspace)
-			}
-		}
-
-		return deps.ProxyManager.Stop(ctx)
+		return err
 	},
 }
 

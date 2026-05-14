@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/host"
 	"raioz/internal/logging"
@@ -28,7 +28,7 @@ import (
 // container lookups won't agree on container names.
 func (uc *DownUseCase) downSelectiveServices(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	projectDir, projectName string,
 	requested []string,
 ) error {
@@ -93,9 +93,9 @@ func (uc *DownUseCase) downSelectiveServices(
 // Mutates localState by removing the service's PID entry.
 func stopSelectiveService(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	projectDir, projectName, name string,
-	localState *state.LocalState,
+	localState *models.LocalState,
 ) {
 	svc, ok := deps.Services[name]
 	if !ok {
@@ -149,9 +149,9 @@ func stopSelectiveService(
 // falsely report success.
 func stopSelectiveDep(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	projectName, name string,
-	localState *state.LocalState,
+	localState *models.LocalState,
 ) {
 	entry, ok := deps.Infra[name]
 	if !ok {
@@ -266,17 +266,17 @@ func runStopCommand(
 // helpers kept here (instead of free functions in down.go) so the
 // selective path stays self-contained. Operating on map keys directly
 // would inline the same logic at every call site.
-func hasService(deps *config.Deps, name string) bool {
+func hasService(deps *models.Deps, name string) bool {
 	_, ok := deps.Services[name]
 	return ok
 }
 
-func hasInfra(deps *config.Deps, name string) bool {
+func hasInfra(deps *models.Deps, name string) bool {
 	_, ok := deps.Infra[name]
 	return ok
 }
 
-func declaredServiceNames(deps *config.Deps) []string {
+func declaredServiceNames(deps *models.Deps) []string {
 	out := make([]string, 0, len(deps.Services))
 	for n := range deps.Services {
 		out = append(out, n)
@@ -284,7 +284,7 @@ func declaredServiceNames(deps *config.Deps) []string {
 	return out
 }
 
-func declaredInfraNames(deps *config.Deps) []string {
+func declaredInfraNames(deps *models.Deps) []string {
 	out := make([]string, 0, len(deps.Infra))
 	for n := range deps.Infra {
 		out = append(out, n)

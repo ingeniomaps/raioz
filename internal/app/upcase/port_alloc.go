@@ -3,9 +3,8 @@ package upcase
 import (
 	"fmt"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 )
 
@@ -39,7 +38,7 @@ type PortAllocation struct {
 	Explicit bool
 	// Runtime is the detected runtime for the service. Host runtimes need
 	// PORT injection; docker runtimes don't.
-	Runtime detect.Runtime
+	Runtime models.Runtime
 }
 
 // IsHost reports whether the service runs directly on the host and therefore
@@ -49,12 +48,12 @@ func (a PortAllocation) IsHost() bool {
 	return !runtimeIsDocker(a.Runtime)
 }
 
-// runtimeIsDocker is a free-function mirror of detect.DetectResult.IsDocker
+// runtimeIsDocker is a free-function mirror of models.DetectResult.IsDocker
 // so the allocator can classify by Runtime alone (without a full DetectResult).
-func runtimeIsDocker(r detect.Runtime) bool {
-	return r == detect.RuntimeCompose ||
-		r == detect.RuntimeDockerfile ||
-		r == detect.RuntimeImage
+func runtimeIsDocker(r models.Runtime) bool {
+	return r == models.RuntimeCompose ||
+		r == models.RuntimeDockerfile ||
+		r == models.RuntimeImage
 }
 
 // DepPortAllocation is the resolved host-side binding for a dependency that
@@ -106,7 +105,7 @@ type PortAllocResult struct {
 // without conflicting on the host. Only dependencies the user *publishes*
 // compete for the host port space.
 func AllocateHostPorts(
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 ) (*PortAllocResult, error) {
 	result := &PortAllocResult{
@@ -143,7 +142,7 @@ func AllocateHostPorts(
 // Takes the port exactly and records ownership; two explicit services on
 // the same port is a hard error.
 func allocExplicitServices(
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 	svcNames []string,
 	taken map[int]string,
@@ -176,7 +175,7 @@ func allocExplicitServices(
 // `publish: [N, M]`. Each explicit host port is claimed directly; conflicts
 // with anything already in taken (including earlier services) are hard errors.
 func allocExplicitDeps(
-	deps *config.Deps,
+	deps *models.Deps,
 	depNames []string,
 	taken map[int]string,
 	result *PortAllocResult,
@@ -213,7 +212,7 @@ func allocExplicitDeps(
 // a host-facing port inferred from framework defaults or `.env PORT`.
 // Collisions with anything in taken cause a deterministic bump upward.
 func allocImplicitServices(
-	deps *config.Deps,
+	deps *models.Deps,
 	detections DetectionMap,
 	svcNames []string,
 	taken map[int]string,
@@ -254,7 +253,7 @@ func allocImplicitServices(
 // nearest free host port. Deps without an Expose declaration are skipped
 // (the allocator logs a warning and leaves them internal-only).
 func allocAutoDeps(
-	deps *config.Deps,
+	deps *models.Deps,
 	depNames []string,
 	taken map[int]string,
 	result *PortAllocResult,
@@ -293,7 +292,7 @@ func allocAutoDeps(
 // with anything already in `taken` fail loud.
 func assignExplicitDepPorts(
 	name string,
-	infra *config.Infra,
+	infra *models.Infra,
 	taken map[int]string,
 ) ([]DepPortMapping, error) {
 	mappings := make([]DepPortMapping, 0, len(infra.Publish.Ports))
@@ -323,7 +322,7 @@ func assignExplicitDepPorts(
 // to publish but didn't tell us what, so we skip rather than guess.
 func assignAutoDepPorts(
 	name string,
-	infra *config.Infra,
+	infra *models.Infra,
 	taken map[int]string,
 ) ([]DepPortMapping, error) {
 	if len(infra.Expose) == 0 {

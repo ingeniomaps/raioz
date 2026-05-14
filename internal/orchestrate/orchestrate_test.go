@@ -3,7 +3,7 @@ package orchestrate
 import (
 	"testing"
 
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 func TestSelectRunner_Compose(t *testing.T) {
@@ -14,7 +14,7 @@ func TestSelectRunner_Compose(t *testing.T) {
 		image:      &ImageRunner{},
 	}
 
-	runner, err := d.selectRunner(detect.RuntimeCompose)
+	runner, err := d.selectRunner(models.RuntimeCompose)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestSelectRunner_Dockerfile(t *testing.T) {
 		image:      &ImageRunner{},
 	}
 
-	runner, err := d.selectRunner(detect.RuntimeDockerfile)
+	runner, err := d.selectRunner(models.RuntimeDockerfile)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -48,12 +48,12 @@ func TestSelectRunner_HostRuntimes(t *testing.T) {
 		image:      &ImageRunner{},
 	}
 
-	hostRuntimes := []detect.Runtime{
-		detect.RuntimeNPM,
-		detect.RuntimeGo,
-		detect.RuntimeMake,
-		detect.RuntimePython,
-		detect.RuntimeRust,
+	hostRuntimes := []models.Runtime{
+		models.RuntimeNPM,
+		models.RuntimeGo,
+		models.RuntimeMake,
+		models.RuntimePython,
+		models.RuntimeRust,
 	}
 
 	for _, rt := range hostRuntimes {
@@ -75,7 +75,7 @@ func TestSelectRunner_Image(t *testing.T) {
 		image:      &ImageRunner{},
 	}
 
-	runner, err := d.selectRunner(detect.RuntimeImage)
+	runner, err := d.selectRunner(models.RuntimeImage)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestSelectRunner_Unknown(t *testing.T) {
 		image:      &ImageRunner{},
 	}
 
-	_, err := d.selectRunner(detect.RuntimeUnknown)
+	_, err := d.selectRunner(models.RuntimeUnknown)
 	if err == nil {
 		t.Error("expected error for unknown runtime")
 	}

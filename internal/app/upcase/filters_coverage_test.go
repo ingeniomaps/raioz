@@ -4,7 +4,7 @@ import (
 	stderrors "errors"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -15,7 +15,7 @@ func TestApplyFiltersFeatureFlagValidationError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error {
 				return stderrors.New("invalid feature flags")
 			},
 		},
@@ -33,23 +33,23 @@ func TestApplyFiltersFeatureFlagValidationError(t *testing.T) {
 func TestApplyFiltersWithOnlyExisting(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project:       config.Project{Name: "test"},
-		Services: map[string]config.Service{
-			"api":    {Source: config.SourceConfig{Kind: "image"}},
-			"web":    {Source: config.SourceConfig{Kind: "image"}},
-			"worker": {Source: config.SourceConfig{Kind: "image"}},
+		Project:       models.Project{Name: "test"},
+		Services: map[string]models.Service{
+			"api":    {Source: models.SourceConfig{Kind: "image"}},
+			"web":    {Source: models.SourceConfig{Kind: "image"}},
+			"worker": {Source: models.SourceConfig{Kind: "image"}},
 		},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres"}},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres"}},
 		},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error { return nil },
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error { return nil },
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},
@@ -68,19 +68,19 @@ func TestApplyFiltersWithOnlyExisting(t *testing.T) {
 func TestApplyFiltersWithOnlyNotFound(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project:       config.Project{Name: "test"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image"}},
+		Project:       models.Project{Name: "test"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image"}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error { return nil },
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error { return nil },
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},
@@ -97,28 +97,28 @@ func TestApplyFiltersWithOnlyNotFound(t *testing.T) {
 func TestApplyFiltersWithDefaultProfiles(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project:       config.Project{Name: "test"},
+		Project:       models.Project{Name: "test"},
 		Profiles:      []string{"backend"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image"}, Profiles: []string{"backend"}},
-			"web": {Source: config.SourceConfig{Kind: "image"}, Profiles: []string{"frontend"}},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image"}, Profiles: []string{"backend"}},
+			"web": {Source: models.SourceConfig{Kind: "image"}, Profiles: []string{"frontend"}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error { return nil },
-			FilterByProfilesFunc: func(deps *config.Deps, profiles []string) *config.Deps {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error { return nil },
+			FilterByProfilesFunc: func(deps *models.Deps, profiles []string) *models.Deps {
 				filtered := *deps
-				filtered.Services = map[string]config.Service{
+				filtered.Services = map[string]models.Service{
 					"api": deps.Services["api"],
 				}
 				return &filtered
 			},
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},
@@ -136,23 +136,23 @@ func TestApplyFiltersWithDefaultProfiles(t *testing.T) {
 func TestApplyFiltersDefaultProfilesEmpty(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project:       config.Project{Name: "test"},
+		Project:       models.Project{Name: "test"},
 		Profiles:      []string{"nonexistent"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image"}},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image"}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error { return nil },
-			FilterByProfilesFunc: func(deps *config.Deps, profiles []string) *config.Deps {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error { return nil },
+			FilterByProfilesFunc: func(deps *models.Deps, profiles []string) *models.Deps {
 				filtered := *deps
-				filtered.Services = map[string]config.Service{}
-				filtered.Infra = map[string]config.InfraEntry{}
+				filtered.Services = map[string]models.Service{}
+				filtered.Infra = map[string]models.InfraEntry{}
 				return &filtered
 			},
 		},
@@ -173,8 +173,8 @@ func TestApplyFiltersWithMockServices(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error { return nil },
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error { return nil },
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, []string{"api-mock"}
 			},
 		},
@@ -194,26 +194,26 @@ func TestApplyFiltersWithMockServices(t *testing.T) {
 func TestApplyFiltersDisabledByFlags(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
+		Project: models.Project{
 			Name:     "test",
-			Commands: &config.ProjectCommands{Up: "make up"},
+			Commands: &models.ProjectCommands{Up: "make up"},
 		},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "image"}},
-			"web": {Source: config.SourceConfig{Kind: "image"}},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "image"}},
+			"web": {Source: models.SourceConfig{Kind: "image"}},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error { return nil },
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error { return nil },
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				// Remove api, keep web
 				filtered := *deps
-				filtered.Services = map[string]config.Service{
+				filtered.Services = map[string]models.Service{
 					"web": deps.Services["web"],
 				}
 				return &filtered, nil
@@ -235,22 +235,22 @@ func TestApplyFiltersDisabledByFlags(t *testing.T) {
 func TestApplyFiltersOnlyProjectCommands(t *testing.T) {
 	initI18nUp(t)
 
-	deps := &config.Deps{
+	deps := &models.Deps{
 		SchemaVersion: "1.0",
-		Project: config.Project{
+		Project: models.Project{
 			Name: "cmd-only",
-			Commands: &config.ProjectCommands{
+			Commands: &models.ProjectCommands{
 				Up: "make start",
 			},
 		},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			ValidateFeatureFlagsFunc: func(deps *config.Deps) error { return nil },
-			FilterByFeatureFlagsFunc: func(deps *config.Deps, profile string, envVars map[string]string) (*config.Deps, []string) {
+			ValidateFeatureFlagsFunc: func(deps *models.Deps) error { return nil },
+			FilterByFeatureFlagsFunc: func(deps *models.Deps, profile string, envVars map[string]string) (*models.Deps, []string) {
 				return deps, nil
 			},
 		},

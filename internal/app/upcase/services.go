@@ -5,21 +5,20 @@ import (
 	"fmt"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/state"
 )
 
 // checkServicesRunning checks if services are already running (if no changes)
 func (uc *UseCase) checkServicesRunning(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
-	changes []state.ConfigChange,
-	oldDeps *config.Deps,
+	changes []models.ConfigChange,
+	oldDeps *models.Deps,
 ) (bool, error) {
 	// If no services or infra, nothing to check
 	if len(deps.Services) == 0 && len(deps.Infra) == 0 {
@@ -47,7 +46,7 @@ func (uc *UseCase) checkServicesRunning(
 }
 
 // showDryRunSummary shows what would happen without executing
-func (uc *UseCase) showDryRunSummary(deps *config.Deps, appliedOverrides []string) {
+func (uc *UseCase) showDryRunSummary(deps *models.Deps, appliedOverrides []string) {
 	w := uc.out()
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "  %s\n", i18n.T("up.dry_run.header"))
@@ -83,7 +82,7 @@ func (uc *UseCase) showDryRunSummary(deps *config.Deps, appliedOverrides []strin
 // showSummary displays the final summary
 func (uc *UseCase) showSummary(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceNames []string,
 	infraNames []string,
 	startTime time.Time,

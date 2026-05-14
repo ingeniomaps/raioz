@@ -8,6 +8,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 	"raioz/internal/state"
 )
 
@@ -80,7 +81,7 @@ func TestLifecycle_PIDPersistence(t *testing.T) {
 	dir := t.TempDir()
 
 	// Save state with PIDs
-	st := &state.LocalState{
+	st := &models.LocalState{
 		Project:  "test-project",
 		HostPIDs: map[string]int{"api": 12345, "web": 67890},
 	}
@@ -208,7 +209,7 @@ func TestLifecycle_PortInference(t *testing.T) {
 	os.WriteFile(filepath.Join(apiDir, ".env"), []byte("PORT=9090\n"), 0644)
 
 	result := detect.Detect(apiDir)
-	if result.Runtime != detect.RuntimeGo {
+	if result.Runtime != models.RuntimeGo {
 		t.Fatalf("expected Go runtime, got %s", result.Runtime)
 	}
 

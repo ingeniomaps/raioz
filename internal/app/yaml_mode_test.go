@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
@@ -52,7 +52,7 @@ func TestFindConfigFile_LegacyJSON(t *testing.T) {
 func TestResolveYAMLProject_Nil(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return nil, nil, nil
 		},
 	}
@@ -64,9 +64,9 @@ func TestResolveYAMLProject_Nil(t *testing.T) {
 func TestResolveYAMLProject_Legacy(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:       config.Project{Name: "test"},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "test"},
 				SchemaVersion: "1.0",
 			}, nil, nil
 		},
@@ -79,10 +79,10 @@ func TestResolveYAMLProject_Legacy(t *testing.T) {
 func TestResolveYAMLProject_YAMLMode(t *testing.T) {
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
-				Project:       config.Project{Name: "yamlproj"},
-				Network:       config.NetworkConfig{Name: "yamlproj-net"},
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "yamlproj"},
+				Network:       models.NetworkConfig{Name: "yamlproj-net"},
 				SchemaVersion: "2.0",
 			}, nil, nil
 		},

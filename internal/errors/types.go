@@ -41,6 +41,9 @@ const (
 	ErrCodeDependencyCycle    ErrorCode = "DEPENDENCY_CYCLE"
 	ErrCodeCompatibilityError ErrorCode = "COMPATIBILITY_ERROR"
 
+	// Sibling-project errors (issue #26)
+	ErrCodeSiblingDown ErrorCode = "SIBLING_DOWN"
+
 	// Internal errors
 	ErrCodeInternalError ErrorCode = "INTERNAL_ERROR"
 )

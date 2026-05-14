@@ -4,7 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
 )
@@ -18,7 +18,7 @@ import (
 // way host.StartService does and let host.KillOrphansByCwd send SIGTERM
 // to anything still rooted there. Linux-only sweep; macOS/Windows return
 // nil and this is a no-op there.
-func sweepLauncherOrphans(ctx context.Context, deps *config.Deps, projectDir, service string) {
+func sweepLauncherOrphans(ctx context.Context, deps *models.Deps, projectDir, service string) {
 	if deps == nil {
 		return
 	}

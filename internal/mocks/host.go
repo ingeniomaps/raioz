@@ -3,8 +3,8 @@ package mocks
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/workspace"
 )
@@ -15,8 +15,8 @@ var _ interfaces.HostRunner = (*MockHostRunner)(nil)
 // MockHostRunner is a mock implementation of interfaces.HostRunner
 type MockHostRunner struct {
 	StartServiceFunc func(
-		ctx context.Context, ws *workspace.Workspace, deps *config.Deps,
-		serviceName string, svc config.Service, projectDir string,
+		ctx context.Context, ws *workspace.Workspace, deps *models.Deps,
+		serviceName string, svc models.Service, projectDir string,
 	) (*host.ProcessInfo, error)
 	StopServiceWithCommandFunc        func(ctx context.Context, pid int, stopCommand string) error
 	LoadProcessesStateFunc            func(ws *workspace.Workspace) (map[string]*host.ProcessInfo, error)
@@ -28,8 +28,8 @@ type MockHostRunner struct {
 }
 
 func (m *MockHostRunner) StartService(
-	ctx context.Context, ws *workspace.Workspace, deps *config.Deps,
-	serviceName string, svc config.Service, projectDir string,
+	ctx context.Context, ws *workspace.Workspace, deps *models.Deps,
+	serviceName string, svc models.Service, projectDir string,
 ) (*host.ProcessInfo, error) {
 	if m.StartServiceFunc != nil {
 		return m.StartServiceFunc(ctx, ws, deps, serviceName, svc, projectDir)

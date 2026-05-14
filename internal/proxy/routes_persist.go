@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/logging"
 	"raioz/internal/naming"
 )
 
@@ -50,12 +51,24 @@ func (m *Manager) projectRoutesPath() string {
 // SaveProjectRoutes writes the manager's in-memory routes (plus the
 // project's domain and tlsMode) to disk so a later workspace-shared
 // Caddyfile generation can include them. Per-project mode is a no-op.
+//
+// The write is atomic: data goes to a temp file in the same directory
+// and is renamed onto the target path. A concurrent reader sees either
+// the previous version or the new version, never a truncated mid-write.
+// See ADR-005.
 func (m *Manager) SaveProjectRoutes() error {
 	path := m.projectRoutesPath()
 	if path == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	release, err := m.acquireWorkspaceLock()
+	if err != nil {
+		return err
+	}
+	defer release()
+
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create routes dir: %w", err)
 	}
 
@@ -81,8 +94,26 @@ func (m *Manager) SaveProjectRoutes() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal routes: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("failed to write routes file: %w", err)
+
+	tmp, err := os.CreateTemp(dir, ".routes-*.json.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	cleanup := func() { _ = os.Remove(tmpPath) }
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to rename routes file: %w", err)
 	}
 	return nil
 }
@@ -95,6 +126,12 @@ func (m *Manager) RemoveProjectRoutes() error {
 	if path == "" {
 		return nil
 	}
+	release, err := m.acquireWorkspaceLock()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove routes file: %w", err)
 	}
@@ -102,9 +139,11 @@ func (m *Manager) RemoveProjectRoutes() error {
 }
 
 // loadAllProjectRoutes reads every persisted project routes file in the
-// workspace dir. Files that fail to parse are skipped with a logged hint
-// rather than failing the whole load — a corrupt single file shouldn't
-// block the whole workspace from rendering.
+// workspace dir. Files that fail to read or parse are skipped with a
+// warning — a corrupt single file shouldn't block the whole workspace
+// from rendering, but neither should it disappear silently. Atomic
+// writes in SaveProjectRoutes make parse errors a real signal that
+// something external touched the file.
 func (m *Manager) loadAllProjectRoutes() []persistedProject {
 	dir := m.routesDir()
 	if dir == "" {
@@ -120,12 +159,17 @@ func (m *Manager) loadAllProjectRoutes() []persistedProject {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		full := filepath.Join(dir, e.Name())
+		data, err := os.ReadFile(full)
 		if err != nil {
+			logging.Warn("failed to read project routes file, skipping",
+				"file", e.Name(), "error", err)
 			continue
 		}
 		var pp persistedProject
 		if err := json.Unmarshal(data, &pp); err != nil {
+			logging.Warn("corrupt project routes file, skipping",
+				"file", e.Name(), "error", err)
 			continue
 		}
 		all = append(all, pp)

@@ -23,6 +23,7 @@ func FilterByFeatureFlags(deps *Deps, profile string, envVars map[string]string)
 		Proxy:              deps.Proxy,
 		ProxyConfig:        deps.ProxyConfig,
 		PreHook:            deps.PreHook,
+		PreUpHook:          deps.PreUpHook,
 		PostHook:           deps.PostHook,
 	}
 

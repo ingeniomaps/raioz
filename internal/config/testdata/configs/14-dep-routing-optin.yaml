@@ -1,0 +1,17 @@
+# 14-dep-routing-optin — `dependencies.<n>.routing: {}` opt-in for proxy.
+#
+# Images whose name matches the DB/broker heuristic (postgres, redis,
+# mysql, mongo, ...) are skipped by the proxy by default. Setting
+# `routing:` — even to an empty object — opts them back in. This is
+# the escape hatch for "actually this redis-flavored image speaks
+# HTTP" cases. Defends the YAML parsing of an empty object, which is
+# easy to break with a poorly-typed UnmarshalYAML.
+
+project: redisinsight
+proxy: true
+
+dependencies:
+  redisinsight:
+    image: redis/redisinsight:latest
+    routing: {}
+    hostname: insight

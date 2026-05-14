@@ -21,12 +21,21 @@ type DoctorCheck struct {
 	Message string
 }
 
-// DoctorUseCase handles the "doctor" use case
+// DoctorUseCase handles the "doctor" use case.
+//
+// DevBuild is the CLI's IsDevBuild() value, plumbed through at
+// construction so the use case can surface a warning without
+// importing internal/cli (which would invert the layering). When
+// nothing populates it (e.g., test fixtures) the dev-build check
+// reports "ok".
 type DoctorUseCase struct {
-	Out io.Writer
+	Out      io.Writer
+	DevBuild bool
 }
 
-// NewDoctorUseCase creates a new DoctorUseCase
+// NewDoctorUseCase creates a new DoctorUseCase. Callers should set
+// DevBuild after construction; the legacy zero-arg form keeps existing
+// call sites compiling while the migration finishes.
 func NewDoctorUseCase() *DoctorUseCase {
 	return &DoctorUseCase{Out: os.Stdout}
 }
@@ -47,6 +56,7 @@ func (uc *DoctorUseCase) Execute(ctx context.Context) error {
 		uc.checkCaddy(ctx),
 		uc.checkMkcert(ctx),
 		uc.checkRuntimes(ctx),
+		uc.checkBuildInfo(),
 	}
 
 	hasError := false
@@ -135,6 +145,26 @@ func (uc *DoctorUseCase) checkDiskSpace() DoctorCheck {
 		return DoctorCheck{Name: name, Status: "warning", Message: i18n.T("doctor.disk_low", free)}
 	}
 	return DoctorCheck{Name: name, Status: "ok", Message: fmt.Sprintf("%.1f GB", free)}
+}
+
+// checkBuildInfo surfaces "this is a dev build" as a doctor warning.
+// Pairs with the once-per-process stderr notice in
+// internal/cli/version.go::MaybePrintDevBuildWarning (ADR-021); the
+// CLI side warns at startup, the doctor side puts the same signal in
+// the diagnostics report.
+func (uc *DoctorUseCase) checkBuildInfo() DoctorCheck {
+	if uc.DevBuild {
+		return DoctorCheck{
+			Name:    "Build info",
+			Status:  "warning",
+			Message: "DEV BUILD — rebuild with `make build` for reproducible bug reports",
+		}
+	}
+	return DoctorCheck{
+		Name:    "Build info",
+		Status:  "ok",
+		Message: "release build with version metadata",
+	}
 }
 
 func (uc *DoctorUseCase) checkRaiozDir() DoctorCheck {

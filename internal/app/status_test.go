@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -30,7 +30,7 @@ func TestStatusNoConfig(t *testing.T) {
 
 	uc := NewStatusUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -45,15 +45,15 @@ func TestStatusNoConfig(t *testing.T) {
 func TestStatusNoState(t *testing.T) {
 	initI18nStatus(t)
 
-	cfgDeps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
+	cfgDeps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
 	}
 	ws := &workspace.Workspace{Root: "/tmp/test"}
 
 	uc := NewStatusUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -62,9 +62,10 @@ func TestStatusNoState(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -78,15 +79,15 @@ func TestStatusNoState(t *testing.T) {
 func TestStatusNoStateJSON(t *testing.T) {
 	initI18nStatus(t)
 
-	cfgDeps := &config.Deps{
-		Project:  config.Project{Name: "test"},
-		Services: map[string]config.Service{},
+	cfgDeps := &models.Deps{
+		Project:  models.Project{Name: "test"},
+		Services: map[string]models.Service{},
 	}
 	ws := &workspace.Workspace{Root: "/tmp/test"}
 
 	uc := NewStatusUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return cfgDeps, nil, nil
 			},
 		},
@@ -95,9 +96,10 @@ func TestStatusNoStateJSON(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})
@@ -115,7 +117,7 @@ func TestStatusWithProjectName(t *testing.T) {
 
 	uc := NewStatusUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, nil
 			},
 		},
@@ -124,9 +126,10 @@ func TestStatusWithProjectName(t *testing.T) {
 				return ws, nil
 			},
 		},
-		StateManager: &mocks.MockStateManager{
-			ExistsFunc: func(ws *workspace.Workspace) bool {
-				return false
+		StateManager: &mocks.MockStateManager{},
+		DockerRunner: &mocks.MockDockerRunner{
+			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+				return false, nil
 			},
 		},
 	})

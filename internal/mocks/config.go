@@ -3,8 +3,8 @@ package mocks
 import (
 	"context"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // Compile-time checks
@@ -13,54 +13,54 @@ var _ interfaces.Validator = (*MockValidator)(nil)
 
 // MockConfigLoader is a mock implementation of interfaces.ConfigLoader
 type MockConfigLoader struct {
-	LoadDepsFunc             func(configPath string) (*config.Deps, []string, error)
-	IsServiceEnabledFunc     func(svc config.Service, profile string, envVars map[string]string) bool
-	ValidateFeatureFlagsFunc func(deps *config.Deps) error
-	FilterByProfileFunc      func(deps *config.Deps, profile string) *config.Deps
-	FilterByProfilesFunc     func(deps *config.Deps, profiles []string) *config.Deps
+	LoadDepsFunc             func(configPath string) (*models.Deps, []string, error)
+	IsServiceEnabledFunc     func(svc models.Service, profile string, envVars map[string]string) bool
+	ValidateFeatureFlagsFunc func(deps *models.Deps) error
+	FilterByProfileFunc      func(deps *models.Deps, profile string) *models.Deps
+	FilterByProfilesFunc     func(deps *models.Deps, profiles []string) *models.Deps
 	FilterByFeatureFlagsFunc func(
-		deps *config.Deps, profile string, envVars map[string]string,
-	) (*config.Deps, []string)
-	FilterIgnoredServicesFunc     func(deps *config.Deps) (*config.Deps, []string, error)
-	CheckIgnoredDependenciesFunc  func(deps *config.Deps, ignoredServices []string) map[string][]string
+		deps *models.Deps, profile string, envVars map[string]string,
+	) (*models.Deps, []string)
+	FilterIgnoredServicesFunc     func(deps *models.Deps) (*models.Deps, []string, error)
+	CheckIgnoredDependenciesFunc  func(deps *models.Deps, ignoredServices []string) map[string][]string
 	DetectMissingDependenciesFunc func(
-		deps *config.Deps, pathResolver func(string, config.Service) string,
-	) ([]config.MissingDependency, error)
+		deps *models.Deps, pathResolver func(string, models.Service) string,
+	) ([]models.MissingDependency, error)
 	DetectDependencyConflictsFunc func(
-		deps *config.Deps, pathResolver func(string, config.Service) string,
-	) ([]config.DependencyConflict, error)
-	FindServiceConfigFunc func(servicePath string) (*config.Deps, string, error)
+		deps *models.Deps, pathResolver func(string, models.Service) string,
+	) ([]models.DependencyConflict, error)
+	FindServiceConfigFunc func(servicePath string) (*models.Deps, string, error)
 }
 
-func (m *MockConfigLoader) LoadDeps(configPath string) (*config.Deps, []string, error) {
+func (m *MockConfigLoader) LoadDeps(configPath string) (*models.Deps, []string, error) {
 	if m.LoadDepsFunc != nil {
 		return m.LoadDepsFunc(configPath)
 	}
 	return nil, nil, nil
 }
 
-func (m *MockConfigLoader) IsServiceEnabled(svc config.Service, profile string, envVars map[string]string) bool {
+func (m *MockConfigLoader) IsServiceEnabled(svc models.Service, profile string, envVars map[string]string) bool {
 	if m.IsServiceEnabledFunc != nil {
 		return m.IsServiceEnabledFunc(svc, profile, envVars)
 	}
 	return false
 }
 
-func (m *MockConfigLoader) ValidateFeatureFlags(deps *config.Deps) error {
+func (m *MockConfigLoader) ValidateFeatureFlags(deps *models.Deps) error {
 	if m.ValidateFeatureFlagsFunc != nil {
 		return m.ValidateFeatureFlagsFunc(deps)
 	}
 	return nil
 }
 
-func (m *MockConfigLoader) FilterByProfile(deps *config.Deps, profile string) *config.Deps {
+func (m *MockConfigLoader) FilterByProfile(deps *models.Deps, profile string) *models.Deps {
 	if m.FilterByProfileFunc != nil {
 		return m.FilterByProfileFunc(deps, profile)
 	}
 	return nil
 }
 
-func (m *MockConfigLoader) FilterByProfiles(deps *config.Deps, profiles []string) *config.Deps {
+func (m *MockConfigLoader) FilterByProfiles(deps *models.Deps, profiles []string) *models.Deps {
 	if m.FilterByProfilesFunc != nil {
 		return m.FilterByProfilesFunc(deps, profiles)
 	}
@@ -68,22 +68,22 @@ func (m *MockConfigLoader) FilterByProfiles(deps *config.Deps, profiles []string
 }
 
 func (m *MockConfigLoader) FilterByFeatureFlags(
-	deps *config.Deps, profile string, envVars map[string]string,
-) (*config.Deps, []string) {
+	deps *models.Deps, profile string, envVars map[string]string,
+) (*models.Deps, []string) {
 	if m.FilterByFeatureFlagsFunc != nil {
 		return m.FilterByFeatureFlagsFunc(deps, profile, envVars)
 	}
 	return nil, nil
 }
 
-func (m *MockConfigLoader) FilterIgnoredServices(deps *config.Deps) (*config.Deps, []string, error) {
+func (m *MockConfigLoader) FilterIgnoredServices(deps *models.Deps) (*models.Deps, []string, error) {
 	if m.FilterIgnoredServicesFunc != nil {
 		return m.FilterIgnoredServicesFunc(deps)
 	}
 	return nil, nil, nil
 }
 
-func (m *MockConfigLoader) CheckIgnoredDependencies(deps *config.Deps, ignoredServices []string) map[string][]string {
+func (m *MockConfigLoader) CheckIgnoredDependencies(deps *models.Deps, ignoredServices []string) map[string][]string {
 	if m.CheckIgnoredDependenciesFunc != nil {
 		return m.CheckIgnoredDependenciesFunc(deps, ignoredServices)
 	}
@@ -91,8 +91,8 @@ func (m *MockConfigLoader) CheckIgnoredDependencies(deps *config.Deps, ignoredSe
 }
 
 func (m *MockConfigLoader) DetectMissingDependencies(
-	deps *config.Deps, pathResolver func(string, config.Service) string,
-) ([]config.MissingDependency, error) {
+	deps *models.Deps, pathResolver func(string, models.Service) string,
+) ([]models.MissingDependency, error) {
 	if m.DetectMissingDependenciesFunc != nil {
 		return m.DetectMissingDependenciesFunc(deps, pathResolver)
 	}
@@ -100,15 +100,15 @@ func (m *MockConfigLoader) DetectMissingDependencies(
 }
 
 func (m *MockConfigLoader) DetectDependencyConflicts(
-	deps *config.Deps, pathResolver func(string, config.Service) string,
-) ([]config.DependencyConflict, error) {
+	deps *models.Deps, pathResolver func(string, models.Service) string,
+) ([]models.DependencyConflict, error) {
 	if m.DetectDependencyConflictsFunc != nil {
 		return m.DetectDependencyConflictsFunc(deps, pathResolver)
 	}
 	return nil, nil
 }
 
-func (m *MockConfigLoader) FindServiceConfig(servicePath string) (*config.Deps, string, error) {
+func (m *MockConfigLoader) FindServiceConfig(servicePath string) (*models.Deps, string, error) {
 	if m.FindServiceConfigFunc != nil {
 		return m.FindServiceConfigFunc(servicePath)
 	}
@@ -117,21 +117,21 @@ func (m *MockConfigLoader) FindServiceConfig(servicePath string) (*config.Deps, 
 
 // MockValidator is a mock implementation of interfaces.Validator
 type MockValidator struct {
-	ValidateBeforeUpFunc          func(ctx interface{}, deps *config.Deps, ws interface{}) error
+	ValidateBeforeUpFunc          func(ctx interface{}, deps *models.Deps, ws interface{}) error
 	ValidateBeforeDownFunc        func(ctx interface{}, ws interface{}) error
-	AllFunc                       func(deps *config.Deps) error
+	AllFunc                       func(deps *models.Deps) error
 	CheckDockerInstalledFunc      func() error
 	CheckDockerRunningFunc        func() error
-	ValidateSchemaFunc            func(deps *config.Deps) error
-	ValidateProjectFunc           func(deps *config.Deps) error
-	ValidateServicesFunc          func(deps *config.Deps) error
-	ValidateInfraFunc             func(deps *config.Deps) error
-	ValidateDependenciesFunc      func(deps *config.Deps) error
+	ValidateSchemaFunc            func(deps *models.Deps) error
+	ValidateProjectFunc           func(deps *models.Deps) error
+	ValidateServicesFunc          func(deps *models.Deps) error
+	ValidateInfraFunc             func(deps *models.Deps) error
+	ValidateDependenciesFunc      func(deps *models.Deps) error
 	CheckWorkspacePermissionsFunc func(workspacePath string) error
 	PreflightCheckWithContextFunc func(ctx context.Context) error
 }
 
-func (m *MockValidator) ValidateBeforeUp(ctx interface{}, deps *config.Deps, ws interface{}) error {
+func (m *MockValidator) ValidateBeforeUp(ctx interface{}, deps *models.Deps, ws interface{}) error {
 	if m.ValidateBeforeUpFunc != nil {
 		return m.ValidateBeforeUpFunc(ctx, deps, ws)
 	}
@@ -145,7 +145,7 @@ func (m *MockValidator) ValidateBeforeDown(ctx interface{}, ws interface{}) erro
 	return nil
 }
 
-func (m *MockValidator) All(deps *config.Deps) error {
+func (m *MockValidator) All(deps *models.Deps) error {
 	if m.AllFunc != nil {
 		return m.AllFunc(deps)
 	}
@@ -166,35 +166,35 @@ func (m *MockValidator) CheckDockerRunning() error {
 	return nil
 }
 
-func (m *MockValidator) ValidateSchema(deps *config.Deps) error {
+func (m *MockValidator) ValidateSchema(deps *models.Deps) error {
 	if m.ValidateSchemaFunc != nil {
 		return m.ValidateSchemaFunc(deps)
 	}
 	return nil
 }
 
-func (m *MockValidator) ValidateProject(deps *config.Deps) error {
+func (m *MockValidator) ValidateProject(deps *models.Deps) error {
 	if m.ValidateProjectFunc != nil {
 		return m.ValidateProjectFunc(deps)
 	}
 	return nil
 }
 
-func (m *MockValidator) ValidateServices(deps *config.Deps) error {
+func (m *MockValidator) ValidateServices(deps *models.Deps) error {
 	if m.ValidateServicesFunc != nil {
 		return m.ValidateServicesFunc(deps)
 	}
 	return nil
 }
 
-func (m *MockValidator) ValidateInfra(deps *config.Deps) error {
+func (m *MockValidator) ValidateInfra(deps *models.Deps) error {
 	if m.ValidateInfraFunc != nil {
 		return m.ValidateInfraFunc(deps)
 	}
 	return nil
 }
 
-func (m *MockValidator) ValidateDependencies(deps *config.Deps) error {
+func (m *MockValidator) ValidateDependencies(deps *models.Deps) error {
 	if m.ValidateDependenciesFunc != nil {
 		return m.ValidateDependenciesFunc(deps)
 	}

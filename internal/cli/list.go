@@ -17,7 +17,7 @@ var listCmd = &cobra.Command{
 	Short: "List all active projects",
 	Long:  "List all active projects tracked in the global state.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewListUseCase(deps)
 		return useCase.Execute(app.ListOptions{
 			JSONOutput: listJSON,

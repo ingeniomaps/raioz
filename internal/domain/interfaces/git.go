@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	models "raioz/internal/domain/models"
+	"raioz/internal/domain/models"
 )
 
 // GitRepository defines operations for Git repository management

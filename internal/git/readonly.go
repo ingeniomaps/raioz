@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 	"raioz/internal/resilience"
@@ -16,7 +16,7 @@ import (
 
 // EnsureReadonlyRepo ensures a readonly repository exists without updating it
 // This function only clones if the repo doesn't exist, and never updates it
-func EnsureReadonlyRepo(src config.SourceConfig, baseDir string) error {
+func EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 	target := filepath.Join(baseDir, src.Path)
 
 	// Check if repo already exists
@@ -98,7 +98,7 @@ func EnsureReadonlyRepo(src config.SourceConfig, baseDir string) error {
 
 // EnsureEditableRepo ensures an editable repository exists and is up to date
 // This function clones if needed, checks out the correct branch, and pulls updates
-func EnsureEditableRepo(src config.SourceConfig, baseDir string) error {
+func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 	target := filepath.Join(baseDir, src.Path)
 
 	if _, err := os.Stat(target); err == nil {
@@ -208,7 +208,7 @@ func EnsureEditableRepo(src config.SourceConfig, baseDir string) error {
 
 // IsReadonly checks if a source config is readonly
 // Only applies to git sources - image sources are never readonly
-func IsReadonly(src config.SourceConfig) bool {
+func IsReadonly(src models.SourceConfig) bool {
 	// Only applies to git sources
 	if src.Kind != "git" {
 		return false

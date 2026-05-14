@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/env"
 	"raioz/internal/workspace"
 )
@@ -16,8 +16,8 @@ import (
 // resolveEnvVars resolves environment variables for a host service
 func resolveEnvVars(
 	ctx context.Context, ws *workspace.Workspace,
-	deps *config.Deps, serviceName string,
-	svc config.Service, projectDir string, servicePath string,
+	deps *models.Deps, serviceName string,
+	svc models.Service, projectDir string, servicePath string,
 ) ([]string, error) {
 	// Resolve env file path (same logic as Docker)
 	envFilePath, err := env.ResolveEnvFileForService(ws, deps, serviceName, svc.Env, projectDir, servicePath)
@@ -245,6 +245,43 @@ func SetSettleWindowForTest(d time.Duration) (restore func()) {
 	startSettleWindow = d
 	return func() { startSettleWindow = prev }
 }
+
+const (
+	launcherWaitTimeoutEnv  = "RAIOZ_LAUNCHER_TIMEOUT"
+	launcherDrainTimeoutEnv = "RAIOZ_LAUNCHER_DRAIN_TIMEOUT"
+)
+
+// LauncherWaitTimeout — post-launcher container-appearance wait
+// during `raioz up`. ADR-025.
+func LauncherWaitTimeout() time.Duration {
+	return durationFromEnv(launcherWaitTimeoutEnv, 60*time.Second)
+}
+
+// LauncherDrainTimeout — wait for an in-progress launcher build
+// during `raioz down` before invoking `stop:`. ADR-025.
+func LauncherDrainTimeout() time.Duration {
+	return durationFromEnv(launcherDrainTimeoutEnv, 30*time.Second)
+}
+
+// "0s" is honored as explicit opt-out; "" / unparseable / negative
+// fall back to def.
+func durationFromEnv(name string, def time.Duration) time.Duration {
+	raw := osGetenv(name)
+	if raw == "" {
+		return def
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return def
+	}
+	if d < 0 {
+		return def
+	}
+	return d
+}
+
+// Indirection seam for tests; never reassigned in non-test code.
+var osGetenv = os.Getenv
 
 // readLogTail returns the last `lines` lines of a file as a single string,
 // or empty if the file is missing or unreadable. Best-effort — never errors.

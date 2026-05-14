@@ -4,13 +4,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
-	"runtime"
 	"time"
+
+	"raioz/internal/naming"
 )
 
-const auditLogFileName = "audit.log"
+const (
+	auditLogFileName = "audit.log"
+
+	// maxAuditSize is the soft cap on the audit log. Past this size,
+	// the next Log call rotates the current file to .1 (overwriting
+	// the previous .1) before writing. Picked at ~one month of heavy
+	// raioz use; ADR-020 documents the trade-off.
+	maxAuditSize = 10 * 1024 * 1024 // 10 MiB
+)
 
 // EventType represents the type of audit event
 type EventType string
@@ -33,51 +41,12 @@ type Event struct {
 	Message   string                 `json:"message,omitempty"`
 }
 
-// getBaseDirForAuditLog returns the base directory for storing audit log
-// Uses same logic as workspace.GetBaseDir but specifically for config files
-func getBaseDirForAuditLog() (string, error) {
-	// Check for override environment variable
-	if home := os.Getenv("RAIOZ_HOME"); home != "" {
-		if err := os.MkdirAll(home, 0755); err != nil {
-			return "", fmt.Errorf("failed to create RAIOZ_HOME directory '%s': %w", home, err)
-		}
-		return home, nil
-	}
-
-	// Try /opt/raioz-proyecto first (preferred location)
-	optBase := "/opt/raioz-proyecto"
-	if err := os.MkdirAll(optBase, 0755); err == nil {
-		return optBase, nil
-	}
-
-	// Failed to create in /opt, use fallback
-	usr, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current user: %w", err)
-	}
-
-	homeDir := usr.HomeDir
-	if homeDir == "" {
-		return "", fmt.Errorf("home directory is empty")
-	}
-
-	fallbackBase := filepath.Join(homeDir, ".raioz")
-	if runtime.GOOS == "windows" {
-		fallbackBase = filepath.Join(homeDir, ".raioz")
-	}
-
-	if err := os.MkdirAll(fallbackBase, 0755); err != nil {
-		return "", fmt.Errorf("failed to create fallback directory '%s': %w", fallbackBase, err)
-	}
-
-	return fallbackBase, nil
-}
-
-// GetAuditLogPath returns the path to the audit log file
+// GetAuditLogPath returns the path to the audit log file.
+// Location delegated to naming.RaiozStateDir() — ADR-022.
 func GetAuditLogPath() (string, error) {
-	baseDir, err := getBaseDirForAuditLog()
-	if err != nil {
-		return "", fmt.Errorf("failed to get base directory for audit log: %w", err)
+	baseDir := naming.RaiozStateDir()
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create audit state dir %q: %w", baseDir, err)
 	}
 	return filepath.Join(baseDir, auditLogFileName), nil
 }
@@ -94,6 +63,11 @@ func Log(eventType EventType, details map[string]interface{}, message string) er
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory for audit log: %w", err)
 	}
+
+	// Rotate before append when the file has crossed the size cap.
+	// Best-effort: rotation failures fall through and the event is
+	// still appended (better to lose one rotation than one event).
+	rotateIfOverCap(path, maxAuditSize)
 
 	// Create event
 	event := Event{
@@ -122,6 +96,27 @@ func Log(eventType EventType, details map[string]interface{}, message string) er
 	}
 
 	return nil
+}
+
+// rotateIfOverCap renames `path` → `path + ".1"` (overwriting an older
+// .1 if present) when the file is larger than `cap`. Any other state
+// — missing file, file under cap, permission error — is a no-op. The
+// next Log call will create the file fresh.
+//
+// We pre-check the size with a Stat rather than reading-then-writing
+// to avoid the round-trip on every event. The 10 MiB threshold is
+// large enough that this stat is the dominant cost only in
+// rotation-pressure scenarios — fine.
+func rotateIfOverCap(path string, capBytes int64) {
+	info, err := os.Stat(path)
+	if err != nil || info.Size() <= capBytes {
+		return
+	}
+	rotated := path + ".1"
+	// Best-effort. os.Rename overwrites the destination on Linux.
+	// Errors here only mean "the .1 from a previous rotation
+	// persists" — acceptable; the next rotation tries again.
+	_ = os.Rename(path, rotated)
 }
 
 // LogDependencyAdded logs when a dependency is added via dependency assist

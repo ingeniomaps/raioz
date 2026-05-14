@@ -3,11 +3,13 @@ package cli
 import (
 	"fmt"
 
+	"raioz/internal/app/tunnelcase"
 	"raioz/internal/output"
-	"raioz/internal/tunnel"
 
 	"github.com/spf13/cobra"
 )
+
+const defaultTunnelPort = 3000
 
 var tunnelPort int
 
@@ -17,21 +19,20 @@ var tunnelCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		serviceName := args[0]
-		ctx := cmd.Context()
-
-		mgr := tunnel.NewManager()
 		port := tunnelPort
 		if port == 0 {
-			port = 3000 // default
+			port = defaultTunnelPort
 		}
-
-		info, err := mgr.Start(ctx, serviceName, port)
+		deps := newDependencies()
+		uc := tunnelcase.StartUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
+		info, err := uc.Execute(cmd.Context(), tunnelcase.StartOptions{
+			ServiceName: args[0],
+			LocalPort:   port,
+		})
 		if err != nil {
 			return err
 		}
-
-		output.PrintSuccess(fmt.Sprintf("Tunnel active for %s", serviceName))
+		output.PrintSuccess(fmt.Sprintf("Tunnel active for %s", args[0]))
 		fmt.Printf("  URL:   %s\n", info.PublicURL)
 		fmt.Printf("  Local: http://localhost:%d\n", info.LocalPort)
 		fmt.Printf("  PID:   %d\n", info.PID)
@@ -44,14 +45,13 @@ var tunnelListCmd = &cobra.Command{
 	Short:        "List active tunnels",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		mgr := tunnel.NewManager()
-		tunnels := mgr.List()
-
+		deps := newDependencies()
+		uc := tunnelcase.ListUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
+		tunnels := uc.Execute(cmd.Context())
 		if len(tunnels) == 0 {
 			output.PrintInfo("No active tunnels")
 			return nil
 		}
-
 		for _, t := range tunnels {
 			fmt.Printf("  %-20s %s  (port %d, pid %d)\n",
 				t.ServiceName, t.PublicURL, t.LocalPort, t.PID)
@@ -66,8 +66,9 @@ var tunnelStopCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		mgr := tunnel.NewManager()
-		if err := mgr.Stop(args[0]); err != nil {
+		deps := newDependencies()
+		uc := tunnelcase.StopUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
+		if err := uc.Execute(cmd.Context(), tunnelcase.StopOptions{ServiceName: args[0]}); err != nil {
 			return err
 		}
 		output.PrintSuccess(fmt.Sprintf("Tunnel stopped for %s", args[0]))
@@ -80,8 +81,11 @@ var tunnelStopAllCmd = &cobra.Command{
 	Short:        "Stop all tunnels",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		mgr := tunnel.NewManager()
-		mgr.StopAll()
+		deps := newDependencies()
+		uc := tunnelcase.StopAllUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
+		if err := uc.Execute(cmd.Context()); err != nil {
+			return err
+		}
 		output.PrintSuccess("All tunnels stopped")
 		return nil
 	},

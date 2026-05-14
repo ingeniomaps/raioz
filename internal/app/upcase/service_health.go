@@ -11,12 +11,12 @@ import (
 	"strings"
 	"syscall"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // getServiceHealthCommand gets the health command for a service
-func getServiceHealthCommand(svc config.Service, mode string) string {
+func getServiceHealthCommand(svc models.Service, mode string) string {
 	if svc.Commands == nil {
 		return ""
 	}
@@ -40,7 +40,7 @@ func getServiceHealthCommand(svc config.Service, mode string) string {
 
 // checkServiceHealthDefault checks service health using default method (process/port)
 func checkServiceHealthDefault(
-	ctx context.Context, ws *interfaces.Workspace, serviceName string, svc config.Service,
+	ctx context.Context, ws *interfaces.Workspace, serviceName string, svc models.Service,
 ) (bool, error) {
 	// Try to check if process is running by checking PID file or process list
 	// For now, we'll check if there's a port exposed and try to connect to it
@@ -71,7 +71,7 @@ func checkServiceHealthDefault(
 // checkServiceHealth checks if a service is healthy
 func checkServiceHealth(
 	ctx context.Context, ws *interfaces.Workspace, serviceName string,
-	svc config.Service, mode string, wm interfaces.WorkspaceManager,
+	svc models.Service, mode string, wm interfaces.WorkspaceManager,
 ) (bool, error) {
 	// Get health command
 	healthCommand := getServiceHealthCommand(svc, mode)

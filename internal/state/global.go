@@ -7,35 +7,21 @@ import (
 	"path/filepath"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
 	"raioz/internal/workspace"
 )
 
 const globalStateFileName = "state.json"
 
-// GlobalState represents the global state across all projects
-type GlobalState struct {
-	ActiveProjects []string                `json:"activeProjects"`
-	Projects       map[string]ProjectState `json:"projects"`
-}
-
-// ProjectState represents the state of a single project
-type ProjectState struct {
-	Name          string         `json:"name"`
-	Workspace     string         `json:"workspace"`
-	LastExecution time.Time      `json:"lastExecution"`
-	Services      []ServiceState `json:"services"`
-}
-
-// ServiceState represents the state of a single service
-type ServiceState struct {
-	Name    string `json:"name"`
-	Mode    string `json:"mode"`            // dev or prod
-	Version string `json:"version"`         // Commit SHA or image tag
-	Image   string `json:"image,omitempty"` // Full image name (if applicable)
-	Status  string `json:"status"`          // running or stopped
-}
+// GlobalState / ProjectState / ServiceState live canonically in
+// internal/domain/models; the aliases keep `models.GlobalState` etc.
+// callers compiling (ADR-009 / issue 023).
+type (
+	GlobalState  = models.GlobalState
+	ProjectState = models.ProjectState
+	ServiceState = models.ServiceState
+)
 
 // GetGlobalStatePath returns the path to the global state file
 func GetGlobalStatePath() (string, error) {
@@ -231,7 +217,7 @@ func UpdateLastExecution(projectName string) error {
 // BuildServiceStates builds ServiceState list from deps and service info
 // serviceInfos can be nil - in that case, only basic info from deps is used
 func BuildServiceStates(
-	deps *config.Deps,
+	deps *models.Deps,
 	serviceInfos map[string]*ServiceInfo,
 ) []ServiceState {
 	var serviceStates []ServiceState
@@ -274,10 +260,5 @@ func BuildServiceStates(
 	return serviceStates
 }
 
-// ServiceInfo is a minimal interface for service information
-// This avoids circular dependency with docker package
-type ServiceInfo struct {
-	Status  string
-	Version string
-	Image   string
-}
+// ServiceInfo lives in internal/domain/models; alias kept for callers (ADR-009).
+type ServiceInfo = models.ServiceInfo

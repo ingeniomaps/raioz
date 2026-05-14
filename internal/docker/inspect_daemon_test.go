@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // Tests that exercise inspect.go functions by calling them with a valid
@@ -58,8 +58,8 @@ func TestGetServiceInfo_WithService(t *testing.T) {
 	requireDocker(t)
 	tmp := t.TempDir()
 	compose := mkValidCompose(t, tmp)
-	svc := &config.Service{
-		Source: config.SourceConfig{Kind: "image", Image: "alpine"},
+	svc := &models.Service{
+		Source: models.SourceConfig{Kind: "image", Image: "alpine"},
 	}
 	info, err := GetServiceInfo(compose, "svc1", "proj", svc, nil)
 	if err != nil {
@@ -76,8 +76,8 @@ func TestGetServicesInfo_NotRunning(t *testing.T) {
 	compose := mkValidCompose(t, tmp)
 	result, err := GetServicesInfo(
 		compose, []string{"svc1", "svc2"}, "proj",
-		map[string]config.Service{
-			"svc1": {Source: config.SourceConfig{Kind: "image", Image: "alpine"}},
+		map[string]models.Service{
+			"svc1": {Source: models.SourceConfig{Kind: "image", Image: "alpine"}},
 		},
 		nil,
 	)
@@ -95,7 +95,7 @@ func TestGetServicesInfoWithContext_NotRunning(t *testing.T) {
 	compose := mkValidCompose(t, tmp)
 	result, err := GetServicesInfoWithContext(
 		context.Background(), compose, []string{"svc1"}, "proj",
-		map[string]config.Service{}, nil,
+		map[string]models.Service{}, nil,
 	)
 	if err != nil {
 		t.Fatalf("err: %v", err)

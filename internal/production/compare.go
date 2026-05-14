@@ -5,11 +5,11 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // CompareConfigs compares local .raioz.json with production docker-compose.yml
-func CompareConfigs(local *config.Deps, prod *ProductionConfig) *ComparisonResult {
+func CompareConfigs(local *models.Deps, prod *ProductionConfig) *ComparisonResult {
 	result := &ComparisonResult{
 		ServiceDifferences: []ServiceDifference{},
 		InfraDifferences:   []InfraDifference{},
@@ -76,7 +76,7 @@ func CompareConfigs(local *config.Deps, prod *ProductionConfig) *ComparisonResul
 }
 
 // compareService compares a single service between local and production
-func compareService(name string, local *config.Service, prod *ProductionService) *ServiceDifference {
+func compareService(name string, local *models.Service, prod *ProductionService) *ServiceDifference {
 	diff := &ServiceDifference{
 		ServiceName: name,
 		Severity:    "info",
@@ -158,7 +158,7 @@ func compareService(name string, local *config.Service, prod *ProductionService)
 }
 
 // compareInfra compares infrastructure services
-func compareInfra(local *config.Deps, prod *ProductionConfig, result *ComparisonResult) {
+func compareInfra(local *models.Deps, prod *ProductionConfig, result *ComparisonResult) {
 	localInfra := make(map[string]bool)
 	for name := range local.Infra {
 		localInfra[name] = true
@@ -252,14 +252,14 @@ func FormatComparisonResult(result *ComparisonResult) string {
 	if len(result.Errors) > 0 {
 		sb.WriteString("\n❌ Errors:\n")
 		for _, err := range result.Errors {
-			sb.WriteString(fmt.Sprintf("  • %s\n", err))
+			fmt.Fprintf(&sb, "  • %s\n", err)
 		}
 	}
 
 	if len(result.ServiceDifferences) > 0 {
 		sb.WriteString("\n📊 Service Differences:\n")
 		for _, diff := range result.ServiceDifferences {
-			sb.WriteString(fmt.Sprintf("\n  Service: %s\n", diff.ServiceName))
+			fmt.Fprintf(&sb, "\n  Service: %s\n", diff.ServiceName)
 
 			if diff.InLocalOnly {
 				sb.WriteString("    ⚠️  Only in local configuration\n")
@@ -270,30 +270,30 @@ func FormatComparisonResult(result *ComparisonResult) string {
 
 			if diff.ImageMismatch != nil {
 				sb.WriteString("    Image mismatch:\n")
-				sb.WriteString(fmt.Sprintf("      Local:      %s\n", diff.ImageMismatch.Local))
-				sb.WriteString(fmt.Sprintf("      Production: %s\n", diff.ImageMismatch.Production))
+				fmt.Fprintf(&sb, "      Local:      %s\n", diff.ImageMismatch.Local)
+				fmt.Fprintf(&sb, "      Production: %s\n", diff.ImageMismatch.Production)
 				if diff.ImageMismatch.LocalTag != diff.ImageMismatch.ProdTag {
-					sb.WriteString(fmt.Sprintf("      Tag mismatch: %s vs %s\n",
-						diff.ImageMismatch.LocalTag, diff.ImageMismatch.ProdTag))
+					fmt.Fprintf(&sb, "      Tag mismatch: %s vs %s\n",
+						diff.ImageMismatch.LocalTag, diff.ImageMismatch.ProdTag)
 				}
 			}
 
 			if diff.PortMismatch != nil {
 				sb.WriteString("    Port mismatch:\n")
-				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.PortMismatch.Local))
-				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.PortMismatch.Production))
+				fmt.Fprintf(&sb, "      Local:      %v\n", diff.PortMismatch.Local)
+				fmt.Fprintf(&sb, "      Production: %v\n", diff.PortMismatch.Production)
 			}
 
 			if diff.DependsMismatch != nil {
 				sb.WriteString("    ⚠️  Dependencies mismatch:\n")
-				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.DependsMismatch.Local))
-				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.DependsMismatch.Production))
+				fmt.Fprintf(&sb, "      Local:      %v\n", diff.DependsMismatch.Local)
+				fmt.Fprintf(&sb, "      Production: %v\n", diff.DependsMismatch.Production)
 			}
 
 			if diff.VolumeMismatch != nil {
 				sb.WriteString("    Volumes mismatch:\n")
-				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.VolumeMismatch.Local))
-				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.VolumeMismatch.Production))
+				fmt.Fprintf(&sb, "      Local:      %v\n", diff.VolumeMismatch.Local)
+				fmt.Fprintf(&sb, "      Production: %v\n", diff.VolumeMismatch.Production)
 			}
 		}
 	}
@@ -301,7 +301,7 @@ func FormatComparisonResult(result *ComparisonResult) string {
 	if len(result.InfraDifferences) > 0 {
 		sb.WriteString("\n🏗️  Infrastructure Differences:\n")
 		for _, diff := range result.InfraDifferences {
-			sb.WriteString(fmt.Sprintf("\n  Infrastructure: %s\n", diff.InfraName))
+			fmt.Fprintf(&sb, "\n  Infrastructure: %s\n", diff.InfraName)
 
 			if diff.InLocalOnly {
 				sb.WriteString("    ⚠️  Only in local configuration\n")
@@ -312,14 +312,14 @@ func FormatComparisonResult(result *ComparisonResult) string {
 
 			if diff.ImageMismatch != nil {
 				sb.WriteString("    Image mismatch:\n")
-				sb.WriteString(fmt.Sprintf("      Local:      %s\n", diff.ImageMismatch.Local))
-				sb.WriteString(fmt.Sprintf("      Production: %s\n", diff.ImageMismatch.Production))
+				fmt.Fprintf(&sb, "      Local:      %s\n", diff.ImageMismatch.Local)
+				fmt.Fprintf(&sb, "      Production: %s\n", diff.ImageMismatch.Production)
 			}
 
 			if diff.PortMismatch != nil {
 				sb.WriteString("    Port mismatch:\n")
-				sb.WriteString(fmt.Sprintf("      Local:      %v\n", diff.PortMismatch.Local))
-				sb.WriteString(fmt.Sprintf("      Production: %v\n", diff.PortMismatch.Production))
+				fmt.Fprintf(&sb, "      Local:      %v\n", diff.PortMismatch.Local)
+				fmt.Fprintf(&sb, "      Production: %v\n", diff.PortMismatch.Production)
 			}
 		}
 	}
@@ -327,7 +327,7 @@ func FormatComparisonResult(result *ComparisonResult) string {
 	if len(result.Warnings) > 0 {
 		sb.WriteString("\n⚠️  Warnings:\n")
 		for _, warning := range result.Warnings {
-			sb.WriteString(fmt.Sprintf("  • %s\n", warning))
+			fmt.Fprintf(&sb, "  • %s\n", warning)
 		}
 	}
 

@@ -1,8 +1,8 @@
 package checkcase
 
 import (
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/state"
@@ -11,7 +11,7 @@ import (
 )
 
 // validateConfig validates the configuration and returns any errors
-func (uc *UseCase) validateConfig(deps *config.Deps) []string {
+func (uc *UseCase) validateConfig(deps *models.Deps) []string {
 	var errs []string
 
 	if err := validate.ValidateSchema(deps); err != nil {
@@ -34,7 +34,7 @@ func (uc *UseCase) validateConfig(deps *config.Deps) []string {
 }
 
 // checkAlignment compares current config against saved state
-func (uc *UseCase) checkAlignment(ws *interfaces.Workspace, currentDeps *config.Deps) ([]state.AlignmentIssue, error) {
+func (uc *UseCase) checkAlignment(ws *interfaces.Workspace, currentDeps *models.Deps) ([]models.AlignmentIssue, error) {
 	wsConcrete := (*workspacepkg.Workspace)(ws)
 
 	issues, err := state.CheckAlignment(wsConcrete, currentDeps)

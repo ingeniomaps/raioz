@@ -1,0 +1,59 @@
+# 02-full — every documented top-level field at once.
+#
+# Catch-all that exercises the typical "production" shape: workspace,
+# proxy as object, pre/post hooks (both forms), services with
+# dependsOn / watch / health / routing, and dependencies with image,
+# ports, env, volumes. If a field is documented in CONFIG_REFERENCE.md
+# but absent here AND from every later fixture, that field is
+# untested — add it.
+
+version: "1"
+workspace: acme-corp
+project: e-commerce
+
+network:
+  name: acme-net
+  subnet: 172.28.0.0/16
+
+proxy:
+  domain: acme.localhost
+  mode: subdomain
+  tls: mkcert
+
+pre:
+  - ./scripts/fetch-secrets.sh
+  - ./scripts/generate-certs.sh
+post: rm -f .env.*.tmp
+
+services:
+  api:
+    path: ./api
+    dependsOn: [postgres, redis]
+    env: [.env.api, .env.shared]
+    ports: ["8080"]
+    watch: true
+    health: /api/health
+    hostname: api
+    hostnameAliases: [api-v1, api-internal]
+    routing:
+      ws: true
+      stream: true
+      grpc: true
+    profiles: [backend]
+
+  frontend:
+    path: ./frontend
+    dependsOn: [api]
+    watch: native
+    profiles: [frontend]
+
+dependencies:
+  postgres:
+    image: postgres:16
+    ports: ["5432"]
+    env: .env.postgres
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    hostname: db
+
+  redis:
+    image: redis:7

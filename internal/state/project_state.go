@@ -5,39 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
-	"time"
+
+	"raioz/internal/domain/models"
 )
 
 const projectStateFile = ".raioz.state.json"
 
-// LocalState is the minimal state file stored in the project directory.
-// Docker is the source of truth for running state; this file only stores
-// what Docker can't tell us: dev overrides, ignored services, host PIDs.
-type LocalState struct {
-	Project      string                 `json:"project"`
-	Workspace    string                 `json:"workspace,omitempty"`
-	LastUp       time.Time              `json:"lastUp"`
-	DevOverrides map[string]DevOverride `json:"devOverrides,omitempty"`
-	Ignored      []string               `json:"ignored,omitempty"`
-	HostPIDs     map[string]int         `json:"hostPIDs,omitempty"`
-	NetworkName  string                 `json:"networkName,omitempty"`
-
-	// DeferredToSibling lists the dep names whose dispatch was skipped
-	// at `up` time because a sibling raioz project was already serving
-	// them (issue #26 mode B). `down` consults this list so it doesn't
-	// try to tear down containers the consumer never created. The list
-	// is rewritten on every `up` — entries persist only as long as the
-	// sibling stays active.
-	DeferredToSibling []string `json:"deferredToSibling,omitempty"`
-}
-
-// DevOverride records that a dependency has been promoted to local development.
-type DevOverride struct {
-	OriginalImage string    `json:"originalImage"`
-	LocalPath     string    `json:"localPath"`
-	PromotedAt    time.Time `json:"promotedAt"`
-}
+// LocalState / DevOverride live canonically in internal/domain/models;
+// the aliases keep `models.LocalState` etc. callers compiling (ADR-009).
+type (
+	LocalState  = models.LocalState
+	DevOverride = models.DevOverride
+)
 
 // LoadLocalState loads the project state from the project directory.
 // Returns an empty state if the file doesn't exist.
@@ -89,57 +68,4 @@ func RemoveLocalState(projectDir string) error {
 		return fmt.Errorf("remove state file %q: %w", path, err)
 	}
 	return nil
-}
-
-// AddDevOverride records a dependency being promoted to local.
-func (s *LocalState) AddDevOverride(name, originalImage, localPath string) {
-	s.DevOverrides[name] = DevOverride{
-		OriginalImage: originalImage,
-		LocalPath:     localPath,
-		PromotedAt:    time.Now(),
-	}
-}
-
-// RemoveDevOverride removes a dev override.
-func (s *LocalState) RemoveDevOverride(name string) {
-	delete(s.DevOverrides, name)
-}
-
-// IsDevOverridden returns true if a dependency is currently in dev mode.
-func (s *LocalState) IsDevOverridden(name string) bool {
-	_, ok := s.DevOverrides[name]
-	return ok
-}
-
-// GetDevOverride returns the dev override for a dependency, if any.
-func (s *LocalState) GetDevOverride(name string) (DevOverride, bool) {
-	o, ok := s.DevOverrides[name]
-	return o, ok
-}
-
-// MarkDeferred records that a dep was skipped at `up` time because a
-// sibling raioz project was already serving it (issue #26 mode B). The
-// matching `down` reads this list to skip the dep too — without it,
-// raioz would try to tear down a container it never created. No-op if
-// the dep is already on the list, so callers can call this without
-// guarding for the second `up` in a row.
-func (s *LocalState) MarkDeferred(name string) {
-	if s.IsDeferred(name) {
-		return
-	}
-	s.DeferredToSibling = append(s.DeferredToSibling, name)
-}
-
-// ClearDeferred removes a dep from the deferred list. Called by `up`
-// when the sibling is no longer active and the local fallback needs to
-// start.
-func (s *LocalState) ClearDeferred(name string) {
-	s.DeferredToSibling = slices.DeleteFunc(
-		s.DeferredToSibling, func(d string) bool { return d == name })
-}
-
-// IsDeferred reports whether the most recent `up` recorded this dep as
-// deferred to a sibling project.
-func (s *LocalState) IsDeferred(name string) bool {
-	return slices.Contains(s.DeferredToSibling, name)
 }

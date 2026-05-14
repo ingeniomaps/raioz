@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/naming"
 
@@ -27,7 +27,7 @@ func makeImageSvc() interfaces.ServiceContext {
 			"POSTGRES_USER":     "admin",
 			"POSTGRES_PASSWORD": "secret",
 		},
-		Detection: detect.DetectResult{Runtime: detect.RuntimeImage},
+		Detection: models.DetectResult{Runtime: models.RuntimeImage},
 	}
 }
 

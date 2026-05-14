@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestGetCurrentBranch(t *testing.T) {
@@ -75,14 +75,14 @@ func TestUpdateReposIfBranchChanged(t *testing.T) {
 	servicesDir := filepath.Join(tmpDir, "services")
 
 	// Simple resolver that uses old structure for test
-	repoPathResolver := func(svc config.Service) string {
+	repoPathResolver := func(svc models.Service) string {
 		return filepath.Join(servicesDir, svc.Source.Path)
 	}
 
-	oldDeps := &config.Deps{
-		Services: map[string]config.Service{
+	oldDeps := &models.Deps{
+		Services: map[string]models.Service{
 			"service1": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Branch: "main",
 					Path:   "test-service",
@@ -91,10 +91,10 @@ func TestUpdateReposIfBranchChanged(t *testing.T) {
 		},
 	}
 
-	newDeps := &config.Deps{
-		Services: map[string]config.Service{
+	newDeps := &models.Deps{
+		Services: map[string]models.Service{
 			"service1": {
-				Source: config.SourceConfig{
+				Source: models.SourceConfig{
 					Kind:   "git",
 					Branch: "develop",
 					Path:   "test-service",
@@ -106,7 +106,7 @@ func TestUpdateReposIfBranchChanged(t *testing.T) {
 	// Test with no existing repos (should not error)
 	err := UpdateReposIfBranchChanged(
 		context.Background(),
-		func(_ string, svc config.Service) string { // adapt signature to match UpdateReposIfBranchChanged
+		func(_ string, svc models.Service) string { // adapt signature to match UpdateReposIfBranchChanged
 			return repoPathResolver(svc)
 		},
 		oldDeps, newDeps)

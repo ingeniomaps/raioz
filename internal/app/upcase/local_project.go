@@ -7,18 +7,17 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
-	"raioz/internal/state"
 )
 
 // processLocalProject processes local project commands (if this is a local project or has project.commands)
 func (uc *UseCase) processLocalProject(
-	ctx context.Context, configPath string, deps *config.Deps,
+	ctx context.Context, configPath string, deps *models.Deps,
 	commandType string, ws interface{},
 ) error {
 	// Check if this is a local project
@@ -161,15 +160,15 @@ func (uc *UseCase) processLocalProject(
 	// Only if ws is provided (not nil)
 	if ws != nil {
 		// Create a dummy service config for template generation
-		var dummyEnv *config.EnvValue
+		var dummyEnv *models.EnvValue
 		if len(deps.Env.Files) > 0 {
-			dummyEnv = &config.EnvValue{
+			dummyEnv = &models.EnvValue{
 				Files:     deps.Env.Files,
 				Variables: nil,
 				IsObject:  false,
 			}
 		}
-		dummyService := config.Service{
+		dummyService := models.Service{
 			Env: dummyEnv,
 		}
 		// Type assert to *interfaces.Workspace
@@ -209,25 +208,31 @@ func (uc *UseCase) processLocalProject(
 		return err
 	}
 
-	// If command was "up" and executed successfully, detect and save project docker-compose.yml
+	// If command was "up" and executed successfully, detect project
+	// docker-compose.yml. We keep the path on the in-memory deps so
+	// callers in the same run can consume it; ADR-011 Phase 1 no longer
+	// persists it to .state.json (sub-issue 031a will move it to
+	// LocalState for cross-command access).
 	if commandType == "up" {
-		// Detect project docker-compose.yml
 		projectComposePath := uc.deps.HostRunner.DetectComposePath(projectDir, command, "")
 		if projectComposePath != "" {
-			// Save project compose path to state
 			deps.ProjectComposePath = projectComposePath
-			// Save updated state
-			if ws != nil {
-				if wsTyped, ok := ws.(*interfaces.Workspace); ok {
-					if err := uc.deps.StateManager.Save(wsTyped, deps); err != nil {
-						logging.WarnWithContext(ctx, "Failed to save project compose path to state", "error", err.Error())
-					} else {
-						logging.DebugWithContext(ctx, "Project docker-compose.yml detected and saved",
-							"compose_path", projectComposePath,
-						)
-					}
-				}
-			}
+			logging.DebugWithContext(ctx, "Project docker-compose.yml detected",
+				"compose_path", projectComposePath,
+			)
+		}
+		// ADR-011 Phase 2: persist ProjectComposePath + ProjectRoot to
+		// LocalState so inspection commands (logs, exec, restart, status)
+		// can find the compose file without consulting the legacy
+		// snapshot. Best-effort: a write error logs and continues — the
+		// up itself has already succeeded.
+		if err := persistProjectPathsToLocalState(
+			projectDir, deps.Project.Name, deps.GetWorkspaceName(),
+			projectComposePath,
+		); err != nil {
+			logging.WarnWithContext(ctx,
+				"Failed to persist project paths to LocalState",
+				"error", err.Error())
 		}
 		if err := uc.saveProjectCommandState(ctx, deps, projectDir); err != nil {
 			// Log but don't fail - state saving is optional
@@ -239,13 +244,13 @@ func (uc *UseCase) processLocalProject(
 }
 
 // saveProjectCommandState saves the project state to global state when project.commands.up is executed
-func (uc *UseCase) saveProjectCommandState(ctx context.Context, deps *config.Deps, projectDir string) error {
+func (uc *UseCase) saveProjectCommandState(ctx context.Context, deps *models.Deps, projectDir string) error {
 	// Create project state for command-based project
-	projectState := &state.ProjectState{
+	projectState := &models.ProjectState{
 		Name:          deps.Project.Name,
 		Workspace:     projectDir,
 		LastExecution: time.Now(),
-		Services:      []state.ServiceState{}, // Empty services for command-based projects
+		Services:      []models.ServiceState{}, // Empty services for command-based projects
 	}
 
 	// Update global state

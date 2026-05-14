@@ -34,7 +34,7 @@ var restartCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		useCase := app.NewRestartUseCase(deps)
 
 		return useCase.Execute(ctx, app.RestartOptions{

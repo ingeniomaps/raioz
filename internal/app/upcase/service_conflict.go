@@ -9,33 +9,32 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
-	"raioz/internal/state"
 )
 
 // ServiceConflict represents a detected conflict for a service
 type ServiceConflict struct {
-	ServiceName      string                   // Name of the service (e.g., "nginx")
-	ConflictType     string                   // "cloned_running" | "local_running" | "preference"
-	CurrentProject   string                   // Project name where service is currently running
-	CurrentLocation  string                   // Path or location description
-	CurrentContainer string                   // Container name if running
-	CurrentSource    string                   // "git" | "local" | "image"
-	TargetLocation   string                   // Where we want to run it from
-	TargetContainer  string                   // Container name that would be created
-	Preference       *state.ServicePreference // Saved preference if exists
+	ServiceName      string                    // Name of the service (e.g., "nginx")
+	ConflictType     string                    // "cloned_running" | "local_running" | "preference"
+	CurrentProject   string                    // Project name where service is currently running
+	CurrentLocation  string                    // Path or location description
+	CurrentContainer string                    // Container name if running
+	CurrentSource    string                    // "git" | "local" | "image"
+	TargetLocation   string                    // Where we want to run it from
+	TargetContainer  string                    // Container name that would be created
+	Preference       *models.ServicePreference // Saved preference if exists
 }
 
 // detectServiceConflict detects if a service is already running and would conflict
 func (uc *UseCase) detectServiceConflict(
 	ctx context.Context,
 	serviceName string,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	projectDir string,
 	isLocalProject bool,
@@ -281,7 +280,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 	conflict *ServiceConflict,
 	resolution string,
 	serviceName string,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	projectDir string,
 	isLocalProject bool,
@@ -299,7 +298,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			}
 		}
 		// Save preference
-		pref := state.ServicePreference{
+		pref := models.ServicePreference{
 			ServiceName: serviceName,
 			Preference:  "local",
 			ProjectPath: projectDir,
@@ -331,7 +330,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 			}
 		}
 		// Save preference
-		pref := state.ServicePreference{
+		pref := models.ServicePreference{
 			ServiceName: serviceName,
 			Preference:  "cloned",
 			Workspace:   workspaceName,
@@ -346,7 +345,7 @@ func (uc *UseCase) applyServiceConflictResolution(
 
 	case "local_pref":
 		// Save preference to always use local
-		pref := state.ServicePreference{
+		pref := models.ServicePreference{
 			ServiceName: serviceName,
 			Preference:  "local",
 			ProjectPath: projectDir,

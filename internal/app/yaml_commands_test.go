@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 func TestIsHostProcessAlive_NonExistent(t *testing.T) {
@@ -24,10 +24,10 @@ func TestCheckYAML_Empty(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Project:  config.Project{Name: "test"},
-			Services: map[string]config.Service{},
-			Infra:    map[string]config.InfraEntry{},
+		Deps: &models.Deps{
+			Project:  models.Project{Name: "test"},
+			Services: map[string]models.Service{},
+			Infra:    map[string]models.InfraEntry{},
 		},
 	}
 	if err := CheckYAML(proj); err != nil {
@@ -39,11 +39,11 @@ func TestCheckYAML_WithValidInfra(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Project:  config.Project{Name: "test"},
-			Services: map[string]config.Service{},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Image: "redis:7"}},
+		Deps: &models.Deps{
+			Project:  models.Project{Name: "test"},
+			Services: map[string]models.Service{},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Image: "redis:7"}},
 			},
 		},
 	}
@@ -56,12 +56,12 @@ func TestCheckYAML_UnknownDependsOn(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Project: config.Project{Name: "test"},
-			Services: map[string]config.Service{
+		Deps: &models.Deps{
+			Project: models.Project{Name: "test"},
+			Services: map[string]models.Service{
 				"api": {DependsOn: []string{"missing-dep"}},
 			},
-			Infra: map[string]config.InfraEntry{},
+			Infra: map[string]models.InfraEntry{},
 		},
 	}
 	// Unresolved dep is a real issue: CheckYAML should return a non-nil
@@ -78,7 +78,7 @@ func TestRestartYAML_Empty(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps:        &config.Deps{},
+		Deps:        &models.Deps{},
 	}
 	uc := &RestartUseCase{}
 	if err := uc.RestartYAML(context.Background(), proj, RestartOptions{}); err != nil {
@@ -90,9 +90,9 @@ func TestLogsYAML_NoServices(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
 		ProjectName: "test",
-		Deps: &config.Deps{
-			Services: map[string]config.Service{},
-			Infra:    map[string]config.InfraEntry{},
+		Deps: &models.Deps{
+			Services: map[string]models.Service{},
+			Infra:    map[string]models.InfraEntry{},
 		},
 	}
 	if err := LogsYAML(context.Background(), proj, nil, false, 0); err != nil {

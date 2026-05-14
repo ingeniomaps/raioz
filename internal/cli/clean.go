@@ -29,7 +29,7 @@ var cleanCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		cleanUseCase := app.NewCleanUseCase(deps)
 
 		return cleanUseCase.Execute(ctx, app.CleanOptions{

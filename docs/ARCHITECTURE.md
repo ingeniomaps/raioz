@@ -54,6 +54,59 @@ raioz up
   └─ Stream multiplexed logs (foreground mode)
 ```
 
+## CLI thin-viz exception
+
+Most CLI commands wire `cli/ → app/<usecase>/ → domain/interfaces/`.
+Some files in `internal/cli/` legitimately skip the use-case layer:
+they're either pure visualization (read state, format, print) or
+non-command scaffolding (root, subcommand parents, i18n descriptors).
+
+A CLI file may bypass `internal/app/` when ALL of these hold:
+
+1. **No side effects** beyond stdout/stderr (no docker calls, no
+   file writes beyond user config like `raioz lang`, no network
+   work).
+2. **Reads state via existing ports or pure helpers**; no new port
+   is introduced specifically for this command.
+3. **Behavior is a pure function** of CLI inputs plus already-port-
+   reachable state.
+
+Today's exempt list, with the reason each entry is exempt:
+
+| File | Reason |
+|---|---|
+| `root.go` | Root cobra setup; registers subcommands, no business logic. |
+| `config_path.go` | Path resolution utility shared across files. |
+| `zzz_i18n_descriptions.go` | i18n bootstrap; sets command Short strings. |
+| `version.go` | Prints the version string baked in via ldflags. |
+| `lang.go` | Reads/writes the user-level language preference. |
+| `migrate.go`, `yaml.go` | Parent commands; subcommands carry the logic. |
+| `migrate_yaml.go` | Legacy `.raioz.json → raioz.yaml` conversion. **Tech debt**: should grow a use case when next feature lands. |
+| `yaml_lint.go` | `raioz yaml lint`; analyzes YAML and prints. Pure viz. |
+| `graph.go` | `raioz graph`; renders the dependency graph as ASCII/DOT/JSON. Pure viz. |
+| `wiring.go` | Production wiring of `*app.Dependencies` (ADR-018). Has no command. |
+
+`scripts/lint-cli-layering.sh` (wired into `make check-cli-layering`)
+enforces this list. Adding a new exempt file requires editing the
+script AND this section AND ADR-017.
+
+ADR-017 is the canonical reference for this policy.
+
+## Audit log rotation
+
+raioz appends every user-facing event (dep promotion, dev override,
+drift, …) to `audit.log` under `$RAIOZ_HOME` (or its fallback,
+`~/.raioz/`). The file is JSONL, one event per line.
+
+`internal/audit/audit.go` rotates at a 10 MiB soft cap: the next
+`Log()` call after the file crosses 10 MiB renames it to
+`audit.log.1` (overwriting any prior `.1`) and starts the file
+fresh. Only one rotated file is kept — older history is dropped
+intentionally to bound disk usage on long-running developer
+machines. The cap is a constant (`audit.maxAuditSize`); making it
+user-configurable is a deliberate follow-up if the policy ever
+bites. See ADR-020.
+
 ## Layer map
 
 ```
@@ -197,6 +250,17 @@ Only stores what Docker can't tell us:
 - Ignored services
 
 Docker is the source of truth for container running state.
+
+### observability — logging / audit / notify / output
+
+Four packages, four jobs: structured stderr logs
+(`internal/logging`), append-only history
+(`internal/audit/audit.log`), desktop interrupts
+(`internal/notify`), and user-facing terminal output
+(`internal/output`). The channel-selection rules, event matrix,
+and a worked end-to-end example live in
+[OBSERVABILITY.md](OBSERVABILITY.md) — consult it before adding a
+new event type.
 
 ## Dependency injection
 

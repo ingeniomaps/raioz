@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
-	"raioz/internal/detect"
+	"raioz/internal/domain/models"
 )
 
 // --- streamAllLogs -----------------------------------------------------------
@@ -17,19 +16,19 @@ func TestStreamAllLogsCancelledImmediately(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"api": {},
 		},
-		Infra: map[string]config.InfraEntry{
-			"db": {Inline: &config.Infra{Image: "postgres"}},
+		Infra: map[string]models.InfraEntry{
+			"db": {Inline: &models.Infra{Image: "postgres"}},
 		},
 	}
 
 	detections := DetectionMap{
-		"api": {Runtime: detect.RuntimeGo},
-		"db":  {Runtime: detect.RuntimeImage},
+		"api": {Runtime: models.RuntimeGo},
+		"db":  {Runtime: models.RuntimeImage},
 	}
 
 	// Should not block since ctx is already cancelled
@@ -40,10 +39,10 @@ func TestStreamAllLogsNoServices(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	deps := &config.Deps{
-		Project:  config.Project{Name: "p"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "p"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
 	}
 
 	streamAllLogs(ctx, deps, DetectionMap{})
@@ -53,20 +52,20 @@ func TestStreamAllLogsSkipsDockerServices(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "p"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "p"},
+		Services: map[string]models.Service{
 			"compose-svc":    {},
 			"dockerfile-svc": {},
 			"image-svc":      {},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	detections := DetectionMap{
-		"compose-svc":    {Runtime: detect.RuntimeCompose},
-		"dockerfile-svc": {Runtime: detect.RuntimeDockerfile},
-		"image-svc":      {Runtime: detect.RuntimeImage},
+		"compose-svc":    {Runtime: models.RuntimeCompose},
+		"dockerfile-svc": {Runtime: models.RuntimeDockerfile},
+		"image-svc":      {Runtime: models.RuntimeImage},
 	}
 
 	// Docker-managed services should be skipped for host log tailing

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // setupLocalRemote creates a bare repository with one commit on `branch` and
@@ -25,7 +25,7 @@ func TestEnsureReadonlyRepo_Clone(t *testing.T) {
 	url := setupLocalRemote(t, "main")
 	baseDir := t.TempDir()
 
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "git",
 		Repo:   url,
 		Branch: "main",
@@ -47,7 +47,7 @@ func TestEnsureReadonlyRepo_AlreadyExistsSkipsUpdate(t *testing.T) {
 	target := filepath.Join(baseDir, "svc")
 	initLocalRepo(t, target, "main")
 
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "git",
 		Repo:   "https://github.com/never/called.git",
 		Branch: "main",
@@ -64,11 +64,11 @@ func TestEnsureReadonlyRepo_InvalidInputs(t *testing.T) {
 	skipIfNoGit(t)
 	tests := []struct {
 		name string
-		src  config.SourceConfig
+		src  models.SourceConfig
 	}{
 		{
 			name: "invalid branch",
-			src: config.SourceConfig{
+			src: models.SourceConfig{
 				Kind:   "git",
 				Repo:   "https://github.com/example/repo.git",
 				Branch: "main; rm -rf /",
@@ -78,7 +78,7 @@ func TestEnsureReadonlyRepo_InvalidInputs(t *testing.T) {
 		},
 		{
 			name: "invalid repo",
-			src: config.SourceConfig{
+			src: models.SourceConfig{
 				Kind:   "git",
 				Repo:   "https://github.com/example/repo.git | cat",
 				Branch: "main",
@@ -106,7 +106,7 @@ func TestEnsureEditableRepo_Clone(t *testing.T) {
 	url := setupLocalRemote(t, "main")
 	baseDir := t.TempDir()
 
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "git",
 		Repo:   url,
 		Branch: "main",
@@ -123,7 +123,7 @@ func TestEnsureEditableRepo_Clone(t *testing.T) {
 
 func TestEnsureEditableRepo_InvalidInputs(t *testing.T) {
 	skipIfNoGit(t)
-	src := config.SourceConfig{
+	src := models.SourceConfig{
 		Kind:   "git",
 		Repo:   "https://github.com/example/repo.git",
 		Branch: "main; rm -rf",

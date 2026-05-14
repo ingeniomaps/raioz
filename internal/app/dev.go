@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
@@ -76,7 +76,7 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 }
 
 // listOverrides shows all active dev overrides.
-func (uc *DevUseCase) listOverrides(localState *state.LocalState) error {
+func (uc *DevUseCase) listOverrides(localState *models.LocalState) error {
 	if len(localState.DevOverrides) == 0 {
 		output.PrintInfo("No active dev overrides")
 		return nil
@@ -96,9 +96,9 @@ func (uc *DevUseCase) listOverrides(localState *state.LocalState) error {
 func (uc *DevUseCase) promote(
 	ctx context.Context,
 	name, localPath string,
-	cfgDeps *config.Deps,
+	cfgDeps *models.Deps,
 	projectDir string,
-	localState *state.LocalState,
+	localState *models.LocalState,
 ) error {
 	// Validate dependency exists
 	entry, ok := cfgDeps.Infra[name]
@@ -135,7 +135,7 @@ func (uc *DevUseCase) promote(
 
 	// Detect runtime of the local path
 	detection := detect.Detect(absPath)
-	if detection.Runtime == detect.RuntimeUnknown {
+	if detection.Runtime == models.RuntimeUnknown {
 		return errors.RuntimeNotDetected(name, absPath)
 	}
 
@@ -184,9 +184,9 @@ func (uc *DevUseCase) promote(
 func (uc *DevUseCase) resetOverride(
 	ctx context.Context,
 	name string,
-	cfgDeps *config.Deps,
+	cfgDeps *models.Deps,
 	projectDir string,
-	localState *state.LocalState,
+	localState *models.LocalState,
 ) error {
 	override, ok := localState.GetDevOverride(name)
 	if !ok {
@@ -241,7 +241,7 @@ func (uc *DevUseCase) resetOverride(
 	return nil
 }
 
-func infraNames(deps *config.Deps) string {
+func infraNames(deps *models.Deps) string {
 	names := ""
 	for name := range deps.Infra {
 		if names != "" {
@@ -252,7 +252,7 @@ func infraNames(deps *config.Deps) string {
 	return names
 }
 
-func infraPorts(entry config.InfraEntry) []string {
+func infraPorts(entry models.InfraEntry) []string {
 	if entry.Inline != nil {
 		return entry.Inline.Ports
 	}

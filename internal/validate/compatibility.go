@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // CompatibilityIssue represents a compatibility issue between services
@@ -17,7 +17,7 @@ type CompatibilityIssue struct {
 }
 
 // ValidateCompatibility validates service compatibility and transitive dependencies
-func ValidateCompatibility(deps *config.Deps) ([]CompatibilityIssue, error) {
+func ValidateCompatibility(deps *models.Deps) ([]CompatibilityIssue, error) {
 	var issues []CompatibilityIssue
 
 	// Validate transitive dependencies
@@ -38,7 +38,7 @@ func ValidateCompatibility(deps *config.Deps) ([]CompatibilityIssue, error) {
 }
 
 // validateTransitiveDependencies checks that all transitive dependencies are defined
-func validateTransitiveDependencies(deps *config.Deps) ([]CompatibilityIssue, error) {
+func validateTransitiveDependencies(deps *models.Deps) ([]CompatibilityIssue, error) {
 	var issues []CompatibilityIssue
 
 	// Collect all defined service and infra names
@@ -124,7 +124,7 @@ func validateTransitiveDependencies(deps *config.Deps) ([]CompatibilityIssue, er
 }
 
 // validateVersionCompatibility checks version compatibility for services that communicate
-func validateVersionCompatibility(deps *config.Deps) ([]CompatibilityIssue, error) {
+func validateVersionCompatibility(deps *models.Deps) ([]CompatibilityIssue, error) {
 	var issues []CompatibilityIssue
 
 	// Build communication graph (services that depend on each other)
@@ -134,7 +134,7 @@ func validateVersionCompatibility(deps *config.Deps) ([]CompatibilityIssue, erro
 	}
 
 	// Extract version information from tags/branches
-	getVersion := func(svc config.Service) string {
+	getVersion := func(svc models.Service) string {
 		switch svc.Source.Kind {
 		case "git":
 			return svc.Source.Branch // Use branch as version indicator
@@ -240,7 +240,7 @@ func FormatCompatibilityIssues(issues []CompatibilityIssue) string {
 	}
 
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("⚠️  Found %d compatibility issue(s):\n\n", len(issues)))
+	fmt.Fprintf(&result, "⚠️  Found %d compatibility issue(s):\n\n", len(issues))
 
 	// Group by severity
 	errors := []CompatibilityIssue{}
@@ -258,9 +258,9 @@ func FormatCompatibilityIssues(issues []CompatibilityIssue) string {
 	if len(errors) > 0 {
 		result.WriteString("🔴 Errors:\n")
 		for _, issue := range errors {
-			result.WriteString(fmt.Sprintf("  • [%s] %s\n", issue.Service, issue.Description))
+			fmt.Fprintf(&result, "  • [%s] %s\n", issue.Service, issue.Description)
 			if issue.Suggestion != "" {
-				result.WriteString(fmt.Sprintf("    → %s\n", issue.Suggestion))
+				fmt.Fprintf(&result, "    → %s\n", issue.Suggestion)
 			}
 		}
 		result.WriteString("\n")
@@ -270,9 +270,9 @@ func FormatCompatibilityIssues(issues []CompatibilityIssue) string {
 	if len(warnings) > 0 {
 		result.WriteString("🟡 Warnings:\n")
 		for _, issue := range warnings {
-			result.WriteString(fmt.Sprintf("  • [%s] %s\n", issue.Service, issue.Description))
+			fmt.Fprintf(&result, "  • [%s] %s\n", issue.Service, issue.Description)
 			if issue.Suggestion != "" {
-				result.WriteString(fmt.Sprintf("    → %s\n", issue.Suggestion))
+				fmt.Fprintf(&result, "    → %s\n", issue.Suggestion)
 			}
 		}
 		result.WriteString("\n")

@@ -25,7 +25,7 @@ var dashboardCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		cfgPath := ResolveConfigPath(dashboardConfigPath)
 
 		// Try YAML mode first

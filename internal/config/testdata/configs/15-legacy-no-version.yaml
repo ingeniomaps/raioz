@@ -1,0 +1,11 @@
+# 15-legacy-no-version — config without `version:` field.
+#
+# Before issue 022 the field didn't exist. Existing user configs must
+# keep parsing — the loader emits a warning (via the higher-level
+# bridge), not an error. This fixture locks the "no version is still
+# valid" guarantee until a future major release removes it.
+
+project: pre-v1
+services:
+  api:
+    path: ./api

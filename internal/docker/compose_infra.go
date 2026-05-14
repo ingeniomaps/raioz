@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/env"
 	"raioz/internal/workspace"
 )
@@ -16,7 +16,7 @@ import (
 // Returns the list of service names from external compose files.
 func addInfraToCompose(
 	compose map[string]any,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *workspace.Workspace,
 	projectDir, networkName string,
 	infraVolumeMap map[string]string,
@@ -60,8 +60,8 @@ func addInfraToCompose(
 // buildInlineInfraConfig builds the compose config for a single inline infra entry.
 func buildInlineInfraConfig(
 	name string,
-	infra config.Infra,
-	deps *config.Deps,
+	infra models.Infra,
+	deps *models.Deps,
 	ws *workspace.Workspace,
 	projectDir, networkName, workspaceName string,
 	hasExplicitWorkspace bool,
@@ -171,8 +171,8 @@ func buildInlineInfraConfig(
 func resolveInfraEnv(
 	infraConfig map[string]any,
 	name string,
-	infra config.Infra,
-	deps *config.Deps,
+	infra models.Infra,
+	deps *models.Deps,
 	ws *workspace.Workspace,
 	projectDir string,
 ) (map[string]string, bool, error) {
@@ -228,7 +228,7 @@ func resolveInfraEnv(
 }
 
 // writeCombinedEnvFile creates a combined .env file for Docker Compose from all infra and project variables.
-func writeCombinedEnvFile(deps *config.Deps, ws *workspace.Workspace, projectDir string) error {
+func writeCombinedEnvFile(deps *models.Deps, ws *workspace.Workspace, projectDir string) error {
 	allCombinedVars := make(map[string]string)
 
 	// Collect variables from inline infra
@@ -327,8 +327,8 @@ func writeCombinedEnvFile(deps *config.Deps, ws *workspace.Workspace, projectDir
 func collectInfraEnvFromFiles(
 	target map[string]string,
 	name string,
-	infra config.Infra,
-	deps *config.Deps,
+	infra models.Infra,
+	deps *models.Deps,
 	ws *workspace.Workspace,
 	projectDir string,
 ) {

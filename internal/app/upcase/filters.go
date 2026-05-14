@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/ignore"
@@ -12,7 +13,7 @@ import (
 )
 
 // applyFilters handles profile filtering, feature flags, mocks, ignore list, and --only selection
-func (uc *UseCase) applyFilters(deps *config.Deps, profile string, only []string) (*config.Deps, error) {
+func (uc *UseCase) applyFilters(deps *models.Deps, profile string, only []string) (*models.Deps, error) {
 	// Load environment variables for feature flags
 	envVars := make(map[string]string)
 	for _, key := range os.Environ() {

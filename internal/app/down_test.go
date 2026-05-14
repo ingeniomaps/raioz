@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
@@ -41,22 +41,26 @@ func newTestDownDeps(tmpDir string) (*Dependencies, *testDownMocks) {
 	statePath := filepath.Join(tmpDir, "state.json")
 	composePath := filepath.Join(tmpDir, "docker-compose.yml")
 
-	defaultDeps := &config.Deps{
-		Project: config.Project{Name: "test-project"},
-		Network: config.NetworkConfig{Name: "test-network"},
-		Services: map[string]config.Service{
-			"api": {Source: config.SourceConfig{Kind: "docker"}},
+	defaultDeps := &models.Deps{
+		Project: models.Project{Name: "test-project"},
+		Network: models.NetworkConfig{Name: "test-network"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "docker"}},
 		},
 	}
 
 	m := &testDownMocks{
 		configLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 				return defaultDeps, nil, nil
 			},
 		},
 		validator: &mocks.MockValidator{},
 		dockerRunner: &mocks.MockDockerRunner{
+			// ADR-011 Phase 2: down now uses IsProjectActive for liveness.
+			IsProjectActiveFunc: func(ctx context.Context, w, p string) (bool, error) {
+				return true, nil
+			},
 			DownWithContextFunc: func(ctx context.Context, cp string) error {
 				return nil
 			},
@@ -98,7 +102,7 @@ func newTestDownDeps(tmpDir string) (*Dependencies, *testDownMocks) {
 			ExistsFunc: func(w *workspace.Workspace) bool {
 				return true
 			},
-			LoadFunc: func(w *workspace.Workspace) (*config.Deps, error) {
+			LoadFunc: func(w *workspace.Workspace) (*models.Deps, error) {
 				return defaultDeps, nil
 			},
 			RemoveProjectFunc: func(projectName string) error {
@@ -131,6 +135,10 @@ func newTestDownDeps(tmpDir string) (*Dependencies, *testDownMocks) {
 		m.lockMgr,
 		m.hostRunner,
 		m.envMgr,
+		nil, // ProxyManager — not exercised by this test
+		nil, // DiscoveryManager
+		nil, // SnapshotManager
+		nil, // TunnelManager
 	)
 
 	return deps, m
@@ -141,7 +149,7 @@ func TestDownUseCase_Execute_ProjectNotFound(t *testing.T) {
 	deps, m := newTestDownDeps(tmpDir)
 
 	// ConfigLoader returns nil deps, and no project name provided
-	m.configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
+	m.configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return nil, nil, nil
 	}
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"sort"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -92,7 +92,7 @@ func sortedKeys(set map[string]struct{}) []string {
 // the cwd cleanly.
 func DownConflictingProjects(
 	ctx context.Context,
-	cwdDeps *config.Deps,
+	cwdDeps *models.Deps,
 	baseDir string,
 ) ([]string, error) {
 	if cwdDeps == nil {

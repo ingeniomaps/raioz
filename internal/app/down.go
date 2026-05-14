@@ -107,9 +107,23 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	// Stop host processes first (before checking state)
 	hostProcesses := uc.stopHostProcesses(ctx, ws, opts)
 
-	// Check if state exists
-	if !uc.deps.StateManager.Exists(ws) {
-		logging.WarnWithContext(ctx, "Project state not found", "workspace", wsRoot)
+	// ADR-011 Phase 2: liveness via Docker labels. "No state" used to
+	// mean "nothing was up here at all"; now it means "no raioz-managed
+	// containers in Docker for this project". Same outcome from the
+	// user's perspective (down has nothing to do besides host
+	// processes).
+	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
+	if err != nil {
+		logging.ErrorWithContext(ctx, "Failed to probe project liveness", "workspace", wsRoot, "error", err.Error())
+		return errors.New(
+			errors.ErrCodeStateLoadError,
+			i18n.T("error.state_load"),
+		).WithSuggestion(
+			i18n.T("error.state_load_suggestion"),
+		).WithContext("workspace", wsRoot).WithError(err)
+	}
+	if !active {
+		logging.WarnWithContext(ctx, "Project not running", "workspace", wsRoot)
 		if len(hostProcesses) > 0 {
 			output.PrintInfo(i18n.T("output.no_state_host_stopped"))
 			return nil
@@ -118,21 +132,16 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		return nil
 	}
 
-	// Load state
-	logging.DebugWithContext(ctx, "Loading project state", "workspace", wsRoot)
-	stateDeps, err := uc.deps.StateManager.Load(ws)
-	if err != nil {
-		logging.ErrorWithContext(ctx, "Failed to load project state", "workspace", wsRoot, "error", err.Error())
-		return errors.New(
-			errors.ErrCodeStateLoadError,
-			i18n.T("error.state_load"),
-		).WithSuggestion(
-			i18n.T("error.state_load_suggestion"),
-		).WithContext("workspace", wsRoot).WithError(err)
+	// ADR-011 Phase 2: stateDeps used to provide Services/Infra for the
+	// down sweep. Use the live config (already loaded above as `deps`).
+	// Down sweeps by Docker labels anyway, so the precise services map
+	// is only used for logging; degrade gracefully when deps is nil.
+	stateDeps := deps
+	if stateDeps != nil {
+		logging.InfoWithContext(ctx, "Project state loaded",
+			"project", stateDeps.Project.Name,
+			"services_count", len(stateDeps.Services))
 	}
-	logging.InfoWithContext(ctx, "Project state loaded",
-		"project", stateDeps.Project.Name,
-		"services_count", len(stateDeps.Services))
 
 	composePath := uc.deps.Workspace.GetComposePath(ws)
 

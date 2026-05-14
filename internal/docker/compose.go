@@ -5,14 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/env"
 	"raioz/internal/workspace"
 
 	"gopkg.in/yaml.v3"
 )
 
-func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir string) (string, []string, error) {
+func GenerateCompose(deps *models.Deps, ws *workspace.Workspace, projectDir string) (string, []string, error) {
 	// Validate dependency cycles before generating compose
 	if err := ValidateDependencyCycle(deps); err != nil {
 		return "", nil, fmt.Errorf("dependency validation failed: %w", err)
@@ -76,7 +76,7 @@ func GenerateCompose(deps *config.Deps, ws *workspace.Workspace, projectDir stri
 }
 
 // buildInfraVolumeMap builds the volume name mapping for infra entries.
-func buildInfraVolumeMap(deps *config.Deps, projectDir, workspaceName string) (map[string]string, error) {
+func buildInfraVolumeMap(deps *models.Deps, projectDir, workspaceName string) (map[string]string, error) {
 	infraVolumeMap := make(map[string]string)
 	for _, entry := range deps.Infra {
 		if entry.Inline == nil {
@@ -106,7 +106,7 @@ func buildInfraVolumeMap(deps *config.Deps, projectDir, workspaceName string) (m
 }
 
 // buildServiceVolumeMap builds the volume name mapping for service entries.
-func buildServiceVolumeMap(deps *config.Deps, projectDir string) (map[string]string, error) {
+func buildServiceVolumeMap(deps *models.Deps, projectDir string) (map[string]string, error) {
 	serviceVolumeMap := make(map[string]string)
 	for _, svc := range deps.Services {
 		if svc.Docker == nil {
@@ -154,7 +154,7 @@ func collectNormalizedVolumes(infraVolumeMap, serviceVolumeMap map[string]string
 }
 
 // buildComposeBase creates the base compose map with networks and volumes.
-func buildComposeBase(deps *config.Deps, networkName string, normalizedVolumes []string) map[string]any {
+func buildComposeBase(deps *models.Deps, networkName string, normalizedVolumes []string) map[string]any {
 	networkSubnet := deps.Network.GetSubnet()
 
 	// Check if any service or infra has IP configured

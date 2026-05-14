@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 // executeLegacy runs CI for legacy JSON config.
@@ -95,7 +95,7 @@ func (uc *CIUseCase) executeLegacy(
 
 // executeSetup performs the setup phase of CI command (legacy mode).
 func (uc *CIUseCase) executeSetup(
-	deps *config.Deps,
+	deps *models.Deps,
 	opts CIOptions,
 	result *CIResult,
 ) error {
@@ -261,14 +261,12 @@ func (uc *CIUseCase) executeSetup(
 			Status: "passed",
 		})
 
-		if err := uc.deps.StateManager.Save(ws, deps); err != nil {
-			result.Warnings = append(
-				result.Warnings,
-				fmt.Sprintf("Failed to save state: %v", err),
-			)
-		} else {
-			result.StateFile = uc.deps.Workspace.GetStatePath(ws)
-		}
+		// ADR-011 Phase 1: legacy state snapshot no longer written.
+		// result.StateFile is left empty; CI consumers should rely on
+		// Docker label sweeps instead. Sub-issue 031a tracks the
+		// follow-up where result.StateFile may be removed entirely.
+		_ = ws
+		_ = deps
 	} else {
 		result.Validations = append(result.Validations, ValidationResult{
 			Check:   "start_services",

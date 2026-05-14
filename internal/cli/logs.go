@@ -26,7 +26,7 @@ var logsCmd = &cobra.Command{
 
 		configPath = ResolveConfigPath(configPath)
 
-		deps := app.NewDependencies()
+		deps := newDependencies()
 		logsUseCase := app.NewLogsUseCase(deps)
 
 		return logsUseCase.Execute(ctx, app.LogsOptions{

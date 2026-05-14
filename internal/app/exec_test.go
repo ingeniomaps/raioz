@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -27,11 +27,18 @@ func newTestDepsForExec(t *testing.T) (*Dependencies, *mocks.MockConfigLoader, *
 	}
 	stateMgr := &mocks.MockStateManager{
 		ExistsFunc: func(ws *workspace.Workspace) bool { return true },
-		LoadFunc: func(ws *workspace.Workspace) (*config.Deps, error) {
-			return &config.Deps{Project: config.Project{Name: "test-project"}}, nil
+		LoadFunc: func(ws *workspace.Workspace) (*models.Deps, error) {
+			return &models.Deps{Project: models.Project{Name: "test-project"}}, nil
 		},
 	}
-	dockerRunner := &mocks.MockDockerRunner{}
+	// ADR-011 Phase 2: liveness probe replaced StateManager.Exists. Default
+	// the mock to "active" so existing tests keep their semantics; specific
+	// tests can override per-case.
+	dockerRunner := &mocks.MockDockerRunner{
+		IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
+			return true, nil
+		},
+	}
 	hostRunner := &mocks.MockHostRunner{}
 
 	deps := &Dependencies{
@@ -52,7 +59,7 @@ func newTestDepsForExec(t *testing.T) (*Dependencies, *mocks.MockConfigLoader, *
 func TestExecUseCase_Execute_NoConfig(t *testing.T) {
 	deps, configLoader, _, _, _, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return nil, nil, fmt.Errorf("not found")
 	}
 
@@ -69,8 +76,8 @@ func TestExecUseCase_Execute_NoConfig(t *testing.T) {
 func TestExecUseCase_Execute_WorkspaceResolveFails(t *testing.T) {
 	deps, configLoader, wsMgr, _, _, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	wsMgr.ResolveFunc = func(projectName string) (*workspace.Workspace, error) {
 		return nil, fmt.Errorf("workspace not found")
@@ -89,8 +96,8 @@ func TestExecUseCase_Execute_WorkspaceResolveFails(t *testing.T) {
 func TestExecUseCase_Execute_NotRunning(t *testing.T) {
 	deps, configLoader, _, stateMgr, _, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	stateMgr.ExistsFunc = func(ws *workspace.Workspace) bool { return false }
 
@@ -107,10 +114,10 @@ func TestExecUseCase_Execute_NotRunning(t *testing.T) {
 func TestExecUseCase_Execute_StateLoadFails(t *testing.T) {
 	deps, configLoader, _, stateMgr, _, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*config.Deps, error) {
+	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
 		return nil, fmt.Errorf("corrupt state")
 	}
 
@@ -127,8 +134,8 @@ func TestExecUseCase_Execute_StateLoadFails(t *testing.T) {
 func TestExecUseCase_Execute_HostService(t *testing.T) {
 	deps, configLoader, _, _, _, hostRunner := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	hostRunner.LoadProcessesStateFunc = func(ws *workspace.Workspace) (map[string]*host.ProcessInfo, error) {
 		return map[string]*host.ProcessInfo{
@@ -149,8 +156,8 @@ func TestExecUseCase_Execute_HostService(t *testing.T) {
 func TestExecUseCase_Execute_ServiceNotFound(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"web", "db"}, nil
@@ -169,8 +176,8 @@ func TestExecUseCase_Execute_ServiceNotFound(t *testing.T) {
 func TestExecUseCase_Execute_GetServicesFails(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return nil, fmt.Errorf("docker error")
@@ -189,8 +196,8 @@ func TestExecUseCase_Execute_GetServicesFails(t *testing.T) {
 func TestExecUseCase_Execute_DefaultCommand(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api", "web"}, nil
@@ -218,8 +225,8 @@ func TestExecUseCase_Execute_DefaultCommand(t *testing.T) {
 func TestExecUseCase_Execute_CustomCommand(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"postgres"}, nil
@@ -259,8 +266,8 @@ func TestExecUseCase_Execute_CustomCommand(t *testing.T) {
 func TestExecUseCase_Execute_NonInteractive(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api"}, nil
@@ -290,8 +297,8 @@ func TestExecUseCase_Execute_NonInteractive(t *testing.T) {
 func TestExecUseCase_Execute_WithProjectName(t *testing.T) {
 	deps, configLoader, wsMgr, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "my-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "my-project"}}, nil, nil
 	}
 
 	var resolvedWorkspace string
@@ -323,18 +330,20 @@ func TestExecUseCase_Execute_WithProjectName(t *testing.T) {
 }
 
 func TestExecUseCase_Execute_ServiceInProjectCompose(t *testing.T) {
-	deps, configLoader, _, stateMgr, dockerRunner, _ := newTestDepsForExec(t)
+	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 
+	// ADR-011 Phase 2: ProjectComposePath now lives in LocalState. Write
+	// a fake LocalState in a tempdir and point opts.ConfigPath at it so
+	// loadProjectComposePathFromLocalState picks it up.
 	projectComposePath := "/path/to/project/docker-compose.yml"
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*config.Deps, error) {
-		return &config.Deps{
-			Project:            config.Project{Name: "test-project"},
-			ProjectComposePath: projectComposePath,
-		}, nil
+	projectDir := t.TempDir()
+	configPath := projectDir + "/raioz.yaml"
+	if err := writeFakeLocalStateForTest(projectDir, projectComposePath); err != nil {
+		t.Fatalf("write fake LocalState: %v", err)
 	}
 
 	// Service NOT in generated compose
@@ -357,8 +366,9 @@ func TestExecUseCase_Execute_ServiceInProjectCompose(t *testing.T) {
 
 	uc := NewExecUseCase(deps)
 	err := uc.Execute(context.Background(), ExecOptions{
-		Service: "frontend",
-		Command: []string{"sh"},
+		Service:    "frontend",
+		Command:    []string{"sh"},
+		ConfigPath: configPath,
 	})
 
 	if err != nil {
@@ -372,8 +382,8 @@ func TestExecUseCase_Execute_ServiceInProjectCompose(t *testing.T) {
 func TestExecUseCase_Execute_NilContext(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner, _ := newTestDepsForExec(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test-project"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test-project"}}, nil, nil
 	}
 	dockerRunner.GetAvailableServicesWithContextFunc = func(ctx context.Context, composePath string) ([]string, error) {
 		return []string{"api"}, nil

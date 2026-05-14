@@ -6,16 +6,64 @@ import (
 	"path/filepath"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/state"
 )
+
+// ADR-023 regression guard: a clean down must remove raioz.root.json.
+func TestDownUseCase_downOrchestrated_DeletesRootConfig(t *testing.T) {
+	initI18nForTest(t)
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "raioz.yaml")
+	_ = os.WriteFile(configPath, []byte("project: test"), 0o644)
+
+	// Seed a workspace root with a populated raioz.root.json. The
+	// mock workspace manager returns this same workspace so the use
+	// case operates on it directly.
+	wsRoot := filepath.Join(tmpDir, "ws-root")
+	if err := os.MkdirAll(wsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir ws root: %v", err)
+	}
+	rootPath := filepath.Join(wsRoot, "raioz.root.json")
+	if err := os.WriteFile(rootPath, []byte(`{"project":"test"}`), 0o644); err != nil {
+		t.Fatalf("seed root.json: %v", err)
+	}
+
+	deps := newFullMockDeps()
+	deps.ConfigLoader = &mocks.MockConfigLoader{
+		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				SchemaVersion: "2.0",
+				Project:       models.Project{Name: "test"},
+				Network:       models.NetworkConfig{Name: "testnet"},
+				Services:      map[string]models.Service{},
+				Infra:         map[string]models.InfraEntry{},
+			}, nil, nil
+		},
+	}
+	deps.Workspace = &mocks.MockWorkspaceManager{
+		ResolveFunc: func(name string) (*interfaces.Workspace, error) {
+			return &interfaces.Workspace{Root: wsRoot}, nil
+		},
+	}
+
+	uc := NewDownUseCase(deps)
+	if err := uc.downOrchestrated(context.Background(), DownOptions{ConfigPath: configPath}); err != nil {
+		t.Fatalf("downOrchestrated() error = %v", err)
+	}
+
+	if _, err := os.Stat(rootPath); !os.IsNotExist(err) {
+		t.Errorf("raioz.root.json still present after down: %v", err)
+	}
+}
 
 func TestDownUseCase_downOrchestrated_NoConfig(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return nil, nil, nil
 		},
 	}
@@ -30,10 +78,10 @@ func TestDownUseCase_downOrchestrated_LegacySchema(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(configPath string) (*config.Deps, []string, error) {
-			return &config.Deps{
+		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
+			return &models.Deps{
 				SchemaVersion: "1.0",
-				Project:       config.Project{Name: "test"},
+				Project:       models.Project{Name: "test"},
 			}, nil, nil
 		},
 	}
@@ -51,28 +99,28 @@ func TestDownUseCase_downOrchestrated_YAMLProject(t *testing.T) {
 	_ = os.WriteFile(configPath, []byte("project: test"), 0644)
 
 	// Create a local state with a PID
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		HostPIDs: map[string]int{"api": 99999999}, // non-existent PID
 	}
 	_ = state.SaveLocalState(tmpDir, ls)
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(cp string) (*config.Deps, []string, error) {
-			return &config.Deps{
+		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
+			return &models.Deps{
 				SchemaVersion: "2.0",
-				Project:       config.Project{Name: "test"},
-				Network:       config.NetworkConfig{Name: "testnet"},
-				Services: map[string]config.Service{
+				Project:       models.Project{Name: "test"},
+				Network:       models.NetworkConfig{Name: "testnet"},
+				Services: map[string]models.Service{
 					"api": {
-						Source: config.SourceConfig{Path: tmpDir},
-						Commands: &config.ServiceCommands{
+						Source: models.SourceConfig{Path: tmpDir},
+						Commands: &models.ServiceCommands{
 							Down: "echo stopping",
 						},
 					},
 				},
-				Infra: map[string]config.InfraEntry{
-					"redis": {Inline: &config.Infra{Image: "redis:7"}},
+				Infra: map[string]models.InfraEntry{
+					"redis": {Inline: &models.Infra{Image: "redis:7"}},
 				},
 			}, nil, nil
 		},
@@ -98,13 +146,13 @@ func TestDownUseCase_downOrchestrated_NetworkNotInUse(t *testing.T) {
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(cp string) (*config.Deps, []string, error) {
-			return &config.Deps{
+		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
+			return &models.Deps{
 				SchemaVersion: "2.0",
-				Project:       config.Project{Name: "test"},
-				Network:       config.NetworkConfig{Name: "testnet"},
-				Services:      map[string]config.Service{},
-				Infra:         map[string]config.InfraEntry{},
+				Project:       models.Project{Name: "test"},
+				Network:       models.NetworkConfig{Name: "testnet"},
+				Services:      map[string]models.Service{},
+				Infra:         map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
@@ -128,26 +176,26 @@ func TestDownUseCase_downOrchestrated_ServiceWithStopCommand(t *testing.T) {
 	_ = os.WriteFile(configPath, []byte("project: test"), 0644)
 
 	// Create state with PID for a service that has a stop command
-	ls := &state.LocalState{
+	ls := &models.LocalState{
 		HostPIDs: map[string]int{"api": 99999999},
 	}
 	_ = state.SaveLocalState(tmpDir, ls)
 
 	deps := newFullMockDeps()
 	deps.ConfigLoader = &mocks.MockConfigLoader{
-		LoadDepsFunc: func(cp string) (*config.Deps, []string, error) {
-			return &config.Deps{
+		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
+			return &models.Deps{
 				SchemaVersion: "2.0",
-				Project:       config.Project{Name: "test"},
-				Network:       config.NetworkConfig{},
-				Services: map[string]config.Service{
+				Project:       models.Project{Name: "test"},
+				Network:       models.NetworkConfig{},
+				Services: map[string]models.Service{
 					"api": {
-						Commands: &config.ServiceCommands{
+						Commands: &models.ServiceCommands{
 							Down: "echo stop", // has stop command
 						},
 					},
 				},
-				Infra: map[string]config.InfraEntry{},
+				Infra: map[string]models.InfraEntry{},
 			}, nil, nil
 		},
 	}
@@ -166,8 +214,8 @@ func TestDownUseCase_downOrchestrated_ServiceWithStopCommand(t *testing.T) {
 }
 
 func TestRunCustomStopCommands_NoCommands(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {}, // no commands
 		},
 	}
@@ -177,10 +225,10 @@ func TestRunCustomStopCommands_NoCommands(t *testing.T) {
 
 func TestRunCustomStopCommands_WithCommand(t *testing.T) {
 	tmpDir := t.TempDir()
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {
-				Commands: &config.ServiceCommands{
+				Commands: &models.ServiceCommands{
 					Down: "echo stopped",
 				},
 			},
@@ -191,13 +239,13 @@ func TestRunCustomStopCommands_WithCommand(t *testing.T) {
 
 func TestRunCustomStopCommands_WithEnvFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {
-				Commands: &config.ServiceCommands{
+				Commands: &models.ServiceCommands{
 					Down: "echo stopped",
 				},
-				Env: &config.EnvValue{
+				Env: &models.EnvValue{
 					Files: []string{".env"},
 				},
 			},
@@ -208,24 +256,33 @@ func TestRunCustomStopCommands_WithEnvFiles(t *testing.T) {
 
 func TestRunCustomStopCommands_FailingCommand(t *testing.T) {
 	tmpDir := t.TempDir()
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {
-				Commands: &config.ServiceCommands{
+				Commands: &models.ServiceCommands{
 					Down: "false", // exits with 1
+				},
+			},
+			"web": {
+				Commands: &models.ServiceCommands{
+					Down: "true", // exits with 0
 				},
 			},
 		},
 	}
-	// Should not panic, just log warning
-	runCustomStopCommands(context.Background(), deps, tmpDir)
+	// Issue 044: failures must surface, but every service still gets
+	// a stop attempt (best-effort teardown).
+	failed := runCustomStopCommands(context.Background(), deps, tmpDir)
+	if len(failed) != 1 || failed[0] != "api" {
+		t.Errorf("runCustomStopCommands() failed = %v, want [api]", failed)
+	}
 }
 
 func TestRunCustomStopCommands_EmptyCommand(t *testing.T) {
-	deps := &config.Deps{
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Services: map[string]models.Service{
 			"api": {
-				Commands: &config.ServiceCommands{
+				Commands: &models.ServiceCommands{
 					Down: "   ", // whitespace only
 				},
 			},

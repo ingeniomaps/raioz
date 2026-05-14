@@ -1,0 +1,16 @@
+# 17-dep-compose-fragment — `dependencies.<n>.compose:` (list form).
+#
+# Production-grade deps often come with their own compose fragment
+# (healthchecks, init volumes, custom entrypoints). Raioz adds a
+# network+labels overlay and runs the user's file unmodified.
+# Mutually exclusive with `image:` — this fixture also defends that
+# mutex via the validateSiblingDependency path.
+
+project: dep-compose
+
+dependencies:
+  postgres:
+    compose:
+      - ./infra/postgres/compose.yml
+      - ./infra/postgres/compose.overlay.yml
+    env: .env.postgres

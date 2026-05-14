@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/workspace"
 )
 
@@ -26,7 +26,7 @@ func testWS(t *testing.T) *workspace.Workspace {
 
 func TestResolveProjectEnv_NilProjectEnv(t *testing.T) {
 	ws := testWS(t)
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	result, err := ResolveProjectEnv(ws, deps, t.TempDir())
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -38,10 +38,10 @@ func TestResolveProjectEnv_NilProjectEnv(t *testing.T) {
 
 func TestResolveProjectEnv_ObjectVariables(t *testing.T) {
 	ws := testWS(t)
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "proj",
-			Env: &config.EnvValue{
+			Env: &models.EnvValue{
 				IsObject:  true,
 				Variables: map[string]string{"DB": "postgres://localhost", "PORT": "5432"},
 			},
@@ -71,10 +71,10 @@ func TestResolveProjectEnv_ObjectVariables(t *testing.T) {
 
 func TestResolveProjectEnv_ObjectWithSpacesInValues(t *testing.T) {
 	ws := testWS(t)
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "proj",
-			Env: &config.EnvValue{
+			Env: &models.EnvValue{
 				IsObject:  true,
 				Variables: map[string]string{"DESC": "hello world"},
 			},
@@ -101,10 +101,10 @@ func TestResolveProjectEnv_DotArray(t *testing.T) {
 	envPath := filepath.Join(projectDir, ".env")
 	os.WriteFile(envPath, []byte("KEY=val\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "proj",
-			Env:  &config.EnvValue{Files: []string{"."}},
+			Env:  &models.EnvValue{Files: []string{"."}},
 		},
 	}
 
@@ -121,10 +121,10 @@ func TestResolveProjectEnv_DotArrayNoEnvFile(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := testWS(t)
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "proj",
-			Env:  &config.EnvValue{Files: []string{"."}},
+			Env:  &models.EnvValue{Files: []string{"."}},
 		},
 	}
 
@@ -145,10 +145,10 @@ func TestResolveProjectEnv_ArrayWithNamedFile(t *testing.T) {
 	svcEnvPath := filepath.Join(ws.EnvDir, "services", "myservice.env")
 	os.WriteFile(svcEnvPath, []byte("SVC_KEY=svc_val\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{
+	deps := &models.Deps{
+		Project: models.Project{
 			Name: "proj",
-			Env:  &config.EnvValue{Files: []string{"services/myservice"}},
+			Env:  &models.EnvValue{Files: []string{"services/myservice"}},
 		},
 	}
 
@@ -171,9 +171,9 @@ func TestResolveEnvFiles_IncludesProjectLevel(t *testing.T) {
 	projDir := filepath.Join(ws.EnvDir, "projects")
 	os.WriteFile(filepath.Join(projDir, "myproj.env"), []byte("P=2\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "myproj"},
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Project: models.Project{Name: "myproj"},
+		Env: models.EnvConfig{
 			UseGlobal: true,
 			Files:     []string{"myproj"},
 		},
@@ -204,9 +204,9 @@ func TestResolveEnvFiles_IncludesProjectLevel(t *testing.T) {
 func TestResolveEnvFiles_SkipsServiceFilesInProjectContext(t *testing.T) {
 	ws := testWS(t)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Env: models.EnvConfig{
 			UseGlobal: false,
 			Files:     []string{"services/myservice"}, // should be skipped at project level
 		},
@@ -230,8 +230,8 @@ func TestResolveServiceEnvFile_ProjectRelativePath(t *testing.T) {
 	envFile := filepath.Join(projectDir, ".env.shared")
 	os.WriteFile(envFile, []byte("SHARED=1\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 
 	resolved, err := resolveServiceEnvFile(ws, deps, "api", ".env.shared", "", projectDir)
@@ -245,8 +245,8 @@ func TestResolveServiceEnvFile_ProjectRelativePath(t *testing.T) {
 
 func TestResolveServiceEnvFile_DotReturnsProjectEnvPath(t *testing.T) {
 	ws := testWS(t)
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 
 	resolved, err := resolveServiceEnvFile(ws, deps, "api", ".", "/fake/project.env", "")
@@ -267,8 +267,8 @@ func TestResolveServiceEnvFile_ProjectSpecificLocation(t *testing.T) {
 	envFile := filepath.Join(projSvcDir, "api.env")
 	os.WriteFile(envFile, []byte("API_KEY=123\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 
 	resolved, err := resolveServiceEnvFile(ws, deps, "api", "api", "", "")
@@ -287,8 +287,8 @@ func TestResolveServiceEnvFile_FallbackToShared(t *testing.T) {
 	sharedFile := filepath.Join(ws.EnvDir, "services", "api.env")
 	os.WriteFile(sharedFile, []byte("SHARED_KEY=456\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
 	}
 
 	resolved, err := resolveServiceEnvFile(ws, deps, "api", "api", "", "")
@@ -302,7 +302,7 @@ func TestResolveServiceEnvFile_FallbackToShared(t *testing.T) {
 
 func TestResolveEnvFileForService_NilEnvValue(t *testing.T) {
 	ws := testWS(t)
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 
 	result, err := ResolveEnvFileForService(ws, deps, "api", nil, "", "")
 	if err != nil {
@@ -315,10 +315,10 @@ func TestResolveEnvFileForService_NilEnvValue(t *testing.T) {
 
 func TestResolveEnvFileForService_ObjectEnv(t *testing.T) {
 	ws := testWS(t)
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
 	servicePath := t.TempDir()
 
-	envVal := &config.EnvValue{
+	envVal := &models.EnvValue{
 		IsObject:  true,
 		Variables: map[string]string{"FOO": "bar"},
 	}
@@ -349,12 +349,12 @@ func TestResolveEnvFileForService_DotEnvResolution(t *testing.T) {
 	svcEnv := filepath.Join(ws.EnvDir, "services", "api.env")
 	os.WriteFile(svcEnv, []byte("SVC_VAR=sval\n"), 0o644)
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Env:     config.EnvConfig{UseGlobal: false},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Env:     models.EnvConfig{UseGlobal: false},
 	}
 
-	envVal := &config.EnvValue{Files: []string{".", "api"}}
+	envVal := &models.EnvValue{Files: []string{".", "api"}}
 
 	result, err := ResolveEnvFileForService(ws, deps, "api", envVal, projectDir, "")
 	if err != nil {
@@ -401,8 +401,8 @@ func TestGenerateEnvFromTemplate_SkipsWhenProjectEnvExists(t *testing.T) {
 	// Create template
 	os.WriteFile(filepath.Join(servicePath, ".env.example"), []byte("X=default\n"), 0o644)
 
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
-	svc := config.Service{}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
+	svc := models.Service{}
 
 	// When serviceName == project name and projectEnvPath is set, should skip
 	err := GenerateEnvFromTemplate(ws, deps, "proj", servicePath, svc, "/fake/project.env", t.TempDir())
@@ -424,8 +424,8 @@ func TestGenerateEnvFromTemplate_CreatesEnvFromTemplate(t *testing.T) {
 	// Create template
 	os.WriteFile(filepath.Join(servicePath, ".env.template"), []byte("APP_NAME=myapp\nPORT=3000\n"), 0o644)
 
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
-	svc := config.Service{}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
+	svc := models.Service{}
 
 	err := GenerateEnvFromTemplate(ws, deps, "api", servicePath, svc, "", projectDir)
 	if err != nil {
@@ -454,8 +454,8 @@ func TestGenerateEnvFromTemplate_MergesWithExistingEnv(t *testing.T) {
 	// Create template
 	os.WriteFile(filepath.Join(servicePath, ".env.example"), []byte("PORT=3000\nNEW_VAR=hello\n"), 0o644)
 
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
-	svc := config.Service{}
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
+	svc := models.Service{}
 
 	err := GenerateEnvFromTemplate(ws, deps, "api", servicePath, svc, "", projectDir)
 	if err != nil {
@@ -477,9 +477,9 @@ func TestGenerateEnvFromTemplate_WithServiceEnvVars(t *testing.T) {
 	// Template with placeholders
 	os.WriteFile(filepath.Join(servicePath, ".env.example"), []byte("DB_URL=${DB_URL}\nPORT=3000\n"), 0o644)
 
-	deps := &config.Deps{Project: config.Project{Name: "proj"}}
-	svc := config.Service{
-		Env: &config.EnvValue{
+	deps := &models.Deps{Project: models.Project{Name: "proj"}}
+	svc := models.Service{
+		Env: &models.EnvValue{
 			IsObject:  true,
 			Variables: map[string]string{"DB_URL": "postgres://mydb"},
 		},

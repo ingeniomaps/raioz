@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
@@ -18,19 +18,19 @@ func initI18nUp(t *testing.T) {
 	i18n.Init("en")
 }
 
-func validDeps() *config.Deps {
-	return &config.Deps{
+func validDeps() *models.Deps {
+	return &models.Deps{
 		SchemaVersion: "1.0",
-		Network:       config.NetworkConfig{Name: "test-net"},
-		Project:       config.Project{Name: "test-project"},
-		Services: map[string]config.Service{
+		Network:       models.NetworkConfig{Name: "test-net"},
+		Project:       models.Project{Name: "test-project"},
+		Services: map[string]models.Service{
 			"api": {
-				Source: config.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
-				Docker: &config.DockerConfig{Mode: "prod", Ports: []string{"3000:3000"}},
+				Source: models.SourceConfig{Kind: "image", Image: "nginx", Tag: "latest"},
+				Docker: &models.DockerConfig{Mode: "prod", Ports: []string{"3000:3000"}},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
-		Env:   config.EnvConfig{UseGlobal: true, Files: []string{"global"}},
+		Infra: map[string]models.InfraEntry{},
+		Env:   models.EnvConfig{UseGlobal: true, Files: []string{"global"}},
 	}
 }
 
@@ -42,7 +42,7 @@ func TestBootstrapSuccess(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return deps, nil, nil
 			},
 		},
@@ -74,7 +74,7 @@ func TestBootstrapConfigLoadError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return nil, nil, os.ErrNotExist
 			},
 		},
@@ -93,7 +93,7 @@ func TestBootstrapWorkspaceResolveError(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return deps, nil, nil
 			},
 		},
@@ -118,7 +118,7 @@ func TestBootstrapShowsWarnings(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return deps, []string{"deprecation warning"}, nil
 			},
 		},
@@ -146,7 +146,7 @@ func TestBootstrapNilContext(t *testing.T) {
 
 	uc := NewUseCase(&Dependencies{
 		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*config.Deps, []string, error) {
+			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
 				return deps, nil, nil
 			},
 		},

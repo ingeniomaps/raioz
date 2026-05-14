@@ -5,8 +5,9 @@ import (
 	"strconv"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -22,15 +23,13 @@ import (
 // Returns composePath (empty for orchestrated), serviceNames, infraNames, error.
 func (uc *UseCase) processOrchestration(
 	ctx context.Context,
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	projectDir string,
 	configPath string,
 ) (*orchestrationResult, error) {
-	// Step 0: Kill stale host processes from previous run, restricted to
-	// the services this `up` touches. For a full up, deps.Services holds
-	// everything declared; for selective up (`--only` or positional args)
-	// it holds only the chosen subset so untouched services keep running.
+	// Step 0 — kill stale host processes from a previous run, scoped
+	// to the services this `up` touches (full or `--only` subset).
 	scope := make(map[string]struct{}, len(deps.Services))
 	for name := range deps.Services {
 		scope[name] = struct{}{}
@@ -92,22 +91,19 @@ func (uc *UseCase) processOrchestration(
 		infraNames = append(infraNames, name)
 	}
 
-	// deferredDeps records the dep names whose dispatch was skipped
-	// because a sibling raioz project owns them (issue #26 mode B).
-	// Persisted into LocalState below so `down` can match the skip.
+	// deferredDeps: sibling-owned deps skipped at dispatch (issue #26
+	// mode B). Persisted into LocalState so `down` matches the skip.
 	var deferredDeps []string
-
-	// dispatchedInfra records the deps that ACTUALLY went through the
-	// runner — the subset of infraNames that has a container in this
-	// project's namespace. Health check / endpoints / proxy iterate
-	// this list (or `detections` after we delete sibling-skipped
-	// entries) so they don't wait on or generate routes for containers
-	// the sibling owns instead.
+	// dispatchedInfra: subset of infraNames with a container in this
+	// project's namespace. Health/endpoints/proxy iterate this.
 	var dispatchedInfra []string
 
 	if len(infraNames) > 0 {
 		verdicts, toDispatch, err := resolveSiblingVerdicts(ctx, infraNames, deps)
 		if err != nil {
+			return nil, err
+		}
+		if err := verifySiblingsStillUp(ctx, verdicts); err != nil {
 			return nil, err
 		}
 		if toDispatch > 0 {
@@ -133,7 +129,7 @@ func (uc *UseCase) processOrchestration(
 			}
 			dispatchedInfra = append(dispatchedInfra, name)
 
-			// Build image reference for the runner
+			// Build image reference + env for the runner.
 			envVars := map[string]string{}
 			if entry.Inline != nil {
 				imageRef := entry.Inline.Image
@@ -141,14 +137,10 @@ func (uc *UseCase) processOrchestration(
 					imageRef += ":" + entry.Inline.Tag
 				}
 				envVars["RAIOZ_IMAGE"] = imageRef
-
-				// Add env vars from inline config
 				if entry.Inline.Env != nil {
-					// Inline variables
 					for k, v := range entry.Inline.Env.GetVariables() {
 						envVars[k] = v
 					}
-					// File-based env (e.g., .env.postgres)
 					for _, filePath := range entry.Inline.Env.GetFilePaths() {
 						if filePath != "" {
 							envVars["RAIOZ_ENV_FILE"] = filePath
@@ -226,7 +218,13 @@ func (uc *UseCase) processOrchestration(
 	}
 
 	// Build endpoints map for service discovery
-	endpoints := buildEndpoints(deps, detections, portAllocs)
+	endpoints := buildEndpoints(ctx, docker.NewLookup(), deps, detections, portAllocs)
+
+	// Step 2.5 — preUp hook (ADR-024 / issue 046): runs post-infra,
+	// pre-services. Failure aborts.
+	if err := uc.preUpHookExec(ctx, deps, projectDir); err != nil {
+		return nil, err
+	}
 
 	// Step 3: Start services in dependency order
 	serviceNames := orderedServiceNames(deps)
@@ -249,11 +247,9 @@ func (uc *UseCase) processOrchestration(
 				)
 			}
 
-			// Inject PORT for host services. Most modern frameworks
-			// (Next.js, Vite, Express, Nuxt, Astro, Django via runserver, etc.)
-			// honor $PORT, which lets raioz move two conflicting frontends
-			// onto distinct ports without the dev touching any config. Docker
-			// services get their port via published/exposed config, not PORT.
+			// Inject PORT for host services so frameworks honoring $PORT
+			// (Next.js, Vite, Django, etc.) rebind to the allocator's
+			// pick. Docker services get their port via published config.
 			if alloc, ok := portAllocs.Services[name]; ok && alloc.IsHost() && alloc.Port > 0 {
 				envVars["PORT"] = strconv.Itoa(alloc.Port)
 			}
@@ -272,6 +268,10 @@ func (uc *UseCase) processOrchestration(
 			// runner can use it instead of SIGTERMing the PID.
 			if svc.Commands != nil && svc.Commands.Down != "" {
 				svcCtx.StopCommand = svc.Commands.Down
+			}
+			// ADR-025: needed for HostRunner's launcher-container wait.
+			if svc.ProxyOverride != nil {
+				svcCtx.ProxyTarget = svc.ProxyOverride.Target
 			}
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
@@ -292,11 +292,8 @@ func (uc *UseCase) processOrchestration(
 	saveHostPIDs(projectDir, deps.Project.Name, deps.Workspace, networkName,
 		dispatcher, serviceNames, detections, deferredDeps)
 
-	// Step 4: Start proxy if enabled. The proxy block is extracted into its
-	// own file to keep this function under the 400-line cap; see
-	// orchestration_proxy.go. A proxy failure aborts `up` — the user opted
-	// into `proxy: true` in raioz.yaml, so pretending everything is fine
-	// when HTTPS routing is broken just hides the problem.
+	// Step 4 — proxy (see orchestration_proxy.go). Failure aborts:
+	// `proxy: true` is opt-in, so silent fallback would hide the bug.
 	if deps.Proxy && uc.deps.ProxyManager != nil {
 		if err := uc.startProxy(ctx, deps, detections, serviceNames, networkName); err != nil {
 			return nil, err
@@ -312,13 +309,13 @@ func (uc *UseCase) processOrchestration(
 	}, nil
 }
 
-// buildEndpoints creates the endpoints map from config and detections for
-// service discovery. For published dependencies we populate *both* Port
-// (container-side) and HostPort (host-side) so discovery can hand each caller
-// the right one: container→container goes via Port on the DNS name,
-// host→container goes via HostPort on localhost.
+// buildEndpoints creates the endpoints map for service discovery.
+// Published deps get Port (container-side, DNS-resolvable) AND HostPort
+// (host-side via localhost) so each caller can pick the right one.
 func buildEndpoints(
-	deps *config.Deps,
+	ctx context.Context,
+	lookup naming.ContainerLookup,
+	deps *models.Deps,
 	detections DetectionMap,
 	portAllocs *PortAllocResult,
 ) map[string]interfaces.ServiceEndpoint {
@@ -339,7 +336,8 @@ func buildEndpoints(
 				if entry.Inline != nil {
 					nameOverride = entry.Inline.Name
 				}
-				ep.Host = naming.DepContainer(deps.Project.Name, name, nameOverride)
+				ep.Host = naming.ContainerTarget(ctx, lookup,
+					deps.Project.Name, name, nameOverride)
 			} else {
 				ep.Host = naming.Container(deps.Project.Name, name)
 			}
@@ -382,7 +380,7 @@ func buildEndpoints(
 // over service-to-service dependsOn edges).
 
 // infraPorts extracts port mappings from an InfraEntry.
-func infraPorts(entry config.InfraEntry) []string {
+func infraPorts(entry models.InfraEntry) []string {
 	if entry.Inline != nil {
 		return entry.Inline.Ports
 	}
@@ -390,7 +388,7 @@ func infraPorts(entry config.InfraEntry) []string {
 }
 
 // servicePorts extracts port mappings from a Service.
-func servicePorts(svc config.Service) []string {
+func servicePorts(svc models.Service) []string {
 	if svc.Docker != nil {
 		return svc.Docker.Ports
 	}

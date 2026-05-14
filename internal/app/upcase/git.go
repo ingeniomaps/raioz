@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/i18n"
@@ -16,8 +16,8 @@ import (
 
 // processGitRepos handles cloning/updating repos and branch changes
 func (uc *UseCase) processGitRepos(
-	ctx context.Context, deps *config.Deps, ws *interfaces.Workspace,
-	oldDeps *config.Deps, forceReclone bool, projectDir string,
+	ctx context.Context, deps *models.Deps, ws *interfaces.Workspace,
+	oldDeps *models.Deps, forceReclone bool, projectDir string,
 ) error {
 	// Update repos if branches changed (this happens during processState, but we handle the actual git updates here)
 	if oldDeps != nil {
@@ -36,7 +36,7 @@ func (uc *UseCase) processGitRepos(
 
 		if hasBranchChanges {
 			// Use a resolver function to get correct paths based on access mode
-			repoPathResolver := func(name string, svc config.Service) string {
+			repoPathResolver := func(name string, svc models.Service) string {
 				return uc.deps.Workspace.GetServicePath(ws, name, svc)
 			}
 			ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)

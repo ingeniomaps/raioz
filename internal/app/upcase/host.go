@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -22,7 +22,7 @@ func (uc *UseCase) saveHostProcessesState(
 // processHostServices starts services that run directly on the host (without Docker)
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
 func (uc *UseCase) processHostServices(
-	ctx context.Context, deps *config.Deps, ws *interfaces.Workspace, projectDir string,
+	ctx context.Context, deps *models.Deps, ws *interfaces.Workspace, projectDir string,
 ) (map[string]*host.ProcessInfo, error) {
 	// Collect host services:
 	// 1. Services with source.command (host execution)

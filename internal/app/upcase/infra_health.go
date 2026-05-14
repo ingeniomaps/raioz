@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -19,7 +19,7 @@ import (
 // Uses a single `docker inspect` call per cycle for all containers instead of one per container.
 func checkInfraHealth(
 	ctx context.Context, infraNames []string, projectName string,
-	infra map[string]config.InfraEntry,
+	infra map[string]models.InfraEntry,
 ) error {
 	if len(infraNames) == 0 {
 		return nil

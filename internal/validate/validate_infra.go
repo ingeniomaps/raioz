@@ -3,12 +3,12 @@ package validate
 import (
 	"fmt"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 )
 
-func validateInfra(deps *config.Deps) error {
+func validateInfra(deps *models.Deps) error {
 	// Validate each infra service
 	for name, entry := range deps.Infra {
 		if entry.Inline == nil {
@@ -103,7 +103,7 @@ func validateInfra(deps *config.Deps) error {
 	return nil
 }
 
-func validateDependencies(deps *config.Deps) error {
+func validateDependencies(deps *models.Deps) error {
 	// Collect all service and infra names
 	allNames := make(map[string]bool)
 	for name := range deps.Services {

@@ -215,6 +215,18 @@ raioz hosts | sudo tee -a /etc/hosts
 
 Linux-only (macOS and Windows route Docker through a VM whose bridge IPs aren't reachable from the host).
 
+### Switching between colliding projects
+
+Two raioz projects that publish the same host port can't run side by side. `raioz switch` detects the offenders against the cwd's `raioz.yaml`, lists them with the ports they hold, prompts for confirmation, stops them, and brings the cwd up — replacing the manual `cd other-repo && raioz down && cd back && raioz up` dance:
+
+```bash
+raioz switch                       # detect, confirm, stop, up
+raioz switch --yes                 # same, no prompt (scripting)
+raioz switch --keep alpha,beta     # leave alpha and beta running
+```
+
+For lower-level control: `raioz ports --conflicting` reports without side effects, and `raioz down --conflicting` / `--all-projects` stop without bringing anything up.
+
 ### Three modes of operation
 
 ```bash

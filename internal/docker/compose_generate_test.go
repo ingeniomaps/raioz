@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 )
 
 // TestGenerateCompose_FullFlow builds a minimal deps structure and walks the
@@ -16,12 +16,12 @@ func TestGenerateCompose_NoVolumes(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
 
-	deps := &config.Deps{
-		Project:  config.Project{Name: "proj"},
-		Network:  config.NetworkConfig{Name: "raioz-net"},
-		Services: map[string]config.Service{},
-		Infra:    map[string]config.InfraEntry{},
-		Env:      config.EnvConfig{},
+	deps := &models.Deps{
+		Project:  models.Project{Name: "proj"},
+		Network:  models.NetworkConfig{Name: "raioz-net"},
+		Services: map[string]models.Service{},
+		Infra:    map[string]models.InfraEntry{},
+		Env:      models.EnvConfig{},
 	}
 
 	path, externalNames, err := GenerateCompose(deps, ws, projectDir)
@@ -45,22 +45,22 @@ func TestGenerateCompose_CycleError(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Network: config.NetworkConfig{Name: "raioz-net"},
-		Services: map[string]config.Service{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Network: models.NetworkConfig{Name: "raioz-net"},
+		Services: map[string]models.Service{
 			"a": {
-				Source:    config.SourceConfig{Kind: "image", Image: "nginx"},
-				Docker:    &config.DockerConfig{},
+				Source:    models.SourceConfig{Kind: "image", Image: "nginx"},
+				Docker:    &models.DockerConfig{},
 				DependsOn: []string{"b"},
 			},
 			"b": {
-				Source:    config.SourceConfig{Kind: "image", Image: "nginx"},
-				Docker:    &config.DockerConfig{},
+				Source:    models.SourceConfig{Kind: "image", Image: "nginx"},
+				Docker:    &models.DockerConfig{},
 				DependsOn: []string{"a"},
 			},
 		},
-		Infra: map[string]config.InfraEntry{},
+		Infra: map[string]models.InfraEntry{},
 	}
 
 	_, _, err := GenerateCompose(deps, ws, projectDir)
@@ -73,11 +73,11 @@ func TestGenerateCompose_CycleError(t *testing.T) {
 func TestAddInfraToCompose(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Network: config.NetworkConfig{Name: "raioz-net"},
-		Infra: map[string]config.InfraEntry{
-			"pg": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Network: models.NetworkConfig{Name: "raioz-net"},
+		Infra: map[string]models.InfraEntry{
+			"pg": {Inline: &models.Infra{
 				Image: "postgres",
 				Tag:   "15",
 				Ports: []string{"5432:5432"},
@@ -120,10 +120,10 @@ func TestAddInfraToCompose_WithExternalPath(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Network: config.NetworkConfig{Name: "raioz-net"},
-		Infra: map[string]config.InfraEntry{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Network: models.NetworkConfig{Name: "raioz-net"},
+		Infra: map[string]models.InfraEntry{
 			"db": {Path: "ext.yml"},
 		},
 	}
@@ -149,9 +149,9 @@ func TestAddInfraToCompose_WithExternalPath(t *testing.T) {
 func TestWriteCombinedEnvFile_Empty(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Env:     config.EnvConfig{},
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Env:     models.EnvConfig{},
 	}
 
 	if err := writeCombinedEnvFile(deps, ws, projectDir); err != nil {
@@ -166,9 +166,9 @@ func TestWriteCombinedEnvFile_Empty(t *testing.T) {
 func TestWriteCombinedEnvFile_DirectVars(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Env: models.EnvConfig{
 			Variables: map[string]string{
 				"SIMPLE":      "value",
 				"WITH_SPACE":  "hello world",
@@ -200,13 +200,13 @@ func TestWriteCombinedEnvFile_DirectVars(t *testing.T) {
 func TestWriteCombinedEnvFile_InfraObjectEnv(t *testing.T) {
 	projectDir := t.TempDir()
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Env:     config.EnvConfig{},
-		Infra: map[string]config.InfraEntry{
-			"pg": {Inline: &config.Infra{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Env:     models.EnvConfig{},
+		Infra: map[string]models.InfraEntry{
+			"pg": {Inline: &models.Infra{
 				Image: "postgres",
-				Env: &config.EnvValue{
+				Env: &models.EnvValue{
 					IsObject: true,
 					Variables: map[string]string{
 						"POSTGRES_USER": "admin",
@@ -238,9 +238,9 @@ func TestWriteCombinedEnvFile_ProjectEnvFile(t *testing.T) {
 	}
 
 	ws := mkWorkspace(t.TempDir())
-	deps := &config.Deps{
-		Project: config.Project{Name: "proj"},
-		Env: config.EnvConfig{
+	deps := &models.Deps{
+		Project: models.Project{Name: "proj"},
+		Env: models.EnvConfig{
 			Files: []string{".env.shared"},
 		},
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
@@ -50,7 +50,7 @@ func newTestDepsForVolumes(t *testing.T) (*Dependencies, *mocks.MockConfigLoader
 func TestVolumesUseCase_List_NoConfig(t *testing.T) {
 	deps, configLoader, _, _, _ := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
 		return nil, nil, fmt.Errorf("not found")
 	}
 
@@ -65,10 +65,10 @@ func TestVolumesUseCase_List_NoConfig(t *testing.T) {
 func TestVolumesUseCase_List_NoVolumes(t *testing.T) {
 	deps, configLoader, _, _, _ := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{
-			Project:  config.Project{Name: "test"},
-			Services: map[string]config.Service{},
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{
+			Project:  models.Project{Name: "test"},
+			Services: map[string]models.Service{},
 		}, nil, nil
 	}
 
@@ -83,11 +83,11 @@ func TestVolumesUseCase_List_NoVolumes(t *testing.T) {
 func TestVolumesUseCase_List_WithVolumes(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "test"},
-			Infra: map[string]config.InfraEntry{
-				"postgres": {Inline: &config.Infra{Volumes: []string{"pg-data:/var/lib/postgresql/data"}}},
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "test"},
+			Infra: map[string]models.InfraEntry{
+				"postgres": {Inline: &models.Infra{Volumes: []string{"pg-data:/var/lib/postgresql/data"}}},
 			},
 		}, nil, nil
 	}
@@ -119,11 +119,11 @@ func TestVolumesUseCase_List_WithVolumes(t *testing.T) {
 func TestVolumesUseCase_Remove_NoTarget(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "test"},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Volumes: []string{"redis-data:/data"}}},
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "test"},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Volumes: []string{"redis-data:/data"}}},
 			},
 		}, nil, nil
 	}
@@ -148,11 +148,11 @@ func TestVolumesUseCase_Remove_NoTarget(t *testing.T) {
 func TestVolumesUseCase_Remove_AllWithForce(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "test"},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Volumes: []string{"redis-data:/data"}}},
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "test"},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Volumes: []string{"redis-data:/data"}}},
 			},
 		}, nil, nil
 	}
@@ -189,12 +189,12 @@ func TestVolumesUseCase_Remove_AllWithForce(t *testing.T) {
 func TestVolumesUseCase_Remove_SpecificVolume(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "test"},
-			Infra: map[string]config.InfraEntry{
-				"postgres": {Inline: &config.Infra{Volumes: []string{"pg-data:/var/lib/postgresql/data"}}},
-				"redis":    {Inline: &config.Infra{Volumes: []string{"redis-data:/data"}}},
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "test"},
+			Infra: map[string]models.InfraEntry{
+				"postgres": {Inline: &models.Infra{Volumes: []string{"pg-data:/var/lib/postgresql/data"}}},
+				"redis":    {Inline: &models.Infra{Volumes: []string{"redis-data:/data"}}},
 			},
 		}, nil, nil
 	}
@@ -244,11 +244,11 @@ func TestVolumesUseCase_Remove_SpecificVolume(t *testing.T) {
 func TestVolumesUseCase_Remove_VolumeNotFound(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "test"},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Volumes: []string{"redis-data:/data"}}},
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "test"},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Volumes: []string{"redis-data:/data"}}},
 			},
 		}, nil, nil
 	}
@@ -276,11 +276,11 @@ func TestVolumesUseCase_Remove_VolumeNotFound(t *testing.T) {
 func TestVolumesUseCase_Remove_SharedVolumeExcluded(t *testing.T) {
 	deps, configLoader, _, _, dockerRunner := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "test"},
-			Infra: map[string]config.InfraEntry{
-				"redis": {Inline: &config.Infra{Volumes: []string{"redis-data:/data"}}},
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "test"},
+			Infra: map[string]models.InfraEntry{
+				"redis": {Inline: &models.Infra{Volumes: []string{"redis-data:/data"}}},
 			},
 		}, nil, nil
 	}
@@ -317,15 +317,15 @@ func TestVolumesUseCase_Remove_SharedVolumeExcluded(t *testing.T) {
 func TestVolumesUseCase_List_FromState(t *testing.T) {
 	deps, configLoader, _, stateMgr, dockerRunner := newTestDepsForVolumes(t)
 
-	configLoader.LoadDepsFunc = func(configPath string) (*config.Deps, []string, error) {
-		return &config.Deps{Project: config.Project{Name: "test"}}, nil, nil
+	configLoader.LoadDepsFunc = func(configPath string) (*models.Deps, []string, error) {
+		return &models.Deps{Project: models.Project{Name: "test"}}, nil, nil
 	}
 	stateMgr.ExistsFunc = func(ws *workspace.Workspace) bool { return true }
-	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*config.Deps, error) {
-		return &config.Deps{
-			Project: config.Project{Name: "test"},
-			Infra: map[string]config.InfraEntry{
-				"mongo": {Inline: &config.Infra{Volumes: []string{"mongo-data:/data/db"}}},
+	stateMgr.LoadFunc = func(ws *workspace.Workspace) (*models.Deps, error) {
+		return &models.Deps{
+			Project: models.Project{Name: "test"},
+			Infra: map[string]models.InfraEntry{
+				"mongo": {Inline: &models.Infra{Volumes: []string{"mongo-data:/data/db"}}},
 			},
 		}, nil
 	}

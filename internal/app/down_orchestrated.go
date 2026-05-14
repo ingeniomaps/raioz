@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/errors"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
-	"raioz/internal/orchestrate"
 	"raioz/internal/output"
+	"raioz/internal/root"
 	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
@@ -51,12 +52,10 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 
 	output.PrintProgress("Stopping project " + projectName + "...")
 
-	// Run custom per-service stop commands first (declared in raioz.yaml as `stop:`).
-	// These take precedence over PID/prefix-based cleanup because they know how to
-	// tear down whatever the `command:` started — e.g. `make start` spawning its
-	// own docker compose project whose containers are outside the raioz naming
-	// convention.
-	runCustomStopCommands(ctx, deps, projectDir)
+	// Custom `stop:` runs first — only it knows how to tear down whatever
+	// `command:` launched (e.g. `make start` → its own compose project).
+	// Failures are surfaced at the tail of the function (issue 044).
+	failedStops := runCustomStopCommands(ctx, deps, projectDir)
 
 	// Tear down compose-based services (yaml `compose:` or auto-detected) by
 	// invoking `docker compose down` with the same project name scope that
@@ -171,6 +170,39 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 		logging.InfoWithContext(ctx, "Labeled networks removed", "names", removed)
 	}
 
+	if len(failedStops) > 0 {
+		output.PrintError(i18n.T("down.stop_failed_summary",
+			len(failedStops), strings.Join(failedStops, ", ")))
+		return errors.New(
+			errors.ErrCodeServiceStopFailed,
+			i18n.T("down.stop_failed_summary",
+				len(failedStops), strings.Join(failedStops, ", ")),
+		).WithSuggestion(i18n.T("down.stop_failed_suggestion")).
+			WithContext("services", strings.Join(failedStops, ","))
+	}
+
+	// ADR-023: state mirrors reality — drop raioz.root.json when the
+	// teardown is complete. Skipped when leftovers survive so the
+	// stale file is preserved for diagnostics. Resolve / Delete
+	// errors are non-fatal.
+	if leftovers := docker.ListContainersByLabels(ctx, map[string]string{
+		naming.LabelManaged: "true",
+		naming.LabelProject: projectName,
+	}); len(leftovers) == 0 {
+		switch ws, err := uc.deps.Workspace.Resolve(projectName); {
+		case err != nil:
+			logging.WarnWithContext(ctx, "Skipping root cleanup: workspace resolve failed",
+				"project", projectName, "error", err.Error())
+		case ws == nil:
+			// Mocks (and lenient real impls) can return (nil, nil).
+		default:
+			if err := root.Delete(ws); err != nil {
+				logging.WarnWithContext(ctx, "Failed to remove root config",
+					"project", projectName, "error", err.Error())
+			}
+		}
+	}
+
 	output.PrintSuccess("Project '" + projectName + "' stopped")
 	return nil
 }
@@ -260,121 +292,6 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 			stopAndRemoveContainer(ctx, name, "raioz-prefix:"+prefix)
 		}
 	}
-}
-
-// stopDependencyComposeProjects stops compose projects created by image_runner.
-// Uses the same COMPOSE_PROJECT_NAME that ImageRunner.Start set so Docker
-// Compose can match the containers it originally created.
-//
-// Shared dependencies (workspace-scoped or with an explicit `name:` override)
-// are skipped while OTHER raioz projects in the same workspace still have
-// live containers — the last project out tumba the shared deps. Without
-// this guard, project A's down would rip postgres out from under project B.
-//
-// `deferredDeps` lists dep names whose dispatch was skipped at up time
-// because a sibling raioz project owns them (issue #26 mode B). Those
-// have no container in the consumer's namespace and must not be torn
-// down — running `docker compose down` for them would be a no-op but
-// still spawns a process per dep, so we filter early. Pass nil for
-// legacy projects without sibling deps.
-func stopDependencyComposeProjects(
-	ctx context.Context,
-	deps *config.Deps,
-	projectName string,
-	deferredDeps []string,
-) {
-	others := otherProjectsActiveInWorkspace(ctx, deps.Workspace, projectName)
-	deferred := make(map[string]struct{}, len(deferredDeps))
-	for _, n := range deferredDeps {
-		deferred[n] = struct{}{}
-	}
-
-	for name, entry := range deps.Infra {
-		// Mode A (project:) — sibling-owned dep with its own lifecycle.
-		// We never started a container for it and must never stop one.
-		if entry.Inline != nil && entry.Inline.Project != "" {
-			logging.InfoWithContext(ctx, "Skipping mode A sibling dep on down",
-				"dep", name, "sibling", entry.Inline.Project)
-			continue
-		}
-		// Mode B with deferred-to-sibling stamp from up time.
-		if _, isDeferred := deferred[name]; isDeferred {
-			logging.InfoWithContext(ctx, "Skipping deferred sibling dep on down",
-				"dep", name)
-			continue
-		}
-
-		var override string
-		if entry.Inline != nil {
-			override = entry.Inline.Name
-		}
-		if naming.IsSharedDep(override) && others {
-			logging.InfoWithContext(ctx, "Keeping shared dependency alive for sibling projects",
-				"dep", name, "workspace", deps.Workspace, "leaving_project", projectName)
-			continue
-		}
-
-		projName := orchestrate.DepComposeProjectName(projectName, name)
-		// Compose-based deps: user-supplied fragment(s) + raioz overlay,
-		// teardown needs the same list of -f files that Start used.
-		var composeArgs []string
-		var envFileArgs []string
-		if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
-			overlay := filepath.Join(
-				filepath.Dir(naming.DepComposePath(projectName, name)),
-				"raioz-overlay.yml",
-			)
-			for _, f := range entry.Inline.Compose {
-				abs := f
-				if a, err := filepath.Abs(f); err == nil {
-					abs = a
-				}
-				composeArgs = append(composeArgs, "-f", abs)
-			}
-			composeArgs = append(composeArgs, "-f", overlay)
-			if entry.Inline.Env != nil {
-				for _, f := range entry.Inline.Env.GetFilePaths() {
-					if f != "" {
-						envFileArgs = append(envFileArgs, "--env-file", f)
-					}
-				}
-			}
-		} else {
-			composeArgs = []string{"-f", naming.DepComposePath(projectName, name)}
-		}
-		args := []string{"compose"}
-		args = append(args, envFileArgs...)
-		args = append(args, "-p", projName)
-		args = append(args, composeArgs...)
-		args = append(args, "down")
-		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-		_ = cmd.Run() // file might not exist; best-effort teardown
-	}
-}
-
-// otherProjectsActiveInWorkspace answers the "is anyone else home?" question
-// needed to decide whether shared deps can be torn down. Returns true when at
-// least one raioz-managed container in the workspace belongs to a project
-// other than the one currently being brought down. Shared deps themselves
-// have no project label, so they don't falsely signal other-project activity.
-func otherProjectsActiveInWorkspace(ctx context.Context, workspace, currentProject string) bool {
-	if workspace == "" {
-		return false
-	}
-	names := docker.ListContainersByLabels(ctx, map[string]string{
-		naming.LabelManaged:   "true",
-		naming.LabelWorkspace: workspace,
-	})
-	for _, n := range names {
-		proj, _ := docker.GetContainerLabel(ctx, n, naming.LabelProject)
-		if proj == "" {
-			continue // a shared dep itself — not a project consumer
-		}
-		if proj != currentProject {
-			return true
-		}
-	}
-	return false
 }
 
 // killProcessGroup kills pid and its descendants (`go run`'s compiled

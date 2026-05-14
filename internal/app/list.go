@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
@@ -119,14 +120,14 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 }
 
 // applyFilters applies name and status filters to the global state
-func (uc *ListUseCase) applyFilters(globalState *state.GlobalState, opts ListOptions) *state.GlobalState {
+func (uc *ListUseCase) applyFilters(globalState *models.GlobalState, opts ListOptions) *models.GlobalState {
 	if opts.Filter == "" && opts.Status == "" {
 		return globalState
 	}
 
-	filtered := &state.GlobalState{
+	filtered := &models.GlobalState{
 		ActiveProjects: []string{},
-		Projects:       make(map[string]state.ProjectState),
+		Projects:       make(map[string]models.ProjectState),
 	}
 
 	for _, projectName := range globalState.ActiveProjects {
@@ -199,16 +200,14 @@ func (uc *ListUseCase) loadHostPIDs(workspace string) map[string]int {
 		return nil
 	}
 
-	// Try loading from project root (YAML projects store PIDs there)
-	savedDeps, loadErr := uc.deps.StateManager.Load(ws)
-	if loadErr == nil && savedDeps != nil && savedDeps.ProjectRoot != "" {
-		ls, lsErr := state.LoadLocalState(savedDeps.ProjectRoot)
-		if lsErr == nil && ls != nil && len(ls.HostPIDs) > 0 {
-			return ls.HostPIDs
-		}
-	}
-
-	// Fallback: try workspace root
+	// ADR-011 Phase 2: the legacy snapshot used to record ProjectRoot so
+	// list could find LocalState for YAML-mode projects living outside
+	// the workspace dir. With the snapshot gone, we fall back to the
+	// workspace-root LocalState only. A follow-up may surface
+	// ProjectRoot through GlobalState.ProjectState for the YAML-mode
+	// case; today, `raioz list` shows host PIDs only when the user runs
+	// it from within the project (which writes LocalState there) AND
+	// when the workspace LocalState also carries the PIDs.
 	wsRoot := uc.deps.Workspace.GetRoot(ws)
 	ls, lsErr := state.LoadLocalState(wsRoot)
 	if lsErr == nil && ls != nil && len(ls.HostPIDs) > 0 {

@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 )
 
 // ciNetworkLabels mirrors networkLabelsFor from upcase but lives here to
 // avoid an import cycle (app → upcase → app). Same intent: stamp managed
 // + workspace + project so down can sweep raioz-owned networks by label.
-func ciNetworkLabels(deps *config.Deps) map[string]string {
+func ciNetworkLabels(deps *models.Deps) map[string]string {
 	labels := map[string]string{naming.LabelManaged: "true"}
 	if ws := deps.GetWorkspaceName(); ws != "" {
 		labels[naming.LabelWorkspace] = ws
@@ -25,7 +25,7 @@ func ciNetworkLabels(deps *config.Deps) map[string]string {
 
 // validateCIPorts validates ports for CI
 func (uc *CIUseCase) validateCIPorts(
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	workspaceName string,
 	result *CIResult,
@@ -68,7 +68,7 @@ func (uc *CIUseCase) validateCIPorts(
 }
 
 // validateCIImages validates images for CI
-func (uc *CIUseCase) validateCIImages(deps *config.Deps, opts CIOptions, result *CIResult) error {
+func (uc *CIUseCase) validateCIImages(deps *models.Deps, opts CIOptions, result *CIResult) error {
 	if !opts.SkipPull {
 		if err := uc.deps.DockerRunner.ValidateAllImages(deps); err != nil {
 			result.Validations = append(result.Validations, ValidationResult{
@@ -95,7 +95,7 @@ func (uc *CIUseCase) validateCIImages(deps *config.Deps, opts CIOptions, result 
 }
 
 // ensureCINetwork ensures network for CI
-func (uc *CIUseCase) ensureCINetwork(deps *config.Deps, result *CIResult) error {
+func (uc *CIUseCase) ensureCINetwork(deps *models.Deps, result *CIResult) error {
 	ctx := context.Background()
 	networkName := deps.Network.GetName()
 	subnet := deps.Network.GetSubnet()
@@ -119,7 +119,7 @@ func (uc *CIUseCase) ensureCINetwork(deps *config.Deps, result *CIResult) error 
 }
 
 // ensureCIVolumes ensures volumes for CI
-func (uc *CIUseCase) ensureCIVolumes(deps *config.Deps, result *CIResult) error {
+func (uc *CIUseCase) ensureCIVolumes(deps *models.Deps, result *CIResult) error {
 	var allVolumes []string
 	for _, svc := range deps.Services {
 		if svc.Docker != nil {
@@ -168,7 +168,7 @@ func (uc *CIUseCase) ensureCIVolumes(deps *config.Deps, result *CIResult) error 
 
 // resolveCIGit resolves git repositories for CI
 func (uc *CIUseCase) resolveCIGit(
-	deps *config.Deps,
+	deps *models.Deps,
 	ws *interfaces.Workspace,
 	opts CIOptions,
 	result *CIResult,

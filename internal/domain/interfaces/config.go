@@ -3,7 +3,7 @@ package interfaces
 import (
 	"context"
 
-	models "raioz/internal/domain/models"
+	"raioz/internal/domain/models"
 )
 
 // ConfigLoader defines operations for loading configuration
@@ -43,9 +43,9 @@ type ConfigLoader interface {
 // Validator defines operations for validating configuration
 type Validator interface {
 	// ValidateBeforeUp validates configuration before running up command
-	ValidateBeforeUp(ctx interface{}, deps *models.Deps, ws interface{}) error
+	ValidateBeforeUp(ctx any, deps *models.Deps, ws any) error
 	// ValidateBeforeDown validates configuration before running down command
-	ValidateBeforeDown(ctx interface{}, ws interface{}) error
+	ValidateBeforeDown(ctx any, ws any) error
 	// All validates the entire configuration
 	All(deps *models.Deps) error
 	// CheckDockerInstalled checks if Docker is installed

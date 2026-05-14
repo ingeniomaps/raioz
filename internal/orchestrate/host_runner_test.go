@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"raioz/internal/detect"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 )
 
@@ -17,7 +17,7 @@ func TestHostRunner_Start_NoCommand(t *testing.T) {
 	svc := interfaces.ServiceContext{
 		Name:        "api",
 		ProjectName: "host-nocmd-" + t.Name(),
-		Detection:   detect.DetectResult{Runtime: detect.RuntimeGo},
+		Detection:   models.DetectResult{Runtime: models.RuntimeGo},
 	}
 	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
 
@@ -110,8 +110,8 @@ func TestHostRunner_StartStopSleep(t *testing.T) {
 		Name:        "sleeper",
 		Path:        dir,
 		ProjectName: "host-sleep-" + t.Name(),
-		Detection: detect.DetectResult{
-			Runtime:      detect.RuntimeMake,
+		Detection: models.DetectResult{
+			Runtime:      models.RuntimeMake,
 			StartCommand: "sleep 30",
 		},
 	}
@@ -154,8 +154,8 @@ func TestHostRunner_Start_PrefersDevCommand(t *testing.T) {
 		Name:        "sleeper2",
 		Path:        dir,
 		ProjectName: "host-dev-" + t.Name(),
-		Detection: detect.DetectResult{
-			Runtime:      detect.RuntimeNPM,
+		Detection: models.DetectResult{
+			Runtime:      models.RuntimeNPM,
 			DevCommand:   "sleep 30",
 			StartCommand: "nope-bad-cmd-xyz",
 		},
