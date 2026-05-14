@@ -73,7 +73,7 @@ func (uc *UseCase) out() io.Writer {
 }
 
 // Execute executes the up use case
-func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
+func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	startTime := time.Now()
 
 	// Bootstrap: context, logging, config loading, overrides
@@ -85,6 +85,13 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) error {
 	deps := br.deps
 	ws := br.ws
 	appliedOverrides := br.appliedOverrides
+
+	// Issue 048: emit lifecycle audit events. Start fires after
+	// bootstrap so the event carries project/workspace; complete is
+	// deferred so every return path (success, error, panic-after-
+	// recover) closes the pair with status + duration + error.
+	emitLifecycleStart(ctx, deps)
+	defer func() { emitLifecycleComplete(ctx, deps, startTime, err) }()
 
 	// Get project directory (where .raioz.json is located)
 	projectDir, err := filepath.Abs(filepath.Dir(opts.ConfigPath))

@@ -1,12 +1,14 @@
 package audit
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"raioz/internal/logging"
 	"raioz/internal/naming"
 )
 
@@ -31,14 +33,35 @@ const (
 	EventTypeDriftDetected    EventType = "drift_detected"
 	EventTypeDevPromoted      EventType = "dev_promoted"
 	EventTypeDevReverted      EventType = "dev_reverted"
+
+	// Lifecycle events for up/down/restart. Phase identifies start vs
+	// complete; status distinguishes success from failure on complete.
+	// See OBSERVABILITY.md and issue 048.
+	EventTypeLifecycle EventType = "lifecycle"
 )
 
-// Event represents an audit log entry
+// LifecyclePhase enumerates the phase value carried in a lifecycle
+// event's Details. Kept as a typed string so callers can't fat-finger
+// the convention.
+type LifecyclePhase string
+
+const (
+	LifecycleStart    LifecyclePhase = "start"
+	LifecycleComplete LifecyclePhase = "complete"
+)
+
+// Event represents an audit log entry.
 type Event struct {
-	Timestamp time.Time              `json:"timestamp"`
-	Type      EventType              `json:"type"`
-	Details   map[string]interface{} `json:"details"`
-	Message   string                 `json:"message,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+	// CorrelationID groups records emitted by the same logical
+	// operation, including recursive sibling spawns. Sourced from
+	// logging.GetRequestID(ctx) so audit and slog share the value.
+	// Omitted from JSON when empty for backwards compat with readers
+	// that predate the field.
+	CorrelationID string                 `json:"correlation_id,omitempty"`
+	Type          EventType              `json:"type"`
+	Details       map[string]interface{} `json:"details"`
+	Message       string                 `json:"message,omitempty"`
 }
 
 // GetAuditLogPath returns the path to the audit log file.
@@ -51,16 +74,29 @@ func GetAuditLogPath() (string, error) {
 	return filepath.Join(baseDir, auditLogFileName), nil
 }
 
-// Log writes an audit log entry
+// Log writes an audit log entry. Convenience for call sites without
+// a ctx; LogWithContext is preferred — it stamps the correlation ID.
 func Log(eventType EventType, details map[string]interface{}, message string) error {
+	return LogWithContext(context.Background(), eventType, details, message)
+}
+
+// LogWithContext writes an audit log entry, sourcing the correlation
+// ID from the ctx (via logging.GetRequestID). Recursive raioz
+// invocations inherit the same ID from RAIOZ_CORRELATION_ID, so
+// grep on correlation_id reconstructs a parent+children spawn tree.
+func LogWithContext(
+	ctx context.Context,
+	eventType EventType,
+	details map[string]interface{},
+	message string,
+) error {
 	path, err := GetAuditLogPath()
 	if err != nil {
 		return err
 	}
 
-	// Ensure directory exists
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory for audit log: %w", err)
 	}
 
@@ -69,12 +105,12 @@ func Log(eventType EventType, details map[string]interface{}, message string) er
 	// still appended (better to lose one rotation than one event).
 	rotateIfOverCap(path, maxAuditSize)
 
-	// Create event
 	event := Event{
-		Timestamp: time.Now().UTC(),
-		Type:      eventType,
-		Details:   details,
-		Message:   message,
+		Timestamp:     time.Now().UTC(),
+		CorrelationID: logging.GetRequestID(ctx),
+		Type:          eventType,
+		Details:       details,
+		Message:       message,
 	}
 
 	// Marshal event to JSON
@@ -181,6 +217,58 @@ func LogServiceAssisted(serviceName string, addedBy string, reason string) error
 	}
 	message := fmt.Sprintf("Service assisted: %s (added by: %s)", serviceName, addedBy)
 	return Log(EventTypeServiceAssisted, details, message)
+}
+
+// lifecycleDetails packs the fields common to every lifecycle event
+// (start and complete) and is the only shape the helpers below
+// construct, so the field names stay stable for downstream JSONL
+// readers.
+func lifecycleDetails(
+	operation string, phase LifecyclePhase, project, workspace string,
+) map[string]interface{} {
+	d := map[string]interface{}{
+		"operation": operation,
+		"phase":     string(phase),
+		"project":   project,
+	}
+	if workspace != "" {
+		d["workspace"] = workspace
+	}
+	return d
+}
+
+// LogLifecycleStart records that `raioz <operation>` has begun. The
+// matching LogLifecycleComplete (with status + duration + err) closes
+// the pair. operation is "up" | "down" | "restart" — convention, not
+// enforced; downstream queries pivot on the Details.operation value.
+func LogLifecycleStart(
+	ctx context.Context, operation, project, workspace string,
+) error {
+	d := lifecycleDetails(operation, LifecycleStart, project, workspace)
+	msg := fmt.Sprintf("raioz %s started: %s", operation, project)
+	return LogWithContext(ctx, EventTypeLifecycle, d, msg)
+}
+
+// LogLifecycleComplete records the outcome of `raioz <operation>`.
+// status is "success" | "failure"; err is nil on success. duration is
+// elapsed wall-clock from the matching start.
+func LogLifecycleComplete(
+	ctx context.Context,
+	operation, project, workspace, status string,
+	duration time.Duration,
+	err error,
+) error {
+	d := lifecycleDetails(operation, LifecycleComplete, project, workspace)
+	d["status"] = status
+	d["duration_ms"] = duration.Milliseconds()
+	if err != nil {
+		d["error"] = err.Error()
+	}
+	msg := fmt.Sprintf(
+		"raioz %s %s: %s (%dms)",
+		operation, status, project, duration.Milliseconds(),
+	)
+	return LogWithContext(ctx, EventTypeLifecycle, d, msg)
 }
 
 // LogDriftDetected logs when configuration drift is detected in a service

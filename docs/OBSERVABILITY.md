@@ -135,30 +135,42 @@ output.PrintWarning(i18n.T("up.dep_unhealthy", dep))
 
 ## Event matrix
 
+`audit` column legend: **yes** — emitted today, **planned** —
+target shape, helper missing or unused. Issue 048 tracks the
+gap between this matrix and reality.
+
 | Event | logging | audit | notify | output |
 |-------|---------|-------|--------|--------|
-| Lifecycle (`up`, `down`, `restart`) start | `info` | yes | — | progress line |
-| Lifecycle complete (success) | `info` | yes | success (on `up`/`down`) | `[ok]` tick |
-| Lifecycle complete (failure) | `error` | yes | failure (on `up`/`down`) | `[error]` block + suggestion |
-| Recoverable warning | `warn` | yes | — | `[!!]` line |
-| Service marked ready by health check | `info` | yes | — | `[ok]` row |
-| Service exit inside settle window | `warn` | yes | — | `[!!]` block |
+| `up` lifecycle start | `info` | **yes** | — | progress line |
+| `up` lifecycle complete | `info` / `error` | **yes** | success/failure | `[ok]`/`[error]` |
+| `down` lifecycle start | `info` | **yes** | — | progress line |
+| `down` lifecycle complete | `info` / `error` | **yes** | success/failure | `[ok]`/`[error]` |
+| `restart` lifecycle start/complete | `info` | planned | — | progress |
+| Recoverable warning | `warn` | planned | — | `[!!]` line |
+| Service marked ready by health check | `info` | planned | — | `[ok]` row |
+| Service exit inside settle window | `warn` | planned | — | `[!!]` block |
 | File-watch event (debounced) | `debug` | — | — | optional progress |
-| Watch-triggered restart | `info` | yes | — | `[ok]` row |
-| Config reloaded | `info` | yes | — | brief note |
+| Watch-triggered restart | `info` | planned | — | `[ok]` row |
+| Config reloaded | `info` | planned | — | brief note |
 | Network / volume created | `debug` | — | — | — |
 | Docker command invoked | `debug` | — | — | — |
-| Dev-mode promotion (`raioz dev`) | `info` | yes | success | confirmation block |
-| Dev-mode revert (`raioz dev --reset`) | `info` | yes | — | confirmation line |
-| Dependency assist added a dep | `info` | yes | — | brief note |
-| Sibling project deferred (mode A) | `info` | yes | — | one-line note |
-| Drift detected vs `.raioz.json` | `warn` | yes | — | `[!!]` summary |
+| Dev-mode promotion (`raioz dev`) | `info` | **yes** | success | confirmation block |
+| Dev-mode revert (`raioz dev --reset`) | `info` | **yes** | — | confirmation line |
+| Dependency assist added a dep | `info` | **yes** | — | brief note |
+| Sibling project deferred (mode A) | `info` | planned | — | one-line note |
+| Drift detected vs `.raioz.json` | `warn` | **yes** | — | `[!!]` summary |
+| Conflict resolved by user choice | `info` | **yes** | — | confirmation |
 | Dev-build warning (ADR-021) | — | — | — | stderr warning (once) |
 | Migration of legacy state dir (ADR-022) | `debug` | — | — | — |
 
-The matrix is descriptive, not exhaustive — when a new event
-type lands, place it by analogy and update the table in the same
-commit.
+### Correlation across `raioz` processes
+
+Every audit event carries `correlation_id`, sourced from
+`logging.GetRequestID(ctx)` (which honors the
+`RAIOZ_CORRELATION_ID` env var). Recursive `raioz up` invocations
+(ADR-008 mode A sibling spawn) inherit the parent's ID, so
+`jq 'select(.correlation_id == "abc")'` on `audit.log`
+reconstructs the whole spawn tree from one query.
 
 ## Worked example: `raioz up` brings up `api`
 

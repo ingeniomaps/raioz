@@ -6,7 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"raioz/internal/audit"
 	"raioz/internal/docker"
 	"raioz/internal/errors"
 	"raioz/internal/host"
@@ -22,7 +24,7 @@ import (
 // downOrchestrated handles raioz down for YAML-based (orchestrated) projects.
 // Instead of using a generated compose file, it stops containers by name
 // and kills host processes tracked in .raioz.state.json.
-func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) error {
+func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (err error) {
 	configPath := opts.ConfigPath
 	if configPath == "" {
 		configPath = "raioz.yaml"
@@ -49,6 +51,29 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 	if len(opts.Services) > 0 {
 		return uc.downSelectiveServices(ctx, deps, projectDir, projectName, opts.Services)
 	}
+
+	// Issue 048: lifecycle audit. Selective down skips above intentionally
+	// — it isn't a project-wide teardown, just a subset stop.
+	startTime := time.Now()
+	if auditErr := audit.LogLifecycleStart(
+		ctx, "down", projectName, deps.Workspace,
+	); auditErr != nil {
+		logging.DebugWithContext(ctx, "audit LogLifecycleStart failed",
+			"error", auditErr.Error())
+	}
+	defer func() {
+		status := "success"
+		if err != nil {
+			status = "failure"
+		}
+		if auditErr := audit.LogLifecycleComplete(
+			ctx, "down", projectName, deps.Workspace,
+			status, time.Since(startTime), err,
+		); auditErr != nil {
+			logging.DebugWithContext(ctx, "audit LogLifecycleComplete failed",
+				"error", auditErr.Error())
+		}
+	}()
 
 	output.PrintProgress("Stopping project " + projectName + "...")
 

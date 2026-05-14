@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"raioz/internal/config"
+	"raioz/internal/logging"
 )
 
 // --- stack helpers --------------------------------------------------------
@@ -130,6 +131,45 @@ func TestSpawnSibling_FailureIncludesDiagnosticHint(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "raioz up") {
 		t.Errorf("error should suggest the diagnostic command, got %v", err)
+	}
+}
+
+// TestSpawnSibling_PropagatesCorrelationID asserts ADR-024/issue 048:
+// the parent ctx's request ID is propagated to the spawned child via
+// the RAIOZ_CORRELATION_ID env var so audit/log records share the
+// value across the spawn tree.
+func TestSpawnSibling_PropagatesCorrelationID(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake binary scripts are POSIX-only")
+	}
+	// Fake raioz binary writes its inherited correlation env var to a
+	// known file so the parent test can verify propagation.
+	dir := t.TempDir()
+	probe := filepath.Join(dir, "captured-cid")
+	body := "#!/bin/sh\nprintf '%s' \"$RAIOZ_CORRELATION_ID\" > " + probe + "\n"
+	binPath := filepath.Join(dir, "fakeraioz")
+	if err := os.WriteFile(binPath, []byte(body), 0o755); err != nil {
+		t.Fatalf("write fake raioz: %v", err)
+	}
+	prev := spawnRaiozBinary
+	spawnRaiozBinary = func() (string, error) { return binPath, nil }
+	t.Cleanup(func() { spawnRaiozBinary = prev })
+
+	ctx := logging.WithRequestID(context.Background())
+	parentID := logging.GetRequestID(ctx)
+
+	sib := &config.SiblingInfo{Dir: t.TempDir(), Project: "kc"}
+	if err := spawnSibling(ctx, "/consumer", "kc", sib); err != nil {
+		t.Fatalf("spawnSibling: %v", err)
+	}
+
+	captured, err := os.ReadFile(probe)
+	if err != nil {
+		t.Fatalf("read probe file: %v", err)
+	}
+	if string(captured) != parentID {
+		t.Errorf("child saw RAIOZ_CORRELATION_ID=%q, want parent's %q",
+			string(captured), parentID)
 	}
 }
 

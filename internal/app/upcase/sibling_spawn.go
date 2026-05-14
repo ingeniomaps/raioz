@@ -12,6 +12,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/i18n"
+	"raioz/internal/logging"
 	"raioz/internal/output"
 )
 
@@ -96,6 +97,12 @@ func spawnSibling(
 	cmd := exec.CommandContext(ctx, bin, "up")
 	cmd.Dir = sib.Dir
 	cmd.Env = append(os.Environ(), pushSiblingStack(consumerDir, sib.Dir))
+	// Propagate the audit/log correlation ID so the child's events
+	// share the same value as the parent's — grep on correlation_id
+	// reconstructs the whole spawn tree (ADR-024 / issue 048).
+	if cid := logging.GetRequestID(ctx); cid != "" {
+		cmd.Env = append(cmd.Env, logging.CorrelationIDEnv+"="+cid)
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

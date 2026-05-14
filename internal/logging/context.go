@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"log/slog"
+	"os"
 	"time"
 )
 
@@ -22,6 +23,12 @@ const (
 	ServiceKey ContextKey = "service"
 )
 
+// CorrelationIDEnv carries the request/correlation ID across recursive
+// `raioz` invocations (mode A sibling spawn, ADR-008). Parent stamps
+// its own ID into this env var when spawning a child so audit and log
+// records share the value across the whole spawn tree. ADR-024-issue-048.
+const CorrelationIDEnv = "RAIOZ_CORRELATION_ID"
+
 // generateRequestID generates a unique request ID
 func generateRequestID() string {
 	bytes := make([]byte, 8)
@@ -32,10 +39,15 @@ func generateRequestID() string {
 	return hex.EncodeToString(bytes)
 }
 
-// WithRequestID adds a request ID to the context
+// WithRequestID adds a request ID to the context. Honors the
+// RAIOZ_CORRELATION_ID env var when present so recursive `raioz up`
+// invocations inherit the parent's ID — keeps a single correlation
+// thread visible across the spawn tree. Generates fresh otherwise.
 func WithRequestID(ctx context.Context) context.Context {
-	requestID := generateRequestID()
-	return context.WithValue(ctx, RequestIDKey, requestID)
+	if inherited := os.Getenv(CorrelationIDEnv); inherited != "" {
+		return context.WithValue(ctx, RequestIDKey, inherited)
+	}
+	return context.WithValue(ctx, RequestIDKey, generateRequestID())
 }
 
 // GetRequestID retrieves the request ID from context
