@@ -1,7 +1,7 @@
 package workspace
 
 import (
-	"runtime"
+	"path/filepath"
 	"testing"
 
 	"raioz/internal/domain/models"
@@ -72,9 +72,6 @@ func TestGetServiceDir(t *testing.T) {
 }
 
 func TestGetServicePath(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: assertions use Unix path separators")
-	}
 	ws := &Workspace{
 		Root:                "/tmp/workspace",
 		ServicesDir:         "/tmp/services",
@@ -114,9 +111,12 @@ func TestGetServicePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := GetServicePath(ws, "test-service", tt.svc)
-			if result != tt.expected {
-				t.Errorf("GetServicePath() = %v, want %v", result, tt.expected)
+			// Normalize separators so the same Unix-style expected
+			// strings work on Windows (where filepath.Join emits `\`).
+			got := filepath.ToSlash(GetServicePath(ws, "test-service", tt.svc))
+			want := filepath.ToSlash(tt.expected)
+			if got != want {
+				t.Errorf("GetServicePath() = %v, want %v", got, want)
 			}
 		})
 	}

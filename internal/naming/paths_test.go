@@ -3,7 +3,6 @@ package naming
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -83,9 +82,6 @@ func TestLegacyStateDirs(t *testing.T) {
 }
 
 func TestMigrateLegacyStateDirs(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: legacy paths (~/.raioz, /opt/raioz-proyecto) are Unix-only")
-	}
 	tmp := t.TempDir()
 	legacy := filepath.Join(tmp, ".raioz")
 	if err := os.MkdirAll(filepath.Join(legacy, "sub"), 0o755); err != nil {
@@ -98,8 +94,11 @@ func TestMigrateLegacyStateDirs(t *testing.T) {
 		t.Fatalf("seed ignore.json: %v", err)
 	}
 
-	// HOME drives LegacyStateDirs(); XDG_STATE_HOME drives the dst.
+	// HOME (Unix/macOS) and USERPROFILE (Windows) both drive
+	// os.UserHomeDir, which feeds LegacyStateDirs. Set both so the
+	// test stub points at our tempdir regardless of OS.
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
 	xdg := filepath.Join(tmp, "xdg-state")
 	t.Setenv("XDG_STATE_HOME", xdg)
 	t.Setenv("RAIOZ_HOME", "")

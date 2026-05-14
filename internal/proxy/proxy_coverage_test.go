@@ -3,7 +3,6 @@ package proxy
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -240,11 +239,8 @@ func TestGenerateCaddyfile_WritesToFile(t *testing.T) {
 }
 
 func TestHasExistingCerts_BothExist(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
-	}
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	certsDir := filepath.Join(home, ".raioz", "certs")
 	os.MkdirAll(certsDir, 0o755)
@@ -335,12 +331,9 @@ func TestEnsureCerts_NoMkcert(t *testing.T) {
 }
 
 func TestEnsureCerts_EmptyDomain(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
-	}
 	// Pre-create a valid cert under the default domain's namespaced folder.
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	domainDir := filepath.Join(home, ".raioz", "certs", "localhost")
 	os.MkdirAll(domainDir, 0o755)
 	writeSelfSignedCert(t, filepath.Join(domainDir, certFileName),
@@ -357,9 +350,6 @@ func TestEnsureCerts_EmptyDomain(t *testing.T) {
 }
 
 func TestCertsDir_ReturnsAbsolute(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: assertion checks Unix path suffix .raioz/certs")
-	}
 	dir := CertsDir()
 	if dir == "" {
 		t.Skip("no HOME set")
@@ -367,7 +357,9 @@ func TestCertsDir_ReturnsAbsolute(t *testing.T) {
 	if !filepath.IsAbs(dir) {
 		t.Errorf("expected absolute path, got %q", dir)
 	}
-	if !strings.HasSuffix(dir, ".raioz/certs") {
+	// Normalize the OS separator so the same suffix check works
+	// on Windows (filepath.Join emits `\`).
+	if !strings.HasSuffix(filepath.ToSlash(dir), ".raioz/certs") {
 		t.Errorf("expected path ending in .raioz/certs, got %q", dir)
 	}
 }

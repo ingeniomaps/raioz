@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -229,13 +228,10 @@ func TestManager_AddRemoveRoute_Context(t *testing.T) {
 }
 
 func TestEnsureCerts_HomeDirUnavailable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
-	}
 	// Set HOME to empty which makes os.UserHomeDir fail on some systems
 	// but more reliably: test the existing-certs path with pre-created files
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	// Certs now live under the per-domain subdirectory and must carry a
 	// matching SAN — else EnsureCerts treats them as stale and regenerates.

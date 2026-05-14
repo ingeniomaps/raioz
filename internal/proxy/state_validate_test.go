@@ -87,7 +87,10 @@ func TestAssertProxyDirWritable_CaddyfileIsDirectory(t *testing.T) {
 // catches this whereas a plain Stat would not.
 func TestAssertProxyDirWritable_DirReadOnly(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: Windows chmod 0555 doesn't restrict write for owner")
+		// Windows POSIX-mode bits don't gate writes for the owner; a
+		// read-only setup here would need ACL API instead of os.Chmod.
+		// Tracking under docs/issues/068.
+		t.Skip("Unix-only file permission semantics")
 	}
 	if os.Geteuid() == 0 {
 		t.Skip("root can write everywhere — skip on root runners")

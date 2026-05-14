@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -160,9 +159,6 @@ func TestGenerateCaddyfile_SharedMergesAcrossProjects(t *testing.T) {
 // SaveProjectRoutes, a reader can race a writer and read a half-written
 // file that fails to unmarshal.
 func TestSaveProjectRoutes_AtomicUnderConcurrency(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: Windows file-locking is stricter; atomic-rename races differ")
-	}
 	if testing.Short() {
 		t.Skip("concurrency stress test")
 	}
