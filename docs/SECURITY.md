@@ -121,6 +121,68 @@ runtime binary on your `$PATH`.
 raioz can't help. The same is true for `make`, `docker`, any
 other tool you run.
 
+## YAML hygiene gates (ADR-036)
+
+Three preflight rules in `internal/config/` reject or warn on
+`raioz.yaml` content before the parsed config reaches any
+executable surface. They catch a narrow class of incidents that
+recur in real-world configs.
+
+**H1 — Secret detection (error, no override).**
+`internal/config/secret_scan.go` scans the raw yaml bytes before
+`yaml.Unmarshal` for known credential formats: GitHub
+PAT/OAuth/user-to-server/server-to-server/refresh tokens, GitLab
+PATs, Slack tokens, AWS access key IDs, and PEM private keys.
+Match → hard error. The matched secret never appears in the error
+message — only the pattern name and approximate line number. No
+flag, env var, or hash whitelist can suppress this.
+
+**H2 — Path traversal (error).**
+`internal/config/path_safety.go` requires every path in
+`raioz.yaml` to resolve inside the project directory and to not
+target sensitive system locations (`/etc`, `/root`, `/var/lib`,
+`/sys`, `/proc`, `/dev`, `/boot`). Validated fields:
+`services.<n>.{path,env,compose,command,stop}`,
+`dependencies.<n>.{env,compose,dev.path}`, and
+`pre:`/`preUp:`/`post:`. Sibling project paths
+(`dependencies.<n>.{project,siblingProject}`) are exempt from the
+containment check by design (ADR-008) but still get the
+system-dir block. `command:`/`stop:`/`pre:`/`preUp:`/`post:` use a
+heuristic — the first token must look path-shaped (`./`/`../`/`/`)
+to be validated; bare shell commands like `make build` are
+ignored. Shell constructions with embedded paths
+(`bash ./scripts/foo.sh`) are intentionally not validated; that's
+the user's responsibility.
+
+**H3 — Image tag pinning (warning).**
+`internal/config/image_pinning.go` emits a warning when
+`dependencies.<n>.image` has no explicit tag or uses `:latest`.
+Digest pinning (`@sha256:...`) is accepted. Compose-backed deps
+without `image:` are not affected. Warning only — `raioz up`
+proceeds.
+
+### What this policy intentionally does NOT do
+
+ADR-036 "won't do" section preserves the rationale for trust-pass
+scope that was evaluated and rejected. In short:
+
+- No URL classification / SSRF protection (no URL fields exist in
+  the schema today).
+- No allowlist of git hosts (`github.com/atacante/malware` passes
+  any plausible allowlist).
+- No heuristic detection of dangerous shell in hooks (`curl|sh`,
+  `rm -rf`) — false-positive rate is high (legitimate `nvm`,
+  `rustup` installers), and obfuscation defeats the heuristic
+  trivially.
+- No interactive first-run confirmation, no yaml hash persistence,
+  no `--accept-script`.
+- No cryptographic signing of yamls.
+- No sandboxing of `pre:`/`preUp:`/`post:`.
+
+Reconsider any of these if a concrete incident demands them. The
+full case-by-case rationale is in
+[ADR-036](decisions/036-trust-model-yaml.md).
+
 ## Sensitive data raioz handles
 
 ### TLS certificates (mkcert mode)
