@@ -4,7 +4,7 @@ import "raioz/internal/domain/models"
 
 // RoutingConfig and YAMLWatch live canonically in internal/domain/models;
 // the aliases here keep `models.RoutingConfig` / `models.YAMLWatch` callers
-// compiling (see ADR-009 / issue 023).
+// compiling (see ADR-009).
 type (
 	RoutingConfig = models.RoutingConfig
 	YAMLWatch     = models.YAMLWatch

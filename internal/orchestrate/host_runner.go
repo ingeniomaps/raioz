@@ -40,9 +40,9 @@ func init() {
 // HostRunner handles services that run directly on the host (npm, go, make, python, rust).
 type HostRunner struct {
 	// mu guards processes + launchers. All access goes through the
-	// helpers below so the lock pattern stays uniform. Issue 059 /
-	// ADR-028. Lazy init: a fresh HostRunner has nil maps; the first
-	// helper that touches them initializes under the write lock.
+	// helpers below so the lock pattern stays uniform (ADR-028). Lazy
+	// init: a fresh HostRunner has nil maps; the first helper that
+	// touches them initializes under the write lock.
 	mu        sync.Mutex
 	processes map[string]int
 	// Services that triggered the launcher pattern at Start time. Stop
@@ -158,7 +158,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 		return fmt.Errorf("failed to start service '%s': %w", svc.Name, err)
 	}
 
-	// Issue 008: detect processes that fork+exec ok but die immediately
+	// Detect processes that fork+exec ok but die immediately
 	// (port already bound, missing binary, panic at boot). Same goroutine
 	// also handles reaping after the settle window — the channel buffer
 	// absorbs the eventual exit so we don't leak a zombie.

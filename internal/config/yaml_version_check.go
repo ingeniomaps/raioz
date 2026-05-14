@@ -7,7 +7,7 @@ import (
 )
 
 // schemaVersionWarnings returns advisory warnings about the schema
-// version declared (or missing) in the config. Issue 054 / ADR-031:
+// version declared (or missing) in the config. ADR-031:
 // the field is now a real gate at warning level. Cases:
 //
 //   - Missing — soft warning, "consider adding".

@@ -10,7 +10,6 @@ import (
 
 // MetaConfig is the resolved meta-orchestrator view of a raioz.yaml whose
 // kind is "meta". The Workspace + Path of each sub-project are absolute.
-// Issue 011.
 type MetaConfig struct {
 	Workspace string
 	BaseDir   string

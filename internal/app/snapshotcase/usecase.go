@@ -1,4 +1,4 @@
-// Package snapshotcase wraps the snapshot port (issue 034 / ADR-014)
+// Package snapshotcase wraps the snapshot port (ADR-014)
 // in a use-case-shaped struct so the CLI follows the same wiring as
 // every other command (cli → app → port).
 //

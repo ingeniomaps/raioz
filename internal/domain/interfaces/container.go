@@ -20,7 +20,7 @@ type ContainerManager interface {
 	// for a raioz-managed service/dep by matching the com.raioz.project
 	// + com.raioz.service labels, or "" if none exists. Fallback when
 	// the canonical name doesn't match — typically because the user's
-	// compose file dictated a custom container_name. See issue 009.
+	// compose file dictated a custom container_name. See.
 	FindManagedContainerByService(ctx context.Context, project, service string) string
 
 	// StopContainerWithContext stops a container by name.

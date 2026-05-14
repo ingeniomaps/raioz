@@ -334,7 +334,7 @@ func TestStartServiceLocalInvalidCommand(t *testing.T) {
 	}
 }
 
-// Issue 008: a background command that fork+exec'd ok but exits immediately
+// A background command that fork+exec'd ok but exits immediately
 // (e.g. port already bound) must surface as an error from StartService.
 // Without the settle window the start was reported as "success" and the
 // caller had no way to tell the service was already dead.
@@ -366,7 +366,7 @@ func TestStartServiceEarlyExitDetected(t *testing.T) {
 	}
 }
 
-// Issue 008 (cont): when the service writes to stderr before crashing,
+// When the service writes to stderr before crashing,
 // the returned error must include the tail so the user can diagnose
 // without having to grep through log files.
 func TestStartServiceEarlyExitIncludesStderrTail(t *testing.T) {
@@ -409,7 +409,7 @@ func TestStartServiceEarlyExitIncludesStderrTail(t *testing.T) {
 	}
 }
 
-// Issue 008 (cont): a long-running service must NOT be misclassified as
+// A long-running service must NOT be misclassified as
 // early-exit. The settle window is short on purpose; this is the
 // regression test for the obvious false-positive direction.
 func TestStartServiceSurvivesSettleWindow(t *testing.T) {
@@ -445,7 +445,7 @@ func TestStartServiceSurvivesSettleWindow(t *testing.T) {
 	}
 }
 
-// Issue 010 / 008-coexistence: a launcher that exits cleanly (exit 0)
+// Launcher / early-exit coexistence: a launcher that exits cleanly (exit 0)
 // inside the settle window must NOT be flagged as early-exit. The classic
 // shape is `./launch.sh` that does `docker run -d` and returns 0.
 func TestStartServiceCleanExitInSettleWindowIsNotError(t *testing.T) {

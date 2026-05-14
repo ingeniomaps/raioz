@@ -100,11 +100,11 @@ func spawnSibling(
 	cmd.Env = append(os.Environ(), pushSiblingStack(consumerDir, sib.Dir))
 	// Propagate the audit/log correlation ID so the child's events
 	// share the same value as the parent's — grep on correlation_id
-	// reconstructs the whole spawn tree (ADR-024 / issue 048).
+	// reconstructs the whole spawn tree (ADR-024).
 	if cid := logging.GetRequestID(ctx); cid != "" {
 		cmd.Env = append(cmd.Env, logging.CorrelationIDEnv+"="+cid)
 	}
-	// Issue 057 / ADR-026: Pdeathsig on Linux so a Ctrl+C on the
+	// ADR-026: Pdeathsig on Linux so a Ctrl+C on the
 	// parent reaps spawned siblings instead of orphaning them. No-op
 	// on macOS/Windows; cmd.Context() cancellation covers the
 	// portable half.

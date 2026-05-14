@@ -9,7 +9,7 @@ import (
 	"raioz/internal/domain/models"
 )
 
-// Issue 044 regression guard: the stop env must inherit the parent's.
+// Regression guard: the stop env must inherit the parent's.
 // Sentinel var avoids relying on PATH (some CI sandboxes scrub it).
 func TestBuildStopCmdEnv_InheritsParentEnv(t *testing.T) {
 	t.Setenv("RAIOZ_TEST_SENTINEL", "yes")

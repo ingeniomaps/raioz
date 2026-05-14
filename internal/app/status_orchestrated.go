@@ -100,7 +100,7 @@ func (uc *StatusUseCase) queryServiceStatus(ctx context.Context, name string, de
 // `compose:` where the user's compose file dictates a custom container_name),
 // we fall back to a label search by com.raioz.project + com.raioz.service —
 // the labels are stamped on every raioz-managed container, so this finds the
-// actual container regardless of its name. See issue 009.
+// actual container regardless of its name. See.
 func (uc *StatusUseCase) queryDepStatus(
 	ctx context.Context, name string, entry models.InfraEntry, deps *models.Deps,
 ) string {

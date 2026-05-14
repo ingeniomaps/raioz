@@ -21,7 +21,7 @@ type Manager struct {
 	// routesMu guards the routes map. Writers (AddRoute/RemoveRoute)
 	// take the write lock; readers iterate via snapshotRoutes() so
 	// docker-exec calls in Start/Reload don't hold the lock for the
-	// full subprocess duration. Issue 059 / ADR-028.
+	// full subprocess duration. ADR-028.
 	routesMu    sync.RWMutex
 	routes      map[string]interfaces.ProxyRoute
 	networkName string
@@ -188,7 +188,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		}
 	}
 
-	// Issue 015: the "Docker auto-created bind-mount source as root"
+	// The "Docker auto-created bind-mount source as root"
 	// trap. Surfaces a single actionable error before generateCaddyfile
 	// fails cryptically.
 	if err := m.assertProxyDirWritable(); err != nil {

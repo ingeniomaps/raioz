@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// TestSetPdeathsig guards ADR-026 / issue 057 on Linux: spawned
+// TestSetPdeathsig guards ADR-026 on Linux: spawned
 // siblings must be wired to receive SIGTERM when the parent
 // process exits, so Ctrl+C on the parent doesn't leak the child
 // raioz tree.

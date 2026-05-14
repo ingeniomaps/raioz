@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// Issue 059 / ADR-028 regression guard for HostRunner. Run under
+// ADR-028 regression guard for HostRunner. Run under
 // `go test -race` to surface unguarded map access. Remove the mu
 // in HostRunner and one of these must trip the detector.
 

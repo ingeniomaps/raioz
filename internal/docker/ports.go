@@ -320,7 +320,7 @@ func IdentifyPortOccupant(ctx context.Context, port int) PortOccupant {
 	// raioz creates (services, deps, proxy) regardless of how the container
 	// got named — including deps brought up via user-supplied compose files
 	// where `container_name:` is dictated by the user, not by raioz naming
-	// rules. See issue 009.
+	// rules. See.
 	if managed, _ := GetContainerLabel(ctx, occ.ContainerName, naming.LabelManaged); managed == "true" {
 		occ.IsRaioz = true
 		if proj, _ := GetContainerLabel(ctx, occ.ContainerName, naming.LabelProject); proj != "" {

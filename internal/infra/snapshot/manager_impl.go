@@ -14,7 +14,7 @@ var _ interfaces.SnapshotManager = (*ManagerImpl)(nil)
 // interfaces.SnapshotManager port. Behavior is unchanged from the
 // underlying package; this wrapper exists so the app layer can
 // program against the port instead of the concrete type — see ADR-014
-// / issue 034.
+// /.
 type ManagerImpl struct {
 	mgr *snapshotpkg.Manager
 }

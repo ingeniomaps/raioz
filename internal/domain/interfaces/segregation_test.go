@@ -12,10 +12,8 @@ import (
 // only ContainerManager can mock just that surface — no need to
 // implement the full DockerRunner.
 //
-// This is the test sample mentioned in issue 032's acceptance:
-// "un test que solo necesita ContainerManager puede mockear solo eso".
-//
-// ADR-012 documents the segregation contract.
+// ADR-012 documents the segregation contract: a test that only needs
+// ContainerManager should be able to mock just that surface.
 func TestSegregatedInterfaceMocking(t *testing.T) {
 	// Compile-time proof: MockDockerRunner satisfies every small
 	// interface. Test fixtures can pass the same mock down to a

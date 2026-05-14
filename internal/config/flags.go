@@ -4,7 +4,7 @@ import "raioz/internal/domain/models"
 
 // MockConfig and FeatureFlagConfig live in internal/domain/models. The
 // aliases keep `models.MockConfig` / `models.FeatureFlagConfig` callers
-// compiling (see ADR-009 / issue 023).
+// compiling (see ADR-009).
 type (
 	MockConfig        = models.MockConfig
 	FeatureFlagConfig = models.FeatureFlagConfig

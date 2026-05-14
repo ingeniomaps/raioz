@@ -36,7 +36,7 @@ const (
 
 	// Lifecycle events for up/down/restart. Phase identifies start vs
 	// complete; status distinguishes success from failure on complete.
-	// See OBSERVABILITY.md and issue 048.
+	// See OBSERVABILITY.md.
 	EventTypeLifecycle EventType = "lifecycle"
 
 	// Sibling project resolved its dep via the live sibling (ADR-008

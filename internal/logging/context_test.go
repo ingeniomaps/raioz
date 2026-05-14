@@ -34,7 +34,7 @@ func TestWithRequestID_AndGet(t *testing.T) {
 	}
 }
 
-// TestWithRequestID_InheritsFromEnv guards ADR-024/issue 048: a
+// TestWithRequestID_InheritsFromEnv guards ADR-024: a
 // recursive `raioz up` spawn must reuse the parent's correlation ID
 // rather than generating a fresh one. Cleared env yields a generated
 // ID; populated env wins.

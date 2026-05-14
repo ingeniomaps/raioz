@@ -14,7 +14,7 @@ import (
 const workspacePreferencesFileName = "workspace-preferences.json"
 
 // WorkspaceProjectPreference / WorkspacePreferences live in
-// internal/domain/models; aliases kept for callers (ADR-009 / issue 023).
+// internal/domain/models; aliases kept for callers (ADR-009).
 type (
 	WorkspaceProjectPreference = models.WorkspaceProjectPreference
 	WorkspacePreferences       = models.WorkspacePreferences

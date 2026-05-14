@@ -109,7 +109,7 @@ func (uc *DownUseCase) handlePerProjectProxyDown(ctx context.Context) {
 // until raioz overwrote them. Workspace-shared mode targets WorkspaceProxyDir;
 // legacy per-project mode targets ProxyDir(project).
 //
-// Issue 015 migration: also nuke the pre-XDG legacy `/tmp/<ws>/proxy/`
+// Legacy migration: also nuke the pre-XDG `/tmp/<ws>/proxy/`
 // location. Users upgrading from a build that wrote there inherit a stale
 // (and possibly root-owned) tree; one down/up cycle now clears it. The
 // legacy removal is best-effort because the offending tree is exactly the

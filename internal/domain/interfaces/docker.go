@@ -22,7 +22,7 @@ type LogsOptions struct {
 }
 
 // DockerRunner is the aggregate port covering every Docker-shaped
-// operation raioz performs. ADR-012 (issue 032) splits the surface
+// operation raioz performs. ADR-012 splits the surface
 // into six segregated interfaces — ContainerManager, ComposeRunner,
 // NetworkManager, VolumeManager, ImageValidator, PortValidator — that
 // this interface embeds. Aggregating callers stay on this type; new

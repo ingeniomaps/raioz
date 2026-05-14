@@ -59,7 +59,7 @@ func TestConfigCorpus(t *testing.T) {
 
 	if yamlCount < 15 {
 		t.Fatalf("corpus has %d fixtures; minimum is 15 per the corpus charter "+
-			"(see internal/config/testdata/configs/README.md or issue 027)",
+			"(see internal/config/testdata/configs/README.md)",
 			yamlCount)
 	}
 }

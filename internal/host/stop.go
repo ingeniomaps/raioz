@@ -123,7 +123,7 @@ func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand str
 	case err := <-done:
 		// "no child processes" / "wait: no child processes" means the
 		// child was already reaped — typically by the settle-window
-		// goroutine in StartService (issue 008). The process is gone,
+		// goroutine in StartService. The process is gone,
 		// which is exactly what we wanted.
 		if err != nil && strings.Contains(err.Error(), "no child process") {
 			return nil

@@ -178,7 +178,7 @@ func (uc *DevUseCase) promote(
 		output.PrintWarning("Failed to save state: " + err.Error())
 	}
 
-	// Issue 048: audit the promotion. Failure is logged at debug only —
+	// Audit the promotion. Failure is logged at debug only —
 	// dev mode is already up; an audit miss is not user-visible.
 	if auditErr := audit.LogDevPromoted(ctx, name, absPath, originalImage); auditErr != nil {
 		logging.DebugWithContext(ctx, "audit LogDevPromoted failed",
@@ -246,7 +246,7 @@ func (uc *DevUseCase) resetOverride(
 		output.PrintWarning("Failed to save state: " + err.Error())
 	}
 
-	// Issue 048: audit the revert. Best-effort; same rationale as promote.
+	// Audit the revert. Best-effort; same rationale as promote.
 	if auditErr := audit.LogDevReverted(ctx, name, override.OriginalImage); auditErr != nil {
 		logging.DebugWithContext(ctx, "audit LogDevReverted failed",
 			"error", auditErr.Error())

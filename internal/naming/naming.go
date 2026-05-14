@@ -142,7 +142,7 @@ func DepComposePath(project, dep string) string {
 // containers with --restart unless-stopped to re-create the bind-mount
 // source as a root-owned directory. From that moment every `raioz up`
 // fails with a cryptic "is a directory" until `sudo rm -rf` cleans the
-// trap. See issue 015. Helper LegacyProxyDir lets cleanup find the
+// trap. Helper LegacyProxyDir lets cleanup find the
 // pre-XDG path so the migration is automatic on next down.
 func ProxyDir(project string) string {
 	return filepath.Join(stateBaseDir(), prefix+"-"+project, "proxy")
@@ -171,7 +171,6 @@ func CaddyfilePath(project string) string {
 // LegacyWorkspaceProxyDir returns the pre-XDG location of the shared proxy
 // dir (`/tmp/{workspace}/proxy/`). Used only by cleanup paths so an old
 // `down` writing root-owned state can still be located and removed.
-// Issue 015.
 func LegacyWorkspaceProxyDir() string {
 	return filepath.Join(os.TempDir(), prefix, "proxy")
 }
@@ -188,9 +187,9 @@ func LegacyProxyDir(project string) string {
 //  2. ~/.local/state otherwise (XDG default fallback)
 //  3. os.TempDir() if even the home dir can't be resolved (degraded mode)
 //
-// Falling back to TempDir is strictly worse than XDG, but it preserves the
-// pre-issue-015 behavior on systems where home discovery fails — never
-// returns an empty string.
+// Falling back to TempDir is strictly worse than XDG, but it preserves
+// legacy behavior on systems where home discovery fails — never returns
+// an empty string.
 func stateBaseDir() string {
 	if xdg := os.Getenv("XDG_STATE_HOME"); xdg != "" {
 		return xdg

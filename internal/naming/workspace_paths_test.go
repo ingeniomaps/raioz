@@ -49,9 +49,9 @@ func TestWorkspaceCaddyfilePath(t *testing.T) {
 	}
 }
 
-// TestWorkspaceProxyDir_HonorsXDGStateHome locks in the issue 015 fix:
-// proxy state must follow $XDG_STATE_HOME so reboots and Docker
-// auto-create races can't poison it under /tmp.
+// TestWorkspaceProxyDir_HonorsXDGStateHome locks in the XDG-state
+// migration: proxy state must follow $XDG_STATE_HOME so reboots and
+// Docker auto-create races can't poison it under /tmp.
 func TestWorkspaceProxyDir_HonorsXDGStateHome(t *testing.T) {
 	original := prefix
 	defer func() { prefix = original }()

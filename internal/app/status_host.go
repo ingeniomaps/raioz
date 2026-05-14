@@ -26,7 +26,7 @@ func (uc *StatusUseCase) getHostServiceInfo(
 		Health: "none",
 	}
 
-	// Issue 010 — Priority 0: when the service declares `proxy.target`,
+	// Priority 0: when the service declares `proxy.target`,
 	// THAT container is the source of truth. The user has already told us
 	// which container backs the service, so trust it instead of fishing
 	// through compose autodetect (which fails for launchers like

@@ -3,7 +3,7 @@ package interfaces
 import "strings"
 
 // TLSMode is the vendor-neutral TLS provider value carried through
-// the proxy port. Issue 055 / ADR-032: the interface stops leaking
+// the proxy port. ADR-032: the interface stops leaking
 // Caddy/mkcert vocabulary by accepting only the typed values below.
 // Adapters map TLSModeLocal → their own local CA tool (mkcert for
 // Caddy today; could be different for a future Traefik adapter).

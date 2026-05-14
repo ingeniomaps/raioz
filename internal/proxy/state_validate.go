@@ -12,7 +12,7 @@ import (
 )
 
 // assertProxyDirWritable defends against the "Docker bind-mount source
-// auto-created as root" trap (issue 015). Symptoms in the field:
+// auto-created as root" trap. Symptoms in the field:
 //
 //   - WriteFile returns `is a directory` because Caddyfile is now a dir.
 //   - MkdirAll returns `permission denied` because the parent is root-owned.
@@ -66,7 +66,7 @@ func (m *Manager) activeProxyDir() string {
 	return naming.ProxyDir(m.networkName)
 }
 
-// proxyDirCorruptedError builds the user-facing error for issue 015.
+// proxyDirCorruptedError builds the user-facing error for.
 // The suggestion includes the exact path so the user can paste the
 // `sudo rm -rf` command verbatim.
 func proxyDirCorruptedError(dir string, cause error) error {

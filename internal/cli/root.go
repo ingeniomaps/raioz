@@ -29,7 +29,7 @@ var rootCmd = &cobra.Command{
 
 // Execute is the CLI entrypoint. Wraps the cobra root command in a
 // context that cancels on SIGINT/SIGTERM so every cmd.Run/RunE that
-// reads cmd.Context() observes user interrupts. Issue 057 / ADR-026:
+// reads cmd.Context() observes user interrupts. ADR-026:
 // without this, Ctrl+C during a recursive sibling spawn (ADR-008
 // mode A) left children running.
 func Execute() {

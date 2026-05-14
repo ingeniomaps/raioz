@@ -22,7 +22,7 @@ import (
 
 // StatusYAML shows status for a YAML orchestrated project. When `filter` is
 // non-empty, only services / dependencies in that list are reported and any
-// unknown name returns an error so the user notices the typo (issue 014).
+// unknown name returns an error so the user notices the typo.
 func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filter []string) error {
 	if err := validateStatusFilter(proj, filter); err != nil {
 		return err
@@ -72,10 +72,10 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filt
 				runtime = "unknown"
 			}
 
-			// Issue 010 priority 0: when the user declared `proxy.target`,
-			// THAT container is the source of truth — bypass the PID/compose
-			// heuristics that go false-negative for launchers that exit 0
-			// after `docker run -d`.
+			// Priority 0: when the user declared `proxy.target`, THAT
+			// container is the source of truth — bypass the PID/compose
+			// heuristics that go false-negative for launchers that exit
+			// 0 after `docker run -d`.
 			status := "stopped"
 			pidInfo := ""
 			if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
@@ -218,7 +218,7 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 // RestartYAML restarts services in a YAML orchestrated project. Host
 // services (declared with `command:`) go through HostRunner so the
 // settle-window + launcher-pattern logic applies; docker services
-// delegate to `docker restart <container>`. Issue 013 / ADR-025.
+// delegate to `docker restart <container>`. ADR-025.
 func (uc *RestartUseCase) RestartYAML(
 	ctx context.Context, proj *YAMLProject, opts RestartOptions,
 ) (err error) {
@@ -239,7 +239,7 @@ func (uc *RestartUseCase) RestartYAML(
 		}
 	}
 
-	// Issue 048: lifecycle audit. Restart can be partial-success at the
+	// Lifecycle audit. Restart can be partial-success at the
 	// per-service level (printed); the lifecycle pair records the
 	// outer Execute outcome only.
 	startTime := time.Now()

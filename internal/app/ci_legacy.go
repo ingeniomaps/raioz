@@ -263,8 +263,8 @@ func (uc *CIUseCase) executeSetup(
 
 		// ADR-011 Phase 1: legacy state snapshot no longer written.
 		// result.StateFile is left empty; CI consumers should rely on
-		// Docker label sweeps instead. Sub-issue 031a tracks the
-		// follow-up where result.StateFile may be removed entirely.
+		// Docker label sweeps instead. A follow-up may remove
+		// result.StateFile entirely.
 		_ = ws
 		_ = deps
 	} else {

@@ -220,7 +220,7 @@ func (uc *UseCase) processOrchestration(
 	// Build endpoints map for service discovery
 	endpoints := buildEndpoints(ctx, docker.NewLookup(), deps, detections, portAllocs)
 
-	// Step 2.5 — preUp hook (ADR-024 / issue 046): runs post-infra,
+	// Step 2.5 — preUp hook (ADR-024): runs post-infra,
 	// pre-services. Failure aborts.
 	if err := uc.preUpHookExec(ctx, deps, projectDir); err != nil {
 		return nil, err

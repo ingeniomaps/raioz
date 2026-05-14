@@ -1,4 +1,4 @@
-// Package tunnelcase wraps the tunnel port (issue 035 / ADR-015) in
+// Package tunnelcase wraps the tunnel port (ADR-015) in
 // use cases so the CLI follows the same wiring as every other
 // command. Tests stub the port directly and never shell out to
 // cloudflared or bore.

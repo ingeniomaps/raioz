@@ -135,7 +135,7 @@ func TestSpawnSibling_FailureIncludesDiagnosticHint(t *testing.T) {
 	}
 }
 
-// TestSpawnSibling_PdeathsigKillsOrphans guards ADR-026 / issue 057
+// TestSpawnSibling_PdeathsigKillsOrphans guards ADR-026
 // end-to-end on Linux: when the parent process exits without
 // reaping the spawn, the child must die via Pdeathsig. We simulate
 // that path by spawning a long-running fake binary, then cancelling
@@ -181,7 +181,7 @@ func TestSpawnSibling_PdeathsigKillsOrphans(t *testing.T) {
 	}
 }
 
-// TestSpawnSibling_PropagatesCorrelationID asserts ADR-024/issue 048:
+// TestSpawnSibling_PropagatesCorrelationID asserts ADR-024:
 // the parent ctx's request ID is propagated to the spawned child via
 // the RAIOZ_CORRELATION_ID env var so audit/log records share the
 // value across the spawn tree.

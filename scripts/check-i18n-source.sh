@@ -4,7 +4,7 @@
 # raioz advertises bilingual (en/es) and `make check-i18n` validates
 # the catalogs are synchronized. This script enforces the matching
 # discipline at the source level: every user-facing message must go
-# through i18n.T(). Issue 058 / ADR-027.
+# through i18n.T(). ADR-027.
 #
 # Pattern: output.Print<Anything>("<Uppercase first letter>…")
 # matches calls like output.PrintInfo("Hello") but skips dynamic

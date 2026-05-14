@@ -45,14 +45,14 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 	projectDir, _ := filepath.Abs(filepath.Dir(configPath))
 	projectName := deps.Project.Name
 
-	// Issue 012: when the user passed service names, stop only that subset
+	// When the user passed service names, stop only that subset
 	// and leave the network / proxy / state file alone. The rest of the
 	// project keeps running.
 	if len(opts.Services) > 0 {
 		return uc.downSelectiveServices(ctx, deps, projectDir, projectName, opts.Services)
 	}
 
-	// Issue 048: lifecycle audit. Selective down skips above intentionally
+	// Lifecycle audit. Selective down skips above intentionally
 	// — it isn't a project-wide teardown, just a subset stop.
 	startTime := time.Now()
 	if auditErr := audit.LogLifecycleStart(
@@ -79,7 +79,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 
 	// Custom `stop:` runs first — only it knows how to tear down whatever
 	// `command:` launched (e.g. `make start` → its own compose project).
-	// Failures are surfaced at the tail of the function (issue 044).
+	// Failures are surfaced at the tail of the function.
 	failedStops := runCustomStopCommands(ctx, deps, projectDir)
 
 	// Tear down compose-based services (yaml `compose:` or auto-detected) by

@@ -102,7 +102,7 @@ func (p *YAMLProject) resolveInfraContainerName(name string) string {
 }
 
 // ContainerStatus returns status of a specific container. Routes both
-// the canonical-name probe and the label-based fallback (issue 009)
+// the canonical-name probe and the label-based fallback
 // through naming.ResolveContainer — the single resolver shared by proxy,
 // discovery, and down.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {

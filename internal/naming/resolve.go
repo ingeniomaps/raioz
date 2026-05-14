@@ -26,7 +26,7 @@ type ContainerLookup interface {
 //     (com.raioz.managed=true + com.raioz.service + com.raioz.project).
 //     Catches the case where a `compose:` dep declared
 //     `container_name:` in the user's docker-compose, so the canonical
-//     name no longer matches the live container (issue 009).
+//     name no longer matches the live container.
 //  3. Return "" with nil error when neither resolves — callers decide
 //     whether that's expected (status reports "stopped") or an error
 //     (down sweep finds nothing to remove).

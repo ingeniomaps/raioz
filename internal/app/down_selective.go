@@ -20,7 +20,7 @@ import (
 
 // downSelectiveServices stops only the named services / dependencies and
 // returns. Network, proxy, and the local state file are left intact so the
-// rest of the project keeps running. Issue 012.
+// rest of the project keeps running.
 //
 // The caller is responsible for having matched naming.SetPrefix to the
 // project's workspace before invoking this — otherwise label sweeps and
@@ -32,8 +32,9 @@ func (uc *DownUseCase) downSelectiveServices(
 	requested []string,
 ) error {
 	// Resolve each requested name to a kind ("service" or "dep") and bail
-	// loudly if anything is unknown — silent ignore would replicate the
-	// pre-fix behavior and is exactly what issue 012 was about.
+	// loudly if anything is unknown — silent ignore would mask typos in
+	// the requested list, which is exactly the bug the selective path
+	// is supposed to avoid.
 	type target struct {
 		name string
 		kind string // "service" | "dep"

@@ -29,7 +29,7 @@ type DownOptions struct {
 	// declared in raioz.yaml. Empty means "whole project" (legacy
 	// behavior). When non-empty, only these are stopped — network, proxy
 	// and state file are left intact so the rest of the project keeps
-	// running. Issue 012.
+	// running.
 	Services []string
 }
 

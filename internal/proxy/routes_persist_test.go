@@ -16,8 +16,8 @@ import (
 // makeSharedManager builds a Manager wired up for workspace-shared mode
 // with the proxy state dir pointed at a fresh tempdir so each test runs
 // in isolation. Both TMPDIR and XDG_STATE_HOME are redirected — XDG is
-// what naming.WorkspaceProxyDir reads after issue 015 moved state out
-// of /tmp; TMPDIR is kept for any code path that still touches os.TempDir
+// what naming.WorkspaceProxyDir reads now that proxy state lives under
+// $XDG_STATE_HOME; TMPDIR is kept for any code path that still touches os.TempDir
 // (e.g. legacy helpers).
 func makeSharedManager(t *testing.T, ws, project string) *Manager {
 	t.Helper()

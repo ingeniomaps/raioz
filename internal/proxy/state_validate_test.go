@@ -31,8 +31,8 @@ func TestMain(m *testing.M) {
 
 // TestAssertProxyDirWritable_HappyPath sets up a workspace-shared manager
 // pointing at a fresh tempdir and expects no error. This is the baseline
-// — the issue 015 trap only fires when the dir already exists in a
-// poisoned state.
+// — the bind-mount-poisoning trap only fires when the dir already
+// exists in a poisoned state.
 func TestAssertProxyDirWritable_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", dir)
@@ -45,9 +45,9 @@ func TestAssertProxyDirWritable_HappyPath(t *testing.T) {
 }
 
 // TestAssertProxyDirWritable_CaddyfileIsDirectory simulates the exact
-// failure mode from issue 015: Docker auto-created the bind-mount source
-// as a directory. The check must surface a structured error pointing at
-// the corrupt path.
+// failure mode the validator was added for: Docker auto-created the
+// bind-mount source as a directory. The check must surface a structured
+// error pointing at the corrupt path.
 func TestAssertProxyDirWritable_CaddyfileIsDirectory(t *testing.T) {
 	xdg := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", xdg)

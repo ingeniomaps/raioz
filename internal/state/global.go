@@ -16,7 +16,7 @@ const globalStateFileName = "state.json"
 
 // GlobalState / ProjectState / ServiceState live canonically in
 // internal/domain/models; the aliases keep `models.GlobalState` etc.
-// callers compiling (ADR-009 / issue 023).
+// callers compiling (ADR-009).
 type (
 	GlobalState  = models.GlobalState
 	ProjectState = models.ProjectState

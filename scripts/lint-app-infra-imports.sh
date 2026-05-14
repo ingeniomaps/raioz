@@ -4,7 +4,7 @@
 # doing so are tracked in scripts/app-infra-imports-baseline.txt —
 # the ratchet that backs ADR-012's segregation strategy.
 #
-# Issue 049 / ADR-029. The aggregate DockerRunner keeps embedding
+# ADR-029. The aggregate DockerRunner keeps embedding
 # the 6 segregated ports for backwards compat, but new code is
 # expected to depend on the narrow port that fits its need. This
 # lint catches drift: existing files can leave the list (file

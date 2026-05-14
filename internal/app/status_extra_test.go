@@ -326,7 +326,7 @@ func TestStatusUseCase_getHostServiceInfo_ProcessAlive(t *testing.T) {
 	}
 }
 
-// --- Issue 009: dep status fallback by labels --------------------------------
+// --- Dep status fallback by labels -------------------------------------------
 
 // When the canonical container name lookup misses (typical for compose-mode
 // deps where container_name is dictated by the user's compose), status must
@@ -419,7 +419,7 @@ func TestQueryDepStatus_StillStoppedWhenNoMatch(t *testing.T) {
 	}
 }
 
-// --- Issue 010: proxy.target as source of truth for host status -------------
+// --- proxy.target as source of truth for host status ------------------------
 
 // When the user declares `services.<name>.proxy.target: <container>` and that
 // container is running, status must report "running" regardless of what the

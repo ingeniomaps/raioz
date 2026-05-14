@@ -86,7 +86,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	ws := br.ws
 	appliedOverrides := br.appliedOverrides
 
-	// Issue 048: emit lifecycle audit events. Start fires after
+	// Emit lifecycle audit events. Start fires after
 	// bootstrap so the event carries project/workspace; complete is
 	// deferred so every return path (success, error, panic-after-
 	// recover) closes the pair with status + duration + error.

@@ -15,7 +15,7 @@ import (
 const servicePreferencesFileName = "service-preferences.json"
 
 // ServicePreference / ServicePreferences live in internal/domain/models;
-// aliases kept for callers (ADR-009 / issue 023).
+// aliases kept for callers (ADR-009).
 type (
 	ServicePreference  = models.ServicePreference
 	ServicePreferences = models.ServicePreferences

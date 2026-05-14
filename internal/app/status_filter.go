@@ -63,7 +63,7 @@ func countMatchingSvc(m map[string]models.Service, want map[string]struct{}) int
 // validateStatusFilter fails fast with a useful error when the filter
 // references a name that is neither a service nor a dependency. Otherwise
 // the user would see an empty report and assume nothing is running, which
-// is exactly the misleading UX that issue 014 was about (just inverted).
+// is exactly the misleading UX the filter is supposed to fix, just inverted.
 func validateStatusFilter(proj *YAMLProject, filter []string) error {
 	if len(filter) == 0 {
 		return nil

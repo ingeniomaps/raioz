@@ -3,7 +3,7 @@ package config
 import "raioz/internal/domain/models"
 
 // ProxyConfig lives canonically in internal/domain/models; the alias keeps
-// `models.ProxyConfig` callers compiling (see ADR-009 / issue 023).
+// `models.ProxyConfig` callers compiling (see ADR-009).
 type ProxyConfig = models.ProxyConfig
 
 // CurrentSchemaVersion is the version stamp raioz writes into newly
@@ -31,7 +31,7 @@ type RaiozConfig struct {
 
 	// Kind discriminates the config shape. Empty / "project" (default) means
 	// the regular shape with services/dependencies. "meta" means this file
-	// is a meta-orchestrator that delegates to sub-projects (see issue 011).
+	// is a meta-orchestrator that delegates to sub-projects.
 	Kind string `yaml:"kind,omitempty"` // since: v0.4.0
 	// Projects is the list of sub-projects this meta config orchestrates.
 	// Each path is resolved relative to the meta raioz.yaml. Used only when

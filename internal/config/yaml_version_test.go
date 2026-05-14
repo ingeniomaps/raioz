@@ -129,7 +129,7 @@ func TestSchemaVersionWarnings_Direct(t *testing.T) {
 	}
 }
 
-// TestSchemaVersionWarnings_Mismatch guards ADR-031 / issue 054. The
+// TestSchemaVersionWarnings_Mismatch guards ADR-031. The
 // helper must emit version-mismatch warnings so a config declaring a
 // schema this binary doesn't understand can't slip through silently.
 // The wantSubstr fragment pins enough text to catch drift without

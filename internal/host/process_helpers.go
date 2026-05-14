@@ -213,7 +213,7 @@ func shouldWaitForCommand(command string) bool {
 }
 
 // formatEarlyExitError builds the error returned when a host process exits
-// inside the settle window (issue 008). Includes the tail of the stderr log
+// inside the settle window. Includes the tail of the stderr log
 // so the user sees the real reason without having to dig through log files.
 func formatEarlyExitError(name string, window time.Duration, exitErr error, stderrPath string) error {
 	tail := ReadLogTail(stderrPath, 8)
@@ -228,7 +228,7 @@ func formatEarlyExitError(name string, window time.Duration, exitErr error, stde
 
 // FormatEarlyExitError is the exported form of formatEarlyExitError, used by
 // other packages (orchestrate.HostRunner) that share the settle-window
-// behavior. See issue 008 for motivation.
+// behavior.
 func FormatEarlyExitError(name string, window time.Duration, exitErr error, stderrPath string) error {
 	return formatEarlyExitError(name, window, exitErr, stderrPath)
 }

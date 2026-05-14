@@ -8,7 +8,7 @@ import (
 	"raioz/internal/domain/interfaces"
 )
 
-// Issue 059 / ADR-028 regression guard: run under `go test -race`
+// ADR-028 regression guard: run under `go test -race`
 // to surface any unguarded access. The test was added together with
 // the routesMu sync.RWMutex; remove the lock and it must trip the
 // detector. AddRoute, GetURL, HostsLine and snapshotRoutes are the

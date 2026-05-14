@@ -50,7 +50,7 @@ var upCmd = &cobra.Command{
 		// Resolve config path: empty -> .raioz.json; otherwise use given path (any name/ruta)
 		configPath = ResolveConfigPath(configPath)
 
-		// Issue 011: if the config is a meta-orchestrator, delegate to the
+		// If the config is a meta-orchestrator, delegate to the
 		// MetaRunner before initializing project-mode dependencies.
 		if handled, metaErr := tryHandleMeta(ctx, configPath, "up", nil); handled {
 			return metaErr

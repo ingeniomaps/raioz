@@ -8,7 +8,7 @@ import "syscall"
 // raioz parent process exits (clean or killed), the kernel sends
 // SIGTERM to the spawned sibling. Without this, Ctrl+C on the parent
 // leaves recursive `raioz up` children running with their own
-// half-spawned containers. Issue 057 / ADR-026.
+// half-spawned containers. ADR-026.
 //
 // Linux-only because `Pdeathsig` is a prctl(PR_SET_PDEATHSIG) wrapper.
 // Non-Linux platforms fall back to context cancellation alone (the

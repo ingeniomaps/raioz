@@ -27,7 +27,7 @@ type ProcessInfo struct {
 // startSettleWindow is how long StartService waits after a successful
 // cmd.Start() to make sure the process did not die immediately. If the
 // process exits inside this window we treat the start as a failure and
-// surface the stderr tail so the user sees why (issue 008).
+// surface the stderr tail so the user sees why.
 //
 // Background: cmd.Start() returns nil for any process that fork+exec'd
 // successfully — even if it crashes 5 ms later (port already bound,
@@ -209,7 +209,7 @@ func StartService(
 	// restart, down, and tests) can reach grandchildren via Kill(-pid).
 	// Without this the orchestrator's host_runner path got it (it sets it
 	// inline) but this code path didn't, so restart of a host service
-	// silently couldn't kill the previous incarnation. Issue 013.
+	// silently couldn't kill the previous incarnation.
 	SetNewProcessGroup(cmd)
 
 	// Start process in background (not Run, because we want it to run continuously)
@@ -219,10 +219,10 @@ func StartService(
 		return nil, fmt.Errorf("failed to start process for service %s: %w", serviceName, err)
 	}
 
-	// Issue 008: catch processes that fork+exec ok but die immediately
+	// Catch processes that fork+exec ok but die immediately
 	// (port already bound, missing config, panic at boot). Only treat a
 	// non-zero exit inside the window as a failure — a clean exit 0 is
-	// how launchers like `make dev-docker` (issue 010) signal that they
+	// how launchers like `make dev-docker` signal that they
 	// detached a long-running container and completed successfully.
 	if startSettleWindow > 0 {
 		waitErr := make(chan error, 1)

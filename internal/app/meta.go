@@ -14,7 +14,7 @@ import (
 // MetaRunner orchestrates a meta-orchestrator config: a raioz.yaml with
 // `kind: meta` whose sole job is to delegate up/down/status to N sub-projects
 // in order. Each sub-project keeps its own raioz.yaml, .raioz.state.json, and
-// lifecycle. Issue 011.
+// lifecycle.
 //
 // The implementation deliberately shells out to the current binary
 // (os.Args[0]) instead of re-using the in-process use cases. Two reasons:

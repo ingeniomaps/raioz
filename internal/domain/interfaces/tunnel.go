@@ -18,7 +18,7 @@ type TunnelInfo struct {
 }
 
 // TunnelManager is the port covering tunnel lifecycle. Introduced in
-// issue 035 / ADR-015 so the `raioz tunnel` CLI runs through the
+// ADR-015 so the `raioz tunnel` CLI runs through the
 // use-case layer like every other command. Backend selection
 // (cloudflared vs bore vs future frp/ngrok) is the adapter's concern.
 type TunnelManager interface {
