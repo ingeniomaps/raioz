@@ -8,6 +8,14 @@ builds:
       - -X raioz/internal/cli.Version=v{{.Version}}
       - -X raioz/internal/cli.Commit={{.ShortCommit}}
       - -X raioz/internal/cli.BuildDate={{.Date}}
+    hooks:
+      # Guard against the ldflags-package mismatch that produced
+      # unstamped v0.4.0 / v0.5.x binaries. The script self-skips
+      # on non-runnable cross-builds and aborts goreleaser BEFORE
+      # the archive/publish phase if the linux/amd64 binary is
+      # unstamped. See docs/issues/019.
+      post:
+        - cmd: ./scripts/verify-stamp.sh "{{ .Path }}" "v{{ .Version }}"
     goos:
       - linux
       - darwin
