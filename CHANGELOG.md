@@ -6,6 +6,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-05-14
+
+Build-fix release. `v0.5.0` tagged successfully but the goreleaser
+build failed at the Windows targets — `internal/proxy/workspace_lock.go`
+(ADR-010, shipped in `v0.5.0`) used `syscall.Flock` / `syscall.LOCK_EX`
+which only exist on Unix. Linux CI never caught it because it only
+cross-builds against itself. No published artifacts were affected;
+this release replaces the missing `v0.5.0` binaries.
+
+### Fixed
+
+- **Windows cross-compile.** Split `internal/proxy/workspace_lock.go`
+  into a platform-neutral shell plus `workspace_lock_unix.go`
+  (`syscall.Flock`) and `workspace_lock_windows.go`
+  (`golang.org/x/sys/windows.LockFileEx` — already a transitive
+  dep, no new imports). Both implementations honor the ADR-010
+  contract: exclusive advisory lock, blocking acquire, idempotent
+  release.
+
+### Changed
+
+- **CI cross-compile gate.** `ci.yml`'s test job now runs
+  `GOOS=windows GOARCH=amd64 go build ./cmd/raioz` and the matching
+  `GOOS=darwin` build after the linux build. Adds ~15s to the test
+  job and would have failed the v0.5.0 commit instead of the
+  release.
+
 ## [0.5.0] - 2026-05-14
 
 The headline is **architecture hardening**: the legacy `.state.json`
