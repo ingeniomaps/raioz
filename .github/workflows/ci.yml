@@ -48,6 +48,9 @@ jobs:
       - name: Check i18n catalogs in sync
         run: make check-i18n
 
+      - name: Check i18n source discipline (issue 058)
+        run: make check-i18n-source
+
   test:
     name: Unit tests
     runs-on: ubuntu-latest
