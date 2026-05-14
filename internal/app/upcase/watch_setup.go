@@ -151,6 +151,9 @@ func stopAllServicesForShutdown(
 		if svc.Commands != nil && svc.Commands.Down != "" {
 			svcCtx.StopCommand = svc.Commands.Down
 		}
+		if svc.ProxyOverride != nil {
+			svcCtx.ProxyTarget = svc.ProxyOverride.Target
+		}
 		if err := dispatcher.Stop(ctx, svcCtx); err != nil {
 			logging.WarnWithContext(ctx, "Failed to stop service on shutdown",
 				"service", name, "error", err.Error())
@@ -217,6 +220,12 @@ func buildRestartCallback(
 			svc.Source.Path,
 			deps.Project.Name,
 		)
+		if svc.Commands != nil && svc.Commands.Down != "" {
+			svcCtx.StopCommand = svc.Commands.Down
+		}
+		if svc.ProxyOverride != nil {
+			svcCtx.ProxyTarget = svc.ProxyOverride.Target
+		}
 
 		if err := dispatcher.Restart(ctx, svcCtx); err != nil {
 			output.PrintWarning(fmt.Sprintf("[watch] failed: %s: %s", serviceName, err))

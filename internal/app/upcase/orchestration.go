@@ -28,10 +28,8 @@ func (uc *UseCase) processOrchestration(
 	projectDir string,
 	configPath string,
 ) (*orchestrationResult, error) {
-	// Step 0: Kill stale host processes from previous run, restricted to
-	// the services this `up` touches. For a full up, deps.Services holds
-	// everything declared; for selective up (`--only` or positional args)
-	// it holds only the chosen subset so untouched services keep running.
+	// Step 0 — kill stale host processes from a previous run, scoped
+	// to the services this `up` touches (full or `--only` subset).
 	scope := make(map[string]struct{}, len(deps.Services))
 	for name := range deps.Services {
 		scope[name] = struct{}{}
@@ -131,7 +129,7 @@ func (uc *UseCase) processOrchestration(
 			}
 			dispatchedInfra = append(dispatchedInfra, name)
 
-			// Build image reference for the runner
+			// Build image reference + env for the runner.
 			envVars := map[string]string{}
 			if entry.Inline != nil {
 				imageRef := entry.Inline.Image
@@ -139,14 +137,10 @@ func (uc *UseCase) processOrchestration(
 					imageRef += ":" + entry.Inline.Tag
 				}
 				envVars["RAIOZ_IMAGE"] = imageRef
-
-				// Add env vars from inline config
 				if entry.Inline.Env != nil {
-					// Inline variables
 					for k, v := range entry.Inline.Env.GetVariables() {
 						envVars[k] = v
 					}
-					// File-based env (e.g., .env.postgres)
 					for _, filePath := range entry.Inline.Env.GetFilePaths() {
 						if filePath != "" {
 							envVars["RAIOZ_ENV_FILE"] = filePath
@@ -253,11 +247,9 @@ func (uc *UseCase) processOrchestration(
 				)
 			}
 
-			// Inject PORT for host services. Most modern frameworks
-			// (Next.js, Vite, Express, Nuxt, Astro, Django via runserver, etc.)
-			// honor $PORT, which lets raioz move two conflicting frontends
-			// onto distinct ports without the dev touching any config. Docker
-			// services get their port via published/exposed config, not PORT.
+			// Inject PORT for host services so frameworks honoring $PORT
+			// (Next.js, Vite, Django, etc.) rebind to the allocator's
+			// pick. Docker services get their port via published config.
 			if alloc, ok := portAllocs.Services[name]; ok && alloc.IsHost() && alloc.Port > 0 {
 				envVars["PORT"] = strconv.Itoa(alloc.Port)
 			}
@@ -276,6 +268,13 @@ func (uc *UseCase) processOrchestration(
 			// runner can use it instead of SIGTERMing the PID.
 			if svc.Commands != nil && svc.Commands.Down != "" {
 				svcCtx.StopCommand = svc.Commands.Down
+			}
+			// Issue 047 / ADR-025: when the user declared `proxy.target:`
+			// (a container name), HostRunner uses it to verify the
+			// launcher actually produced the container before reporting
+			// ready. No-op when proxyTarget is empty or host-gateway-shaped.
+			if svc.ProxyOverride != nil {
+				svcCtx.ProxyTarget = svc.ProxyOverride.Target
 			}
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {

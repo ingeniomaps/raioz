@@ -246,6 +246,56 @@ func SetSettleWindowForTest(d time.Duration) (restore func()) {
 	return func() { startSettleWindow = prev }
 }
 
+// launcherWaitTimeoutEnv is the env var name that overrides the
+// post-launcher container-appearance timeout. Exposed as a const so
+// tests can reference the same name without typo risk.
+const launcherWaitTimeoutEnv = "RAIOZ_LAUNCHER_TIMEOUT"
+
+// launcherDrainTimeoutEnv overrides the timeout for waiting on an
+// in-progress launcher build during `raioz down`.
+const launcherDrainTimeoutEnv = "RAIOZ_LAUNCHER_DRAIN_TIMEOUT"
+
+// LauncherWaitTimeout returns the configured timeout for waiting on
+// a launcher's container to appear after the launcher process exited
+// cleanly inside the settle window (issue 047 / ADR-025). Default
+// 60s. Zero (env explicitly set to "0") opts out — `raioz up`
+// reverts to the pre-fix behavior of reporting ready immediately.
+// Negative or invalid env values fall back to the default.
+func LauncherWaitTimeout() time.Duration {
+	return durationFromEnv(launcherWaitTimeoutEnv, 60*time.Second)
+}
+
+// LauncherDrainTimeout returns the timeout for `raioz down` to wait
+// on a still-in-progress launcher build before invoking the user's
+// `stop:` command. Default 30s. Same env-var conventions as
+// LauncherWaitTimeout.
+func LauncherDrainTimeout() time.Duration {
+	return durationFromEnv(launcherDrainTimeoutEnv, 30*time.Second)
+}
+
+// durationFromEnv reads `name` as a Go duration string (e.g. "45s",
+// "2m"). Returns `def` when the env var is unset or unparseable.
+// The "0" / "0s" case is honored as "no wait" — explicit zero is a
+// legitimate opt-out, distinct from "unset".
+func durationFromEnv(name string, def time.Duration) time.Duration {
+	raw := osGetenv(name)
+	if raw == "" {
+		return def
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return def
+	}
+	if d < 0 {
+		return def
+	}
+	return d
+}
+
+// osGetenv is the indirection seam tests use to override env reads
+// without touching the process environment.
+var osGetenv = os.Getenv
+
 // readLogTail returns the last `lines` lines of a file as a single string,
 // or empty if the file is missing or unreadable. Best-effort — never errors.
 //

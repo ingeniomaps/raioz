@@ -391,6 +391,36 @@ can't introspect. Without the override, raioz classifies the service as
 "host" and the proxy ends up pointing at `host.docker.internal` with no
 port.
 
+### Launcher-pattern container wait
+
+When `command:` is a launcher (a script that detaches a container or
+daemon and exits 0 quickly — for example `make dev-docker` invoking
+`docker compose up -d --build`), raioz used to report "ready" the
+instant the launcher returned. For a first-time build that can leave
+"ready" claimed while the container is still being built. ADR-025
+fixes this:
+
+- On `raioz up`, if `proxy.target:` points at a container name (not
+  `host.docker.internal` or an IP/FQDN), raioz polls Docker for that
+  container after the launcher exits. The user sees `Waiting for
+  launcher container 'X' to appear (up to <T>)...` and a
+  `Launcher container 'X' ready` confirmation. On timeout, raioz
+  warns and continues; the run is not aborted.
+- On `raioz down`, if the container hasn't appeared yet (build still
+  running), raioz waits before invoking `stop:` so the build doesn't
+  finish post-stop and leave an orphan.
+
+Environment variables (Go duration strings, e.g. `90s`, `2m`):
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the container. `0s` opts out (legacy behavior). |
+| `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container. `0s` opts out. |
+
+Skipped automatically when `proxy.target:` is empty or
+host-shaped (a dotted name, IP literal, `localhost`, or
+`host.docker.internal`) — there's no container to wait for.
+
 ---
 
 ## Routing config

@@ -35,6 +35,16 @@ type ServiceContext struct {
 	// interpolation in the user's compose resolves correctly. Populated
 	// alongside ExternalComposeFiles.
 	EnvFilePaths []string
+
+	// ProxyTarget is the container name the proxy forwards to when the
+	// user declared `proxy.target:` on the service. HostRunner uses it
+	// in the launcher-pattern path (issue 047 / ADR-025) to verify the
+	// detached container actually appeared before reporting "ready",
+	// and on Stop to wait for an in-progress build to finish before
+	// invoking the user's `stop:` command. Empty when no override is
+	// declared — the launcher path falls back to the "trust the
+	// settle-window exit" behavior.
+	ProxyTarget string
 }
 
 // Orchestrator defines operations for starting and stopping services

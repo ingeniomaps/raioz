@@ -40,12 +40,21 @@ func init() {
 type HostRunner struct {
 	// processes tracks running host process PIDs by service name
 	processes map[string]int
+	// launchers marks services started via the launcher pattern (clean
+	// exit 0 inside the settle window — the visible process detached
+	// long-running work like `make dev-docker`). Stop uses this to
+	// wait for an in-progress container build to finish before
+	// invoking the user's `stop:` command (issue 047 / ADR-025).
+	launchers map[string]bool
 }
 
 // Start runs the detected start command in the service directory.
 func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
 	if r.processes == nil {
 		r.processes = make(map[string]int)
+	}
+	if r.launchers == nil {
+		r.launchers = make(map[string]bool)
 	}
 
 	command := svc.Detection.DevCommand
@@ -124,6 +133,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				// label-based handle on the launched processes /
 				// containers. Warn loudly so `raioz down` doesn't
 				// silently leak resources.
+				r.launchers[svc.Name] = true
 				if svc.StopCommand == "" {
 					output.PrintWarning(fmt.Sprintf(
 						"Service '%s' exited 0 within the settle window — likely a "+
@@ -134,6 +144,14 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 					logging.WarnWithContext(ctx, "Launcher pattern without stop: declared",
 						"service", svc.Name, "command", command)
 				}
+				// Issue 047 / ADR-025: when the user declared a container
+				// target (`proxy.target:`), wait up to LauncherWaitTimeout
+				// for it to appear. Without this the next phase reports
+				// "ENTORNO LISTO" while `docker compose up -d --build` is
+				// still building. On timeout we warn and continue — never
+				// abort, because the build may legitimately take longer
+				// on a slow box.
+				waitForLauncherContainer(ctx, svc)
 				break
 			}
 			logFile.Close()
@@ -164,6 +182,13 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) error {
 	// Custom stop command path
 	if svc.StopCommand != "" {
+		// Issue 047 / ADR-025: if Start observed a launcher exit and
+		// the target container isn't there yet, drain the in-progress
+		// build before running stop:. Prevents orphan containers when
+		// stop: completes before `docker compose up -d --build` does.
+		if r.launchers != nil && r.launchers[svc.Name] {
+			drainLauncherBeforeStop(ctx, svc)
+		}
 		logging.InfoWithContext(ctx, "Running custom stop command",
 			"service", svc.Name, "command", svc.StopCommand, "path", svc.Path)
 
