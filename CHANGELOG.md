@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Release binaries now report their real version. `.goreleaser.yml`
+  injected ldflags into `main.{version,commit,date}`, but the
+  variables live in `raioz/internal/cli.{Version,Commit,BuildDate}`
+  — every official tarball from v0.4.0 onwards reported
+  `version dev`. Fixed by aligning the ldflag paths with the
+  Makefile, and adding a smoke-test step in `release.yml` that
+  fails the workflow if the produced binary is unstamped.
+- `internal/cli/version.go` now falls back to
+  `runtime/debug.ReadBuildInfo()` when ldflags didn't inject
+  metadata. This makes `go install github.com/ingeniomaps/raioz/cmd/raioz@vX.Y.Z`
+  produce a correctly-versioned binary, and defends against future
+  ldflag regressions.
+
+### Changed
+- `install.sh` is now PATH-aware. The default install directory is
+  the first of `~/.local/bin`, `~/bin`, `/usr/local/bin` that is
+  already on the user's PATH — so the freshly installed binary
+  isn't silently shadowed by an older copy in a higher-priority
+  directory. Override with `INSTALL_DIR=...` as before. The
+  post-install step now also detects when `command -v raioz`
+  resolves to a different copy than the one we just wrote, and
+  prints concrete cleanup instructions instead of claiming success.
+
 ## [0.5.1] - 2026-05-14
 
 Build-fix release. `v0.5.0` tagged successfully but the goreleaser

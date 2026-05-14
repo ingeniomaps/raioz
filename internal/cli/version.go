@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -16,6 +17,39 @@ var (
 	BuildDate     = "unknown" // Set with -ldflags "-X 'raioz/internal/cli.BuildDate=...'"
 	SchemaVersion = "1.0"     // Supported schema version
 )
+
+func init() {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		populateFromBuildInfo(info)
+	}
+}
+
+// populateFromBuildInfo fills Version/Commit/BuildDate from the
+// embedded module info when ldflags didn't inject them. Covers
+// `go install ...@vX.Y.Z` and acts as a safety net against future
+// ldflag drift in release pipelines.
+func populateFromBuildInfo(info *debug.BuildInfo) {
+	if info == nil {
+		return
+	}
+	if Version == "dev" {
+		if v := info.Main.Version; v != "" && v != "(devel)" {
+			Version = v
+		}
+	}
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			if Commit == "unknown" && len(s.Value) >= 7 {
+				Commit = s.Value[:7]
+			}
+		case "vcs.time":
+			if BuildDate == "unknown" && s.Value != "" {
+				BuildDate = s.Value
+			}
+		}
+	}
+}
 
 // IsDevBuild reports whether this binary was built without the
 // `-ldflags="-X ..."` metadata stamps. Exported so doctor and any
