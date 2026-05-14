@@ -191,16 +191,25 @@ main() {
 
     local binary_path=""
 
-    # Development mode: local binary exists next to install.sh or in cwd
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # Development mode: only when the script was loaded from a file on
+    # disk AND a sibling `raioz` binary lives next to it. When invoked
+    # via `curl … | bash`, BASH_SOURCE[0] is empty (or "bash"), the
+    # `dirname` falls back to cwd, and we used to pick up stray binaries
+    # — for example, the `./raioz` artifact left over from `make build`
+    # in the repo root would silently override the downloaded release.
+    # The cwd fallback (`./raioz`) is intentionally dropped: there is
+    # no legitimate use case it covers that the script_dir check does
+    # not, and it was the source of the bug.
+    local script_dir=""
+    if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    fi
 
-    if [ -f "${script_dir}/raioz" ] && [ -x "${script_dir}/raioz" ]; then
+    if [ -n "$script_dir" ] \
+        && [ -f "${script_dir}/raioz" ] \
+        && [ -x "${script_dir}/raioz" ]; then
         binary_path="${script_dir}/raioz"
-        info "Development mode: using local binary"
-    elif [ -f "./raioz" ] && [ -x "./raioz" ]; then
-        binary_path="./raioz"
-        info "Development mode: using local binary"
+        info "Development mode: using local binary at ${binary_path}"
     fi
 
     if [ -z "$binary_path" ]; then
