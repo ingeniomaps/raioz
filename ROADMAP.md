@@ -88,6 +88,43 @@ status `:latest` spurious tag (#44), host-launcher orphan cleanup,
 workspace state out of `/tmp`, and the #26 sibling-deps polish pass.
 Full detail in [CHANGELOG.md](CHANGELOG.md).
 
+## v0.5.0 — shipped 2026-05-14
+
+Architecture-hardening release. Headlines:
+
+- **Legacy `.state.json` snapshot API removed** (ADR-011 phases
+  1-3). The workspace-project conflict prompt retired with it —
+  `raioz down --conflicting` covers the multi-project collision
+  case via labels.
+- **Domain inversion completed** (ADR-009). Model types own
+  themselves; `internal/domain/` no longer pulls `config`, `state`,
+  `detect`, or `infra`.
+- **`DockerRunner` segregated into six interfaces** (ADR-012
+  Plan B). Aggregate keeps embedding all six so callers compile
+  unchanged; new tests mock only the surface they exercise.
+- **Snapshot / tunnel / proxy lifecycles** moved behind use-case
+  ports (ADR-014/015/016) with adapters under `internal/infra/`.
+- **Runner dispatch via package-init registry** (ADR-019) replaces
+  the 23-case switch.
+- **CLI thin-viz lint gate** (ADR-017). `make check-cli-layering`
+  prevents silent expansion of the bypass list.
+- **Unified state paths** under `naming.RaiozStateDir()` (ADR-022)
+  with one-shot migrator for `~/.raioz` and `/opt/raioz-proyecto`.
+- **`preUp:` hook** (ADR-024) for bootstrap that needs a
+  sibling-spawned dep already up — e.g. `make createdb` against a
+  workspace-shared postgres.
+- **Launcher-pattern container wait** (ADR-025). When a host
+  `command:` declares `proxy.target:`, HostRunner polls for the
+  container to appear before reporting ready and drains in-progress
+  builds before invoking `stop:`. No more orphan containers when
+  `docker compose up -d --build` finishes after `raioz down`.
+- **Audit-log rotation** (ADR-020) at a 10 MiB soft cap.
+- **Dev-build warning** (ADR-021) when `raioz` was built without
+  ldflags; `raioz doctor` surfaces the same signal.
+- **`raioz yaml lint`** + `since:` markers on every schema field.
+
+Full detail in [CHANGELOG.md](CHANGELOG.md).
+
 ## Tentative next
 
 Items considered for the upcoming release but not yet committed.
