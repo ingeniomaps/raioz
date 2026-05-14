@@ -11,7 +11,7 @@ import (
 
 func TestGenerateCaddyfileContent_Empty(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	got := m.GenerateCaddyfileContent()
 	if got != "" {
 		t.Errorf("expected empty for no routes, got %q", got)
@@ -20,7 +20,7 @@ func TestGenerateCaddyfileContent_Empty(t *testing.T) {
 
 func TestGenerateCaddyfileContent_SimpleRoute(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -49,8 +49,8 @@ func TestGenerateCaddyfileContent_SimpleRoute(t *testing.T) {
 // dual-port shape (1025 SMTP + 8025 UI) with the original mailhog repro.
 func TestGenerateCaddyfileContent_DepHostnameOverride_Issue001(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("demo")
-	m.SetDomain("demo.dev")
+	m.projectName = ("demo")
+	m.domain = ("demo.dev")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "mailpit",
 		Hostname:    "mail",
@@ -75,8 +75,8 @@ func TestGenerateCaddyfileContent_DepHostnameOverride_Issue001(t *testing.T) {
 
 func TestGenerateCaddyfileContent_CustomDomain(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
-	m.SetDomain("acme.dev")
+	m.projectName = ("test")
+	m.domain = ("acme.dev")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -92,7 +92,7 @@ func TestGenerateCaddyfileContent_CustomDomain(t *testing.T) {
 
 func TestGenerateCaddyfileContent_GRPC(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "grpc-svc",
 		Hostname:    "grpc",
@@ -109,7 +109,7 @@ func TestGenerateCaddyfileContent_GRPC(t *testing.T) {
 
 func TestGenerateCaddyfileContent_Stream(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "stream",
 		Hostname:    "stream",
@@ -126,7 +126,7 @@ func TestGenerateCaddyfileContent_Stream(t *testing.T) {
 
 func TestGenerateCaddyfileContent_WebSocket(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "ws",
 		Hostname:    "ws",
@@ -143,8 +143,8 @@ func TestGenerateCaddyfileContent_WebSocket(t *testing.T) {
 
 func TestGenerateCaddyfileContent_TLSMkcert(t *testing.T) {
 	m := NewManager("/certs")
-	m.SetProjectName("test")
-	m.SetTLSMode("mkcert")
+	m.projectName = ("test")
+	m.tlsMode = ("mkcert")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -163,9 +163,9 @@ func TestGenerateCaddyfileContent_TLSMkcert(t *testing.T) {
 
 func TestGenerateCaddyfileContent_LetsEncrypt(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
-	m.SetDomain("acme.com")
-	m.SetTLSMode("letsencrypt")
+	m.projectName = ("test")
+	m.domain = ("acme.com")
+	m.tlsMode = ("letsencrypt")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -185,7 +185,7 @@ func TestGenerateCaddyfileContent_LetsEncrypt(t *testing.T) {
 
 func TestGenerateCaddyfileContent_TargetWithPort(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	// Target already has :port — should not append port again
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
@@ -205,7 +205,7 @@ func TestGenerateCaddyfileContent_TargetWithPort(t *testing.T) {
 
 func TestGenerateCaddyfileContent_MultipleRoutes(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
@@ -234,8 +234,8 @@ func TestGenerateCaddyfileContent_MultipleRoutes(t *testing.T) {
 // same upstream without duplicating the upstream directive.
 func TestGenerateCaddyfileContent_HostnameAliases_Issue006(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("demo")
-	m.SetDomain("example.dev")
+	m.projectName = ("demo")
+	m.domain = ("example.dev")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "keycloak",
 		Hostname:    "sso",
@@ -276,9 +276,9 @@ func TestGenerateCaddyfileContent_HostnameAliases_Issue006(t *testing.T) {
 func TestGenerateCaddyfileContent_HostnameAliases_Mkcert(t *testing.T) {
 	certsDir := t.TempDir()
 	m := NewManager("")
-	m.SetProjectName("demo")
-	m.SetDomain("example.dev")
-	m.SetTLSMode("mkcert")
+	m.projectName = ("demo")
+	m.domain = ("example.dev")
+	m.tlsMode = ("mkcert")
 	m.certsDir = certsDir
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "keycloak",
@@ -303,8 +303,8 @@ func TestGenerateCaddyfileContent_HostnameAliases_Mkcert(t *testing.T) {
 // malformed `.example.dev` hostname.
 func TestGenerateCaddyfileContent_HostnameAliases_Empty(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("demo")
-	m.SetDomain("example.dev")
+	m.projectName = ("demo")
+	m.domain = ("example.dev")
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "keycloak",
 		Hostname:    "sso",
@@ -330,7 +330,7 @@ func TestGenerateCaddyfile_WritesFile(t *testing.T) {
 	t.Setenv("RAIOZ_HOME", home)
 
 	m := NewManager("")
-	m.SetProjectName("test")
+	m.projectName = ("test")
 	m.networkName = "test-net"
 	m.AddRoute(nil, interfaces.ProxyRoute{
 		ServiceName: "api",

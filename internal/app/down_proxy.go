@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"raioz/internal/docker"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
@@ -34,8 +35,14 @@ func (uc *DownUseCase) stopProxy(ctx context.Context, opts DownOptions) {
 	if deps == nil {
 		return
 	}
-	uc.deps.ProxyManager.SetProjectName(deps.Project.Name)
-	uc.deps.ProxyManager.SetWorkspace(deps.Workspace)
+	// ADR-013 Phase 2 / ADR-032: configure via a single Configure
+	// call rather than per-field setters. We only need to pin the
+	// project + workspace scope so the manager can locate the right
+	// container / routes file; the other fields keep their defaults.
+	uc.deps.ProxyManager.Configure(interfaces.ProxyConfig{
+		ProjectName: deps.Project.Name,
+		Workspace:   deps.Workspace,
+	})
 
 	if deps.Workspace != "" {
 		uc.handleSharedProxyDown(ctx, deps)

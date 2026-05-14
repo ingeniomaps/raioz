@@ -68,8 +68,8 @@ func TestStartProxy_SetsDomainAndTLS(t *testing.T) {
 	if pm.Domain != "acme.localhost" {
 		t.Errorf("Domain = %q, want acme.localhost", pm.Domain)
 	}
-	if pm.TLSMode != "mkcert" {
-		t.Errorf("TLSMode = %q, want mkcert", pm.TLSMode)
+	if pm.TLSMode != interfaces.TLSModeLocal {
+		t.Errorf("TLSMode = %q, want %q", pm.TLSMode, interfaces.TLSModeLocal)
 	}
 }
 

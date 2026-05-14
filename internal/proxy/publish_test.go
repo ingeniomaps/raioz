@@ -16,23 +16,26 @@ func TestSetPublish_Default(t *testing.T) {
 	}
 }
 
-func TestSetPublish_NilLeavesDefault(t *testing.T) {
+// Equivalent path after ADR-032: Configure with nil Publish must
+// leave the default (true) intact. Phrased as a Configure test
+// because the SetPublish setter is gone.
+func TestConfigure_NilPublishLeavesDefault(t *testing.T) {
 	m := NewManager("")
-	m.SetPublish(nil)
+	m.Configure(interfaces.ProxyConfig{Publish: nil})
 	if !m.IsPublished() {
-		t.Error("SetPublish(nil) must keep the current value (default true)")
+		t.Error("Configure with nil Publish must keep the current value (default true)")
 	}
 }
 
-func TestSetPublish_Explicit(t *testing.T) {
+func TestConfigure_ExplicitPublish(t *testing.T) {
 	m := NewManager("")
-	m.SetPublish(boolPtr(false))
+	m.Configure(interfaces.ProxyConfig{Publish: boolPtr(false)})
 	if m.IsPublished() {
-		t.Error("SetPublish(false) must turn publishing off")
+		t.Error("Configure with Publish=false must turn publishing off")
 	}
-	m.SetPublish(boolPtr(true))
+	m.Configure(interfaces.ProxyConfig{Publish: boolPtr(true)})
 	if !m.IsPublished() {
-		t.Error("SetPublish(true) must turn publishing back on")
+		t.Error("Configure with Publish=true must turn publishing back on")
 	}
 }
 
@@ -41,10 +44,10 @@ func TestHostsLine_BuildsFromRoutesAndIP(t *testing.T) {
 	defer naming.SetPrefix("")
 
 	m := NewManager("")
-	m.SetWorkspace("acme")
-	m.SetProjectName("api")
-	m.SetDomain("acme.dev")
-	m.SetNetworkSubnet("172.28.0.0/16")
+	m.workspaceName = ("acme")
+	m.projectName = ("api")
+	m.domain = ("acme.dev")
+	m.networkSubnet = ("172.28.0.0/16")
 	m.AddRoute(t.Context(), interfaces.ProxyRoute{ServiceName: "api", Hostname: "api"})
 	m.AddRoute(t.Context(), interfaces.ProxyRoute{ServiceName: "admin", Hostname: "admin"})
 
@@ -68,7 +71,7 @@ func TestHostsLine_EmptyWhenNoRoutes(t *testing.T) {
 	defer naming.SetPrefix("")
 
 	m := NewManager("")
-	m.SetNetworkSubnet("172.28.0.0/16")
+	m.networkSubnet = ("172.28.0.0/16")
 	if got := m.HostsLine(); got != "" {
 		t.Errorf("expected empty when no routes, got %q", got)
 	}

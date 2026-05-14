@@ -28,10 +28,10 @@ func makeSharedManager(t *testing.T, ws, project string) *Manager {
 	t.Cleanup(func() { naming.SetPrefix("") })
 
 	m := NewManager("")
-	m.SetWorkspace(ws)
-	m.SetProjectName(project)
-	m.SetDomain(ws + ".local")
-	m.SetTLSMode("mkcert")
+	m.workspaceName = (ws)
+	m.projectName = (project)
+	m.domain = (ws + ".local")
+	m.tlsMode = ("mkcert")
 	return m
 }
 
@@ -59,7 +59,7 @@ func TestSaveProjectRoutes_PersistsToWorkspaceDir(t *testing.T) {
 
 func TestSaveProjectRoutes_NoOpOutsideWorkspace(t *testing.T) {
 	m := NewManager("")
-	m.SetProjectName("solo") // no SetWorkspace
+	m.projectName = ("solo") // no SetWorkspace
 	if err := m.SaveProjectRoutes(); err != nil {
 		t.Errorf("per-project mode must be a no-op, got %v", err)
 	}
@@ -102,7 +102,7 @@ func TestRemainingProjects_CountsFiles(t *testing.T) {
 	}
 
 	// Drop a sibling file by switching project name.
-	m.SetProjectName("beta")
+	m.projectName = ("beta")
 	m.AddRoute(t.Context(), interfaces.ProxyRoute{ServiceName: "b", Hostname: "b"})
 	_ = m.SaveProjectRoutes()
 	if got := m.RemainingProjects(); got != 2 {
@@ -122,7 +122,7 @@ func TestGenerateCaddyfile_SharedMergesAcrossProjects(t *testing.T) {
 	}
 
 	// Switch to project beta and persist a different route.
-	m.SetProjectName("beta")
+	m.projectName = ("beta")
 	// Reset in-memory routes since AddRoute keeps appending across projects.
 	m.routes = map[string]interfaces.ProxyRoute{}
 	m.AddRoute(t.Context(), interfaces.ProxyRoute{
@@ -178,10 +178,10 @@ func TestSaveProjectRoutes_AtomicUnderConcurrency(t *testing.T) {
 	writerManagers := make([]*Manager, writers)
 	for i := range writerManagers {
 		m := NewManager("")
-		m.SetWorkspace("wsConc")
-		m.SetProjectName(fmt.Sprintf("p%02d", i))
-		m.SetDomain("wsConc.local")
-		m.SetTLSMode("mkcert")
+		m.workspaceName = ("wsConc")
+		m.projectName = (fmt.Sprintf("p%02d", i))
+		m.domain = ("wsConc.local")
+		m.tlsMode = ("mkcert")
 		m.AddRoute(t.Context(), interfaces.ProxyRoute{
 			ServiceName: "svc", Hostname: "svc",
 			Target: fmt.Sprintf("p%02d-svc", i), Port: 3000,
@@ -190,10 +190,10 @@ func TestSaveProjectRoutes_AtomicUnderConcurrency(t *testing.T) {
 	}
 
 	reader := NewManager("")
-	reader.SetWorkspace("wsConc")
-	reader.SetProjectName("reader")
-	reader.SetDomain("wsConc.local")
-	reader.SetTLSMode("mkcert")
+	reader.workspaceName = "wsConc"
+	reader.projectName = "reader"
+	reader.domain = "wsConc.local"
+	reader.tlsMode = "mkcert"
 
 	var wg sync.WaitGroup
 	var corrupted atomic.Int64
@@ -253,9 +253,9 @@ func TestGenerateCaddyfile_PerProjectUsesInMemoryRoutes(t *testing.T) {
 	defer naming.SetPrefix("")
 
 	m := NewManager("")
-	m.SetProjectName("solo")
-	m.SetDomain("solo.local")
-	m.SetTLSMode("mkcert")
+	m.projectName = ("solo")
+	m.domain = ("solo.local")
+	m.tlsMode = ("mkcert")
 	m.networkName = "solo-net" // ProxyDir uses this
 	t.Setenv("TMPDIR", t.TempDir())
 

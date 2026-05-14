@@ -19,21 +19,12 @@ import (
 )
 
 // startProxy wires Caddy routes for every service/dependency and starts the
-// proxy container. Extracted from processOrchestration to keep that file
-// under the 400-line repo cap.
+// proxy container. Routing rules: docker services resolve via container DNS
+// on the shared network; host services via host.docker.internal; ports come
+// from detections (already populated by the allocator).
 //
-// The routing rules match the current proxy behavior:
-//
-//  1. Docker services resolve via container DNS on the shared network.
-//  2. Host services resolve via host.docker.internal so the proxy (which
-//     runs inside Docker) can reach the developer's host process.
-//  3. Ports come from detections — which at this point already contain the
-//     allocator's resolved port for host services.
-//
-// Returns an error when the proxy cannot start. The caller treats this as a
-// hard `up` failure: once `proxy: true` is in raioz.yaml the user has
-// explicitly asked for unified HTTPS, and silently continuing with a broken
-// proxy produces a half-working dev environment that's worse than none.
+// Returns an error when the proxy cannot start — caller treats this as hard
+// `up` failure since `proxy: true` is an explicit HTTPS request.
 func (uc *UseCase) startProxy(
 	ctx context.Context,
 	deps *models.Deps,
@@ -41,7 +32,8 @@ func (uc *UseCase) startProxy(
 	serviceNames []string,
 	networkName string,
 ) error {
-	// ADR-013: single Configure call replaces the 4-8 setter dance.
+	// ADR-013 / ADR-032: single Configure call; TLS string normalized
+	// through ParseTLSMode (legacy mkcert/letsencrypt aliases accepted).
 	cfg := interfaces.ProxyConfig{
 		ProjectName:   deps.Project.Name,
 		Workspace:     deps.Workspace,
@@ -49,7 +41,9 @@ func (uc *UseCase) startProxy(
 	}
 	if deps.ProxyConfig != nil {
 		cfg.Domain = deps.ProxyConfig.Domain
-		cfg.TLSMode = deps.ProxyConfig.TLS
+		if mode, ok := interfaces.ParseTLSMode(deps.ProxyConfig.TLS); ok {
+			cfg.TLSMode = mode
+		}
 		cfg.ContainerIP = deps.ProxyConfig.IP
 		cfg.Publish = deps.ProxyConfig.Publish
 	}

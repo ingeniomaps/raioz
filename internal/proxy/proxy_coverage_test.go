@@ -25,53 +25,54 @@ func TestNewManager_Defaults(t *testing.T) {
 	}
 }
 
-func TestSetDomain(t *testing.T) {
+// ADR-032: SetDomain / SetTLSMode / SetBindHost / SetProjectName are
+// gone. The "empty value leaves the default" semantics they carried
+// for Domain and TLSMode are preserved by Configure — exercised here.
+func TestConfigure_EmptyDomainKeepsExisting(t *testing.T) {
 	m := NewManager("")
-	m.SetDomain("dev.acme.com")
+	m.Configure(interfaces.ProxyConfig{Domain: "dev.acme.com"})
 	if m.domain != "dev.acme.com" {
-		t.Errorf("domain = %q, want %q", m.domain, "dev.acme.com")
+		t.Fatalf("Configure: domain = %q, want dev.acme.com", m.domain)
 	}
-
-	// Empty string should not change domain
-	m.SetDomain("")
+	m.Configure(interfaces.ProxyConfig{Domain: ""}) // empty keeps prior
 	if m.domain != "dev.acme.com" {
-		t.Errorf("domain should not change for empty string: %q", m.domain)
+		t.Errorf("empty Domain must keep prior value, got %q", m.domain)
 	}
 }
 
-func TestSetTLSMode(t *testing.T) {
+func TestConfigure_EmptyTLSModeDefaultsToMkcert(t *testing.T) {
 	m := NewManager("")
-	m.SetTLSMode("letsencrypt")
+	m.Configure(interfaces.ProxyConfig{TLSMode: interfaces.TLSModeACME})
 	if m.tlsMode != "letsencrypt" {
-		t.Errorf("tlsMode = %q, want %q", m.tlsMode, "letsencrypt")
+		t.Fatalf("after Configure(ACME): tlsMode = %q, want letsencrypt", m.tlsMode)
 	}
-
-	// Empty string should not change
-	m.SetTLSMode("")
-	if m.tlsMode != "letsencrypt" {
-		t.Error("tlsMode should not change for empty string")
+	// Zero TLSMode in a subsequent Configure resets to the Caddy
+	// adapter's default ("mkcert"). The interface-level contract is
+	// "vendor-neutral default = TLSModeLocal"; the adapter maps that
+	// to mkcert. Documented in caddyTLSValue.
+	m.Configure(interfaces.ProxyConfig{})
+	if m.tlsMode != "mkcert" {
+		t.Errorf("zero TLSMode must reset to mkcert, got %q", m.tlsMode)
 	}
 }
 
-func TestSetBindHost(t *testing.T) {
+func TestConfigure_BindHostAndProjectName(t *testing.T) {
 	m := NewManager("")
-	m.SetBindHost("0.0.0.0")
+	m.Configure(interfaces.ProxyConfig{
+		BindHost:    "0.0.0.0",
+		ProjectName: "myproject",
+	})
 	if m.bindHost != "0.0.0.0" {
-		t.Errorf("bindHost = %q", m.bindHost)
+		t.Errorf("bindHost = %q, want 0.0.0.0", m.bindHost)
 	}
-}
-
-func TestSetProjectName(t *testing.T) {
-	m := NewManager("")
-	m.SetProjectName("myproject")
 	if m.projectName != "myproject" {
-		t.Errorf("projectName = %q", m.projectName)
+		t.Errorf("projectName = %q, want myproject", m.projectName)
 	}
 }
 
 func TestGetURL_CustomDomain(t *testing.T) {
 	m := NewManager("")
-	m.SetDomain("dev.acme.com")
+	m.domain = ("dev.acme.com")
 	m.routes["api"] = interfaces.ProxyRoute{
 		ServiceName: "api",
 		Hostname:    "api",
