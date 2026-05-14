@@ -422,12 +422,10 @@ fixes this:
   running), raioz waits before invoking `stop:` so the build doesn't
   finish post-stop and leave an orphan.
 
-Environment variables (Go duration strings, e.g. `90s`, `2m`):
-
-| Var | Default | Effect |
-|-----|---------|--------|
-| `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the container. `0s` opts out (legacy behavior). |
-| `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container. `0s` opts out. |
+Tunable via `RAIOZ_LAUNCHER_TIMEOUT` (up-time) and
+`RAIOZ_LAUNCHER_DRAIN_TIMEOUT` (down-time) — see [Environment
+variables (read by raioz)](#environment-variables-read-by-raioz)
+for defaults and the malformed-value behavior.
 
 Skipped automatically when `proxy.target:` is empty or
 host-shaped (a dotted name, IP literal, `localhost`, or
@@ -551,7 +549,63 @@ sweep by label instead of name prefix:
 
 ---
 
-## Environment variable injection
+## Environment variables (read by raioz)
+
+These environment variables override raioz defaults. Most have
+sensible defaults — set one only when the default doesn't fit
+your setup. `raioz doctor` reports the resolved state of the
+duration-typed vars and exits non-zero if any are malformed
+(ADR-035 / issue 062).
+
+### State and configuration paths
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_HOME` | (unset) | Override the runtime state root entirely. Takes precedence over XDG. |
+| `XDG_STATE_HOME` | `~/.local/state` | Base for `<XDG>/raioz/` (state). Used when `RAIOZ_HOME` is unset (ADR-022). |
+| `XDG_CONFIG_HOME` | `~/.config` | Base for `<XDG>/raioz/` (user prefs). |
+
+### Runtime selection
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_RUNTIME` | `docker` | Container runtime: `docker`, `podman`, or `nerdctl`. |
+| `RAIOZ_LANG` | system locale (`LC_ALL` → `LANG`) | UI language. Currently `en` / `es`. |
+
+### Logging
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_LOG_LEVEL` | `error` | slog level: `debug`, `info`, `warn`, `error`. |
+| `RAIOZ_LOG_JSON` | `false` (auto-`true` in CI) | Emit structured JSON logs instead of text. CI detection looks at `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `JENKINS_URL`, `TRAVIS`, `CIRCLECI`, `CONTINUOUS_INTEGRATION`. |
+
+### Launcher pattern (ADR-025)
+
+Go duration strings (e.g. `90s`, `2m`). `0s` opts out. Malformed
+values warn once and fall back to the default — surfaced by
+`raioz doctor` (ADR-035).
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the launcher's container to appear. |
+| `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container before invoking `stop:`. |
+
+Adding a new duration env var? Append it to
+`host.KnownDurationEnvs()` so `raioz doctor` picks it up — same
+contract as the table above (ADR-035).
+
+### Internal (don't set manually)
+
+These are managed by raioz itself; don't override them.
+
+| Var | Use |
+|-----|-----|
+| `RAIOZ_SIBLING_STACK` | Recursion cycle detection in mode A sibling spawn (ADR-008). |
+| `RAIOZ_CORRELATION_ID` | Request/correlation ID propagated across recursive `raioz up` so audit logs from sibling spawns share an ID. |
+
+---
+
+## Environment variables (injected by raioz)
 
 Raioz injects service discovery env vars automatically:
 

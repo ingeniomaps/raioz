@@ -213,9 +213,11 @@ func (uc *DoctorUseCase) checkEnvironment() DoctorCheck {
 
 	if len(malformed) > 0 {
 		return DoctorCheck{
-			Name:    name,
-			Status:  "error",
-			Message: strings.Join(malformed, ", ") + " — expected Go duration like 60s, 2m, 1h",
+			Name:   name,
+			Status: "error",
+			Message: strings.Join(malformed, ", ") +
+				" — expected Go duration like 60s, 2m, 1h" +
+				" (see docs/CONFIG_REFERENCE.md#environment-variables-read-by-raioz)",
 		}
 	}
 	if len(overrides) > 0 {

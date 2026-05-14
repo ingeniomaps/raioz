@@ -199,6 +199,8 @@ raioz does NOT protect against, see [docs/SECURITY.md](docs/SECURITY.md).
 - **[ADR-034](docs/decisions/034-host-runner-log-fd-cleanup.md)** — `HostRunner.Start`'s wait goroutine owns the parent-side log fd. After `cmd.Wait()` returns, the goroutine closes `logFile` so every exit path (clean-in-window / error / survived-window) releases exactly once. Watch-mode sessions no longer accumulate fds until GC. Regression test `host_runner_fd_linux_test.go` polls `/proc/self/fd`.
 - **[ADR-035](docs/decisions/035-env-parse-loud-fallback.md)** — Malformed duration env vars (`RAIOZ_LAUNCHER_TIMEOUT=60` without the `s`) used to fall back silently. `durationFromEnv` now warns once per (process, var) via `sync.Map` dedup; `host.KnownDurationEnvs()` enumerates every duration env var raioz reads, and `raioz doctor::checkEnvironment` surfaces overrides + typos. New duration env vars MUST be appended to `KnownDurationEnvs` or they inherit the silent-fallback bug.
 
+Every env var raioz reads (RAIOZ_HOME, RAIOZ_RUNTIME, RAIOZ_LANG, RAIOZ_LOG_LEVEL/_JSON, the launcher pair, RAIOZ_SIBLING_STACK, RAIOZ_CORRELATION_ID, plus the XDG bases) is listed in [docs/CONFIG_REFERENCE.md § Environment variables (read by raioz)](docs/CONFIG_REFERENCE.md#environment-variables-read-by-raioz). New env-driven knobs must land in that table — issue 063 closed the discoverability gap.
+
 ### `raioz hosts`
 Prints the `/etc/hosts` line for the current project's proxy, ready for
 `sudo tee -a /etc/hosts`. Only useful in practice with `proxy.publish:

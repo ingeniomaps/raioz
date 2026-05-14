@@ -170,7 +170,10 @@ func TestDoctorCheckEnvironment_MalformedSurfaces(t *testing.T) {
 	if check.Status != "error" {
 		t.Errorf("expected error status for malformed env, got %q (msg=%s)", check.Status, check.Message)
 	}
-	for _, want := range []string{"RAIOZ_LAUNCHER_TIMEOUT", "60", "60s", "expected Go duration"} {
+	for _, want := range []string{
+		"RAIOZ_LAUNCHER_TIMEOUT", "60", "60s",
+		"expected Go duration", "CONFIG_REFERENCE.md",
+	} {
 		if !strings.Contains(check.Message, want) {
 			t.Errorf("expected %q in message; got %q", want, check.Message)
 		}
