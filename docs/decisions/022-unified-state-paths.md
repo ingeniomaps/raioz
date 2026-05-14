@@ -167,4 +167,6 @@ Landed in this commit:
   `internal/workspace/workspace.go`, `internal/cli/root.go`.
 - Tests: `internal/naming/paths_test.go`,
   `internal/workspace/workspace_test.go`.
+- State-file map (what lives under `RaiozStateDir`):
+  [docs/STATE.md](../STATE.md).
 - Issue: 042.
