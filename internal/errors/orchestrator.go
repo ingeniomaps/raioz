@@ -162,10 +162,7 @@ func PreHookFailed(command string, err error) *RaiozError {
 		)
 }
 
-// PreUpHookFailed creates an error when the preUp hook fails. Distinct
-// from PreHookFailed because the failure surface is different: pre-up
-// runs after dependencies are up, so the typical cause is a connection
-// to the dep failing, not a missing local tool.
+// PreUpHookFailed creates an error when the preUp hook fails.
 func PreUpHookFailed(command string, err error) *RaiozError {
 	return New(ErrCodePreUpHookFailed,
 		"Pre-up hook failed: "+command,

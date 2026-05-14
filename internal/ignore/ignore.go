@@ -17,9 +17,7 @@ type IgnoreConfig struct {
 }
 
 // GetIgnorePath returns the path to the ignore file.
-//
-// Delegates location selection to naming.RaiozStateDir() (ADR-022)
-// so audit/ignore/workspace agree on the same root.
+// Location delegated to naming.RaiozStateDir() — ADR-022.
 func GetIgnorePath() (string, error) {
 	baseDir := naming.RaiozStateDir()
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {

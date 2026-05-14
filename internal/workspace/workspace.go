@@ -24,11 +24,7 @@ type Workspace struct {
 }
 
 // GetBaseDir returns the base directory for raioz state.
-//
-// Delegates location selection to naming.RaiozStateDir() (ADR-022)
-// so audit/ignore/workspace agree on the same root. Honors RAIOZ_HOME
-// (legacy) and XDG_STATE_HOME (preferred); falls back to
-// ~/.local/state/raioz.
+// Location delegated to naming.RaiozStateDir() — ADR-022.
 func GetBaseDir() (string, error) {
 	base := naming.RaiozStateDir()
 	if err := os.MkdirAll(base, 0o755); err != nil {

@@ -18,20 +18,16 @@ type RaiozConfig struct {
 	// Version declares which raioz.yaml schema this file targets. Optional
 	// today; the loader emits a warning when absent. Future releases may
 	// require it. Currently the only valid value is "1".
-	Version   string            `yaml:"version,omitempty"`   // since: v0.5.0
-	Workspace string            `yaml:"workspace,omitempty"` // since: v0.1.0
-	Project   string            `yaml:"project"`             // since: v0.1.0
-	Network   *YAMLNetwork      `yaml:"network,omitempty"`   // since: v0.1.0
-	Proxy     *ProxyConfig      `yaml:"proxy,omitempty"`     // since: v0.1.0
-	Pre       YAMLStringOrSlice `yaml:"pre,omitempty"`       // since: v0.1.0
-	// PreUp runs AFTER infra / sibling spawn but BEFORE service start.
-	// Use it for bootstrap that needs the workspace's dependencies (a
-	// sibling-spawn'd postgres, a workspace-shared redis) already up.
-	// `pre:` still runs first, before anything. See ADR-024.
-	PreUp    YAMLStringOrSlice         `yaml:"preUp,omitempty"`        // since: v0.5.0
-	Post     YAMLStringOrSlice         `yaml:"post,omitempty"`         // since: v0.1.0
-	Services map[string]YAMLService    `yaml:"services,omitempty"`     // since: v0.1.0
-	Deps     map[string]YAMLDependency `yaml:"dependencies,omitempty"` // since: v0.1.0
+	Version   string                    `yaml:"version,omitempty"`      // since: v0.5.0
+	Workspace string                    `yaml:"workspace,omitempty"`    // since: v0.1.0
+	Project   string                    `yaml:"project"`                // since: v0.1.0
+	Network   *YAMLNetwork              `yaml:"network,omitempty"`      // since: v0.1.0
+	Proxy     *ProxyConfig              `yaml:"proxy,omitempty"`        // since: v0.1.0
+	Pre       YAMLStringOrSlice         `yaml:"pre,omitempty"`          // since: v0.1.0
+	PreUp     YAMLStringOrSlice         `yaml:"preUp,omitempty"`        // since: v0.5.0 — ADR-024
+	Post      YAMLStringOrSlice         `yaml:"post,omitempty"`         // since: v0.1.0
+	Services  map[string]YAMLService    `yaml:"services,omitempty"`     // since: v0.1.0
+	Deps      map[string]YAMLDependency `yaml:"dependencies,omitempty"` // since: v0.1.0
 
 	// Kind discriminates the config shape. Empty / "project" (default) means
 	// the regular shape with services/dependencies. "meta" means this file

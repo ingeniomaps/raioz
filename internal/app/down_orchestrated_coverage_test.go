@@ -12,11 +12,7 @@ import (
 	"raioz/internal/state"
 )
 
-// TestDownUseCase_downOrchestrated_DeletesRootConfig is the ADR-023
-// regression guard: when downOrchestrated finishes and no
-// raioz-labeled containers survive for the project, the per-project
-// raioz.root.json must be removed so the next up doesn't run drift
-// detection against months-old state.
+// ADR-023 regression guard: a clean down must remove raioz.root.json.
 func TestDownUseCase_downOrchestrated_DeletesRootConfig(t *testing.T) {
 	initI18nForTest(t)
 	tmpDir := t.TempDir()
@@ -274,10 +270,8 @@ func TestRunCustomStopCommands_FailingCommand(t *testing.T) {
 			},
 		},
 	}
-	// Issue 044: failing stops must be surfaced through the return
-	// value so downOrchestrated can render an error block and exit
-	// non-zero. The loop itself must still complete every service
-	// (best-effort teardown).
+	// Issue 044: failures must surface, but every service still gets
+	// a stop attempt (best-effort teardown).
 	failed := runCustomStopCommands(context.Background(), deps, tmpDir)
 	if len(failed) != 1 || failed[0] != "api" {
 		t.Errorf("runCustomStopCommands() failed = %v, want [api]", failed)

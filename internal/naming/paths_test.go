@@ -6,9 +6,6 @@ import (
 	"testing"
 )
 
-// TestRaiozStateDir verifies the ADR-022 resolution order: RAIOZ_HOME
-// wins outright, XDG_STATE_HOME takes precedence over the home
-// fallback, and the home fallback lands on ~/.local/state/raioz.
 func TestRaiozStateDir(t *testing.T) {
 	t.Run("RAIOZ_HOME wins", func(t *testing.T) {
 		t.Setenv("RAIOZ_HOME", "/explicit/override")
@@ -41,8 +38,6 @@ func TestRaiozStateDir(t *testing.T) {
 	})
 }
 
-// TestRaiozConfigDir mirrors TestRaiozStateDir but for the
-// configuration sibling (XDG_CONFIG_HOME / ~/.config/raioz).
 func TestRaiozConfigDir(t *testing.T) {
 	t.Run("RAIOZ_HOME wins", func(t *testing.T) {
 		t.Setenv("RAIOZ_HOME", "/explicit/override")
@@ -75,9 +70,7 @@ func TestRaiozConfigDir(t *testing.T) {
 	})
 }
 
-// TestLegacyStateDirs documents the audited legacy roots. The list is
-// load-bearing for the migrator — losing an entry here silently
-// strands user data on upgrade.
+// Losing an entry here silently strands user data on upgrade.
 func TestLegacyStateDirs(t *testing.T) {
 	got := LegacyStateDirs()
 	if len(got) == 0 {
@@ -88,10 +81,6 @@ func TestLegacyStateDirs(t *testing.T) {
 	}
 }
 
-// TestMigrateLegacyStateDirs walks the happy path: a populated legacy
-// dir is mirrored into RaiozStateDir() and a marker file is left so a
-// second run is a no-op. New-location-wins semantics are exercised by
-// pre-seeding the destination with a colliding file.
 func TestMigrateLegacyStateDirs(t *testing.T) {
 	tmp := t.TempDir()
 	legacy := filepath.Join(tmp, ".raioz")
@@ -105,11 +94,8 @@ func TestMigrateLegacyStateDirs(t *testing.T) {
 		t.Fatalf("seed ignore.json: %v", err)
 	}
 
-	// Force LegacyStateDirs() to return our tempdir entry by
-	// pretending tmp is the user's home directory.
+	// HOME drives LegacyStateDirs(); XDG_STATE_HOME drives the dst.
 	t.Setenv("HOME", tmp)
-
-	// Destination root: a fresh XDG_STATE_HOME inside tmp.
 	xdg := filepath.Join(tmp, "xdg-state")
 	t.Setenv("XDG_STATE_HOME", xdg)
 	t.Setenv("RAIOZ_HOME", "")
@@ -133,8 +119,7 @@ func TestMigrateLegacyStateDirs(t *testing.T) {
 		t.Errorf("breadcrumb marker missing in legacy dir: %v", err)
 	}
 
-	// Second run with a populated destination must be a no-op:
-	// MigrateLegacyStateDirs returns nil notes when dst has content.
+	// Second run is a no-op (dst already populated).
 	notes2, err := MigrateLegacyStateDirs()
 	if err != nil {
 		t.Fatalf("second MigrateLegacyStateDirs(): %v", err)
@@ -144,10 +129,6 @@ func TestMigrateLegacyStateDirs(t *testing.T) {
 	}
 }
 
-// TestMigrateLegacyStateDirs_destinationWins seeds the destination
-// first, then runs the migrator. The migrator must skip entirely
-// because dst already has content — protecting against accidental
-// overwrite after a successful first migration.
 func TestMigrateLegacyStateDirs_destinationWins(t *testing.T) {
 	tmp := t.TempDir()
 
@@ -160,7 +141,6 @@ func TestMigrateLegacyStateDirs_destinationWins(t *testing.T) {
 		t.Fatalf("seed dst audit.log: %v", err)
 	}
 
-	// Legacy dir with conflicting file.
 	legacy := filepath.Join(tmp, ".raioz")
 	if err := os.MkdirAll(legacy, 0o755); err != nil {
 		t.Fatalf("seed legacy dir: %v", err)
@@ -181,7 +161,6 @@ func TestMigrateLegacyStateDirs_destinationWins(t *testing.T) {
 		t.Errorf("dst-wins path emitted %d notes, want 0", len(notes))
 	}
 
-	// Existing file must not have been overwritten.
 	got, err := os.ReadFile(filepath.Join(dst, "audit.log"))
 	if err != nil {
 		t.Fatalf("read dst audit.log: %v", err)

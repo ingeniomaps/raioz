@@ -2,9 +2,6 @@ package config
 
 import "testing"
 
-// TestYAMLToDeps_PreUpScalar verifies the scalar form `preUp: make
-// createdb` lands on deps.PreUpHook. ADR-024 contract: preUp is a
-// new field independent of `pre:`, runs after infra/sibling-spawn.
 func TestYAMLToDeps_PreUpScalar(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "p",
@@ -22,10 +19,8 @@ func TestYAMLToDeps_PreUpScalar(t *testing.T) {
 	}
 }
 
-// TestYAMLToDeps_PreUpListJoinedWithAnd verifies the list form is
-// joined with ` && ` so the executor (which splits on the same
-// separator) sees each entry as a discrete command. Mirrors how
-// `pre:` lists are bridged.
+// List form must join with " && " so the executor's split sees each
+// entry as a discrete command.
 func TestYAMLToDeps_PreUpListJoinedWithAnd(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "p",
@@ -41,8 +36,6 @@ func TestYAMLToDeps_PreUpListJoinedWithAnd(t *testing.T) {
 	}
 }
 
-// TestYAMLToDeps_PreAndPreUpCoexist documents that the two hooks
-// are independent fields and never overwrite each other.
 func TestYAMLToDeps_PreAndPreUpCoexist(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "p",

@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-// stubEnv lets each subtest pin the env-var lookup without
-// touching the real process environment.
 func stubEnv(t *testing.T, vals map[string]string) {
 	t.Helper()
 	prev := osGetenv
@@ -16,9 +14,6 @@ func stubEnv(t *testing.T, vals map[string]string) {
 	}
 }
 
-// TestLauncherWaitTimeout exercises every branch of the env-driven
-// timeout helper used by HostRunner in the launcher-pattern path:
-// default, explicit override, opt-out via 0s, and unparseable input.
 func TestLauncherWaitTimeout(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -42,9 +37,6 @@ func TestLauncherWaitTimeout(t *testing.T) {
 	}
 }
 
-// TestLauncherDrainTimeout mirrors TestLauncherWaitTimeout for the
-// stop-path drain helper. Defaults to 30s; same opt-out / fallback
-// rules.
 func TestLauncherDrainTimeout(t *testing.T) {
 	cases := []struct {
 		name   string

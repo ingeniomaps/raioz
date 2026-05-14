@@ -64,14 +64,9 @@ func stopComposeServices(ctx context.Context, deps *models.Deps) {
 	}
 }
 
-// runCustomStopCommands executes each service's `stop:` command from raioz.yaml,
-// running in the project directory with the service's configured env vars merged
-// in (see buildStopCmdEnv — issue 044 regression fix). Returns the sorted list
-// of service names whose stop command exited non-zero so the caller can
-// surface a visible error block at the end of the down flow and return a
-// non-zero exit code; the loop itself is best-effort and never aborts early
-// (every service still gets a chance to stop, which is the whole point of
-// "down").
+// runCustomStopCommands runs each service's `stop:` and returns the
+// sorted names of failures. Best-effort: every service still gets a
+// stop attempt so a partial down doesn't strand later services.
 func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir string) []string {
 	var failed []string
 	for name, svc := range deps.Services {
@@ -103,18 +98,9 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 	return failed
 }
 
-// buildStopCmdEnv returns the environment slice for a service's custom
-// stop command. Starts from os.Environ() so the child inherits PATH,
-// HOME, DOCKER_HOST, XDG_*, etc. — without these the typical `make
-// stop` / `docker compose down` invocations fail because their
-// sub-shell can't find `docker`.
-//
-// Each declared env-file produces one `RAIOZ_ENV_FILE=<path>` entry
-// after the inherited block. Go's exec semantics: if the same key
-// appears twice, the last one wins, so overrides are effective even
-// though we keep the parent values for diagnostic clarity.
-//
-// Extracted to ease regression-testing — see down_stop_env_test.go.
+// Seeds the env from os.Environ() so the child sees PATH/DOCKER_HOST/
+// etc.; without this `make stop` wrappers can't find `docker`.
+// RAIOZ_ENV_FILE overrides come after so they win on duplicate keys.
 func buildStopCmdEnv(svc models.Service) []string {
 	env := os.Environ()
 	if svc.Env == nil {

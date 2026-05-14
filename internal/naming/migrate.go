@@ -7,31 +7,14 @@ import (
 	"path/filepath"
 )
 
-// migratedMarker is the breadcrumb left in a legacy directory after
-// the contents have been copied into RaiozStateDir(). On the next
-// startup the migrator sees the file and skips the legacy entry
-// without rescanning.
+// Dropped in legacy dirs after migration so subsequent startups
+// skip them without rescanning.
 const migratedMarker = ".raioz-migrated-to-xdg"
 
-// MigrateLegacyStateDirs copies the contents of any legacy state
-// directories (see LegacyStateDirs) into the current
-// RaiozStateDir(), once, on first run. ADR-022 documents the policy.
-//
-// Behavior:
-//
-//   - Skip when RaiozStateDir() already has content. Two reasons to
-//     skip: fresh install on a system without a legacy dir (nothing
-//     to do), or an earlier raioz already migrated. Either way the
-//     new location is authoritative.
-//   - Skip a legacy entry that doesn't exist, or that already carries
-//     the migratedMarker file.
-//   - For each remaining legacy dir, copy every file/subdir under it
-//     into RaiozStateDir() and write the marker. Existing files at
-//     the destination are NOT overwritten — the new location wins.
-//
-// Returns a list of human-readable strings describing what was done,
-// suitable for logging. Errors are returned but the migration is
-// best-effort: a single failure does not abort the process.
+// MigrateLegacyStateDirs copies legacy state dirs into RaiozStateDir()
+// once on first run; ADR-022. Best-effort — a populated destination
+// short-circuits, and existing files at the destination are never
+// overwritten ("new location wins").
 func MigrateLegacyStateDirs() ([]string, error) {
 	dst := RaiozStateDir()
 	if hasContent(dst) {
@@ -68,9 +51,8 @@ func MigrateLegacyStateDirs() ([]string, error) {
 	return notes, nil
 }
 
-// hasContent reports whether `path` is a directory with at least one
-// entry. Empty directories and missing paths both count as "no
-// content"; the migrator runs in either case.
+// Missing path and empty dir both count as "no content" — the
+// migrator should run in either case.
 func hasContent(path string) bool {
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -79,11 +61,8 @@ func hasContent(path string) bool {
 	return len(entries) > 0
 }
 
-// copyTree mirrors src into dst preserving subdirectory structure.
-// Existing files at the destination are left alone — the rule the
-// migrator advertises is "new location wins". Returns the first
-// error encountered; partial copies persist (the marker file is the
-// only signal of success).
+// New location wins: existing files at dst are left alone. Partial
+// copies persist on error; the marker file is the only success signal.
 func copyTree(src, dst string) error {
 	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

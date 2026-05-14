@@ -42,11 +42,7 @@ type Event struct {
 }
 
 // GetAuditLogPath returns the path to the audit log file.
-//
-// Delegates location selection to naming.RaiozStateDir() (ADR-022)
-// so audit/ignore/workspace agree on the same root. Honors RAIOZ_HOME
-// (legacy) and XDG_STATE_HOME (preferred); falls back to
-// ~/.local/state/raioz.
+// Location delegated to naming.RaiozStateDir() — ADR-022.
 func GetAuditLogPath() (string, error) {
 	baseDir := naming.RaiozStateDir()
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {

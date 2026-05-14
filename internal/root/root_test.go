@@ -22,11 +22,6 @@ func TestGetRootPath(t *testing.T) {
 	}
 }
 
-// TestDelete covers the two contractual cases for ADR-023:
-// removing the existing file, and tolerating an absent file silently.
-// The second case is load-bearing because raioz down calls Delete on
-// every project teardown — a fresh project has no file yet, and that
-// must not surface as an error.
 func TestDelete(t *testing.T) {
 	t.Run("removes existing file", func(t *testing.T) {
 		tmpDir := t.TempDir()

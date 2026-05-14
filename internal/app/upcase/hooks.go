@@ -40,11 +40,8 @@ func (uc *UseCase) preHookExec(ctx context.Context, deps *models.Deps, projectDi
 	return nil
 }
 
-// preUpHookExec runs the `preUp:` hook after infra and sibling-spawn
-// have completed but before this project's own services start. Same
-// fail-the-run semantics as preHookExec — services have not been
-// started yet, so aborting here is safe. ADR-024 captures the
-// two-phase rationale.
+// preUpHookExec runs `preUp:` between infra/sibling-spawn and
+// service start. Failure aborts the up (ADR-024).
 func (uc *UseCase) preUpHookExec(ctx context.Context, deps *models.Deps, projectDir string) error {
 	if deps.PreUpHook == "" {
 		return nil

@@ -2,10 +2,6 @@ package docker
 
 import "testing"
 
-// TestIsHostGatewayTarget documents the predicate used by HostRunner
-// to decide when to skip the post-launcher container wait. Dotted
-// names are treated as host-shaped on the conservative-default
-// principle described in the docstring.
 func TestIsHostGatewayTarget(t *testing.T) {
 	cases := []struct {
 		name   string

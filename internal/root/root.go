@@ -110,12 +110,8 @@ func Save(ws *workspace.Workspace, root *RootConfig) error {
 	return nil
 }
 
-// Delete removes raioz.root.json for the given workspace. Absent file
-// is not an error — `raioz down` calls this once per project teardown
-// and a fresh project naturally has no file yet. ADR-023 captures the
-// "state mirrors reality" invariant this enforces: stale root config
-// can't outlive the containers that justified it, otherwise the next
-// `up` runs DetectAssistedServiceDrift against months-old snapshots.
+// Delete removes raioz.root.json. Absent file is not an error — `raioz
+// down` calls this on every teardown including fresh projects. ADR-023.
 func Delete(ws *workspace.Workspace) error {
 	path := GetRootPath(ws)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {

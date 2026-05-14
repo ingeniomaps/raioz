@@ -40,11 +40,8 @@ func init() {
 type HostRunner struct {
 	// processes tracks running host process PIDs by service name
 	processes map[string]int
-	// launchers marks services started via the launcher pattern (clean
-	// exit 0 inside the settle window — the visible process detached
-	// long-running work like `make dev-docker`). Stop uses this to
-	// wait for an in-progress container build to finish before
-	// invoking the user's `stop:` command (issue 047 / ADR-025).
+	// Services that triggered the launcher pattern at Start time. Stop
+	// drains an in-progress build before invoking stop: (ADR-025).
 	launchers map[string]bool
 }
 
@@ -144,13 +141,8 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 					logging.WarnWithContext(ctx, "Launcher pattern without stop: declared",
 						"service", svc.Name, "command", command)
 				}
-				// Issue 047 / ADR-025: when the user declared a container
-				// target (`proxy.target:`), wait up to LauncherWaitTimeout
-				// for it to appear. Without this the next phase reports
-				// "ENTORNO LISTO" while `docker compose up -d --build` is
-				// still building. On timeout we warn and continue — never
-				// abort, because the build may legitimately take longer
-				// on a slow box.
+				// ADR-025: don't claim ready before the launcher's
+				// container materializes. No-op without proxy.target:.
 				waitForLauncherContainer(ctx, svc)
 				break
 			}
@@ -182,10 +174,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) error {
 	// Custom stop command path
 	if svc.StopCommand != "" {
-		// Issue 047 / ADR-025: if Start observed a launcher exit and
-		// the target container isn't there yet, drain the in-progress
-		// build before running stop:. Prevents orphan containers when
-		// stop: completes before `docker compose up -d --build` does.
+		// ADR-025: drain an in-progress launcher build before stop:.
 		if r.launchers != nil && r.launchers[svc.Name] {
 			drainLauncherBeforeStop(ctx, svc)
 		}

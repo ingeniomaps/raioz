@@ -52,13 +52,9 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 
 	output.PrintProgress("Stopping project " + projectName + "...")
 
-	// Run custom per-service stop commands first (declared in raioz.yaml as `stop:`).
-	// These take precedence over PID/prefix-based cleanup because they know how to
-	// tear down whatever the `command:` started — e.g. `make start` spawning its
-	// own docker compose project whose containers are outside the raioz naming
-	// convention. Any service whose stop command failed gets carried through to
-	// the final return so the user sees an error block and the process exits
-	// non-zero (issue 044).
+	// Custom `stop:` runs first — only it knows how to tear down whatever
+	// `command:` launched (e.g. `make start` → its own compose project).
+	// Failures are surfaced at the tail of the function (issue 044).
 	failedStops := runCustomStopCommands(ctx, deps, projectDir)
 
 	// Tear down compose-based services (yaml `compose:` or auto-detected) by
@@ -185,12 +181,10 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 			WithContext("services", strings.Join(failedStops, ","))
 	}
 
-	// ADR-023: delete raioz.root.json now that this project's
-	// containers are gone. Skipped when the survival check above
-	// reported leftovers — in that case the state file is still
-	// relevant for diagnostics. Resolve errors are non-fatal:
-	// failing to wipe a state file should not make a clean down
-	// look failed.
+	// ADR-023: state mirrors reality — drop raioz.root.json when the
+	// teardown is complete. Skipped when leftovers survive so the
+	// stale file is preserved for diagnostics. Resolve / Delete
+	// errors are non-fatal.
 	if leftovers := docker.ListContainersByLabels(ctx, map[string]string{
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
@@ -200,8 +194,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) e
 			logging.WarnWithContext(ctx, "Skipping root cleanup: workspace resolve failed",
 				"project", projectName, "error", err.Error())
 		case ws == nil:
-			// Defensive: mocks (and pathologically misbehaving real impls)
-			// can return (nil, nil). Skip rather than dereference.
+			// Mocks (and lenient real impls) can return (nil, nil).
 		default:
 			if err := root.Delete(ws); err != nil {
 				logging.WarnWithContext(ctx, "Failed to remove root config",

@@ -68,11 +68,8 @@ func init() {
 		if cmd.Name() != "version" {
 			MaybePrintDevBuildWarning()
 		}
-		// ADR-022: copy legacy state dirs (~/.raioz, /opt/raioz-proyecto)
-		// into the unified RaiozStateDir() exactly once. Best-effort:
-		// migration errors don't block the command. Each note becomes a
-		// single debug log line so users running with --log-level=debug
-		// can confirm a migration ran.
+		// ADR-022: best-effort migration of legacy state dirs into
+		// the unified RaiozStateDir(). Notes only at debug level.
 		if notes, err := naming.MigrateLegacyStateDirs(); err != nil {
 			logging.Debug("legacy state migration failed", "error", err)
 		} else {

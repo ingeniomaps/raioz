@@ -269,10 +269,7 @@ func (uc *UseCase) processOrchestration(
 			if svc.Commands != nil && svc.Commands.Down != "" {
 				svcCtx.StopCommand = svc.Commands.Down
 			}
-			// Issue 047 / ADR-025: when the user declared `proxy.target:`
-			// (a container name), HostRunner uses it to verify the
-			// launcher actually produced the container before reporting
-			// ready. No-op when proxyTarget is empty or host-gateway-shaped.
+			// ADR-025: needed for HostRunner's launcher-container wait.
 			if svc.ProxyOverride != nil {
 				svcCtx.ProxyTarget = svc.ProxyOverride.Target
 			}

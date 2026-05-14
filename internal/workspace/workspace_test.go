@@ -7,10 +7,6 @@ import (
 	"testing"
 )
 
-// TestGetBaseDir exercises the path-selection contract after ADR-022:
-// honors RAIOZ_HOME first, then XDG_STATE_HOME/raioz, then
-// ~/.local/state/raioz. Per-test isolation via t.Setenv +
-// t.TempDir() — no /opt write attempts, no shared state across runs.
 func TestGetBaseDir(t *testing.T) {
 	t.Run("RAIOZ_HOME wins", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), "raioz-home")

@@ -449,9 +449,6 @@ func TestPreHookExecChain(t *testing.T) {
 
 // --- preUpHookExec ------------------------------------------------------------
 
-// TestPreUpHookExec covers the ADR-024 contract: empty → no-op,
-// success → no error, failure → aborts with PRE_UP_HOOK_FAILED, &&
-// chain → all run.
 func TestPreUpHookExec(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})
