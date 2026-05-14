@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/env"
+	"raioz/internal/logging"
 	"raioz/internal/workspace"
 )
 
@@ -263,21 +265,76 @@ func LauncherDrainTimeout() time.Duration {
 	return durationFromEnv(launcherDrainTimeoutEnv, 30*time.Second)
 }
 
-// "0s" is honored as explicit opt-out; "" / unparseable / negative
-// fall back to def.
-func durationFromEnv(name string, def time.Duration) time.Duration {
+// EnvDurationStatus snapshots how a duration-typed env var resolved.
+// Used by `raioz doctor` to surface user overrides and silent
+// malformed values that durationFromEnv used to swallow (issue 062).
+type EnvDurationStatus struct {
+	Name      string        // env var name (e.g. RAIOZ_LAUNCHER_TIMEOUT)
+	Raw       string        // user-supplied value; "" when unset
+	Resolved  time.Duration // value actually used
+	Default   time.Duration
+	Malformed bool // true when Raw was set but couldn't parse / was negative
+}
+
+// InspectDurationEnv reads a duration env var WITHOUT logging side
+// effects. Inverse of durationFromEnv when callers need to render
+// the resolution state (`raioz doctor`) instead of just consuming
+// the resolved value.
+func InspectDurationEnv(name string, def time.Duration) EnvDurationStatus {
 	raw := osGetenv(name)
 	if raw == "" {
-		return def
+		return EnvDurationStatus{Name: name, Resolved: def, Default: def}
 	}
 	d, err := time.ParseDuration(raw)
-	if err != nil {
-		return def
+	if err != nil || d < 0 {
+		return EnvDurationStatus{
+			Name: name, Raw: raw, Resolved: def, Default: def, Malformed: true,
+		}
 	}
-	if d < 0 {
-		return def
+	return EnvDurationStatus{Name: name, Raw: raw, Resolved: d, Default: def}
+}
+
+// KnownDurationEnvs enumerates every duration-typed env var raioz
+// reads. `raioz doctor` walks this list to print resolution state.
+// New duration env vars MUST be appended here so the doctor surfaces
+// them — otherwise a typo'd value stays silent (issue 062).
+func KnownDurationEnvs() []EnvDurationStatus {
+	return []EnvDurationStatus{
+		InspectDurationEnv(launcherWaitTimeoutEnv, 60*time.Second),
+		InspectDurationEnv(launcherDrainTimeoutEnv, 30*time.Second),
 	}
-	return d
+}
+
+// warnedEnvOnce tracks env vars we've already warned about so a
+// hot loop reading the same malformed var doesn't spam the log.
+// Per-process scope; tests reset via ResetMalformedEnvWarningsForTest.
+var warnedEnvOnce sync.Map
+
+// ResetMalformedEnvWarningsForTest clears the once-per-process
+// dedup so tests can verify the warning fires on the first hit
+// without depending on test ordering. Test-only.
+func ResetMalformedEnvWarningsForTest() {
+	warnedEnvOnce = sync.Map{}
+}
+
+// "0s" is honored as explicit opt-out; "" falls back to def; an
+// unparseable or negative value also returns def but logs a warning
+// once per (process, var name) so the user spots typos like
+// "RAIOZ_LAUNCHER_TIMEOUT=60" (missing "s") instead of seeing the
+// default silently — issue 062.
+func durationFromEnv(name string, def time.Duration) time.Duration {
+	s := InspectDurationEnv(name, def)
+	if s.Malformed {
+		if _, loaded := warnedEnvOnce.LoadOrStore(name, true); !loaded {
+			logging.Warn("invalid duration env var; using default",
+				"var", name,
+				"value", s.Raw,
+				"default", def.String(),
+				"hint", "expected Go duration like 60s, 2m, 1h",
+			)
+		}
+	}
+	return s.Resolved
 }
 
 // Indirection seam for tests; never reassigned in non-test code.

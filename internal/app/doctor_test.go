@@ -3,6 +3,8 @@ package app
 import (
 	"bytes"
 	"context"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -122,5 +124,55 @@ func TestGetFreeDiskSpaceGB(t *testing.T) {
 	// Should return a sensible value (non-negative or -1 on error)
 	if gb < -1 {
 		t.Errorf("unexpected value: %f", gb)
+	}
+}
+
+// TestDoctorCheckEnvironment_NoOverrides pins issue 062's "ok" branch:
+// when no env override is set, the doctor reports "no overrides".
+func TestDoctorCheckEnvironment_NoOverrides(t *testing.T) {
+	// Make sure neither launcher env var leaks from the host shell.
+	os.Unsetenv("RAIOZ_LAUNCHER_TIMEOUT")
+	os.Unsetenv("RAIOZ_LAUNCHER_DRAIN_TIMEOUT")
+
+	uc := NewDoctorUseCase()
+	check := uc.checkEnvironment()
+	if check.Status != "ok" {
+		t.Errorf("expected ok, got %q (msg=%s)", check.Status, check.Message)
+	}
+	if !strings.Contains(check.Message, "no overrides") {
+		t.Errorf("expected 'no overrides' in message, got %q", check.Message)
+	}
+}
+
+func TestDoctorCheckEnvironment_ValidOverride(t *testing.T) {
+	t.Setenv("RAIOZ_LAUNCHER_TIMEOUT", "120s")
+	t.Setenv("RAIOZ_LAUNCHER_DRAIN_TIMEOUT", "45s")
+
+	uc := NewDoctorUseCase()
+	check := uc.checkEnvironment()
+	if check.Status != "ok" {
+		t.Errorf("expected ok for valid overrides, got %q (msg=%s)", check.Status, check.Message)
+	}
+	for _, want := range []string{"RAIOZ_LAUNCHER_TIMEOUT=2m0s", "RAIOZ_LAUNCHER_DRAIN_TIMEOUT=45s"} {
+		if !strings.Contains(check.Message, want) {
+			t.Errorf("expected %q in message; got %q", want, check.Message)
+		}
+	}
+}
+
+func TestDoctorCheckEnvironment_MalformedSurfaces(t *testing.T) {
+	// Typo: "60" without a unit — the bug from issue 062.
+	t.Setenv("RAIOZ_LAUNCHER_TIMEOUT", "60")
+	os.Unsetenv("RAIOZ_LAUNCHER_DRAIN_TIMEOUT")
+
+	uc := NewDoctorUseCase()
+	check := uc.checkEnvironment()
+	if check.Status != "error" {
+		t.Errorf("expected error status for malformed env, got %q (msg=%s)", check.Status, check.Message)
+	}
+	for _, want := range []string{"RAIOZ_LAUNCHER_TIMEOUT", "60", "60s", "expected Go duration"} {
+		if !strings.Contains(check.Message, want) {
+			t.Errorf("expected %q in message; got %q", want, check.Message)
+		}
 	}
 }

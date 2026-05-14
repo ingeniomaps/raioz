@@ -9,6 +9,7 @@ import (
 	goruntime "runtime"
 	"strings"
 
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
@@ -57,6 +58,7 @@ func (uc *DoctorUseCase) Execute(ctx context.Context) error {
 		uc.checkMkcert(ctx),
 		uc.checkRuntimes(ctx),
 		uc.checkBuildInfo(),
+		uc.checkEnvironment(),
 	}
 
 	hasError := false
@@ -180,6 +182,54 @@ func (uc *DoctorUseCase) checkRaiozDir() DoctorCheck {
 	}
 
 	return DoctorCheck{Name: name, Status: "ok", Message: raiozDir}
+}
+
+// checkEnvironment surfaces the resolution state of duration-typed env
+// vars raioz reads. Issue 062: previously a typo like
+// `RAIOZ_LAUNCHER_TIMEOUT=60` (missing "s") fell back to the default
+// without telling the user. Now the doctor flags malformed values
+// loudly and lists overrides quietly.
+//
+// Status:
+//   - error    → at least one value is malformed (typo'd unit, etc.)
+//   - warning  → none today; reserved for "deprecated env var still set"
+//   - ok       → all values either default or valid override
+func (uc *DoctorUseCase) checkEnvironment() DoctorCheck {
+	name := "Environment"
+	statuses := host.KnownDurationEnvs()
+
+	var malformed, overrides []string
+	for _, s := range statuses {
+		if s.Malformed {
+			malformed = append(malformed,
+				fmt.Sprintf("%s=%q (using default %s)", s.Name, s.Raw, s.Default))
+			continue
+		}
+		if s.Raw != "" {
+			overrides = append(overrides,
+				fmt.Sprintf("%s=%s", s.Name, s.Resolved))
+		}
+	}
+
+	if len(malformed) > 0 {
+		return DoctorCheck{
+			Name:    name,
+			Status:  "error",
+			Message: strings.Join(malformed, ", ") + " — expected Go duration like 60s, 2m, 1h",
+		}
+	}
+	if len(overrides) > 0 {
+		return DoctorCheck{
+			Name:    name,
+			Status:  "ok",
+			Message: fmt.Sprintf("%d override(s): %s", len(overrides), strings.Join(overrides, ", ")),
+		}
+	}
+	return DoctorCheck{
+		Name:    name,
+		Status:  "ok",
+		Message: fmt.Sprintf("no overrides (%d duration var(s) at default)", len(statuses)),
+	}
 }
 
 func (uc *DoctorUseCase) checkOS() DoctorCheck {
