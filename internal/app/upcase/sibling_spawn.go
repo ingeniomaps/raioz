@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"syscall"
 
 	"raioz/internal/config"
 	"raioz/internal/i18n"
@@ -103,6 +104,12 @@ func spawnSibling(
 	if cid := logging.GetRequestID(ctx); cid != "" {
 		cmd.Env = append(cmd.Env, logging.CorrelationIDEnv+"="+cid)
 	}
+	// Issue 057 / ADR-026: Pdeathsig on Linux so a Ctrl+C on the
+	// parent reaps spawned siblings instead of orphaning them. No-op
+	// on macOS/Windows; cmd.Context() cancellation covers the
+	// portable half.
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	setPdeathsig(cmd.SysProcAttr)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

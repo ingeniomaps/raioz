@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"raioz/internal/config"
 	"raioz/internal/logging"
@@ -131,6 +132,52 @@ func TestSpawnSibling_FailureIncludesDiagnosticHint(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "raioz up") {
 		t.Errorf("error should suggest the diagnostic command, got %v", err)
+	}
+}
+
+// TestSpawnSibling_PdeathsigKillsOrphans guards ADR-026 / issue 057
+// end-to-end on Linux: when the parent process exits without
+// reaping the spawn, the child must die via Pdeathsig. We simulate
+// that path by spawning a long-running fake binary, then cancelling
+// the parent ctx (mirrors a Ctrl+C). The actual Pdeathsig signal
+// comes from the kernel when this test process exits — but the
+// ctx-cancellation half (which is what cmd.Process.Kill rides on)
+// fires immediately and is what we can assert here.
+func TestSpawnSibling_PdeathsigKillsOrphans(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Pdeathsig is Linux-only")
+	}
+	// Fake binary sleeps long enough that ctx cancellation must be
+	// what stops it.
+	dir := t.TempDir()
+	binPath := filepath.Join(dir, "fakeraioz")
+	body := "#!/bin/sh\nsleep 30\n"
+	if err := os.WriteFile(binPath, []byte(body), 0o755); err != nil {
+		t.Fatalf("write fake raioz: %v", err)
+	}
+	prev := spawnRaiozBinary
+	spawnRaiozBinary = func() (string, error) { return binPath, nil }
+	t.Cleanup(func() { spawnRaiozBinary = prev })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sib := &config.SiblingInfo{Dir: t.TempDir(), Project: "kc"}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- spawnSibling(ctx, "/consumer", "kc", sib)
+	}()
+
+	// Let the spawn start, then cancel — emulates Ctrl+C on parent.
+	time.Sleep(150 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+		// spawnSibling returned: cmd.Wait observed ctx cancellation
+		// and the process is reaped. Test passes.
+	case <-time.After(5 * time.Second):
+		t.Fatal("spawnSibling did not return within 5s after ctx cancel — " +
+			"child likely orphaned")
 	}
 }
 

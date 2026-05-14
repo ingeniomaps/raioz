@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
@@ -24,8 +27,18 @@ var rootCmd = &cobra.Command{
 	SilenceUsage: true, // Don't show usage/help on execution errors
 }
 
+// Execute is the CLI entrypoint. Wraps the cobra root command in a
+// context that cancels on SIGINT/SIGTERM so every cmd.Run/RunE that
+// reads cmd.Context() observes user interrupts. Issue 057 / ADR-026:
+// without this, Ctrl+C during a recursive sibling spawn (ADR-008
+// mode A) left children running.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	ctx, stop := signal.NotifyContext(
+		context.Background(), os.Interrupt, syscall.SIGTERM,
+	)
+	defer stop()
+
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		// Format error with context if it's a RaiozError
 		fmt.Print(errors.FormatError(err))
 		os.Exit(1)
