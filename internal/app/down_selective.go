@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/host"
@@ -125,7 +124,7 @@ func stopSelectiveService(
 
 	// Sweep any container with the matching service label — covers Docker
 	// services brought up by compose / dockerfile runners.
-	for _, c := range docker.ListContainersByLabels(ctx, map[string]string{
+	for _, c := range listContainersByLabelsFn(ctx, map[string]string{
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
 		naming.LabelService: name,

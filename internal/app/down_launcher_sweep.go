@@ -9,6 +9,11 @@ import (
 	"raioz/internal/logging"
 )
 
+// killOrphansByCwdFn is a package-level hook so tests can simulate the
+// launcher-orphan sweep without touching the host's /proc tree.
+// Production points at host.KillOrphansByCwd directly.
+var killOrphansByCwdFn = host.KillOrphansByCwd
+
 // sweepLauncherOrphans is the post-kill safety net for the launcher pattern.
 // Tools like `yarn nx serve` spawn long-lived daemons (nx daemon, vite,
 // esbuild) that detach into a new session via setsid before raioz ever
@@ -30,7 +35,7 @@ func sweepLauncherOrphans(ctx context.Context, deps *models.Deps, projectDir, se
 	if abs == "" {
 		return
 	}
-	if killed := host.KillOrphansByCwd(abs); len(killed) > 0 {
+	if killed := killOrphansByCwdFn(abs); len(killed) > 0 {
 		logging.InfoWithContext(ctx, "Killed launcher-pattern orphans",
 			"service", service, "path", abs, "pids", killed)
 	}

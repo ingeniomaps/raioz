@@ -85,6 +85,14 @@ func sortedKeys(set map[string]struct{}) []string {
 	return out
 }
 
+// Package-level hooks so tests can simulate Docker without a daemon. Same
+// pattern as listContainersByLabelsFn in down_proxy.go (issue 060).
+var (
+	validatePortsFn         = docker.ValidatePorts
+	listActiveProjectsFn    = docker.ListActiveProjects
+	stopProjectContainersFn = docker.StopProjectContainers
+)
+
 // DownConflictingProjects stops every active raioz project (cross-workspace)
 // whose published host ports collide with the cwd's raioz.yaml. Returns the
 // list of project names that were torn down. The cwd project itself is
@@ -98,7 +106,7 @@ func DownConflictingProjects(
 	if cwdDeps == nil {
 		return nil, nil
 	}
-	conflicts, err := docker.ValidatePorts(cwdDeps, baseDir, cwdDeps.Project.Name)
+	conflicts, err := validatePortsFn(cwdDeps, baseDir, cwdDeps.Project.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +125,7 @@ func DownAllOtherProjects(
 	ctx context.Context,
 	currentProject string,
 ) ([]string, error) {
-	active, err := docker.ListActiveProjects(ctx)
+	active, err := listActiveProjectsFn(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +141,7 @@ func stopProjects(ctx context.Context, names []string) []string {
 	var stopped []string
 	for _, name := range names {
 		output.PrintInfo(i18n.T("output.stopping_other_project", name))
-		containers, err := docker.StopProjectContainers(ctx, name)
+		containers, err := stopProjectContainersFn(ctx, name)
 		if err != nil {
 			logging.WarnWithContext(ctx,
 				"Failed to stop other project's containers",
