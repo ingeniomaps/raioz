@@ -178,6 +178,7 @@ and how to add new ADRs.
 - **[ADR-006](docs/decisions/006-clone-functions-sync.md)** — `cloneService` / `cloneInfraEntry` in `internal/app/upcase/workspace_project_conflict.go` must list every new field on `config.Service` / `config.Infra` or it silently vanishes on re-up. Grep `config.Infra{` / `config.Service{` after struct changes.
 - **[ADR-007](docs/decisions/007-image-classification-bare-name.md)** — `proxy.IsNonHTTPImage` matches by **bare image name** (last path segment minus tag/digest), NOT substring (substring tagged `redis/redisinsight` as Redis). New entries go in `nonHTTPImageNames`.
 - **[ADR-008](docs/decisions/008-sibling-projects-as-deps.md)** — Sibling raioz projects as deps via `project:` (mode A) or `siblingProject:` + `image:` (mode B). `raioz down` never touches the sibling. Cycle detection via `RAIOZ_SIBLING_STACK`. Mode A spawn uses `os.Executable()`. Workspace coherence required.
+- **[ADR-022](docs/decisions/022-unified-state-paths.md)** — `naming.RaiozStateDir()` is the single source of truth for runtime state location. Resolution: `RAIOZ_HOME` → `$XDG_STATE_HOME/raioz` → `~/.local/state/raioz`. `audit`, `ignore`, `workspace` all delegate to it; do NOT add a fourth private copy. `MigrateLegacyStateDirs` runs once from `rootCmd.PersistentPreRun` to lift `~/.raioz` and `/opt/raioz-proyecto` into the unified root on upgrade.
 
 ### `raioz hosts`
 Prints the `/etc/hosts` line for the current project's proxy, ready for

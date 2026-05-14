@@ -3,12 +3,11 @@ package workspace
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
-	"runtime"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 )
 
 const (
@@ -24,67 +23,18 @@ type Workspace struct {
 	EnvDir              string
 }
 
-// GetBaseDir determines the base directory for raioz workspace
-// It tries /opt/raioz-proyecto first, then falls back to user home directory
-// Can be overridden with RAIOZ_HOME environment variable
+// GetBaseDir returns the base directory for raioz state.
+//
+// Delegates location selection to naming.RaiozStateDir() (ADR-022)
+// so audit/ignore/workspace agree on the same root. Honors RAIOZ_HOME
+// (legacy) and XDG_STATE_HOME (preferred); falls back to
+// ~/.local/state/raioz.
 func GetBaseDir() (string, error) {
-	// Check for override environment variable
-	if home := os.Getenv("RAIOZ_HOME"); home != "" {
-		// Try to create directory to verify permissions
-		if err := os.MkdirAll(home, 0755); err != nil {
-			return "", fmt.Errorf("failed to create RAIOZ_HOME directory '%s': %w", home, err)
-		}
-		return home, nil
+	base := naming.RaiozStateDir()
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create workspace base dir %q: %w", base, err)
 	}
-
-	// Try /opt/raioz-proyecto first (preferred location)
-	optBase := "/opt/raioz-proyecto"
-	if err := os.MkdirAll(optBase, 0755); err == nil {
-		// Successfully created/accessed /opt/raioz-proyecto
-		return optBase, nil
-	}
-
-	// Failed to create in /opt, use fallback
-	fallbackBase, err := getFallbackBaseDir()
-	if err != nil {
-		return "", fmt.Errorf(
-			"failed to use /opt/raioz-proyecto and fallback directory: %w",
-			err,
-		)
-	}
-
-	// Try to create fallback directory
-	if err := os.MkdirAll(fallbackBase, 0755); err != nil {
-		return "", fmt.Errorf(
-			"failed to create fallback directory '%s': %w",
-			fallbackBase, err,
-		)
-	}
-
-	return fallbackBase, nil
-}
-
-// getFallbackBaseDir returns the fallback base directory based on OS
-func getFallbackBaseDir() (string, error) {
-	usr, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("failed to get current user: %w", err)
-	}
-
-	homeDir := usr.HomeDir
-	if homeDir == "" {
-		return "", fmt.Errorf("home directory is empty")
-	}
-
-	// Use .raioz in user home directory
-	fallbackBase := filepath.Join(homeDir, ".raioz")
-
-	// Normalize path separators for Windows
-	if runtime.GOOS == "windows" {
-		fallbackBase = filepath.Join(homeDir, ".raioz")
-	}
-
-	return fallbackBase, nil
+	return base, nil
 }
 
 // Resolve resolves the workspace for a given project

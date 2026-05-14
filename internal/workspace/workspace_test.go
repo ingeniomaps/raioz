@@ -2,68 +2,62 @@ package workspace
 
 import (
 	"os"
-	"os/user"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
+// TestGetBaseDir exercises the path-selection contract after ADR-022:
+// honors RAIOZ_HOME first, then XDG_STATE_HOME/raioz, then
+// ~/.local/state/raioz. Per-test isolation via t.Setenv +
+// t.TempDir() — no /opt write attempts, no shared state across runs.
 func TestGetBaseDir(t *testing.T) {
-	// Save original RAIOZ_HOME
-	originalHome := os.Getenv("RAIOZ_HOME")
-	defer os.Setenv("RAIOZ_HOME", originalHome)
+	t.Run("RAIOZ_HOME wins", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "raioz-home")
+		t.Setenv("RAIOZ_HOME", dir)
+		t.Setenv("XDG_STATE_HOME", "")
 
-	// Test 1: With RAIOZ_HOME set
-	testDir := "/tmp/test-raioz-home"
-	os.Setenv("RAIOZ_HOME", testDir)
-	defer os.RemoveAll(testDir)
+		base, err := GetBaseDir()
+		if err != nil {
+			t.Fatalf("GetBaseDir() error = %v", err)
+		}
+		if base != dir {
+			t.Errorf("GetBaseDir() = %q, want %q", base, dir)
+		}
+	})
 
-	base, err := GetBaseDir()
-	if err != nil {
-		t.Fatalf("GetBaseDir() error = %v", err)
-	}
-	if base != testDir {
-		t.Errorf("GetBaseDir() = %v, want %v", base, testDir)
-	}
+	t.Run("XDG_STATE_HOME used when RAIOZ_HOME unset", func(t *testing.T) {
+		xdg := t.TempDir()
+		t.Setenv("RAIOZ_HOME", "")
+		t.Setenv("XDG_STATE_HOME", xdg)
 
-	// Test 2: Without RAIOZ_HOME (will try /opt or fallback)
-	os.Unsetenv("RAIOZ_HOME")
+		base, err := GetBaseDir()
+		if err != nil {
+			t.Fatalf("GetBaseDir() error = %v", err)
+		}
+		want := filepath.Join(xdg, "raioz")
+		if base != want {
+			t.Errorf("GetBaseDir() = %q, want %q", base, want)
+		}
+	})
 
-	base, err = GetBaseDir()
-	if err != nil {
-		t.Fatalf("GetBaseDir() error = %v", err)
-	}
+	t.Run("home fallback when nothing set", func(t *testing.T) {
+		t.Setenv("RAIOZ_HOME", "")
+		t.Setenv("XDG_STATE_HOME", "")
 
-	// Should be either /opt/raioz-proyecto or fallback (~/.raioz)
-	expectedOpt := "/opt/raioz-proyecto"
-	usr, _ := user.Current()
-	expectedFallback := filepath.Join(usr.HomeDir, ".raioz")
-
-	if base != expectedOpt && base != expectedFallback {
-		t.Errorf("GetBaseDir() = %v, want %v or %v", base, expectedOpt, expectedFallback)
-	}
-}
-
-func TestGetFallbackBaseDir(t *testing.T) {
-	fallback, err := getFallbackBaseDir()
-	if err != nil {
-		t.Fatalf("getFallbackBaseDir() error = %v", err)
-	}
-
-	usr, err := user.Current()
-	if err != nil {
-		t.Fatalf("user.Current() error = %v", err)
-	}
-
-	expected := filepath.Join(usr.HomeDir, ".raioz")
-	if runtime.GOOS == "windows" {
-		expected = filepath.Join(usr.HomeDir, ".raioz")
-	}
-
-	if fallback != expected {
-		t.Errorf("getFallbackBaseDir() = %v, want %v", fallback, expected)
-	}
+		base, err := GetBaseDir()
+		if err != nil {
+			t.Fatalf("GetBaseDir() error = %v", err)
+		}
+		home, herr := os.UserHomeDir()
+		if herr != nil || home == "" {
+			t.Skip("UserHomeDir() unavailable; skip platform-specific assertion")
+		}
+		want := filepath.Join(home, ".local", "state", "raioz")
+		if base != want {
+			t.Errorf("GetBaseDir() = %q, want %q", base, want)
+		}
+	})
 }
 
 func TestResolve(t *testing.T) {

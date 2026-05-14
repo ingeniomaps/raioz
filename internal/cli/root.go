@@ -7,6 +7,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 
 	"github.com/spf13/cobra"
 )
@@ -66,6 +67,18 @@ func init() {
 		// build)" — duplicating the warning there is noise.
 		if cmd.Name() != "version" {
 			MaybePrintDevBuildWarning()
+		}
+		// ADR-022: copy legacy state dirs (~/.raioz, /opt/raioz-proyecto)
+		// into the unified RaiozStateDir() exactly once. Best-effort:
+		// migration errors don't block the command. Each note becomes a
+		// single debug log line so users running with --log-level=debug
+		// can confirm a migration ran.
+		if notes, err := naming.MigrateLegacyStateDirs(); err != nil {
+			logging.Debug("legacy state migration failed", "error", err)
+		} else {
+			for _, n := range notes {
+				logging.Debug(n)
+			}
 		}
 	}
 
