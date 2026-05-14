@@ -125,14 +125,26 @@ project: my-app
 
 ### Current behavior
 
-| Field state                                  | Behavior                                  |
-| -------------------------------------------- | ----------------------------------------- |
-| `version: "1"`                               | Loads silently. Recommended.              |
-| Field absent                                 | Loads with a warning. Still works.        |
-| Field set to anything else (e.g. `"2"`)      | Loads (no validation yet). Future-only.   |
+| Field state | Behavior |
+| ----------- | -------- |
+| `version: "1"` | Loads silently. Recommended. |
+| Field absent | Loads with a soft warning ("consider adding"). Still works. |
+| `version: "2"` (newer) | Loads with a **loud warning**: this binary supports "1", fields introduced in newer schemas are ignored. Update raioz. |
+| `version: "0"` (older) | Loads with a **loud warning**: semantics may have changed since this binary's expected version. Run `raioz migrate yaml`. |
+| `version: "v1"`, `"1.0"`, `"abc"`, `"-1"` | Loads with a malformed-value warning. Treats the config as if `version: "1"` was declared. |
 
 `raioz init` and `raioz migrate yaml` both write `version: "1"` into newly
 generated files.
+
+The warnings are advisory in v0.6 (issue 054 / ADR-031). Future
+releases may upgrade specific cases to hard errors:
+
+- **v0.7** is the target for hard-erroring on past-version configs
+  (forces a `raioz migrate yaml` before load).
+- **v1.0** is the target for hard-erroring on any mismatch.
+
+The escalation lets configs in real-world repos see one minor
+release of warning before they become breaking.
 
 ### Field evolution policy
 
