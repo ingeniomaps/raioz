@@ -772,5 +772,7 @@
   "output.switch_conflict_line": "  - %s (puertos del host: %s)",
   "output.switch_confirm": "¿Detener los proyectos arriba y levantar el cwd? (yes/no): ",
   "output.switch_cancelled": "Switch cancelado — el proyecto del cwd NO se levanto.",
-  "output.switch_stopped": "Detenidos %d proyecto(s) en conflicto"
+  "output.switch_stopped": "Detenidos %d proyecto(s) en conflicto",
+  "error.secret_in_yaml": "raioz.yaml contiene lo que parece un %s (línea ~%d). Los secretos nunca deben vivir en el yaml.",
+  "error.secret_in_yaml_suggestion": "Mové la credencial a variables de entorno, un archivo .env, o un secret manager. Para auth de git, ver ADR-036 (yaml hygiene policy)."
 }

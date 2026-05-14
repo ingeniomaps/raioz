@@ -18,6 +18,14 @@ func LoadYAML(path string) (*RaiozConfig, error) {
 		return nil, fmt.Errorf("cannot read config file %s: %w", path, err)
 	}
 
+	// ADR-036 hygiene rule H1: reject the yaml before parsing if it
+	// contains anything that matches a known credential format. The
+	// rest of the loader assumes the bytes are safe to surface in
+	// error messages, which only holds after this gate.
+	if err := ScanForSecrets(data); err != nil {
+		return nil, err
+	}
+
 	var cfg RaiozConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf(

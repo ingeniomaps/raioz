@@ -772,5 +772,7 @@
   "output.switch_conflict_line": "  - %s (host ports: %s)",
   "output.switch_confirm": "Stop the projects above and bring up the cwd? (yes/no): ",
   "output.switch_cancelled": "Switch cancelled — cwd project was NOT brought up.",
-  "output.switch_stopped": "Stopped %d colliding project(s)"
+  "output.switch_stopped": "Stopped %d colliding project(s)",
+  "error.secret_in_yaml": "raioz.yaml contains what looks like a %s (line ~%d). Secrets must never live in the yaml.",
+  "error.secret_in_yaml_suggestion": "Move the credential to environment variables, a .env file, or a secret manager. For git auth see ADR-036 (yaml hygiene policy)."
 }
