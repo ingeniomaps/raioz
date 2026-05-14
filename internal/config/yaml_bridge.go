@@ -347,6 +347,7 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 
 	warnings := schemaVersionWarnings(cfg)
 	warnings = append(warnings, yamlDeprecationWarnings(cfg)...)
+	warnings = append(warnings, imagePinningWarnings(cfg)...)
 
 	// Strict re-parse on the raw bytes for unknown-field detection. Any
 	// read error here is purely diagnostic — the lenient load already

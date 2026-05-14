@@ -779,5 +779,7 @@
   "error.path_escapes_repo_suggestion": "Paths in raioz.yaml must resolve inside the project directory. Use relative paths like ./api/ or ./scripts/setup.sh.",
   "error.path_in_system_dir": "path %q targets system directory %s, which raioz refuses to touch",
   "error.path_in_system_dir_suggestion": "Move the file inside the project, or use a different mechanism (env var, host volume mount).",
-  "error.path_invalid": "path %q is invalid"
+  "error.path_invalid": "path %q is invalid",
+  "warning.image_no_tag": "dependency %q uses image %q without an explicit tag; pin a tag for reproducibility",
+  "warning.image_latest": "dependency %q uses image %q with :latest; pin a specific tag for reproducibility"
 }
