@@ -162,9 +162,21 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	// (port already bound, missing binary, panic at boot). Same goroutine
 	// also handles reaping after the settle window — the channel buffer
 	// absorbs the eventual exit so we don't leak a zombie.
+	//
+	// Issue 061: the drain goroutine ALSO closes logFile once cmd exits.
+	// Previously logFile was left open on the "still alive after the
+	// settle window" path, leaking one fd per Start. Long watch-mode
+	// sessions with frequent restarts accumulated those handles until
+	// finalizer-driven GC ran. Closing in the drain goroutine guarantees
+	// release exactly once, when the child actually dies — regardless of
+	// which select branch fired above.
 	logPath := naming.LogFile(svc.ProjectName, svc.Name)
 	waitCh := make(chan error, 1)
-	go func() { waitCh <- cmd.Wait() }()
+	go func() {
+		err := cmd.Wait()
+		_ = logFile.Close()
+		waitCh <- err
+	}()
 
 	if window := host.SettleWindow(); window > 0 {
 		select {
@@ -198,16 +210,17 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				waitForLauncherContainer(ctx, svc)
 				break
 			}
-			logFile.Close()
+			// logFile already closed by the drain goroutine.
 			return host.FormatEarlyExitError(svc.Name, window, exitErr, logPath)
 		case <-time.After(window):
-			// process is still alive — fall through.
+			// process is still alive — fall through. Drain goroutine
+			// keeps running; logFile gets released when cmd exits.
 		}
 	}
 
 	r.recordPID(svc.Name, cmd.Process.Pid)
-	// Don't close logFile — the child process owns the fd now
-	// Go's finalizer will close it when the process is collected
+	// logFile is owned by the drain goroutine; it closes the parent's
+	// copy of the fd when cmd.Wait() returns. Issue 061.
 
 	logging.InfoWithContext(ctx, "Host service started",
 		"service", svc.Name, "pid", cmd.Process.Pid)
