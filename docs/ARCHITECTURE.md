@@ -251,6 +251,17 @@ Only stores what Docker can't tell us:
 
 Docker is the source of truth for container running state.
 
+### observability — logging / audit / notify / output
+
+Four packages, four jobs: structured stderr logs
+(`internal/logging`), append-only history
+(`internal/audit/audit.log`), desktop interrupts
+(`internal/notify`), and user-facing terminal output
+(`internal/output`). The channel-selection rules, event matrix,
+and a worked end-to-end example live in
+[OBSERVABILITY.md](OBSERVABILITY.md) — consult it before adding a
+new event type.
+
 ## Dependency injection
 
 Use cases in `internal/app/` receive a `*Dependencies` struct:

@@ -72,6 +72,7 @@ See `CLAUDE.md` for the full architecture reference.
 - **DI**: Dependencies injected via struct, never created inline in app/.
 - **Tests**: Table-driven with `t.Run`. Mocks in `internal/mocks/`.
 - **Commits**: Conventional Commits, English, imperative, max 50 char subject. Full convention and examples in `.claude/skills/commit/SKILL.md` (also usable via the `/commit` Claude Code skill).
+- **Observability**: Four non-overlapping channels (`logging`, `audit`, `notify`, `output`). When adding a new event, read [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) first — it has the channel rules, the event matrix, and a worked example.
 
 ## Building with reproducible version metadata
 

@@ -82,6 +82,7 @@ Clean Architecture: `cmd/` → `internal/cli/` → `internal/app/` → `internal
 - **internal/snapshot/**: Volume backup/restore via `docker run alpine tar`.
 - **internal/tunnel/**: Expose services via cloudflared or bore.
 - **internal/git/**, **internal/host/**, **internal/lock/**, **internal/mocks/**: Git ops, host processes, file locking, test mocks.
+- **internal/logging/**, **internal/audit/**, **internal/notify/**, **internal/output/**: Four observability channels with non-overlapping jobs. Channel rules + event matrix in [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) — consult before adding a new event.
 
 ## Config format (raioz.yaml)
 
