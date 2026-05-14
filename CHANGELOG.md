@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-05-14
+
+Patch release. Closes the version-stamping gap that left every
+official binary from `v0.4.0` onwards reporting `version dev`,
+and reworks `install.sh` so the freshly installed binary actually
+wins `command -v raioz`.
+
 ### Fixed
 - Release binaries now report their real version. `.goreleaser.yml`
   injected ldflags into `main.{version,commit,date}`, but the
