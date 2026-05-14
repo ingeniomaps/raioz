@@ -392,5 +392,3 @@ func (m *Manager) removeStaleContainer(ctx context.Context, containerName string
 	}
 	return nil
 }
-
-// shouldn't require free 80/443 on the test host.

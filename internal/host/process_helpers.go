@@ -340,15 +340,6 @@ func durationFromEnv(name string, def time.Duration) time.Duration {
 // Indirection seam for tests; never reassigned in non-test code.
 var osGetenv = os.Getenv
 
-// readLogTail returns the last `lines` lines of a file as a single string,
-// or empty if the file is missing or unreadable. Best-effort — never errors.
-//
-// Deprecated: use ReadLogTail; keeping the lower-case wrapper for the
-// existing tests in this package.
-func readLogTail(path string, lines int) string {
-	return ReadLogTail(path, lines)
-}
-
 // ReadLogTail returns the last `lines` lines of a file as a single string,
 // or empty if the file is missing or unreadable. Best-effort — never errors.
 func ReadLogTail(path string, lines int) string {
