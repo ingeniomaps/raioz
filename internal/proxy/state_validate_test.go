@@ -3,6 +3,7 @@ package proxy
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -85,6 +86,9 @@ func TestAssertProxyDirWritable_CaddyfileIsDirectory(t *testing.T) {
 // permission blocks the WriteFile we'd issue. The probe-based check
 // catches this whereas a plain Stat would not.
 func TestAssertProxyDirWritable_DirReadOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: Windows chmod 0555 doesn't restrict write for owner")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root can write everywhere — skip on root runners")
 	}

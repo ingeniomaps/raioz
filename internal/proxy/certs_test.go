@@ -3,6 +3,7 @@ package proxy
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -17,6 +18,9 @@ func TestCertsDir(t *testing.T) {
 }
 
 func TestEnsureCerts_AlreadyExist(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
@@ -41,6 +45,9 @@ func TestEnsureCerts_AlreadyExist(t *testing.T) {
 }
 
 func TestEnsureCerts_DefaultDomain(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 

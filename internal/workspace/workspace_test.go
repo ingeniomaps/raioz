@@ -3,6 +3,7 @@ package workspace
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -176,6 +177,9 @@ func TestResolveEdgeCases(t *testing.T) {
 }
 
 func TestGetBaseDirFromWorkspace(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: assertion uses Unix path separators")
+	}
 	ws := &Workspace{
 		Root:        "/tmp/base/workspaces/test-project",
 		ServicesDir: "/tmp/base/services",

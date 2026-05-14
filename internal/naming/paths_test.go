@@ -3,6 +3,7 @@ package naming
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -82,6 +83,9 @@ func TestLegacyStateDirs(t *testing.T) {
 }
 
 func TestMigrateLegacyStateDirs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: legacy paths (~/.raioz, /opt/raioz-proyecto) are Unix-only")
+	}
 	tmp := t.TempDir()
 	legacy := filepath.Join(tmp, ".raioz")
 	if err := os.MkdirAll(filepath.Join(legacy, "sub"), 0o755); err != nil {

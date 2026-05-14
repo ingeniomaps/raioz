@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"runtime"
 	"testing"
 
 	"raioz/internal/domain/models"
@@ -71,6 +72,9 @@ func TestGetServiceDir(t *testing.T) {
 }
 
 func TestGetServicePath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("docs/issues/068: assertions use Unix path separators")
+	}
 	ws := &Workspace{
 		Root:                "/tmp/workspace",
 		ServicesDir:         "/tmp/services",
