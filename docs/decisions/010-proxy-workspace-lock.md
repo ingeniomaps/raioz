@@ -142,5 +142,8 @@ Caddyfile must serialize with whoever else is touching it.
   `internal/proxy/routes_persist.go`,
   `internal/proxy/proxy.go` (`Reload`)
 - Related: ADR-005 (workspace-shared proxy lifecycle),
-  ADR-008 (sibling raioz projects — bypass exemption)
+  ADR-008 (sibling raioz projects — bypass exemption),
+  ADR-028 (`routesMu` in-process mutex layered under this lock).
+- Cross-lock interactions: see [docs/LOCKS.md](../LOCKS.md) for
+  the matrix and acquire-order rules.
 - Originated from: docs/issues/025-proxy-lock.md

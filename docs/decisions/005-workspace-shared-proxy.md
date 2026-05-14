@@ -100,5 +100,8 @@ Caddyfile reload step itself is planned in
   `internal/proxy/caddyfile.go`,
   `internal/app/upcase/orchestration_proxy.go`,
   `internal/naming/naming.go` (`WorkspaceProxyDir`)
-- Related: ADR-002 (shared deps lifecycle), Wave 0 issue 021,
-  Wave 1 issue 025
+- Related: ADR-002 (shared deps lifecycle),
+  ADR-010 (workspace lock that serializes the routes-dir mutator
+  path this ADR introduces), Wave 0 issue 021, Wave 1 issue 025.
+- Cross-lock interactions: see [docs/LOCKS.md](../LOCKS.md) for
+  the matrix.

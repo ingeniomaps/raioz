@@ -169,7 +169,9 @@ dependencies:               # what I need running (Docker images)
 These rules are load-bearing — breaking one tends to create a class of
 bug. Each links to its ADR for the full rationale (problem, decision,
 alternatives). See [docs/decisions/](docs/decisions/) for the format
-and how to add new ADRs.
+and how to add new ADRs. For the interaction between locks and
+mutexes (project lock vs workspace lock vs in-process map mutexes),
+see [docs/LOCKS.md](docs/LOCKS.md).
 
 - **[ADR-001](docs/decisions/001-container-identity-labels.md)** — Containers identified by `com.raioz.*` labels, never by name prefix. New runners MUST stamp the labels via `naming.Labels()`; `make check-labels` enforces literal-free call sites. Files: `internal/naming/labels.go`, `internal/orchestrate/image_runner.go`.
 - **[ADR-002](docs/decisions/002-shared-deps-workspace-scoped.md)** — Workspace-shared deps omit `com.raioz.project`; lifecycle uses `otherProjectsActiveInWorkspace`, no refcount file. `ImageRunner.Start` is idempotent.
