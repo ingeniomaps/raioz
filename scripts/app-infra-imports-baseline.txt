@@ -1,0 +1,41 @@
+# Baseline allowlist for scripts/lint-app-infra-imports.sh — issue 049
+# / ADR-029.
+#
+# Each entry is a file under internal/app/ or internal/cli/ that
+# currently imports raioz/internal/{docker,proxy,orchestrate}
+# directly instead of going through the segregated domain ports
+# (interfaces.ContainerManager, ProxyManager, etc.).
+#
+# Rules:
+#   - NEW files importing those packages directly fail the lint.
+#   - REMOVING a file from this list happens when its imports route
+#     through the port instead. Update in the same PR.
+#   - Test files are NOT tracked (the lint skips _test.go).
+#
+# To regenerate the live list:
+#
+#   grep -rln '"raioz/internal/docker"\|"raioz/internal/proxy"\|"raioz/internal/orchestrate"' \
+#       internal/app internal/cli | grep -v _test.go | sort
+#
+internal/app/dev.go
+internal/app/doctor_orchestrator.go
+internal/app/down_compose.go
+internal/app/down_deps.go
+internal/app/down_orchestrated.go
+internal/app/down_others.go
+internal/app/down_proxy.go
+internal/app/down_selective.go
+internal/app/ports_conflicting.go
+internal/app/switch.go
+internal/app/upcase/compose.go
+internal/app/upcase/host_lifecycle.go
+internal/app/upcase/orchestration.go
+internal/app/upcase/orchestration_proxy.go
+internal/app/upcase/port_alloc.go
+internal/app/upcase/port_alloc_errors.go
+internal/app/upcase/port_resolve.go
+internal/app/upcase/sibling_dispatch.go
+internal/app/upcase/validation.go
+internal/app/upcase/watch_setup.go
+internal/app/yaml_mode.go
+internal/cli/hosts.go

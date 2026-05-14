@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check ci
+.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -120,7 +120,11 @@ check-cli-layering: ## Enforce that CLI files route through internal/app/
 	@echo "Checking CLI layering policy..."
 	@./scripts/lint-cli-layering.sh
 
-check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering lint test ## Run all checks
+check-app-infra-imports: ## Ratchet down app/cli imports of internal/{docker,proxy,orchestrate}
+	@echo "Checking app-layer infra imports baseline..."
+	@./scripts/lint-app-infra-imports.sh
+
+check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."

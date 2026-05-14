@@ -51,6 +51,9 @@ jobs:
       - name: Check i18n source discipline (issue 058)
         run: make check-i18n-source
 
+      - name: Check app-layer infra imports baseline (issue 049)
+        run: make check-app-infra-imports
+
   test:
     name: Unit tests
     runs-on: ubuntu-latest
