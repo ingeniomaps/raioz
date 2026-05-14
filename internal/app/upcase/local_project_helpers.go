@@ -161,7 +161,6 @@ func executeLocalProjectCommand(ctx context.Context, projectDir string, command 
 
 	output.PrintProgress(i18n.T("up.local.executing_command_detail", command))
 
-	// Parse command (simple split for now)
 	cmdParts := strings.Fields(command)
 	if len(cmdParts) == 0 {
 		return fmt.Errorf("empty command")

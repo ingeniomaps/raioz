@@ -31,9 +31,7 @@ type LogsOptions struct {
 //
 // A handful of methods that don't fit a single segregated interface
 // (presenters that pre-date the split, naming helpers) remain on
-// DockerRunner for now. They are slated for migration to
-// internal/output/ and internal/naming/ in follow-up work; see
-// ADR-012's "Implementation status" section.
+// DockerRunner — see ADR-012.
 type DockerRunner interface {
 	ContainerManager
 	ComposeRunner

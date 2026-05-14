@@ -362,7 +362,6 @@ func processTemplate(template string, envVars map[string]string) string {
 	for key, value := range envVars {
 		// Match $VAR at word boundaries
 		placeholder := fmt.Sprintf("$%s", key)
-		// Simple replacement for now (can be enhanced with regex if needed)
 		result = strings.ReplaceAll(result, placeholder, value)
 	}
 

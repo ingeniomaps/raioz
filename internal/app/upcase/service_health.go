@@ -62,9 +62,7 @@ func checkServiceHealthDefault(
 		}
 	}
 
-	// If no port check possible, check if there's a process running
-	// This is a simple check - can be enhanced later
-	// For now, return false (not healthy) to allow starting
+	// No port check possible — report not-healthy so caller starts it.
 	return false, nil
 }
 

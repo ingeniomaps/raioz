@@ -45,11 +45,9 @@ func (uc *UseCase) saveState(
 	assistedServicesMap map[string]string,
 	appliedOverrides []string,
 ) error {
-	// ADR-011 Phase 1: the legacy whole-Deps snapshot at .state.json is no
-	// longer written. The auto-cleanup at the top of Execute deletes any
-	// stale file left from older binaries. Reader migration and the
-	// eventual removal of StateManager.Save/Load/Exists are tracked as
-	// follow-up phases.
+	// ADR-011 Phase 1: the legacy whole-Deps snapshot at .state.json is
+	// no longer written. The auto-cleanup at the top of Execute deletes
+	// any stale file left from older binaries.
 	_ = ws
 	_ = deps
 	logging.DebugWithContext(ctx, "Legacy state snapshot intentionally skipped (ADR-011)")

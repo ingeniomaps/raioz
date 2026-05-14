@@ -50,8 +50,6 @@ func parseCommand(cmdStr string) []string {
 		return nil
 	}
 
-	// For now, use simple split (can be enhanced later for quoted strings)
-	// This works for most common cases: "npm run dev", "go run main.go", etc.
 	parts := strings.Fields(cmdStr)
 	if len(parts) == 0 {
 		return nil

@@ -202,12 +202,10 @@ func (uc *ListUseCase) loadHostPIDs(workspace string) map[string]int {
 
 	// ADR-011 Phase 2: the legacy snapshot used to record ProjectRoot so
 	// list could find LocalState for YAML-mode projects living outside
-	// the workspace dir. With the snapshot gone, we fall back to the
-	// workspace-root LocalState only. A follow-up may surface
-	// ProjectRoot through GlobalState.ProjectState for the YAML-mode
-	// case; today, `raioz list` shows host PIDs only when the user runs
-	// it from within the project (which writes LocalState there) AND
-	// when the workspace LocalState also carries the PIDs.
+	// the workspace dir. With the snapshot gone, fall back to the
+	// workspace-root LocalState only — host PIDs show up only when the
+	// user runs from within the project (which writes LocalState there)
+	// AND the workspace LocalState also carries the PIDs.
 	wsRoot := uc.deps.Workspace.GetRoot(ws)
 	ls, lsErr := state.LoadLocalState(wsRoot)
 	if lsErr == nil && ls != nil && len(ls.HostPIDs) > 0 {
