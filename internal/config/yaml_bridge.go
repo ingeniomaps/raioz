@@ -66,9 +66,12 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 		deps.ProxyConfig = cfg.Proxy
 	}
 
-	// Convert pre/post hooks
+	// Convert pre / preUp / post hooks
 	if len(cfg.Pre) > 0 {
 		deps.PreHook = strings.Join(cfg.Pre, " && ")
+	}
+	if len(cfg.PreUp) > 0 {
+		deps.PreUpHook = strings.Join(cfg.PreUp, " && ")
 	}
 	if len(cfg.Post) > 0 {
 		deps.PostHook = strings.Join(cfg.Post, " && ")

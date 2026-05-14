@@ -40,6 +40,36 @@ func (uc *UseCase) preHookExec(ctx context.Context, deps *models.Deps, projectDi
 	return nil
 }
 
+// preUpHookExec runs the `preUp:` hook after infra and sibling-spawn
+// have completed but before this project's own services start. Same
+// fail-the-run semantics as preHookExec — services have not been
+// started yet, so aborting here is safe. ADR-024 captures the
+// two-phase rationale.
+func (uc *UseCase) preUpHookExec(ctx context.Context, deps *models.Deps, projectDir string) error {
+	if deps.PreUpHook == "" {
+		return nil
+	}
+
+	output.PrintProgress(i18n.T("up.running_pre_up_hook"))
+	logging.InfoWithContext(ctx, "Executing pre-up hook", "command", deps.PreUpHook)
+
+	commands := strings.Split(deps.PreUpHook, " && ")
+	for _, cmdStr := range commands {
+		cmdStr = strings.TrimSpace(cmdStr)
+		if cmdStr == "" {
+			continue
+		}
+		cmd := exec.CommandContext(ctx, "sh", "-c", cmdStr)
+		cmd.Dir = projectDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return errors.PreUpHookFailed(cmdStr, fmt.Errorf("%w\n%s", err, string(out)))
+		}
+	}
+
+	output.PrintProgressDone(i18n.T("up.pre_up_hook_done"))
+	return nil
+}
+
 // postHookExec runs post-hooks after starting services. Post-hook failures
 // are logged as warnings and do NOT fail `raioz up` — services are already
 // running and the user can inspect the warning.

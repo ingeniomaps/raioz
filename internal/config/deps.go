@@ -107,6 +107,7 @@ func FilterByProfile(deps *Deps, profile string) *Deps {
 		Proxy:              deps.Proxy,
 		ProxyConfig:        deps.ProxyConfig,
 		PreHook:            deps.PreHook,
+		PreUpHook:          deps.PreUpHook,
 		PostHook:           deps.PostHook,
 	}
 
@@ -166,6 +167,7 @@ func FilterByProfiles(deps *Deps, profiles []string) *Deps {
 		Proxy:              deps.Proxy,
 		ProxyConfig:        deps.ProxyConfig,
 		PreHook:            deps.PreHook,
+		PreUpHook:          deps.PreUpHook,
 		PostHook:           deps.PostHook,
 	}
 	for name, svc := range deps.Services {

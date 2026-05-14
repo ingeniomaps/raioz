@@ -69,12 +69,46 @@ dependencies:
 | `workspace` | string | no | — | Groups projects on same Docker network. When set, resources use `{workspace}-` prefix instead of `raioz-`. |
 | `network` | string or object | no | auto-derived | Pin Docker network name and/or subnet. See [Network config](#network-config). |
 | `proxy` | bool or object | no | `false` | Enable Caddy reverse proxy with HTTPS. See [Proxy config](#proxy-config). |
-| `pre` | string or list | no | — | Commands to run before `raioz up` (e.g., fetch secrets). |
+| `pre` | string or list | no | — | Commands to run before anything else (env rendering, secrets fetch). Failure aborts `up`. |
+| `preUp` | string or list | no | — | Commands to run after dependencies/sibling-spawn are up, but before this project's services start. Use when bootstrap (`make createdb`, schema seeding) needs a workspace dep already reachable. Failure aborts `up`. See [Pre-up vs pre](#pre-up-vs-pre). |
 | `post` | string or list | no | — | Commands to run after `raioz up` (e.g., cleanup). |
 | `services` | map | no | — | Local services to develop. Keys are service names. See [Service config](#service-config). |
 | `dependencies` | map | no | — | Docker images to run. Keys are dependency names. See [Dependency config](#dependency-config). |
 
 ---
+
+## Pre-up vs pre
+
+`pre:` and `preUp:` look similar but fire at different phases of
+`raioz up`:
+
+```
+pre:    →  (env rendering, secrets fetch, local file generation)
+           ↓
+        infra + sibling-spawn  ←  workspace dependencies come up here
+           ↓
+preUp:  →  (bootstrap that talks to those deps — createdb, migrate)
+           ↓
+        this project's services start
+           ↓
+post:   →  (cleanup)
+```
+
+Use `pre:` when the hook only touches the local filesystem (write a
+file, decrypt a secret, render a template). Use `preUp:` when the
+hook needs the workspace's dependencies — typically a sibling
+raioz project's database — to already be reachable.
+
+A common case is `preUp: make createdb` for a service that depends
+on a workspace-shared postgres declared as a sibling project (see
+[Sibling raioz projects as deps](#sibling-raioz-projects-as-deps)).
+The hook runs on the host, so reach the dep via its published host
+port (e.g. `PG_HOST=localhost PG_PORT=5432 make createdb`) rather
+than the container DNS name (which the host can't resolve).
+
+A `preUp:` failure aborts the run before any service starts; this
+is intentional. If the bootstrap can't succeed, the services that
+depend on it shouldn't come up.
 
 ## Versioning
 

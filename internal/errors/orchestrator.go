@@ -24,8 +24,9 @@ const (
 	ErrCodePathNotFound    ErrorCode = "PATH_NOT_FOUND"
 
 	// Hook errors
-	ErrCodePreHookFailed  ErrorCode = "PRE_HOOK_FAILED"
-	ErrCodePostHookFailed ErrorCode = "POST_HOOK_FAILED"
+	ErrCodePreHookFailed   ErrorCode = "PRE_HOOK_FAILED"
+	ErrCodePreUpHookFailed ErrorCode = "PRE_UP_HOOK_FAILED"
+	ErrCodePostHookFailed  ErrorCode = "POST_HOOK_FAILED"
 )
 
 // RuntimeNotDetected creates an error when raioz can't determine how to run a service.
@@ -158,6 +159,24 @@ func PreHookFailed(command string, err error) *RaiozError {
 				"  - You're not logged in to your secrets manager (try the login command first)\n" +
 				"  - The script doesn't exist or isn't executable (check permissions)\n" +
 				"  - A required tool is missing (check the command works manually)",
+		)
+}
+
+// PreUpHookFailed creates an error when the preUp hook fails. Distinct
+// from PreHookFailed because the failure surface is different: pre-up
+// runs after dependencies are up, so the typical cause is a connection
+// to the dep failing, not a missing local tool.
+func PreUpHookFailed(command string, err error) *RaiozError {
+	return New(ErrCodePreUpHookFailed,
+		"Pre-up hook failed: "+command,
+	).WithError(err).
+		WithSuggestion(
+			"The 'preUp' command in raioz.yaml runs AFTER infra/sibling " +
+				"spawn but BEFORE service start. Common causes:\n" +
+				"  - The dep your hook talks to is not reachable from the host " +
+				"(use the published host:port, or run the bootstrap inside a container)\n" +
+				"  - The dep didn't actually come up — check 'raioz status'\n" +
+				"  - The command works locally but is missing env vars — re-export them in the hook",
 		)
 }
 

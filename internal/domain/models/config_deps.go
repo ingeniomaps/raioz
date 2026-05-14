@@ -15,10 +15,14 @@ type Deps struct {
 	ProjectRoot        string                `json:"projectRoot,omitempty"`        // Absolute path to project dir
 
 	// New fields for raioz.yaml (meta-orchestrator mode)
-	Proxy       bool         `json:"proxy,omitempty"`    // Enable Caddy reverse proxy
-	ProxyConfig *ProxyConfig `json:"-"`                  // Detailed proxy config (not serialized)
-	PreHook     string       `json:"preHook,omitempty"`  // Run before raioz up
-	PostHook    string       `json:"postHook,omitempty"` // Run after raioz up
+	Proxy       bool         `json:"proxy,omitempty"`   // Enable Caddy reverse proxy
+	ProxyConfig *ProxyConfig `json:"-"`                 // Detailed proxy config (not serialized)
+	PreHook     string       `json:"preHook,omitempty"` // Run before raioz up
+	// PreUpHook runs after infra/sibling-spawn but before service start.
+	// Carries the same string-join-of-commands shape as PreHook for the
+	// YAML bridge. See ADR-024 / issue 046.
+	PreUpHook string `json:"preUpHook,omitempty"`
+	PostHook  string `json:"postHook,omitempty"` // Run after raioz up
 }
 
 // GetWorkspaceName returns the workspace name for this project.

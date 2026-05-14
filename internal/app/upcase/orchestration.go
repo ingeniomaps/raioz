@@ -93,14 +93,11 @@ func (uc *UseCase) processOrchestration(
 		infraNames = append(infraNames, name)
 	}
 
-	// deferredDeps records the dep names whose dispatch was skipped
-	// because a sibling raioz project owns them (issue #26 mode B).
-	// Persisted into LocalState below so `down` can match the skip.
+	// deferredDeps: sibling-owned deps skipped at dispatch (issue #26
+	// mode B). Persisted into LocalState so `down` matches the skip.
 	var deferredDeps []string
-
-	// dispatchedInfra: subset of infraNames whose container lives in this
-	// project's namespace. Health check / endpoints / proxy iterate this
-	// (sibling-skipped entries are removed from detections, not here).
+	// dispatchedInfra: subset of infraNames with a container in this
+	// project's namespace. Health/endpoints/proxy iterate this.
 	var dispatchedInfra []string
 
 	if len(infraNames) > 0 {
@@ -229,6 +226,12 @@ func (uc *UseCase) processOrchestration(
 	// Build endpoints map for service discovery
 	endpoints := buildEndpoints(ctx, docker.NewLookup(), deps, detections, portAllocs)
 
+	// Step 2.5 — preUp hook (ADR-024 / issue 046): runs post-infra,
+	// pre-services. Failure aborts.
+	if err := uc.preUpHookExec(ctx, deps, projectDir); err != nil {
+		return nil, err
+	}
+
 	// Step 3: Start services in dependency order
 	serviceNames := orderedServiceNames(deps)
 
@@ -293,11 +296,8 @@ func (uc *UseCase) processOrchestration(
 	saveHostPIDs(projectDir, deps.Project.Name, deps.Workspace, networkName,
 		dispatcher, serviceNames, detections, deferredDeps)
 
-	// Step 4: Start proxy if enabled. The proxy block is extracted into its
-	// own file to keep this function under the 400-line cap; see
-	// orchestration_proxy.go. A proxy failure aborts `up` — the user opted
-	// into `proxy: true` in raioz.yaml, so pretending everything is fine
-	// when HTTPS routing is broken just hides the problem.
+	// Step 4 — proxy (see orchestration_proxy.go). Failure aborts:
+	// `proxy: true` is opt-in, so silent fallback would hide the bug.
 	if deps.Proxy && uc.deps.ProxyManager != nil {
 		if err := uc.startProxy(ctx, deps, detections, serviceNames, networkName); err != nil {
 			return nil, err

@@ -447,6 +447,53 @@ func TestPreHookExecChain(t *testing.T) {
 	}
 }
 
+// --- preUpHookExec ------------------------------------------------------------
+
+// TestPreUpHookExec covers the ADR-024 contract: empty → no-op,
+// success → no error, failure → aborts with PRE_UP_HOOK_FAILED, &&
+// chain → all run.
+func TestPreUpHookExec(t *testing.T) {
+	initI18nUp(t)
+	uc := NewUseCase(&Dependencies{})
+
+	t.Run("empty hook is no-op", func(t *testing.T) {
+		if err := uc.preUpHookExec(context.Background(), &models.Deps{}, t.TempDir()); err != nil {
+			t.Errorf("empty hook returned %v", err)
+		}
+	})
+
+	t.Run("success returns nil", func(t *testing.T) {
+		if err := uc.preUpHookExec(
+			context.Background(),
+			&models.Deps{PreUpHook: "true"},
+			t.TempDir(),
+		); err != nil {
+			t.Errorf("true exit returned %v", err)
+		}
+	})
+
+	t.Run("failure aborts", func(t *testing.T) {
+		err := uc.preUpHookExec(
+			context.Background(),
+			&models.Deps{PreUpHook: "false"},
+			t.TempDir(),
+		)
+		if err == nil {
+			t.Error("false exit must return error")
+		}
+	})
+
+	t.Run("chain runs both commands", func(t *testing.T) {
+		if err := uc.preUpHookExec(
+			context.Background(),
+			&models.Deps{PreUpHook: "true && true"},
+			t.TempDir(),
+		); err != nil {
+			t.Errorf("chain returned %v", err)
+		}
+	})
+}
+
 func TestPostHookExecEmpty(t *testing.T) {
 	initI18nUp(t)
 	uc := NewUseCase(&Dependencies{})

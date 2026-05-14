@@ -447,6 +447,8 @@
   "up.env_files_done": "Env files generated from templates",
   "up.running_pre_hook": "Running pre-hook...",
   "up.pre_hook_done": "Pre-hook completed",
+  "up.running_pre_up_hook": "Running pre-up hook (post-infra, pre-services)...",
+  "up.pre_up_hook_done": "Pre-up hook completed",
   "up.running_post_hook": "Running post-hook...",
   "up.post_hook_done": "Post-hook completed",
   "up.post_hook_failed": "Post-hook failed (continuing): %s",
