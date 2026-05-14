@@ -41,7 +41,16 @@ func LoadYAML(path string) (*RaiozConfig, error) {
 	}
 
 	absPath, _ := filepath.Abs(path)
-	resolveYAMLPaths(&cfg, filepath.Dir(absPath))
+	baseDir := filepath.Dir(absPath)
+
+	// ADR-036 hygiene rule H2: every path in the yaml must resolve
+	// inside baseDir (sibling project paths excepted) and must not
+	// target a known sensitive system directory.
+	if err := validatePathSafety(&cfg, baseDir); err != nil {
+		return nil, err
+	}
+
+	resolveYAMLPaths(&cfg, baseDir)
 
 	return &cfg, nil
 }

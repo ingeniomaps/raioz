@@ -774,5 +774,10 @@
   "output.switch_cancelled": "Switch cancelled — cwd project was NOT brought up.",
   "output.switch_stopped": "Stopped %d colliding project(s)",
   "error.secret_in_yaml": "raioz.yaml contains what looks like a %s (line ~%d). Secrets must never live in the yaml.",
-  "error.secret_in_yaml_suggestion": "Move the credential to environment variables, a .env file, or a secret manager. For git auth see ADR-036 (yaml hygiene policy)."
+  "error.secret_in_yaml_suggestion": "Move the credential to environment variables, a .env file, or a secret manager. For git auth see ADR-036 (yaml hygiene policy).",
+  "error.path_escapes_repo": "path %q resolves outside the project directory (would resolve to %s)",
+  "error.path_escapes_repo_suggestion": "Paths in raioz.yaml must resolve inside the project directory. Use relative paths like ./api/ or ./scripts/setup.sh.",
+  "error.path_in_system_dir": "path %q targets system directory %s, which raioz refuses to touch",
+  "error.path_in_system_dir_suggestion": "Move the file inside the project, or use a different mechanism (env var, host volume mount).",
+  "error.path_invalid": "path %q is invalid"
 }
