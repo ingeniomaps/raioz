@@ -102,6 +102,16 @@ func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
 		}
 	}
 
+	if cfg.Router != nil {
+		// Router project paths follow the same blocklist-only rule as
+		// sibling project paths (ADR-008): they point at another raioz
+		// project that may legitimately live outside baseDir.
+		if err := checkSystemBlocklist(cfg.Router.Project, baseDir,
+			"router.project"); err != nil {
+			return err
+		}
+	}
+
 	for i, cmd := range cfg.Pre {
 		if p, ok := pathFromCommand(cmd); ok {
 			if err := checkInsidePath(p, baseDir,

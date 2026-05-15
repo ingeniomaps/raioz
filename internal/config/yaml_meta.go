@@ -14,6 +14,11 @@ type MetaConfig struct {
 	Workspace string
 	BaseDir   string
 	Projects  []MetaProject
+	// Router is the workspace's edge router project (ADR-037). When non-nil,
+	// raioz brings this project up before any consumer and skips the bundled
+	// Caddy. Resolved like a regular project — Path is absolute, Name is the
+	// directory basename. Lifecycle wiring lives in internal/app/upcase.
+	Router *MetaProject
 }
 
 // MetaProject is one resolved sub-project entry.
@@ -117,9 +122,52 @@ func LoadMetaConfig(path string) (*MetaConfig, bool, error) {
 		resolved = ordered
 	}
 
+	router, err := resolveRouter(path, baseDir, raw.Router)
+	if err != nil {
+		return nil, true, err
+	}
+
 	return &MetaConfig{
 		Workspace: raw.Workspace,
 		BaseDir:   baseDir,
 		Projects:  resolved,
+		Router:    router,
 	}, true, nil
+}
+
+// resolveRouter validates a top-level `router:` block and resolves its path
+// to an absolute MetaProject. Returns nil when no router is declared. The
+// router path may overlap with an entry in `projects:` — see ADR-037.
+func resolveRouter(configPath, baseDir string, r *YAMLRouter) (*MetaProject, error) {
+	if r == nil {
+		return nil, nil
+	}
+	abs, err := validateRouterRef(configPath, baseDir, r)
+	if err != nil {
+		return nil, err
+	}
+	return &MetaProject{
+		Name: filepath.Base(r.Project),
+		Path: abs,
+	}, nil
+}
+
+// validateRouterRef enforces the ADR-037 structural rules for a `router:`
+// block: project is required and resolves to an absolute path. Existence
+// of the target directory + its raioz.yaml is deliberately deferred to
+// up-time (matching the sibling-dep contract from ADR-008): static
+// fixtures and offline tooling parse a config that points at a path not
+// yet checked out, and only `raioz up` needs the target to be present.
+// Returns the absolute path on success so callers can persist it.
+func validateRouterRef(configPath, baseDir string, r *YAMLRouter) (string, error) {
+	if r.Project == "" {
+		return "", fmt.Errorf(
+			"%q: router.project is required when `router:` is declared", configPath,
+		)
+	}
+	abs := r.Project
+	if !filepath.IsAbs(abs) {
+		abs = filepath.Join(baseDir, r.Project)
+	}
+	return abs, nil
 }

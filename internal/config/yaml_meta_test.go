@@ -145,3 +145,72 @@ projects:
 		t.Errorf("expected error about missing path, got %v", err)
 	}
 }
+
+// router.project resolves to an absolute MetaProject. Existence of the
+// target directory is intentionally NOT checked at parse time (matches
+// the sibling-dep contract, ADR-008).
+func TestLoadMetaConfig_RouterResolves(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+workspace: hypixo
+router:
+  project: ./gateway
+projects:
+  - path: ./api
+  - path: ./gateway
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	if cfg.Router == nil {
+		t.Fatal("Router is nil; expected resolved MetaProject")
+	}
+	if !filepath.IsAbs(cfg.Router.Path) {
+		t.Errorf("Router.Path = %q, want absolute", cfg.Router.Path)
+	}
+	if cfg.Router.Name != "gateway" {
+		t.Errorf("Router.Name = %q, want %q", cfg.Router.Name, "gateway")
+	}
+	// Router path overlapping with a projects: entry is allowed — both
+	// refer to the same sub-project. The router upgrade is purely
+	// lifecycle-level.
+	if len(cfg.Projects) != 2 {
+		t.Errorf("expected 2 projects (gateway permitted to appear under "+
+			"projects: alongside router:), got %d", len(cfg.Projects))
+	}
+}
+
+// router with empty project: → loud error.
+func TestLoadMetaConfig_RouterRequiresProject(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+router: {}
+projects:
+  - path: ./api
+`)
+	_, _, err := LoadMetaConfig(path)
+	if err == nil || !strings.Contains(err.Error(), "router.project") {
+		t.Errorf("expected error referencing router.project, got %v", err)
+	}
+}
+
+// router absent → MetaConfig.Router stays nil. Guards against the loader
+// accidentally synthesizing an empty MetaProject when the field is omitted.
+func TestLoadMetaConfig_RouterAbsentStaysNil(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: ./api
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	if cfg.Router != nil {
+		t.Errorf("Router = %+v on config without router:, want nil", cfg.Router)
+	}
+}
