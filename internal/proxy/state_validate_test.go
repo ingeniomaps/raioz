@@ -3,7 +3,6 @@ package proxy
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -85,16 +84,13 @@ func TestAssertProxyDirWritable_CaddyfileIsDirectory(t *testing.T) {
 // trap: even when Caddyfile doesn't exist, a parent dir without write
 // permission blocks the WriteFile we'd issue. The probe-based check
 // catches this whereas a plain Stat would not.
+//
+// makeDirUnwritable / skipIfPrivilegedWriter are build-tagged so the
+// same test exercises chmod 0555 on Unix and an icacls deny ACE on
+// Windows — both produce the "next write here fails" precondition the
+// validator needs to detect.
 func TestAssertProxyDirWritable_DirReadOnly(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		// Windows POSIX-mode bits don't gate writes for the owner; a
-		// read-only setup here would need ACL API instead of os.Chmod.
-		// Tracking under docs/issues/068.
-		t.Skip("Unix-only file permission semantics")
-	}
-	if os.Geteuid() == 0 {
-		t.Skip("root can write everywhere — skip on root runners")
-	}
+	skipIfPrivilegedWriter(t)
 	xdg := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", xdg)
 	withPrefix(t, "acme")
@@ -103,10 +99,7 @@ func TestAssertProxyDirWritable_DirReadOnly(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("setup mkdir: %v", err)
 	}
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatalf("setup chmod: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	makeDirUnwritable(t, dir)
 
 	m := &Manager{workspaceName: "acme"}
 	if err := m.assertProxyDirWritable(); err == nil {
