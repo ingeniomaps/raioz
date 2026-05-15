@@ -94,6 +94,62 @@ func TestManager_RoutesAddRemoveConcurrent(t *testing.T) {
 	wg.Wait()
 }
 
+// TestConfigureConcurrentWithReaders pins issue 080: Configure
+// writes 8 fields (domain, tlsMode, bindHost, projectName,
+// workspaceName, networkSubnet, containerIP, publish) that
+// AddRoute / IsPublished / GetURL also touch. The shared mu must
+// keep the two concurrent paths race-free.
+//
+// `go test -race` is the assertion. Without the lock in Configure,
+// this trips the race detector deterministically.
+func TestConfigureConcurrentWithReaders(t *testing.T) {
+	m := NewManager(t.TempDir())
+	publish := true
+	cfg := interfaces.ProxyConfig{
+		Domain:        "acme.localhost",
+		TLSMode:       interfaces.TLSModeLocal,
+		ProjectName:   "p",
+		Workspace:     "ws",
+		NetworkSubnet: "172.28.0.0/16",
+		Publish:       &publish,
+	}
+	const iterations = 200
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			m.Configure(cfg)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		ctx := context.Background()
+		for i := 0; i < iterations; i++ {
+			_ = m.AddRoute(ctx, interfaces.ProxyRoute{
+				ServiceName: "api",
+				Hostname:    "api",
+				Target:      "api",
+				Port:        8080,
+			})
+			_ = m.RemoveRoute(ctx, "api")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			_ = m.IsPublished()
+			_ = m.GetURL("api")
+		}
+	}()
+
+	wg.Wait()
+}
+
 func nameForKey(g, i int) string {
 	return "svc-" + intToStr(g) + "-" + intToStr(i)
 }

@@ -68,6 +68,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Refactor
 
+- **`proxy.Manager` mutex protects configuration fields too**
+  (issue 080). The lock that already guarded the `routes` map
+  was renamed from `routesMu` to `mu` and extended to cover
+  the 8 fields `Configure` writes (`domain`, `tlsMode`,
+  `bindHost`, `projectName`, `workspaceName`, `networkSubnet`,
+  `containerIP`, `publish`). Today the path is single-shot at
+  startup; the lock is preventive for the hot-reconfig flows
+  (`raioz dev`, watch-mode reload) that ADR-028 already
+  hardened for the routes map. New
+  `TestConfigureConcurrentWithReaders` pins it under `-race`.
 - **`UseCase.Execute` early phases extracted** (issue 079, step
   1 of an incremental decomposition). The project-dir
   resolution + legacy ADR-011 state sweep + project-env

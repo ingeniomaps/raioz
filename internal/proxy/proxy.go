@@ -18,11 +18,14 @@ import (
 
 // Manager implements interfaces.ProxyManager using Caddy as a Docker container.
 type Manager struct {
-	// routesMu guards the routes map. Writers (AddRoute/RemoveRoute)
-	// take the write lock; readers iterate via snapshotRoutes() so
-	// docker-exec calls in Start/Reload don't hold the lock for the
-	// full subprocess duration. ADR-028.
-	routesMu    sync.RWMutex
+	// mu guards the routes map AND the configuration fields below
+	// (domain, tlsMode, bindHost, projectName, workspaceName,
+	// networkSubnet, containerIP, publish). Writers (AddRoute /
+	// RemoveRoute / Configure) take the write lock; readers iterate
+	// via snapshotRoutes() so docker-exec calls in Start/Reload
+	// don't hold the lock for the full subprocess duration.
+	// ADR-028 / issue 080.
+	mu    sync.RWMutex
 	routes      map[string]interfaces.ProxyRoute
 	networkName string
 	projectName string // used for per-project container/volume naming
@@ -300,24 +303,24 @@ func (m *Manager) Stop(ctx context.Context) error {
 
 // AddRoute adds or updates a proxy route for a service.
 func (m *Manager) AddRoute(_ context.Context, route interfaces.ProxyRoute) error {
-	m.routesMu.Lock()
-	defer m.routesMu.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.routes[route.ServiceName] = route
 	return nil
 }
 
 // RemoveRoute removes a proxy route.
 func (m *Manager) RemoveRoute(_ context.Context, serviceName string) error {
-	m.routesMu.Lock()
-	defer m.routesMu.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	delete(m.routes, serviceName)
 	return nil
 }
 
 // GetURL returns the HTTPS URL for a service.
 func (m *Manager) GetURL(serviceName string) string {
-	m.routesMu.RLock()
-	defer m.routesMu.RUnlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	route, ok := m.routes[serviceName]
 	if !ok {
 		return ""

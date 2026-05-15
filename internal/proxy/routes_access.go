@@ -10,8 +10,8 @@ import (
 // release the RLock before doing slow work (docker exec, file
 // write). ADR-028.
 func (m *Manager) snapshotRoutes() map[string]interfaces.ProxyRoute {
-	m.routesMu.RLock()
-	defer m.routesMu.RUnlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	out := make(map[string]interfaces.ProxyRoute, len(m.routes))
 	maps.Copy(out, m.routes)
 	return out
@@ -19,7 +19,7 @@ func (m *Manager) snapshotRoutes() map[string]interfaces.ProxyRoute {
 
 // routesCount is the lock-aware len(m.routes) for log fields.
 func (m *Manager) routesCount() int {
-	m.routesMu.RLock()
-	defer m.routesMu.RUnlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return len(m.routes)
 }
