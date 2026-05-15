@@ -6,9 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-Post-v0.6.0 work. Two lines: hardening the `raioz.yaml` boundary
-(ADR-036), and porting the OS-sensitive tests so the Windows
-runtime CI gate from ADR-030 actually runs green.
+## [0.7.0] - 2026-05-14
+
+Trust-boundary release. Three lines closed: `raioz.yaml` no longer
+accepts credentials or unsafe paths (ADR-036), private repos clone
+without downgrading the public-only hardening (issue 067 fases 1-3),
+and the Windows runtime CI gate (ADR-030) actually runs green so the
+release pipeline can vouch for windows binaries again. No
+user-facing breaking changes.
 
 ### Added
 
