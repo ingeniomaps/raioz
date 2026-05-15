@@ -1,6 +1,6 @@
 # ADR-037: Workspace can replace the internal Caddy with a sibling project
 
-- **Status:** Proposed — 2026-05-14
+- **Status:** Accepted — implemented 2026-05-15 (v0.8.0)
 - **Drives:** issue 066
 
 ## Context
@@ -161,8 +161,21 @@ The five open questions in issue 066 resolve as follows for V1:
 
 ## Implementation status
 
-**Not yet implemented.** Target: v0.8.0 (or v0.7.0 if scope allows
-alongside issue 067 fase 2/3). Tracked locally as `PLAN-066`.
+**Shipped in v0.8.0 (2026-05-15).** Three commits on `develop`:
+
+- `feat(config): add router.project schema` — schema, validation, corpus
+  fixture, unit tests.
+- `feat(orchestrate): wire router.project lifecycle` — meta runner
+  router-first / router-last, `RAIOZ_ROUTER_ACTIVE=1` propagation to
+  consumer sub-ups, `maybeStartProxy` gate, `--router-off` flag.
+- `docs: document router.project (ADR-037)` — CONFIG_REFERENCE
+  section, README pointer, this status flip.
+
+Deferred follow-up: an end-to-end integration test
+(`scripts/integration-test-router.sh`) with a real nginx fronting
+two consumer projects. Will land in a follow-up minor — the unit
+tests in `internal/app/meta_router_test.go` already cover the
+ordering and env-var propagation.
 
 ## References
 
