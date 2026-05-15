@@ -102,7 +102,7 @@ func TestGitRepositoryImpl_ForceReclone_InvalidRepo(t *testing.T) {
 		t.Skip("git not installed")
 	}
 	r := NewGitRepository()
-	err := r.ForceReclone(context.Background(), t.TempDir(), "not-a-real-url", "main")
+	err := r.ForceReclone(context.Background(), t.TempDir(), models.SourceConfig{Repo: "not-a-real-url", Branch: "main"})
 	_ = err
 }
 

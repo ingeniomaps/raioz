@@ -51,7 +51,11 @@ func EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			cmd := defaultHardenedCmd(ctx, "clone", "--depth", "1", "-b", src.Branch, src.Repo, target)
+			cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 
 			if err := cmd.Run(); err != nil {
 				// Check for timeout
@@ -145,7 +149,11 @@ func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			cmd := defaultHardenedCmd(ctx, "clone", "--depth", "1", "-b", src.Branch, src.Repo, target)
+			cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 
 			if err := cmd.Run(); err != nil {
 				// Check for timeout

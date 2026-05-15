@@ -16,7 +16,7 @@ type MockGitRepository struct {
 	EnsureRepoWithForceFunc        func(src models.SourceConfig, baseDir string, force bool) error
 	EnsureReadonlyRepoFunc         func(src models.SourceConfig, baseDir string) error
 	EnsureEditableRepoFunc         func(src models.SourceConfig, baseDir string) error
-	ForceRecloneFunc               func(ctx context.Context, repoPath string, repo string, branch string) error
+	ForceRecloneFunc               func(ctx context.Context, repoPath string, src models.SourceConfig) error
 	UpdateReposIfBranchChangedFunc func(
 		ctx context.Context,
 		repoPathResolver func(string, models.Service) string,
@@ -53,9 +53,9 @@ func (m *MockGitRepository) EnsureEditableRepo(src models.SourceConfig, baseDir 
 	return nil
 }
 
-func (m *MockGitRepository) ForceReclone(ctx context.Context, repoPath string, repo string, branch string) error {
+func (m *MockGitRepository) ForceReclone(ctx context.Context, repoPath string, src models.SourceConfig) error {
 	if m.ForceRecloneFunc != nil {
-		return m.ForceRecloneFunc(ctx, repoPath, repo, branch)
+		return m.ForceRecloneFunc(ctx, repoPath, src)
 	}
 	return nil
 }

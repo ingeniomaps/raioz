@@ -16,8 +16,9 @@ type GitRepository interface {
 	EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error
 	// EnsureEditableRepo ensures an editable repository exists and is up to date
 	EnsureEditableRepo(src models.SourceConfig, baseDir string) error
-	// ForceReclone removes the repository directory and clones it fresh (with context)
-	ForceReclone(ctx context.Context, repoPath string, repo string, branch string) error
+	// ForceReclone removes the repository directory and clones it fresh (with context).
+	// src.Auth selects the auth provider (empty = strict / public-only).
+	ForceReclone(ctx context.Context, repoPath string, src models.SourceConfig) error
 	// UpdateReposIfBranchChanged updates repos if branches changed
 	UpdateReposIfBranchChanged(
 		ctx context.Context,

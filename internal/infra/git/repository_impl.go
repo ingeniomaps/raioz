@@ -40,8 +40,8 @@ func (r *GitRepositoryImpl) EnsureEditableRepo(src models.SourceConfig, baseDir 
 }
 
 // ForceReclone removes the repository directory and clones it fresh (with context)
-func (r *GitRepositoryImpl) ForceReclone(ctx context.Context, repoPath string, repo string, branch string) error {
-	return gitpkg.ForceReclone(ctx, repoPath, repo, branch)
+func (r *GitRepositoryImpl) ForceReclone(ctx context.Context, repoPath string, src models.SourceConfig) error {
+	return gitpkg.ForceReclone(ctx, repoPath, src)
 }
 
 // UpdateReposIfBranchChanged updates repositories if their branches changed

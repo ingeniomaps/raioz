@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 )
 
@@ -91,10 +92,12 @@ func HasMergeConflicts(ctx context.Context, repoPath string) (bool, error) {
 	return strings.Contains(string(output), "<<<<<<<"), nil
 }
 
-// ForceReclone removes the repository directory and clones it fresh
-func ForceReclone(ctx context.Context, repoPath string, repo string, branch string) error {
+// ForceReclone removes the repository directory and clones it fresh.
+// src.Auth selects the auth provider; an empty value (the legacy
+// default) reproduces the v0.1 public-only hardening.
+func ForceReclone(ctx context.Context, repoPath string, src models.SourceConfig) error {
 	// Validate inputs to prevent command injection
-	if err := validateGitInput(branch, repo); err != nil {
+	if err := validateGitInput(src.Branch, src.Repo); err != nil {
 		return fmt.Errorf("invalid git input: %w", err)
 	}
 	if err := validatePath(repoPath); err != nil {
@@ -112,7 +115,11 @@ func ForceReclone(ctx context.Context, repoPath string, repo string, branch stri
 	}
 
 	// Clone fresh with timeout (shallow clone to save space).
-	cmd := defaultHardenedCmd(ctx, "clone", "--depth", "1", "-b", branch, repo, repoPath)
+	cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, repoPath)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 
 	if err := cmd.Run(); err != nil {
 		if exectimeout.IsTimeoutError(ctx, err) {
