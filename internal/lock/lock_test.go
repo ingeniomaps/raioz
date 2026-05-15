@@ -1,9 +1,11 @@
 package lock
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"raioz/internal/workspace"
 )
@@ -186,5 +188,52 @@ func TestLockFileContent(t *testing.T) {
 	// Verify it contains PID
 	if len(content) < 4 {
 		t.Error("Lock file content seems too short")
+	}
+}
+
+// TestAcquire_AgeBasedStaleEviction pins issue 075: even if the
+// PID in the lock file is still alive (PID wraparound landed on a
+// random non-raioz process), a lock older than staleLockMaxAge is
+// swept and the caller is allowed to proceed. Without this guard
+// the user is stuck until they `rm .raioz.lock` manually.
+func TestAcquire_AgeBasedStaleEviction(t *testing.T) {
+	tmpDir := t.TempDir()
+	ws := &workspace.Workspace{Root: tmpDir}
+	lockPath := filepath.Join(tmpDir, lockFileName)
+
+	// Plant a lock file whose PID is the test process itself (so
+	// isProcessRunning returns true) but whose mtime is older than
+	// the staleness window.
+	content := fmt.Sprintf("pid=%d\ntimestamp=%s\n",
+		os.Getpid(), time.Now().Add(-48*time.Hour).Format(time.RFC3339))
+	if err := os.WriteFile(lockPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("plant lock: %v", err)
+	}
+	stale := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(lockPath, stale, stale); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+
+	lock, err := Acquire(ws)
+	if err != nil {
+		t.Fatalf("Acquire must sweep an aged lock even with live PID; got %v", err)
+	}
+	t.Cleanup(func() { _ = lock.Release() })
+}
+
+// TestAcquire_RecentLockHeld confirms the age check does not
+// accidentally evict a freshly-acquired lock whose PID is alive.
+func TestAcquire_RecentLockHeld(t *testing.T) {
+	tmpDir := t.TempDir()
+	ws := &workspace.Workspace{Root: tmpDir}
+
+	first, err := Acquire(ws)
+	if err != nil {
+		t.Fatalf("first acquire: %v", err)
+	}
+	t.Cleanup(func() { _ = first.Release() })
+
+	if _, err := Acquire(ws); err == nil {
+		t.Fatalf("second acquire should fail while the first is held")
 	}
 }

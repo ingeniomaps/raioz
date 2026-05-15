@@ -140,6 +140,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Project lock evicts after 24h to survive PID wraparound**
+  (issue 075). `internal/lock/lock.go` uses an `O_EXCL` + PID
+  file (portable to Windows; not `flock`). A SIGKILL'd parent
+  that left its PID number reusable could see the kernel
+  reassign that PID to a non-raioz process, making
+  `isProcessRunning` return `true` and pinning the lock until
+  the user `rm`-ed `.raioz.lock` by hand. The acquire path now
+  also evicts when the lock file is older than 24h, regardless
+  of liveness. Documented in `docs/LOCKS.md` under "Failure
+  mode — parent SIGKILL and stale project lock."
 - **Configuration drift emits one audit event per service**
   (issue 085). The drift detection in `internal/app/upcase/state.go`
   used to log a `warn` line and stop there; the
