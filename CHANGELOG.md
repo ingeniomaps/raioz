@@ -66,6 +66,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   exercises match / missing / mismatch / substring-poisoning
   cases; wired into `make check-install` and CI lint.
 
+### Documentation
+
+- **Sibling mode A trust model written down** (ADR-040, issue
+  076). ADR-008 introduced `project:` siblings without
+  explicitly publishing the trust model, leaving reviewers
+  unsure whether H1/H2/H3 ran against sibling yamls before
+  spawn. ADR-040 records the answer ("transitive and
+  unaudited, same threat model as ADR-036") and SECURITY.md
+  gains a "Transitive trust via sibling projects" subsection
+  recommending mode B when the developer does not fully
+  trust the sibling. An opt-in `--audit-siblings` flag is
+  scoped out for a future release.
+
 ### Fixed
 
 - **Sibling spawn (ADR-008 mode A) gets a timeout** (issue 072).
