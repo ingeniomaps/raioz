@@ -33,7 +33,6 @@ func TestProviderFor_UnknownReturnsError(t *testing.T) {
 		"INHERIT",
 		"gh ",
 		" gh",
-		"inherit",
 		"gh",
 		"ssh",
 	}

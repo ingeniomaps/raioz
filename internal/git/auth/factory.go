@@ -17,10 +17,12 @@ func ProviderFor(name string) (Provider, error) {
 	switch name {
 	case "":
 		return &strictProvider{}, nil
+	case "inherit":
+		return &inheritProvider{}, nil
 	default:
 		return nil, fmt.Errorf(
-			"unknown auth provider %q (valid: omit for default; "+
-				"inherit/gh/ssh land in later commits of issue 067)",
+			"unknown auth provider %q (valid: omit for default, or "+
+				"`inherit`; gh/ssh land in later commits of issue 067)",
 			name,
 		)
 	}
