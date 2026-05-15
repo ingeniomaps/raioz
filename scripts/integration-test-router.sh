@@ -14,7 +14,7 @@ echo "=== Raioz Router E2E (ADR-037) ==="
 
 # Build if no binary provided
 if [ "$BINARY" = "./raioz" ] && [ ! -f "$BINARY" ]; then
-    echo "[0/5] Building..."
+    echo "[0/4] Building..."
     make build
 fi
 
@@ -118,11 +118,11 @@ YAML
 cd "$SCRATCH"
 
 # ---------------------------------------------------------------------------
-echo "[1/5] raioz up"
+echo "[1/4] raioz up"
 "$BINARY" up
 
 # ---------------------------------------------------------------------------
-echo "[2/5] Verify router (nginx) responds on host:$ROUTER_PORT"
+echo "[2/4] Verify router (nginx) responds on host:$ROUTER_PORT"
 for i in 1 2 3 4 5; do
     if curl -sf "http://localhost:$ROUTER_PORT/" | grep -qi "nginx"; then
         echo "  PASS: router responding (nginx welcome page)"
@@ -137,9 +137,11 @@ for i in 1 2 3 4 5; do
 done
 
 # ---------------------------------------------------------------------------
-echo "[3/5] Verify no bundled Caddy was started (router owns edge)"
+echo "[3/4] Verify no bundled Caddy was started (router owns edge)"
 # When `router:` is declared, consumer sub-ups must skip their bundled
 # Caddy. We check by looking for any container labeled as a raioz proxy.
+# Ordering (router-first / router-last) is covered by unit tests in
+# internal/app/meta_router_test.go — no need to re-verify here.
 proxy_count=$(docker ps -q --filter "label=com.raioz.kind=proxy" | wc -l | tr -d ' ')
 if [ "$proxy_count" != "0" ]; then
     echo "  FAIL: $proxy_count Caddy proxy container(s) running, want 0"
@@ -149,22 +151,7 @@ fi
 echo "  PASS: no Caddy containers (bundled proxy skipped)"
 
 # ---------------------------------------------------------------------------
-echo "[4/5] Verify router-up-first ordering via docker inspect"
-# The nginx (router) container must have started before any consumer
-# container. We compare Docker's StartedAt timestamps.
-nginx_started=$(docker ps -q --filter "label=com.raioz.project=gateway" --no-trunc | head -1)
-api_pid=$(pgrep -f "$SCRATCH/api" | head -1 || true)
-if [ -z "$nginx_started" ]; then
-    echo "  FAIL: nginx container not found"
-    exit 1
-fi
-nginx_ts=$(docker inspect -f '{{.State.StartedAt}}' "$nginx_started")
-echo "  nginx started at: $nginx_ts"
-echo "  api host PID: ${api_pid:-not running on host}"
-echo "  PASS: router project containers up before consumer"
-
-# ---------------------------------------------------------------------------
-echo "[5/5] raioz down + verify cleanup"
+echo "[4/4] raioz down + verify cleanup"
 "$BINARY" down
 sleep 2
 if curl -sf "http://localhost:$ROUTER_PORT/" 2>/dev/null; then
