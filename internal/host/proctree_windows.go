@@ -25,9 +25,9 @@ func setNewProcessGroup(cmd *exec.Cmd) {
 // kernel32 + GenerateConsoleCtrlEvent are pulled in via LazyDLL so we
 // avoid a hard dependency on golang.org/x/sys/windows for one function.
 var (
-	kernel32                       = syscall.NewLazyDLL("kernel32.dll")
-	procGenerateConsoleCtrlEvent   = kernel32.NewProc("GenerateConsoleCtrlEvent")
-	ctrlBreakEvent uintptr         = 1
+	kernel32                             = syscall.NewLazyDLL("kernel32.dll")
+	procGenerateConsoleCtrlEvent         = kernel32.NewProc("GenerateConsoleCtrlEvent")
+	ctrlBreakEvent               uintptr = 1
 )
 
 // killProcessTree sends CTRL_BREAK_EVENT to pid's process group. Console
