@@ -54,6 +54,9 @@ jobs:
       - name: Check app-layer infra imports baseline (issue 049)
         run: make check-app-infra-imports
 
+      - name: Check dual-flow readers baseline (issue 069)
+        run: make check-dual-flow
+
   test:
     name: Unit tests
     runs-on: ubuntu-latest

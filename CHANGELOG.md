@@ -28,6 +28,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   remain in seven inline call sites until issue 069 collapses
   them through `SelectFlow`. SchemaVersion is scheduled for
   removal in v1.0.
+- **`SelectFlow` helper + dual-flow ratchet** (issue 069). New
+  `internal/app/flow.go` centralizes the YAML/legacy-JSON
+  branching that was duplicated inline across inspection
+  commands. `raioz down` migrated as the proof-of-pattern;
+  remaining six readers stay on the inline check and are
+  tracked in `scripts/dual-flow-baseline.txt`. The
+  `make check-dual-flow` ratchet fails on new readers and lets
+  existing ones leave the baseline as they migrate. Target: all
+  entries gone by v0.8 alongside the JSON loader removal.
 
 ### Changed
 

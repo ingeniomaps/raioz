@@ -66,11 +66,11 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	if configPath == "" {
 		configPath = resolveDownConfigPath()
 	}
-	deps, warnings, err := uc.deps.ConfigLoader.LoadDeps(configPath)
+	flow, deps, warnings, err := SelectFlow(uc.deps.ConfigLoader, configPath)
 	for _, w := range warnings {
 		output.PrintWarning(w)
 	}
-	if err == nil && deps != nil && deps.SchemaVersion == "2.0" {
+	if err == nil && flow == FlowYAML {
 		return nil // Already handled by downOrchestrated
 	}
 
