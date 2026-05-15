@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check ci
+.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -128,7 +128,11 @@ check-dual-flow: ## Ratchet down inline SchemaVersion readers (issue 069 / ADR-0
 	@echo "Checking dual-flow readers baseline..."
 	@./scripts/lint-dual-flow.sh
 
-check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow lint test ## Run all checks
+check-install: ## Smoke-test install.sh::verify_sha256 (issue 081)
+	@echo "Checking install.sh verify_sha256..."
+	@./scripts/test-install.sh
+
+check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."

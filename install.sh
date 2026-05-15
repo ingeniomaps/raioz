@@ -133,6 +133,7 @@ download_release() {
     local ver_no_v="${version#v}"
     local archive="raioz_${ver_no_v}_${os}_${arch}.tar.gz"
     local url="${GITHUB_URL}/releases/download/${version}/${archive}"
+    local checksums_url="${GITHUB_URL}/releases/download/${version}/checksums.txt"
 
     info "Downloading ${archive}..."
     local tmp_dir
@@ -141,6 +142,11 @@ download_release() {
 
     http_get "$url" "${tmp_dir}/${archive}" \
         || fail "Download failed: ${url}\nBuild from source: make build && make install"
+
+    http_get "$checksums_url" "${tmp_dir}/checksums.txt" \
+        || fail "Could not fetch checksums.txt for ${version}; refusing to install unverified archive"
+
+    verify_sha256 "${tmp_dir}/${archive}" "${tmp_dir}/checksums.txt" "$archive"
 
     tar -xzf "${tmp_dir}/${archive}" -C "$tmp_dir" \
         || fail "Failed to extract archive"
@@ -151,6 +157,36 @@ download_release() {
 
     mv "$binary" "$output"
     chmod +x "$output"
+}
+
+# verify_sha256 compares the archive's SHA-256 against the entry in
+# checksums.txt and fails the install on mismatch. checksums.txt is
+# the file goreleaser publishes alongside each release; both are
+# served from the same GitHub release URL, so a poisoned release
+# can override both at the same time — this check is the floor, not
+# the ceiling. GPG/cosign signing would harden it further.
+verify_sha256() {
+    local archive_path="$1" checksums_path="$2" archive_name="$3"
+
+    local expected
+    expected=$(awk -v name="$archive_name" '$2 == name {print $1}' "$checksums_path")
+    if [ -z "$expected" ]; then
+        fail "No checksum entry for ${archive_name} in checksums.txt"
+    fi
+
+    local actual
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum "$archive_path" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 "$archive_path" | awk '{print $1}')
+    else
+        fail "Neither sha256sum nor shasum is available; cannot verify ${archive_name}"
+    fi
+
+    if [ "$expected" != "$actual" ]; then
+        fail "Checksum mismatch for ${archive_name}\n  expected: ${expected}\n  actual:   ${actual}"
+    fi
+    ok "Checksum verified (sha256)."
 }
 
 # --- Install to target directory ----------------------------------------------
@@ -298,4 +334,10 @@ verify_install() {
     info "Run 'raioz --help' to get started"
 }
 
-main
+# Set RAIOZ_INSTALL_TEST=1 to source this file without running the
+# installer (used by scripts/test-install.sh to exercise verify_sha256
+# in isolation). Production users invoke via `curl ... | bash`, which
+# never sets the variable.
+if [ -z "${RAIOZ_INSTALL_TEST:-}" ]; then
+    main
+fi

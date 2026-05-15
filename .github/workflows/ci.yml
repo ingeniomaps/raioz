@@ -57,6 +57,9 @@ jobs:
       - name: Check dual-flow readers baseline (issue 069)
         run: make check-dual-flow
 
+      - name: Check install.sh verify_sha256 (issue 081)
+        run: make check-install
+
   test:
     name: Unit tests
     runs-on: ubuntu-latest

@@ -54,6 +54,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   discarded. Now wires to `os.Stdout` / `os.Stderr` the way the
   host runner does. New regression test pins the capture.
 
+### Security
+
+- **`install.sh` verifies the SHA-256 checksum of the downloaded
+  archive** before extracting (issue 081). Previously the
+  installer ignored the `checksums.txt` that goreleaser already
+  publishes with every release. A poisoned tarball would have
+  installed silently. The installer now fetches `checksums.txt`,
+  finds the exact-name entry for the archive, and hard-fails
+  on missing/mismatched checksums. `scripts/test-install.sh`
+  exercises match / missing / mismatch / substring-poisoning
+  cases; wired into `make check-install` and CI lint.
+
 ## [0.7.0] - 2026-05-14
 
 Trust-boundary release. Three lines closed: `raioz.yaml` no longer
