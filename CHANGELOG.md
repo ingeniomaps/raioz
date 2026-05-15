@@ -6,6 +6,101 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-05-15
+
+### Fixed
+
+- **`raioz down --project <name>` no longer panics outside the
+  project directory.** The fall-through path from the `SelectFlow`
+  legacy branch left `stateDeps` nil; `down.go:198` then
+  dereferenced `stateDeps.Project.Name`. Now guards the success
+  message and the network-in-use logging behind a nil check,
+  falling back to the CLI-resolved `projectName`. Caught by the
+  `go-quality-reviewer` audit of v0.8.0.
+- **`internal/lock` differentiates concurrent races from
+  unremovable stale locks.** After evicting a PID-dead or aged-out
+  lock, if the re-acquire fails with `os.IsExist` the helper now
+  re-reads the new lock's PID and reports `"another raioz process
+  acquired the lock concurrently"` instead of the generic "after
+  cleaning stale lock" message. Filesystem-level failures keep the
+  original wrapped error so the cause stays in the chain.
+
+### Refactor
+
+- **`MetaRunner` user-visible strings route through `i18n.T()`.**
+  The `=== [UP|DOWN|STATUS] <project> ===` banner and the two
+  optional/best-effort warning lines bypassed both the catalog and
+  the i18n-source ratchet (they were dynamic `fmt.Sprintf` calls
+  the ratchet does not catch). New keys `meta.banner`,
+  `meta.banner_optional`, `meta.optional_failed`,
+  `meta.sub_error_continuing` in en + es.
+
+### Documentation
+
+- **`docs/RATCHETS.md`** indexes the four shrinking-baseline
+  ratchets (i18n-source, app-infra-imports, dual-flow, errorlint)
+  with their target-zero ADR and current size. Future ratchets
+  must publish a target — a baseline without one is permanent
+  drift in disguise.
+- **`docs/LOCKS.md` § Meta runner sits outside both locks** —
+  documents that the meta runner takes neither the project nor
+  the workspace lock, so a SIGKILL relies on Pdeathsig
+  (`host.AttachPdeathsig`) on Linux and the 24h project-lock age
+  cap as the cross-platform floor.
+- **ADR-037 § Implementation status** updated to name the four
+  shipping commits, including the E2E integration test that the
+  earlier write-up listed as "deferred follow-up".
+- **ADR-037 ↔ ADR-040 cross-referenced.** ADR-037 now carries a
+  Trust subsection pointing at ADR-040 and noting the router is
+  strictly more trusted than mode A (mandatory, no mode-B
+  parallel). ADR-040 enumerates the three transitive-trust
+  surfaces (`dependencies.<n>.project`,
+  `dependencies.<n>.siblingProject` + `image:`, `router.project`)
+  so SECURITY.md only needs one anchor.
+- **ADR-038 couples v0.8 SchemaVersion removal with the JSON
+  loader cut.** Once the loader hard-errors, every `LoadDeps`
+  returns `SourceFormatYAML`; migrating the 5 remaining
+  dual-flow entries independently would silently delete their
+  YAML branch. The ADR's Timeline now states the two ship
+  together.
+
+### Refactor
+
+- **Typed `interfaces.ErrDaemonUnreachable`** replaces the
+  substring scan in the app layer. The docker adapter
+  (`internal/docker/daemon_error.go`) owns the CLI-prose →
+  sentinel translation; `app/down_offline.go::isDockerUnreachable`
+  is now a one-liner `errors.Is(err, interfaces.ErrDaemonUnreachable)`.
+  Aligns with ADR-029 — the app layer no longer reads docker
+  stdout strings. `IsProjectActive` switched to `CombinedOutput`
+  so the adapter sees the daemon-down message that lives on
+  stderr.
+- **`RAIOZ_ROUTER_ACTIVE` lives in `internal/protocol`** so the
+  meta producer and the upcase consumer can no longer drift on
+  the literal. New `protocol.RouterActive` const; the local
+  copies in `internal/app/meta.go` and
+  `internal/app/upcase/router_env.go` are gone. Future
+  parent→child env-var contracts (e.g. `RAIOZ_SIBLING_STACK`)
+  can move here too.
+- **`envshow.go` reads `SourceFormat`** (one entry off the
+  dual-flow baseline). `deps.SchemaVersion == "2.0"` was the
+  easiest of the 5 inline readers to migrate cleanly because
+  the branch only gates discovery-var resolution. Baseline now
+  at 5 entries; target 0 by v0.8.
+
+### Fixed
+
+- **Meta runner now wires `Pdeathsig` on its sub-processes**
+  (architecture review of v0.8.0). `MetaRunner.runSingle` shelled
+  out to router + consumer raioz instances without setting
+  `Pdeathsig`, so a SIGKILL on the meta parent orphaned the whole
+  tree — each child still holding its own project lock,
+  potentially mid-`docker compose up`. The Pdeathsig wiring moved
+  from `internal/app/upcase/sibling_spawn_*` to
+  `internal/host.AttachPdeathsig`; both call sites (sibling spawn
+  + meta runner) now share it. Linux + non-Linux tests pin the
+  wiring at both packages.
+
 ## [0.8.0] - 2026-05-15
 
 ### Added

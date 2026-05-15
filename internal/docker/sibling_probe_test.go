@@ -103,7 +103,7 @@ func TestIsProjectActive_DockerError(t *testing.T) {
 	withFakeRuntime(t, writeFakeProbeBinary(t, dir, "", argsFile, 1))
 
 	_, err := IsProjectActive(context.Background(), "hypixo", "keycloak")
-	if err == nil || !strings.Contains(err.Error(), "docker ps failed") {
+	if err == nil || !strings.Contains(err.Error(), "docker ps") {
 		t.Errorf("expected docker ps failure, got %v", err)
 	}
 }

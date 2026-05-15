@@ -46,13 +46,13 @@ func IsProjectActive(ctx context.Context, workspace, project string) (bool, erro
 	args = append(args, "--format", "{{.Names}}")
 
 	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
 			return false, fmt.Errorf("docker ps timed out after %v",
 				exectimeout.DockerInspectTimeout)
 		}
-		return false, fmt.Errorf("docker ps failed: %w", err)
+		return false, wrapDaemonError("docker ps", out, err)
 	}
 
 	return strings.TrimSpace(string(out)) != "", nil

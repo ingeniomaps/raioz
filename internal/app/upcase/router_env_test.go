@@ -1,6 +1,10 @@
 package upcase
 
-import "testing"
+import (
+	"testing"
+
+	"raioz/internal/protocol"
+)
 
 func TestRouterActiveFromEnv(t *testing.T) {
 	cases := []struct {
@@ -21,7 +25,7 @@ func TestRouterActiveFromEnv(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.val, func(t *testing.T) {
-			t.Setenv(envRouterActive, tc.val)
+			t.Setenv(protocol.RouterActive, tc.val)
 			if got := routerActiveFromEnv(); got != tc.want {
 				t.Errorf("routerActiveFromEnv()=%v for %q, want %v",
 					got, tc.val, tc.want)

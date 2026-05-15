@@ -162,6 +162,19 @@ The child still takes the workspace lock when it touches the
 routes dir — that lock is per-workspace, and the parent's
 project lock is per-project. They don't collide.
 
+### Meta runner sits outside both locks
+
+The meta runner (ADR-037) shells out to N sub-`raioz up` processes
+serially. It does **not** take the project lock (each child takes
+its own, scoped to its sub-project) nor the workspace lock (only
+the proxy code paths take that). A SIGKILL on `raioz up` against a
+meta config leaves N children each holding their own project lock;
+each waits out the 24h `staleLockMaxAge` cap below before another
+`raioz up` can re-acquire. Pdeathsig (ADR-026, plumbed through
+`host.AttachPdeathsig`) is what actually keeps the children from
+surviving SIGKILL on Linux; the age cap is the cross-platform
+floor.
+
 ### Failure mode — parent SIGKILL and stale project lock
 
 `internal/lock/lock.go` uses `O_EXCL` + PID file (not `flock`) for

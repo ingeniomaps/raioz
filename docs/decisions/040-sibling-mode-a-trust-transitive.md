@@ -66,6 +66,23 @@ Three things change:
    brought it up; otherwise it pulls the image. Choose mode B
    when transitivity is a concern.
 
+### Surfaces that inherit this trust model
+
+Any `project: <path>` field that triggers a recursive `raioz up`
+carries the same transitive trust:
+
+- `dependencies.<n>.project` — mode A sibling (ADR-008).
+- `dependencies.<n>.siblingProject` paired with `image:` —
+  mode B; only spawns when the developer brought the sibling
+  up themselves, otherwise just consumes the image. **The
+  lower-trust default.**
+- `router.project` — replaceable edge router (ADR-037). Same
+  spawn mechanism as mode A, but **stricter**: the workspace
+  requires its router, so there is no mode-B parallel here.
+
+A future `--audit-siblings` flag would scope to all three
+surfaces uniformly.
+
 ### What raioz deliberately does NOT do
 
 The "won't do" list mirrors ADR-036's:

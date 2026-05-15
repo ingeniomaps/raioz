@@ -7,21 +7,14 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
+	"raioz/internal/protocol"
 )
 
-// envRouterActive is set by the meta runner (ADR-037) when a router
-// project is in charge of edge routing for this workspace. The
-// consumer-side upcase reads it to suppress the bundled Caddy.
-//
-// Defined here (not in internal/app) so the upcase package has no
-// upward dependency on the meta orchestrator.
-const envRouterActive = "RAIOZ_ROUTER_ACTIVE"
-
 // routerActiveFromEnv reports whether this sub-up is running under an
-// external router project. Truthy values: "1", "true", "yes" (case-
-// insensitive). Anything else, including the empty string, is false.
+// external router project (ADR-037). Truthy: "1", "true", "yes"
+// (case-insensitive); anything else, including empty, is false.
 func routerActiveFromEnv() bool {
-	switch os.Getenv(envRouterActive) {
+	switch os.Getenv(protocol.RouterActive) {
 	case "1", "true", "TRUE", "True", "yes", "YES", "Yes":
 		return true
 	}

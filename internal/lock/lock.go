@@ -77,6 +77,35 @@ func readLockPID(path string) (int, error) {
 	return 0, fmt.Errorf("PID not found in lock file")
 }
 
+// replaceStaleLock removes a stale lock file and re-opens it with the
+// same O_CREATE|O_EXCL guarantee. If the re-open fails with IsExist a
+// concurrent raioz process slipped in between Remove and OpenFile —
+// report that distinctly so callers don't blame their own state. Any
+// other error (e.g. unremovable file, filesystem fault) is wrapped
+// verbatim so the cause is preserved in the error chain.
+func replaceStaleLock(path string) (*os.File, error) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("remove stale lock %q: %w", path, err)
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err == nil {
+		return file, nil
+	}
+	if os.IsExist(err) {
+		// Another raioz process won the race for the freshly-evicted
+		// slot. Distinguishing this from "lock unremovable" gives the
+		// user the right next action (wait + retry vs. inspect FS).
+		newPID, pidErr := readLockPID(path)
+		if pidErr == nil && isProcessRunning(newPID) {
+			return nil, fmt.Errorf(
+				"another raioz process acquired the lock concurrently "+
+					"(pid=%d); retry in a moment", newPID,
+			)
+		}
+	}
+	return nil, fmt.Errorf("failed to acquire lock after cleaning stale lock: %w", err)
+}
+
 func Acquire(ws *workspace.Workspace) (*Lock, error) {
 	path := filepath.Join(ws.Root, lockFileName)
 
@@ -84,29 +113,30 @@ func Acquire(ws *workspace.Workspace) (*Lock, error) {
 	// Use 0600 permissions (read/write for owner only) for security
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
-		if os.IsExist(err) {
-			// Lock file exists - check if the process is still running
-			lockPID, pidErr := readLockPID(path)
-			if pidErr != nil {
-				// Failed to read PID - remove stale lock and try again
-				os.Remove(path)
-				file, err = os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-				if err != nil {
-					return nil, fmt.Errorf("failed to acquire lock after cleaning stale lock: %w", err)
-				}
-			} else if !isProcessRunning(lockPID) || isLockExpired(path) {
-				// PID dead or lock aged out (PID-reuse defense).
-				os.Remove(path)
-				file, err = os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-				if err != nil {
-					return nil, fmt.Errorf("failed to acquire lock after cleaning stale lock: %w", err)
-				}
-			} else {
-				// Process is still running - lock is valid
-				return nil, fmt.Errorf("lock already exists: another raioz process may be running")
-			}
-		} else {
+		if !os.IsExist(err) {
 			return nil, fmt.Errorf("failed to acquire lock: %w", err)
+		}
+		// Lock file exists — decide whether to evict.
+		lockPID, pidErr := readLockPID(path)
+		switch {
+		case pidErr != nil:
+			// Failed to read PID — treat as corrupt / stale.
+			file, err = replaceStaleLock(path)
+			if err != nil {
+				return nil, err
+			}
+		case !isProcessRunning(lockPID) || isLockExpired(path):
+			// PID dead or lock aged out (PID-reuse defense).
+			file, err = replaceStaleLock(path)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			// Process is still running - lock is valid
+			return nil, fmt.Errorf(
+				"lock already exists: another raioz process may be running (pid=%d)",
+				lockPID,
+			)
 		}
 	}
 

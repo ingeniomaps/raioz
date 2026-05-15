@@ -790,5 +790,9 @@
   "warning.state_migration_failed": "La migración de estado legacy (ADR-022) falló: %s. Tu audit log / workspace state pre-upgrade puede seguir en `~/.raioz/` o `/opt/raioz-proyecto`. Buscá el breadcrumb `.raioz-migration-failed` en esos directorios.",
   "proxy.not_configured": "El proxy no está configurado para este proyecto.",
   "proxy.status_running": "Proxy: corriendo",
-  "proxy.status_stopped": "Proxy: detenido"
+  "proxy.status_stopped": "Proxy: detenido",
+  "meta.optional_failed": "meta: proyecto opcional %q falló (%s) — continuando",
+  "meta.sub_error_continuing": "meta: %s para %q devolvió %s — continuando",
+  "meta.banner": "=== [%s] %s ===",
+  "meta.banner_optional": "=== [%s] %s (opcional) ==="
 }

@@ -8,7 +8,10 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
+	"raioz/internal/protocol"
 )
 
 // MetaRunner orchestrates a meta-orchestrator config: a raioz.yaml with
@@ -54,12 +57,6 @@ func (s MetaSummaryList) HasFailures() bool {
 	return false
 }
 
-// envRouterActive is the env var meta sets on consumer sub-up invocations
-// when an ADR-037 router project is running first. The consumer's upcase
-// reads it and suppresses the bundled Caddy. Defined here (not in
-// internal/env) so the meta runner has no upward dependency.
-const envRouterActive = "RAIOZ_ROUTER_ACTIVE"
-
 // MetaUpOptions tunes a meta up run. RouterOff bypasses the ADR-037 router
 // phase even when the config declares `router:`, restoring pre-v0.8
 // behavior for debugging. Future per-run knobs land here without
@@ -93,7 +90,7 @@ func (m *MetaRunner) Up(
 		if entry.Err != nil {
 			return results
 		}
-		consumerEnv = []string{envRouterActive + "=1"}
+		consumerEnv = []string{protocol.RouterActive + "=1"}
 		skipPath = cfg.Router.Path
 	}
 
@@ -196,15 +193,15 @@ func (m *MetaRunner) run(
 			// success
 		case p.Optional && subCmd == "up":
 			entry.Skipped = true
-			output.PrintWarning(fmt.Sprintf(
-				"meta: optional project %q failed (%s) — continuing", p.Name, entry.Err,
-			))
+			output.PrintWarning(
+				i18n.T("meta.optional_failed", p.Name, entry.Err),
+			)
 		case subCmd == "down" || subCmd == "status":
 			// Best-effort: keep going on remaining subs even if this one
 			// errored. The error is recorded in the summary.
-			output.PrintWarning(fmt.Sprintf(
-				"meta: %s for %q returned %s — continuing", subCmd, p.Name, entry.Err,
-			))
+			output.PrintWarning(
+				i18n.T("meta.sub_error_continuing", subCmd, p.Name, entry.Err),
+			)
 		default:
 			results = append(results, entry)
 			return results // hard fail on first non-optional up failure
@@ -237,6 +234,18 @@ func (m *MetaRunner) runSingle(
 
 	printMetaBanner(stdout, subCmd, p)
 
+	cmd := m.buildSubCmd(ctx, binary, subCmd, p, extraArgs, extraEnv, stdout, stderr)
+	err := cmd.Run()
+	return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
+}
+
+// buildSubCmd constructs the *exec.Cmd for a sub-project invocation.
+// Split out from runSingle so tests can inspect SysProcAttr without
+// running the binary.
+func (m *MetaRunner) buildSubCmd(
+	ctx context.Context, binary, subCmd string, p config.MetaProject,
+	extraArgs, extraEnv []string, stdout, stderr *os.File,
+) *exec.Cmd {
 	args := append([]string{subCmd}, extraArgs...)
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = p.Path
@@ -247,9 +256,11 @@ func (m *MetaRunner) runSingle(
 		env = append(env, extraEnv...)
 	}
 	cmd.Env = env
-
-	err := cmd.Run()
-	return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
+	// Router + consumer subprocesses must die with the meta parent;
+	// otherwise a SIGKILL leaves N raioz children each mid-`docker
+	// compose up`, each still holding their own project locks.
+	host.AttachPdeathsig(cmd)
+	return cmd
 }
 
 func reverseMetaProjects(in []config.MetaProject) []config.MetaProject {
@@ -263,8 +274,8 @@ func reverseMetaProjects(in []config.MetaProject) []config.MetaProject {
 func printMetaBanner(w *os.File, subCmd string, p config.MetaProject) {
 	tag := strings.ToUpper(subCmd)
 	if p.Optional {
-		fmt.Fprintf(w, "\n=== [%s] %s (optional) ===\n", tag, p.Name)
+		fmt.Fprintln(w, "\n"+i18n.T("meta.banner_optional", tag, p.Name))
 	} else {
-		fmt.Fprintf(w, "\n=== [%s] %s ===\n", tag, p.Name)
+		fmt.Fprintln(w, "\n"+i18n.T("meta.banner", tag, p.Name))
 	}
 }
