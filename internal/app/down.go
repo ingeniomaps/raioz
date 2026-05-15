@@ -195,13 +195,23 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	uc.stopProxy(ctx, opts)
 	uc.cleanLocalState(ctx, opts)
 
-	output.PrintSuccess(i18n.T("output.project_stopped", stateDeps.Project.Name))
+	// stateDeps is nil when SelectFlow couldn't read a config (e.g. legacy
+	// `raioz down --project <name>` run outside the project dir). Fall back
+	// to the CLI-resolved projectName / workspace-derived network name so
+	// the success message and network status print without panicking.
+	stoppedLabel := projectName
+	if stateDeps != nil {
+		stoppedLabel = stateDeps.Project.Name
+	}
+	output.PrintSuccess(i18n.T("output.project_stopped", stoppedLabel))
 
-	networkName := stateDeps.Network.GetName()
-	if remainingNetworkProjects > 0 {
-		output.PrintInfo(i18n.T("output.network_in_use", networkName, remainingNetworkProjects))
-	} else if isInUse {
-		output.PrintInfo(i18n.T("output.network_in_use_containers", networkName))
+	if stateDeps != nil {
+		networkName := stateDeps.Network.GetName()
+		if remainingNetworkProjects > 0 {
+			output.PrintInfo(i18n.T("output.network_in_use", networkName, remainingNetworkProjects))
+		} else if isInUse {
+			output.PrintInfo(i18n.T("output.network_in_use_containers", networkName))
+		}
 	}
 
 	uc.cleanupDockerResources(ctx)
