@@ -15,14 +15,10 @@ import (
 
 const lockFileName = ".raioz.lock"
 
-// staleLockMaxAge bounds how long a project lock can survive before
-// it is treated as abandoned, even when isProcessRunning still
-// reports its PID alive. Defends against PID wraparound where the
-// kernel assigns the same number to a non-raioz process (common in
-// containers with low pid_max, possible on long-running hosts).
-// 24h is generous: a legitimate raioz session, including
-// `raioz dashboard` watch mode, rarely survives that long.
-// Issue 075.
+// staleLockMaxAge evicts a lock whose PID number is alive but was
+// reused by a non-raioz process (PID wraparound, common in containers
+// with low pid_max). 24h is generous — even `raioz dashboard` watch
+// mode rarely survives that long.
 const staleLockMaxAge = 24 * time.Hour
 
 type Lock struct {
@@ -43,11 +39,8 @@ func isProcessRunning(pid int) bool {
 	return err == nil
 }
 
-// isLockExpired reports whether the lock file's mtime is older
-// than staleLockMaxAge. PID-reuse defense (issue 075): if the PID
-// in the lock is reused by a non-raioz process, isProcessRunning
-// returns true and the user is stuck. The age cap catches that
-// scenario without depending on /proc parsing.
+// isLockExpired returns true when the lock file is older than
+// staleLockMaxAge. See the constant for the PID-reuse rationale.
 func isLockExpired(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -102,9 +95,7 @@ func Acquire(ws *workspace.Workspace) (*Lock, error) {
 					return nil, fmt.Errorf("failed to acquire lock after cleaning stale lock: %w", err)
 				}
 			} else if !isProcessRunning(lockPID) || isLockExpired(path) {
-				// Either the PID is gone, or the lock has aged past
-				// staleLockMaxAge (PID-reuse defense — issue 075).
-				// Sweep and retry.
+				// PID dead or lock aged out (PID-reuse defense).
 				os.Remove(path)
 				file, err = os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 				if err != nil {

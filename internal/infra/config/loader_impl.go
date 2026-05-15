@@ -31,9 +31,7 @@ func (l *ConfigLoaderImpl) LoadDeps(configPath string) (*models.Deps, []string, 
 	if config.IsYAMLConfig(configPath) {
 		return config.LoadDepsFromYAML(configPath)
 	}
-	// Legacy JSON config — deprecated. LoadDeps emits a loud one-shot
-	// banner (ADR-038) so the caller does not need to thread a string
-	// through the warnings slice.
+	// JSON path. LoadDeps emits its own deprecation banner (ADR-038).
 	return config.LoadDeps(configPath)
 }
 

@@ -7,13 +7,8 @@ import (
 	"raioz/internal/domain/interfaces"
 )
 
-// sortedRoutes returns the routes in deterministic hostname order
-// so generated Caddyfiles diff cleanly across runs. Issue 074
-// closed the last unsorted producer; HostsLine already does the
-// same for /etc/hosts output, and loadAllProjectRoutes sorts by
-// project name. Iteration of a Go map is randomized, so the only
-// stable shape is to sort here at the boundary between the map
-// and any output that compares byte-for-byte.
+// sortedRoutes returns the routes in hostname order so generated
+// Caddyfiles diff cleanly across runs (map iteration is randomized).
 func sortedRoutes(routes map[string]interfaces.ProxyRoute) []interfaces.ProxyRoute {
 	out := make([]interfaces.ProxyRoute, 0, len(routes))
 	for _, r := range routes {

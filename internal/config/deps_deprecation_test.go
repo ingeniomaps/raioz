@@ -11,9 +11,8 @@ import (
 	"raioz/internal/i18n"
 )
 
-// captureStdout reroutes os.Stdout for the duration of fn and returns
-// whatever was written. PrintWarning writes to stdout, so we have to
-// intercept the fd to assert on the banner.
+// captureStdout intercepts os.Stdout for fn. PrintWarning writes to
+// stdout, so the only way to assert on the banner is to swap the fd.
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 	old := os.Stdout
@@ -53,10 +52,8 @@ func writeMinimalJSON(t *testing.T, dir, name string) string {
 	return path
 }
 
-// TestLoadDeps_DeprecationWarningFiresOnce pins ADR-038: the JSON
-// deprecation banner emits to stdout once per process even when
-// LoadDeps is called multiple times (dependency_assist scans
-// sub-projects, migrate yaml re-reads, etc).
+// ADR-038: the JSON banner fires once per process even across
+// multiple LoadDeps calls.
 func TestLoadDeps_DeprecationWarningFiresOnce(t *testing.T) {
 	i18n.Init("en")
 	ResetJSONDeprecationWarningForTest()
@@ -86,9 +83,8 @@ func TestLoadDeps_DeprecationWarningFiresOnce(t *testing.T) {
 	}
 }
 
-// TestLoadDeps_DeprecationWarningResets makes sure the test seam
-// works — if it didn't, every test that hit LoadDeps would have
-// to depend on package-init ordering.
+// Verify the test seam: Reset between LoadDeps calls re-arms the
+// banner. Without it tests would depend on init ordering.
 func TestLoadDeps_DeprecationWarningResets(t *testing.T) {
 	i18n.Init("en")
 	ResetJSONDeprecationWarningForTest()

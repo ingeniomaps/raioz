@@ -90,7 +90,7 @@ func TestKnownDurationEnvs_CoversBothLauncherVars(t *testing.T) {
 		t.Errorf("KnownDurationEnvs must list both launcher vars; got %v", names)
 	}
 	if !names[siblingSpawnTimeoutEnv] {
-		t.Errorf("KnownDurationEnvs must list RAIOZ_SIBLING_TIMEOUT (issue 072); got %v", names)
+		t.Errorf("KnownDurationEnvs must list RAIOZ_SIBLING_TIMEOUT; got %v", names)
 	}
 }
 

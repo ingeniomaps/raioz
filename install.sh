@@ -159,12 +159,11 @@ download_release() {
     chmod +x "$output"
 }
 
-# verify_sha256 compares the archive's SHA-256 against the entry in
-# checksums.txt and fails the install on mismatch. checksums.txt is
-# the file goreleaser publishes alongside each release; both are
-# served from the same GitHub release URL, so a poisoned release
-# can override both at the same time — this check is the floor, not
-# the ceiling. GPG/cosign signing would harden it further.
+# verify_sha256 compares the archive's SHA-256 against checksums.txt
+# (goreleaser-published) and fails on mismatch. Floor-only — both the
+# archive and checksums.txt come from the same GitHub release URL,
+# so a compromised release host poisons both. GPG/cosign signing
+# would be the ceiling; not yet implemented.
 verify_sha256() {
     local archive_path="$1" checksums_path="$2" archive_name="$3"
 
@@ -334,10 +333,9 @@ verify_install() {
     info "Run 'raioz --help' to get started"
 }
 
-# Set RAIOZ_INSTALL_TEST=1 to source this file without running the
-# installer (used by scripts/test-install.sh to exercise verify_sha256
-# in isolation). Production users invoke via `curl ... | bash`, which
-# never sets the variable.
+# RAIOZ_INSTALL_TEST=1 sources this file without running the installer,
+# used by scripts/test-install.sh to exercise verify_sha256 in
+# isolation. The curl|bash path never sets it.
 if [ -z "${RAIOZ_INSTALL_TEST:-}" ]; then
     main
 fi

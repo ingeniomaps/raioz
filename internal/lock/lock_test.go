@@ -191,19 +191,15 @@ func TestLockFileContent(t *testing.T) {
 	}
 }
 
-// TestAcquire_AgeBasedStaleEviction pins issue 075: even if the
-// PID in the lock file is still alive (PID wraparound landed on a
-// random non-raioz process), a lock older than staleLockMaxAge is
-// swept and the caller is allowed to proceed. Without this guard
-// the user is stuck until they `rm .raioz.lock` manually.
+// Lock with live PID but mtime past staleLockMaxAge must be swept
+// (PID-reuse defense).
 func TestAcquire_AgeBasedStaleEviction(t *testing.T) {
 	tmpDir := t.TempDir()
 	ws := &workspace.Workspace{Root: tmpDir}
 	lockPath := filepath.Join(tmpDir, lockFileName)
 
-	// Plant a lock file whose PID is the test process itself (so
-	// isProcessRunning returns true) but whose mtime is older than
-	// the staleness window.
+	// PID = current process so isProcessRunning returns true;
+	// mtime backdated so the age check fires.
 	content := fmt.Sprintf("pid=%d\ntimestamp=%s\n",
 		os.Getpid(), time.Now().Add(-48*time.Hour).Format(time.RFC3339))
 	if err := os.WriteFile(lockPath, []byte(content), 0o600); err != nil {
@@ -221,8 +217,7 @@ func TestAcquire_AgeBasedStaleEviction(t *testing.T) {
 	t.Cleanup(func() { _ = lock.Release() })
 }
 
-// TestAcquire_RecentLockHeld confirms the age check does not
-// accidentally evict a freshly-acquired lock whose PID is alive.
+// Freshly-acquired lock must NOT be evicted by the age check.
 func TestAcquire_RecentLockHeld(t *testing.T) {
 	tmpDir := t.TempDir()
 	ws := &workspace.Workspace{Root: tmpDir}

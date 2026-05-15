@@ -96,8 +96,7 @@ func spawnSibling(
 
 	output.PrintProgress(i18n.T("up.sibling_spawn_starting", depName, sib.Dir))
 
-	// Issue 072: cap the child wait so a hung sibling does not block
-	// the parent forever. The default is RAIOZ_SIBLING_TIMEOUT (10 min).
+	// Cap the wait so a hung sibling can't block the parent forever.
 	timeout := host.SiblingSpawnTimeout()
 	childCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

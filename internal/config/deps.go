@@ -11,14 +11,12 @@ import (
 	"raioz/internal/output"
 )
 
-// warnedJSONDeprecation makes the .raioz.json deprecation banner fire
-// exactly once per process even when LoadDeps is called repeatedly
-// (e.g. dependency_assist scanning sub-projects). See ADR-038.
+// warnedJSONDeprecation fires the .raioz.json banner once per process;
+// dependency_assist scans sub-projects via LoadDeps so multiple loads
+// per `raioz up` are normal. ADR-038.
 var warnedJSONDeprecation sync.Once
 
-// ResetJSONDeprecationWarningForTest clears the dedup so a test can
-// verify the warning fires on the first hit without depending on
-// test ordering. Test-only.
+// ResetJSONDeprecationWarningForTest clears the dedup for tests.
 func ResetJSONDeprecationWarningForTest() {
 	warnedJSONDeprecation = sync.Once{}
 }
@@ -38,8 +36,7 @@ type (
 	SourceFormat        = models.SourceFormat
 )
 
-// Re-export the SourceFormat constants so callers can read
-// `config.SourceFormatYAML` without reaching into domain/models.
+// Re-exports so callers stay on the config package surface.
 const (
 	SourceFormatLegacyJSON = models.SourceFormatLegacyJSON
 	SourceFormatYAML       = models.SourceFormatYAML

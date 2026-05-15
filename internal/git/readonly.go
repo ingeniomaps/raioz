@@ -40,7 +40,6 @@ func EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 	ctx, cancel := exectimeout.WithTimeout(exectimeout.GitCloneTimeout)
 	defer cancel()
 
-	// Retry logic for git clone (issue 078 removed the CB).
 	retryConfig := resilience.GitRetryConfig()
 
 	err := resilience.RetryWithContext(ctx, retryConfig, "git clone readonly", func(ctx context.Context) error {
@@ -135,7 +134,6 @@ func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 	ctx, cancel := exectimeout.WithTimeout(exectimeout.GitCloneTimeout)
 	defer cancel()
 
-	// Retry logic for git clone (issue 078 removed the CB).
 	retryConfig := resilience.GitRetryConfig()
 
 	err := resilience.RetryWithContext(ctx, retryConfig, "git clone editable", func(ctx context.Context) error {

@@ -1,23 +1,18 @@
 #!/usr/bin/env bash
-# Unit-style tests for install.sh::verify_sha256 (issue 081).
-#
-# install.sh runs `main` at the bottom; we source it with
-# RAIOZ_INSTALL_TEST=1 to skip that call and exercise the
-# verification function directly against synthesized
-# fixtures. The fixtures live in a tempdir we clean up at exit.
-#
-# Exit code: 0 on all assertions passing, non-zero on first failure.
+# Unit tests for install.sh::verify_sha256. Source install.sh with
+# RAIOZ_INSTALL_TEST=1 to skip its `main` call, then exercise the
+# function against synthesized fixtures.
 
 set -u
 
 cd "$(dirname "$0")/.."
 
-# Suppress the trap-installed cleanup_install_tmp until we have sourced
-# the script — RAIOZ_INSTALL_TMP starts empty so the trap is a noop.
 export RAIOZ_INSTALL_TEST=1
 # shellcheck source=../install.sh
 . ./install.sh
 
+# The trap from install.sh (cleanup_install_tmp) is a noop because
+# RAIOZ_INSTALL_TMP is never set on this path. Our own trap overrides it.
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

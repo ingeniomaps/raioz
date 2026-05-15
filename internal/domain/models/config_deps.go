@@ -1,30 +1,22 @@
 package models
 
-// SourceFormat marks the on-disk shape the deps were loaded from. It is
-// orthogonal to the yaml `version:` field — `version:` evolves with the
-// schema, SourceFormat is invariant of which loader produced the struct.
-// See ADR-039.
+// SourceFormat marks the on-disk shape the loader produced. Orthogonal
+// to the yaml `version:` field. See ADR-039.
 type SourceFormat string
 
 const (
-	// SourceFormatLegacyJSON marks deps loaded from `.raioz.json`. The
-	// loader is on the removal ramp documented in ADR-038.
 	SourceFormatLegacyJSON SourceFormat = "legacy-json"
-	// SourceFormatYAML marks deps loaded from `raioz.yaml` (or produced
-	// by zero-config auto-detect, which targets the yaml-mode pipeline).
-	SourceFormatYAML SourceFormat = "yaml"
+	SourceFormatYAML       SourceFormat = "yaml"
 )
 
 // Deps is the canonical raioz project description. Built either from a
 // .raioz.json file (legacy) or from a raioz.yaml via the YAML bridge.
 type Deps struct {
-	// SchemaVersion is the internal "1.0"/"2.0" discriminator that
-	// predates SourceFormat. Kept until v1.0 so the seven inline
-	// `SchemaVersion == "2.0"` checks (issue 069) can be collapsed
-	// incrementally through SelectFlow. New code MUST read
-	// SourceFormat, never SchemaVersion. See ADR-039.
+	// SchemaVersion is the legacy "1.0"/"2.0" discriminator. New code
+	// MUST read SourceFormat instead; SchemaVersion goes away in v1.0
+	// alongside the JSON loader (ADR-038, ADR-039).
 	SchemaVersion      string                `json:"schemaVersion"`
-	SourceFormat       SourceFormat          `json:"-"`                   // canonical discriminator; see ADR-039
+	SourceFormat       SourceFormat          `json:"-"` // canonical discriminator (ADR-039)
 	Workspace          string                `json:"workspace,omitempty"` // Optional workspace name
 	Network            NetworkConfig         `json:"network,omitempty"`   // Network config (shared by workspace)
 	Project            Project               `json:"project"`

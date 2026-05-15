@@ -1,19 +1,9 @@
 #!/usr/bin/env bash
-# Fail if a NEW file outside the baseline reads the legacy
-# SchemaVersion discriminator inline. The dual-flow YAML/JSON
-# selector is centralized in internal/app/flow.go::SelectFlow
-# (issue 069 / ADR-039); existing inline readers are tracked in
+# Shrinking-baseline ratchet for the legacy SchemaVersion literal
+# comparisons. The canonical path is internal/app.SelectFlow
+# (ADR-039); existing inline readers are listed in
 # scripts/dual-flow-baseline.txt and migrate opportunistically.
-#
-# The patterns we match are conservative — exact-string
-# comparisons against the magic literals "1.0"/"2.0". Anything
-# else (SourceFormat reads, comments, struct-field assignments
-# that copy through) is allowed. Test files are exempt because
-# fixtures legitimately stamp SchemaVersion directly.
-#
-# Remove an entry from the baseline when the file migrates to
-# `SelectFlow` (or to a direct `SourceFormat` read). Adding a
-# NEW reader file is a regression and will fail this script.
+# New readers outside the baseline fail outright. Test files exempt.
 
 set -euo pipefail
 
@@ -56,7 +46,7 @@ stale=""
 for f in "${current[@]}"; do
     if [ -z "${allowed[$f]:-}" ]; then
         echo "❌ $f reads the legacy SchemaVersion literal but is not on the baseline." >&2
-        echo "   Route the check through internal/app.SelectFlow (issue 069) or read" >&2
+        echo "   Route the check through internal/app.SelectFlow or read" >&2
         echo "   deps.SourceFormat directly (ADR-039). If you're migrating an existing" >&2
         echo "   reader off the baseline, remove its entry in the same PR." >&2
         violations=$(( violations + 1 ))

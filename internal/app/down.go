@@ -31,11 +31,9 @@ type DownOptions struct {
 	// and state file are left intact so the rest of the project keeps
 	// running.
 	Services []string
-	// ForceStateCleanup proceeds with host-process + state-file
-	// cleanup when the Docker daemon is unreachable. Containers that
-	// may still be alive when Docker comes back are listed in the
-	// warning by label so the user can `docker rm` them manually.
-	// Issue 071.
+	// ForceStateCleanup runs host-process + state-file cleanup when
+	// Docker is unreachable. Surviving containers are surfaced by
+	// label in the warning so the user can `docker rm` them later.
 	ForceStateCleanup bool
 }
 

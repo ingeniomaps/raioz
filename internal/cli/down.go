@@ -100,5 +100,5 @@ func init() {
 	downCmd.Flags().BoolVar(&downAllProjects, "all-projects", false,
 		"Stop every active raioz project except the cwd's (cross-workspace)")
 	downCmd.Flags().BoolVar(&downForceStateCleanup, "force-state-cleanup", false,
-		"Clean local state (host PIDs, state files) when Docker is unreachable. Issue 071.")
+		"Clean local state (host PIDs, state files) when Docker is unreachable.")
 }

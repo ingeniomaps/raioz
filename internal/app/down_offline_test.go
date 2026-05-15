@@ -5,10 +5,8 @@ import (
 	"testing"
 )
 
-// TestIsDockerUnreachable pins the heuristic match against the
-// docker CLI / engine API signatures that signal "daemon down".
-// Issue 071: when this matches, --force-state-cleanup is offered
-// in the error suggestion.
+// Pins the daemon-down substring heuristic. A positive match
+// flips the down error suggestion to --force-state-cleanup.
 func TestIsDockerUnreachable(t *testing.T) {
 	tests := []struct {
 		name string

@@ -29,9 +29,6 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 		return fmt.Errorf("invalid compose path: %w", err)
 	}
 
-	// Retry logic for docker compose up. Circuit-breaker removed in
-	// issue 078 — Retry's attempt cap exits before the CB's failure
-	// threshold trips, so the two never composed.
 	retryConfig := resilience.DockerRetryConfig()
 
 	operationName := "docker compose up"
@@ -178,7 +175,6 @@ func DownWithContext(ctx context.Context, composePath string) error {
 		return fmt.Errorf("invalid compose path: %w", err)
 	}
 
-	// Retry logic for docker compose down (issue 078 removed the CB).
 	retryConfig := resilience.DockerRetryConfig()
 
 	return resilience.RetryWithContext(ctx, retryConfig, "docker compose down", func(ctx context.Context) error {

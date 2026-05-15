@@ -127,10 +127,8 @@ func (uc *UseCase) saveState(
 			driftSummary := root.FormatDrifts(drifts)
 			logging.Warn("Configuration drift detected", "drifts_count", len(drifts))
 			logging.Debug("Drifts", "drifts", driftSummary)
-			// Issue 085: emit one audit event per drifted service so the
-			// historical timeline of "when did this project start
-			// diverging" is reconstructable from the audit log alone,
-			// not just the live warning.
+			// Audit-log per drifted service so the timeline survives
+			// past the in-process warning.
 			for _, d := range drifts {
 				summary := make([]string, len(d.Differences))
 				for i, change := range d.Differences {

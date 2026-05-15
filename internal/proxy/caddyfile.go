@@ -62,8 +62,8 @@ func (m *Manager) generateCaddyfile() (string, error) {
 				certsDir: m.certsDir,
 				domain:   pp.Domain,
 			}
-			// Issue 074: sort within a project for diff-clean output.
-			// loadAllProjectRoutes already sorts the outer project slice.
+			// Sort within a project too; loadAllProjectRoutes already
+			// sorts the outer slice.
 			perProject := make(map[string]interfaces.ProxyRoute, len(pp.Routes))
 			for _, r := range pp.Routes {
 				perProject[r.ServiceName] = r
@@ -75,9 +75,9 @@ func (m *Manager) generateCaddyfile() (string, error) {
 		}
 	} else {
 		tls := tlsConfig{mode: m.tlsMode, certsDir: m.certsDir, domain: m.domain}
-		// snapshot under RLock — generateCaddyfile runs while
-		// AddRoute may be called from a watcher goroutine. ADR-028.
-		// Sort by hostname for diff-clean output. Issue 074.
+		// snapshotRoutes copies under RLock so concurrent AddRoute
+		// from a watcher goroutine doesn't race (ADR-028); sortedRoutes
+		// pins the order.
 		for _, route := range sortedRoutes(m.snapshotRoutes()) {
 			writeRouteBlock(&b, route, m.domain, tls)
 			b.WriteString("\n")

@@ -12,15 +12,9 @@ import (
 	"raioz/internal/logging"
 )
 
-// resolveProjectContext computes the absolute project directory,
-// sweeps any legacy ADR-011 state snapshot, and resolves the
-// project-level env path. Extracted from Execute so the early
-// "wire up paths" phase has a single home and Execute stays under
-// the 400-line cap. Issue 079.
-//
-// Returns (projectDir, projectEnvPath, error). All callers in
-// Execute should use the returned projectDir / projectEnvPath as
-// the canonical values for the rest of the run.
+// resolveProjectContext resolves the absolute project dir, sweeps the
+// pre-ADR-011 .state.json, and resolves the project env path. First
+// phase of the Execute decomposition.
 func (uc *UseCase) resolveProjectContext(
 	ctx context.Context, opts Options, deps *models.Deps, ws *interfaces.Workspace,
 ) (projectDir, projectEnvPath string, err error) {
@@ -46,10 +40,8 @@ func (uc *UseCase) resolveProjectContext(
 	return projectDir, projectEnvPath, nil
 }
 
-// sweepLegacyStateSnapshot best-effort removes the legacy
-// `.state.json` left behind by pre-ADR-011 binaries. New world
-// writes only LocalState in the project dir and reads from Docker
-// + raioz.yaml. A non-existent file is the common case (no log);
+// sweepLegacyStateSnapshot best-effort removes pre-ADR-011
+// `.state.json` snapshots. Missing file is the common case (silent);
 // a permissions error is logged but not fatal.
 func (uc *UseCase) sweepLegacyStateSnapshot(ctx context.Context, ws *interfaces.Workspace) {
 	legacyStatePath := filepath.Join(ws.Root, ".state.json")

@@ -12,16 +12,13 @@ import (
 // skip them without rescanning.
 const migratedMarker = ".raioz-migrated-to-xdg"
 
-// migrationFailedBreadcrumb names the file dropped in the legacy
-// dir when copyTree fails. Issue 073: the user inspecting the
-// legacy dir later finds an explicit "migration failed at X with
-// error Y" note instead of silence.
+// migrationFailedBreadcrumb is dropped in the legacy dir on copyTree
+// failure so the user later finds an explicit "migration failed" note.
 const migrationFailedBreadcrumb = ".raioz-migration-failed"
 
-// MigrationSkippedPrefix marks notes whose meaning is "we tried
-// and couldn't" rather than "we copied successfully". Callers
-// (CLI root) branch on this prefix to escalate skipped notes to
-// PrintWarning while success notes go to logging.Info.
+// MigrationSkippedPrefix lets callers split the notes slice into
+// successes ("migrated state from ...") and failures. Used by the
+// CLI root to escalate skipped notes to PrintWarning.
 const MigrationSkippedPrefix = "migration from "
 
 // MigrateLegacyStateDirs copies legacy state dirs into RaiozStateDir()

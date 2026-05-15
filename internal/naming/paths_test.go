@@ -132,12 +132,8 @@ func TestMigrateLegacyStateDirs(t *testing.T) {
 	}
 }
 
-// TestMigrateLegacyStateDirs_BreadcrumbOnFailure pins issue 073:
-// when copyTree fails (here simulated by a destination file that
-// owns a read-only parent), the legacy dir gets a
-// `.raioz-migration-failed` file with the timestamp + error so
-// the user inspecting `~/.raioz/` later finds an explicit note
-// instead of silence.
+// When copyTree fails the legacy dir gets a breadcrumb so the user
+// finds an explicit "migration failed" note instead of silence.
 func TestMigrateLegacyStateDirs_BreadcrumbOnFailure(t *testing.T) {
 	tmp := t.TempDir()
 	legacy := filepath.Join(tmp, ".raioz")

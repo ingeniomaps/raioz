@@ -49,9 +49,8 @@ func caddyTLSValue(mode interfaces.TLSMode) string {
 }
 
 // IsPublished reports whether the proxy will bind host ports. Kept
-// public because test fixtures and the down flow consult it; not
-// deprecated. Takes the RLock so a concurrent Configure (issue 080)
-// publishes a consistent value.
+// public because test fixtures and the down flow consult it. Reads
+// under mu so a concurrent Configure publishes a consistent value.
 func (m *Manager) IsPublished() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

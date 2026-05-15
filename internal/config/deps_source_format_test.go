@@ -9,9 +9,7 @@ import (
 	"raioz/internal/i18n"
 )
 
-// TestSourceFormat_StampedByJSONLoader pins ADR-039: LoadDeps marks
-// every loaded struct with SourceFormatLegacyJSON. Adding a new
-// loader path without stamping is what this test catches.
+// Every JSON load stamps SourceFormatLegacyJSON. ADR-039.
 func TestSourceFormat_StampedByJSONLoader(t *testing.T) {
 	i18n.Init("en")
 	ResetJSONDeprecationWarningForTest()
@@ -44,9 +42,8 @@ func TestSourceFormat_StampedByJSONLoader(t *testing.T) {
 	}
 }
 
-// TestSourceFormat_StampedByYAMLBridge pins ADR-039 on the yaml
-// bridge: any deps that came through the yaml loader land as
-// SourceFormatYAML, independent of the public `version:` field.
+// Every YAML load stamps SourceFormatYAML, independent of the public
+// `version:` field. ADR-039.
 func TestSourceFormat_StampedByYAMLBridge(t *testing.T) {
 	cfg := &RaiozConfig{
 		Version: "1",
@@ -67,10 +64,9 @@ func TestSourceFormat_StampedByYAMLBridge(t *testing.T) {
 	}
 }
 
-// TestSourceFormat_PreservedByFilters pins ADR-006: every clone
-// site copies SourceFormat. If a new filter forgets to copy it,
-// the filtered struct silently looks like legacy-json (zero
-// value of the type), which breaks isYAMLMode downstream.
+// ADR-006: every clone site must copy SourceFormat. A missed copy
+// makes the filtered struct look like legacy-json (zero value),
+// which silently breaks isYAMLMode downstream.
 func TestSourceFormat_PreservedByFilters(t *testing.T) {
 	deps := &Deps{
 		SchemaVersion: "2.0",
@@ -113,9 +109,8 @@ func TestSourceFormat_PreservedByFilters(t *testing.T) {
 	})
 }
 
-// TestSourceFormat_AliasMatchesModels guards against drift between
-// the config package re-export and the domain/models definition.
-// A divergence would make the constants type-incompatible.
+// Re-exports must equal the source — otherwise the constants
+// silently diverge by type.
 func TestSourceFormat_AliasMatchesModels(t *testing.T) {
 	if SourceFormatLegacyJSON != models.SourceFormatLegacyJSON {
 		t.Errorf("config.SourceFormatLegacyJSON diverged from models")

@@ -17,7 +17,7 @@ func TestSelectFlow(t *testing.T) {
 
 	yamlDeps := &models.Deps{SourceFormat: models.SourceFormatYAML}
 	jsonDeps := &models.Deps{SourceFormat: models.SourceFormatLegacyJSON}
-	unstamped := &models.Deps{} // never happens in production but pin defensive default
+	unstamped := &models.Deps{} // zero-valued SourceFormat: defensive default
 	loadErr := errors.New("boom")
 
 	tests := []struct {

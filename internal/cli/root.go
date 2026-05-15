@@ -83,12 +83,10 @@ func init() {
 		if cmd.Name() != "version" {
 			MaybePrintDevBuildWarning()
 		}
-		// ADR-022: best-effort migration of legacy state dirs into
-		// the unified RaiozStateDir(). Issue 073: failures used to
-		// fall through to logging.Debug — invisible to anyone running
-		// at the default log level. Now successes log at info and
-		// failures escalate to PrintWarning so the user knows their
-		// pre-upgrade audit log / workspace state did not move.
+		// ADR-022: best-effort migration of legacy state dirs.
+		// Successes log at info; skipped/failed sources escalate
+		// to PrintWarning so the user notices their pre-upgrade
+		// audit log / workspace state did not move.
 		notes, migrErr := naming.MigrateLegacyStateDirs()
 		if migrErr != nil {
 			output.PrintWarning(i18n.T("warning.state_migration_failed", migrErr.Error()))

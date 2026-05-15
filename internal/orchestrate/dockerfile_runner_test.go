@@ -258,19 +258,17 @@ func TestDockerfileRunner_Logs_CommandFails(t *testing.T) {
 	}
 }
 
-// TestDockerfileRunner_Logs_WritesToStdout pins issue 077: Logs used
-// to assign `cmd.Stdout = exec.CommandContext(ctx, "echo").Stdout`,
-// which is always nil, so `raioz logs <svc>` returned zero bytes
-// even when the underlying docker logs invocation produced output.
-// The fake docker script prints a marker; capturing os.Stdout
-// during r.Logs proves the wiring routes through.
+// Regression: Logs previously assigned cmd.Stdout from a freshly
+// constructed (always-nil) exec.Cmd, so output was silently dropped.
+// Capture os.Stdout and assert a marker from the fake docker reaches
+// the user.
 func TestDockerfileRunner_Logs_WritesToStdout(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not available")
 	}
 
 	dir := t.TempDir()
-	const marker = "raioz-077-fake-docker-output"
+	const marker = "raioz-dockerfile-logs-marker"
 	script := dir + "/fake-docker.sh"
 	if err := writeExecutable(script, "#!/bin/sh\necho "+marker+"\n"); err != nil {
 		t.Fatalf("writeExecutable: %v", err)

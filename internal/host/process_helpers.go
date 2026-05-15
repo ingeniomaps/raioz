@@ -264,11 +264,9 @@ func LauncherDrainTimeout() time.Duration {
 	return durationFromEnv(launcherDrainTimeoutEnv, 30*time.Second)
 }
 
-// SiblingSpawnTimeout — upper bound on how long the parent waits
-// for a mode-A sibling `raioz up` invocation before deadlining
-// the child context. 10-minute default is 5x the typical 30s–2m
-// spawn; bump RAIOZ_SIBLING_TIMEOUT for projects with heavy
-// `pre:` hooks. Issue 072.
+// SiblingSpawnTimeout caps each mode-A `raioz up` child. Default 10m
+// is 5× the typical 30s–2m spawn; bump RAIOZ_SIBLING_TIMEOUT for
+// projects with heavy `pre:` hooks.
 func SiblingSpawnTimeout() time.Duration {
 	return durationFromEnv(siblingSpawnTimeoutEnv, 10*time.Minute)
 }

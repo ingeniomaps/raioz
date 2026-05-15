@@ -18,14 +18,11 @@ import (
 
 // Manager implements interfaces.ProxyManager using Caddy as a Docker container.
 type Manager struct {
-	// mu guards the routes map AND the configuration fields below
-	// (domain, tlsMode, bindHost, projectName, workspaceName,
-	// networkSubnet, containerIP, publish). Writers (AddRoute /
-	// RemoveRoute / Configure) take the write lock; readers iterate
-	// via snapshotRoutes() so docker-exec calls in Start/Reload
-	// don't hold the lock for the full subprocess duration.
-	// ADR-028 / issue 080.
-	mu    sync.RWMutex
+	// mu guards routes AND every config field below (domain, tlsMode,
+	// bindHost, projectName, workspaceName, networkSubnet, containerIP,
+	// publish). Readers iterate via snapshotRoutes() so subprocess
+	// calls in Start/Reload don't hold mu. ADR-028.
+	mu          sync.RWMutex
 	routes      map[string]interfaces.ProxyRoute
 	networkName string
 	projectName string // used for per-project container/volume naming

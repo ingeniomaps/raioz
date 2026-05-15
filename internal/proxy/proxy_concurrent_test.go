@@ -94,14 +94,9 @@ func TestManager_RoutesAddRemoveConcurrent(t *testing.T) {
 	wg.Wait()
 }
 
-// TestConfigureConcurrentWithReaders pins issue 080: Configure
-// writes 8 fields (domain, tlsMode, bindHost, projectName,
-// workspaceName, networkSubnet, containerIP, publish) that
-// AddRoute / IsPublished / GetURL also touch. The shared mu must
-// keep the two concurrent paths race-free.
-//
-// `go test -race` is the assertion. Without the lock in Configure,
-// this trips the race detector deterministically.
+// Configure writes 8 config fields that other paths read. `go test
+// -race` is the assertion: without the lock, this trips the
+// detector deterministically.
 func TestConfigureConcurrentWithReaders(t *testing.T) {
 	m := NewManager(t.TempDir())
 	publish := true
@@ -150,11 +145,9 @@ func TestConfigureConcurrentWithReaders(t *testing.T) {
 	wg.Wait()
 }
 
-// TestGenerateCaddyfileContent_Deterministic pins issue 074:
-// map iteration order in Go is randomized, so without sortedRoutes
-// the generated Caddyfile differs run-to-run even with identical
-// inputs. 50 iterations is enough to surface the randomness in
-// practice (Go's runtime intentionally shuffles each map start).
+// Map iteration order is randomized; without sortedRoutes the
+// Caddyfile diffs across identical runs. 50 iterations is plenty
+// to surface the shuffling.
 func TestGenerateCaddyfileContent_Deterministic(t *testing.T) {
 	m := NewManager(t.TempDir())
 	publish := true

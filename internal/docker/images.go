@@ -57,7 +57,6 @@ func PullImage(image string) error {
 func PullImageWithContext(ctx context.Context, image string) error {
 	logging.Info("Pulling Docker image", "image", image)
 
-	// Retry logic for docker pull (issue 078 removed the CB).
 	retryConfig := resilience.DockerRetryConfig()
 
 	pullOp := fmt.Sprintf("docker pull %s", image)

@@ -62,10 +62,8 @@ func sanitizeDomainForPath(domain string) string {
 // <domain> and *.<domain> before we accept it — defends against partial or
 // corrupted files surviving a previous crash.
 //
-// `ctx` cancels in-flight `mkcert -install` / cert generation. macOS
-// keychain prompts that never get answered used to hang the parent
-// indefinitely (issue 082); now a parent Ctrl+C propagates and the
-// child mkcert is killed.
+// ctx cancels in-flight mkcert subprocesses — protects against
+// unattended macOS keychain prompts that would otherwise hang.
 func EnsureCerts(ctx context.Context, domain string) (string, error) {
 	if domain == "" {
 		domain = "localhost"
