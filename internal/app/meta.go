@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"raioz/internal/config"
+	"raioz/internal/host"
 	"raioz/internal/output"
 )
 
@@ -237,6 +238,18 @@ func (m *MetaRunner) runSingle(
 
 	printMetaBanner(stdout, subCmd, p)
 
+	cmd := m.buildSubCmd(ctx, binary, subCmd, p, extraArgs, extraEnv, stdout, stderr)
+	err := cmd.Run()
+	return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
+}
+
+// buildSubCmd constructs the *exec.Cmd for a sub-project invocation.
+// Split out from runSingle so tests can inspect SysProcAttr without
+// running the binary.
+func (m *MetaRunner) buildSubCmd(
+	ctx context.Context, binary, subCmd string, p config.MetaProject,
+	extraArgs, extraEnv []string, stdout, stderr *os.File,
+) *exec.Cmd {
 	args := append([]string{subCmd}, extraArgs...)
 	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Dir = p.Path
@@ -247,9 +260,11 @@ func (m *MetaRunner) runSingle(
 		env = append(env, extraEnv...)
 	}
 	cmd.Env = env
-
-	err := cmd.Run()
-	return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
+	// Router + consumer subprocesses must die with the meta parent;
+	// otherwise a SIGKILL leaves N raioz children each mid-`docker
+	// compose up`, each still holding their own project locks.
+	host.AttachPdeathsig(cmd)
+	return cmd
 }
 
 func reverseMetaProjects(in []config.MetaProject) []config.MetaProject {

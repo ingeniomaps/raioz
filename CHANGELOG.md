@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Meta runner now wires `Pdeathsig` on its sub-processes**
+  (architecture review of v0.8.0). `MetaRunner.runSingle` shelled
+  out to router + consumer raioz instances without setting
+  `Pdeathsig`, so a SIGKILL on the meta parent orphaned the whole
+  tree — each child still holding its own project lock,
+  potentially mid-`docker compose up`. The Pdeathsig wiring moved
+  from `internal/app/upcase/sibling_spawn_*` to
+  `internal/host.AttachPdeathsig`; both call sites (sibling spawn
+  + meta runner) now share it. Linux + non-Linux tests pin the
+  wiring at both packages.
+
 ## [0.8.0] - 2026-05-15
 
 ### Added
