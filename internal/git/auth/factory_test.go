@@ -33,8 +33,6 @@ func TestProviderFor_UnknownReturnsError(t *testing.T) {
 		"INHERIT",
 		"gh ",
 		" gh",
-		"gh",
-		"ssh",
 	}
 	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {

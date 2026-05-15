@@ -19,10 +19,14 @@ func ProviderFor(name string) (Provider, error) {
 		return &strictProvider{}, nil
 	case "inherit":
 		return &inheritProvider{}, nil
+	case "gh":
+		return &ghProvider{}, nil
+	case "ssh":
+		return &sshProvider{}, nil
 	default:
 		return nil, fmt.Errorf(
 			"unknown auth provider %q (valid: omit for default, or "+
-				"`inherit`; gh/ssh land in later commits of issue 067)",
+				"one of: inherit, gh, ssh)",
 			name,
 		)
 	}
