@@ -144,7 +144,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 
 	// Ensure mkcert certificates exist before starting
 	if m.tlsMode == "mkcert" {
-		certsDir, err := EnsureCerts(m.domain)
+		certsDir, err := EnsureCerts(ctx, m.domain)
 		if err != nil {
 			logging.WarnWithContext(ctx, "Failed to generate mkcert certificates", "error", err.Error())
 		} else if certsDir != "" {

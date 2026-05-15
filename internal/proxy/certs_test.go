@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,7 +41,7 @@ func TestEnsureCerts_AlreadyExist(t *testing.T) {
 		[]string{"localhost", "*.localhost"})
 	_ = os.WriteFile(filepath.Join(domainDir, keyFileName), []byte("fake key"), 0o644)
 
-	got, err := EnsureCerts("localhost")
+	got, err := EnsureCerts(context.Background(), "localhost")
 	if err != nil {
 		t.Fatalf("EnsureCerts: %v", err)
 	}
@@ -60,7 +61,7 @@ func TestEnsureCerts_DefaultDomain(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(domainDir, keyFileName), []byte("x"), 0o644)
 
 	// Empty domain should default to "localhost"
-	got, err := EnsureCerts("")
+	got, err := EnsureCerts(context.Background(), "")
 	if err != nil {
 		t.Fatalf("EnsureCerts: %v", err)
 	}

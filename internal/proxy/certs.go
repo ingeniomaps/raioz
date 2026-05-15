@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -60,7 +61,12 @@ func sanitizeDomainForPath(domain string) string {
 // existing cert is parsed and its SAN list is verified to cover both
 // <domain> and *.<domain> before we accept it — defends against partial or
 // corrupted files surviving a previous crash.
-func EnsureCerts(domain string) (string, error) {
+//
+// `ctx` cancels in-flight `mkcert -install` / cert generation. macOS
+// keychain prompts that never get answered used to hang the parent
+// indefinitely (issue 082); now a parent Ctrl+C propagates and the
+// child mkcert is killed.
+func EnsureCerts(ctx context.Context, domain string) (string, error) {
 	if domain == "" {
 		domain = "localhost"
 	}
@@ -89,11 +95,11 @@ func EnsureCerts(domain string) (string, error) {
 
 	// Install root CA (if not already done). Best-effort — mkcert is
 	// idempotent and returns non-zero when the CA is already trusted.
-	install := exec.Command("mkcert", "-install")
+	install := exec.CommandContext(ctx, "mkcert", "-install")
 	_ = install.Run()
 
 	// Generate wildcard cert for the domain
-	gen := exec.Command("mkcert",
+	gen := exec.CommandContext(ctx, "mkcert",
 		"-cert-file", certPath,
 		"-key-file", keyPath,
 		domain, "*."+domain,

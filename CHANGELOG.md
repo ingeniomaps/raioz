@@ -102,6 +102,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **`mkcert` invocations now run under the caller's context**
+  (issue 082). `EnsureCerts` used `exec.Command` instead of
+  `exec.CommandContext`, so a macOS keychain prompt that never
+  got answered would hang the parent indefinitely — Ctrl+C
+  killed the raioz process but not the orphan mkcert. Now the
+  caller's context kills the child cleanly, consistent with
+  ADR-026's signal-handling umbrella. Signature changed:
+  `EnsureCerts(ctx, domain)` instead of `EnsureCerts(domain)`.
 - **Sibling spawn (ADR-008 mode A) gets a timeout** (issue 072).
   `spawnSibling` used to call `cmd.Wait()` unbounded — a hung
   child raioz held the parent forever. Capped at

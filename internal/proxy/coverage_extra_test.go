@@ -241,7 +241,7 @@ func TestEnsureCerts_HomeDirUnavailable(t *testing.T) {
 		[]string{"custom.domain", "*.custom.domain"})
 	os.WriteFile(filepath.Join(domainDir, keyFileName), []byte("key"), 0o644)
 
-	got, err := EnsureCerts("custom.domain")
+	got, err := EnsureCerts(context.Background(), "custom.domain")
 	if err != nil {
 		t.Fatalf("EnsureCerts: %v", err)
 	}

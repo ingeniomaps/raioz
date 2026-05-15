@@ -421,7 +421,7 @@ exit 0
 `)
 	t.Setenv("PATH", bin)
 
-	got, err := EnsureCerts("localhost")
+	got, err := EnsureCerts(context.Background(), "localhost")
 	if err != nil {
 		t.Fatalf("EnsureCerts: %v", err)
 	}
@@ -451,7 +451,7 @@ exit 2
 `)
 	t.Setenv("PATH", bin)
 
-	got, err := EnsureCerts("custom.local")
+	got, err := EnsureCerts(context.Background(), "custom.local")
 	if err == nil {
 		t.Fatal("expected error when mkcert fails")
 	}

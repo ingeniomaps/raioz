@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -320,7 +321,7 @@ func TestEnsureCerts_NoMkcert(t *testing.T) {
 	// Ensure PATH does not contain mkcert
 	t.Setenv("PATH", "/nonexistent")
 
-	got, err := EnsureCerts("localhost")
+	got, err := EnsureCerts(context.Background(), "localhost")
 	if err != nil {
 		t.Fatalf("EnsureCerts error: %v", err)
 	}
@@ -340,7 +341,7 @@ func TestEnsureCerts_EmptyDomain(t *testing.T) {
 		[]string{"localhost", "*.localhost"})
 	os.WriteFile(filepath.Join(domainDir, keyFileName), []byte("k"), 0o644)
 
-	got, err := EnsureCerts("") // empty domain defaults to "localhost"
+	got, err := EnsureCerts(context.Background(), "") // empty domain defaults to "localhost"
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
