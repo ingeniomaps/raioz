@@ -68,6 +68,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Refactor
 
+- **`raioz proxy status/stop` now i18n-aware** (issue 084).
+  `fmt.Println("Proxy is not configured")` and friends used to
+  bypass both `output.Print*` and the i18n catalog, so
+  `--lang es` rendered mixed English/Spanish. Migrated the
+  three hardcoded strings to `output.PrintInfo` /
+  `PrintSuccess` with new i18n keys (`proxy.not_configured`,
+  `proxy.status_running`, `proxy.status_stopped`). The other
+  CLI files flagged by the issue (env / tunnel / check) print
+  structured data rows that intentionally bypass i18n; left
+  as-is.
 - **`errorlint` ratchet enabled** (issue 083, paso 1). Existing
   25 violations (`%s`-formatted errors, `==`/`!=` against
   errors, type-asserting raw errors) are pinned in
