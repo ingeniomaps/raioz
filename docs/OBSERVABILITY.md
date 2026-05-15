@@ -161,7 +161,7 @@ gap between this matrix and reality.
 | Drift detected vs `.raioz.json` | `warn` | **yes** | — | `[!!]` summary |
 | Conflict resolved by user choice | `info` | **yes** | — | confirmation |
 | Dev-build warning (ADR-021) | — | — | — | stderr warning (once) |
-| Migration of legacy state dir (ADR-022) | `debug` | — | — | — |
+| Migration of legacy state dir (ADR-022) | `info` / `warn` | — | — | `[!!]` on failure (issue 073) |
 
 ### Correlation across `raioz` processes
 

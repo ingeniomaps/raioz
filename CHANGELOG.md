@@ -133,6 +133,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Configuration drift emits one audit event per service**
+  (issue 085). The drift detection in `internal/app/upcase/state.go`
+  used to log a `warn` line and stop there; the
+  `audit.LogDriftDetected` helper was exported with no live
+  call site, so the audit log was missing the historical "when
+  did this project start diverging" signal. Now every drifted
+  service produces one `drift_detected` audit event with the
+  field-level summary, alongside the existing live warning.
 - **Legacy state migration failures are now user-visible**
   (issue 073). `MigrateLegacyStateDirs` (ADR-022) used to send
   both success and failure notes to `logging.Debug`, hidden at
