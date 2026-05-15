@@ -150,6 +150,40 @@ func TestConfigureConcurrentWithReaders(t *testing.T) {
 	wg.Wait()
 }
 
+// TestGenerateCaddyfileContent_Deterministic pins issue 074:
+// map iteration order in Go is randomized, so without sortedRoutes
+// the generated Caddyfile differs run-to-run even with identical
+// inputs. 50 iterations is enough to surface the randomness in
+// practice (Go's runtime intentionally shuffles each map start).
+func TestGenerateCaddyfileContent_Deterministic(t *testing.T) {
+	m := NewManager(t.TempDir())
+	publish := true
+	m.Configure(interfaces.ProxyConfig{
+		Domain:      "acme.localhost",
+		TLSMode:     interfaces.TLSModeLocal,
+		ProjectName: "p",
+		Publish:     &publish,
+	})
+
+	ctx := context.Background()
+	names := []string{"zeta", "alpha", "middle", "gamma", "beta", "delta"}
+	for i, n := range names {
+		_ = m.AddRoute(ctx, interfaces.ProxyRoute{
+			ServiceName: n,
+			Hostname:    n,
+			Target:      n,
+			Port:        8080 + i,
+		})
+	}
+
+	first := m.GenerateCaddyfileContent()
+	for i := 0; i < 50; i++ {
+		if got := m.GenerateCaddyfileContent(); got != first {
+			t.Fatalf("Caddyfile content non-deterministic at iteration %d", i)
+		}
+	}
+}
+
 func nameForKey(g, i int) string {
 	return "svc-" + intToStr(g) + "-" + intToStr(i)
 }

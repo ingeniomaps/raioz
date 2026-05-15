@@ -68,6 +68,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Refactor
 
+- **Caddyfile routes are sorted by hostname** (issue 074).
+  Map iteration order in Go is randomized; without sorting the
+  Caddyfile differed between runs with identical inputs.
+  `loadAllProjectRoutes` already sorted projects and
+  `HostsLine` already sorted hostnames — this closes the
+  intra-project gap. New `TestGenerateCaddyfileContent_Deterministic`
+  pins it.
 - **`raioz proxy status/stop` now i18n-aware** (issue 084).
   `fmt.Println("Proxy is not configured")` and friends used to
   bypass both `output.Print*` and the i18n catalog, so

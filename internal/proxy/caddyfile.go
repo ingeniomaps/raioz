@@ -62,7 +62,13 @@ func (m *Manager) generateCaddyfile() (string, error) {
 				certsDir: m.certsDir,
 				domain:   pp.Domain,
 			}
-			for _, route := range pp.Routes {
+			// Issue 074: sort within a project for diff-clean output.
+			// loadAllProjectRoutes already sorts the outer project slice.
+			perProject := make(map[string]interfaces.ProxyRoute, len(pp.Routes))
+			for _, r := range pp.Routes {
+				perProject[r.ServiceName] = r
+			}
+			for _, route := range sortedRoutes(perProject) {
 				writeRouteBlock(&b, route, pp.Domain, tls)
 				b.WriteString("\n")
 			}
@@ -71,7 +77,8 @@ func (m *Manager) generateCaddyfile() (string, error) {
 		tls := tlsConfig{mode: m.tlsMode, certsDir: m.certsDir, domain: m.domain}
 		// snapshot under RLock — generateCaddyfile runs while
 		// AddRoute may be called from a watcher goroutine. ADR-028.
-		for _, route := range m.snapshotRoutes() {
+		// Sort by hostname for diff-clean output. Issue 074.
+		for _, route := range sortedRoutes(m.snapshotRoutes()) {
 			writeRouteBlock(&b, route, m.domain, tls)
 			b.WriteString("\n")
 		}
@@ -149,7 +156,7 @@ func writeRouteBlock(b *strings.Builder, route interfaces.ProxyRoute, domain str
 func (m *Manager) GenerateCaddyfileContent() string {
 	var b strings.Builder
 	tls := tlsConfig{mode: m.tlsMode, certsDir: m.certsDir, domain: m.domain}
-	for _, route := range m.snapshotRoutes() {
+	for _, route := range sortedRoutes(m.snapshotRoutes()) {
 		writeRouteBlock(&b, route, m.domain, tls)
 		b.WriteString("\n")
 	}
