@@ -29,6 +29,7 @@ func (uc *UseCase) mergeDeps(oldDeps, deps *models.Deps, currentProjectDir strin
 
 	merged := &models.Deps{
 		SchemaVersion: deps.SchemaVersion,
+		SourceFormat:  deps.SourceFormat,
 		Workspace:     deps.Workspace,
 		Network:       deps.Network,
 		Project:       deps.Project,

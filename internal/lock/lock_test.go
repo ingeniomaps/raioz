@@ -1,9 +1,11 @@
 package lock
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"raioz/internal/workspace"
 )
@@ -186,5 +188,47 @@ func TestLockFileContent(t *testing.T) {
 	// Verify it contains PID
 	if len(content) < 4 {
 		t.Error("Lock file content seems too short")
+	}
+}
+
+// Lock with live PID but mtime past staleLockMaxAge must be swept
+// (PID-reuse defense).
+func TestAcquire_AgeBasedStaleEviction(t *testing.T) {
+	tmpDir := t.TempDir()
+	ws := &workspace.Workspace{Root: tmpDir}
+	lockPath := filepath.Join(tmpDir, lockFileName)
+
+	// PID = current process so isProcessRunning returns true;
+	// mtime backdated so the age check fires.
+	content := fmt.Sprintf("pid=%d\ntimestamp=%s\n",
+		os.Getpid(), time.Now().Add(-48*time.Hour).Format(time.RFC3339))
+	if err := os.WriteFile(lockPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("plant lock: %v", err)
+	}
+	stale := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(lockPath, stale, stale); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+
+	lock, err := Acquire(ws)
+	if err != nil {
+		t.Fatalf("Acquire must sweep an aged lock even with live PID; got %v", err)
+	}
+	t.Cleanup(func() { _ = lock.Release() })
+}
+
+// Freshly-acquired lock must NOT be evicted by the age check.
+func TestAcquire_RecentLockHeld(t *testing.T) {
+	tmpDir := t.TempDir()
+	ws := &workspace.Workspace{Root: tmpDir}
+
+	first, err := Acquire(ws)
+	if err != nil {
+		t.Fatalf("first acquire: %v", err)
+	}
+	t.Cleanup(func() { _ = first.Release() })
+
+	if _, err := Acquire(ws); err == nil {
+		t.Fatalf("second acquire should fail while the first is held")
 	}
 }

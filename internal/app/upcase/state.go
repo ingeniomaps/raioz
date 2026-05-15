@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"raioz/internal/audit"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
@@ -126,6 +127,16 @@ func (uc *UseCase) saveState(
 			driftSummary := root.FormatDrifts(drifts)
 			logging.Warn("Configuration drift detected", "drifts_count", len(drifts))
 			logging.Debug("Drifts", "drifts", driftSummary)
+			// Audit-log per drifted service so the timeline survives
+			// past the in-process warning.
+			for _, d := range drifts {
+				summary := make([]string, len(d.Differences))
+				for i, change := range d.Differences {
+					summary[i] = fmt.Sprintf("%s.%s: %q → %q",
+						change.Type, change.Field, change.OldValue, change.NewValue)
+				}
+				_ = audit.LogDriftDetected(ctx, d.ServiceName, d.ServicePath, summary)
+			}
 		}
 	}
 

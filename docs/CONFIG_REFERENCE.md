@@ -197,6 +197,31 @@ warnings and lock the expected schema.
 
 ---
 
+## Legacy `.raioz.json` (deprecated)
+
+`.raioz.json` was the original config format. `raioz.yaml` superseded
+it; the JSON loader is on a removal ramp documented in ADR-038.
+
+| Release | Behavior on `.raioz.json` |
+| ------- | ------------------------- |
+| v0.5.x and earlier | Loads silently. Field-level deprecation warnings only (`namespace`, service `type`, infra `type`). |
+| **v0.7 (current)** | Loads with a loud one-shot banner: "`.raioz.json` is deprecated — run `raioz migrate yaml` to convert. Support is removed in v0.8 (see ADR-038)." Banner fires once per process. |
+| v0.8 (planned) | Public loader returns a hard error. `raioz migrate yaml` keeps reading JSON through a private migration loader. |
+| v1.0 (planned) | JSON loader deleted. `raioz migrate yaml` ships with its own mini-loader; no other code path can read `.raioz.json`. |
+
+### Migrating today
+
+```bash
+raioz migrate yaml                  # reads .raioz.json, writes raioz.yaml
+raioz migrate yaml --from old.json -o new.yaml  # explicit paths
+```
+
+The command preserves project name, services, and infra. Field-level
+deprecations inside the JSON (e.g. `namespace`, `type`) are dropped
+during migration — they had been ignored at runtime since v0.4.x.
+
+---
+
 ## Service config
 
 Services are local code you're developing. Raioz detects the runtime
@@ -626,6 +651,74 @@ raioz down                            # tears down everything declared
 
 ---
 
+## Router project (`router:`)
+
+Since v0.8 (ADR-037). Replaces the bundled Caddy with a sibling raioz
+project that owns workspace edge routing — useful for teams whose
+production edge is nginx, HAProxy, Traefik, or Envoy rather than Caddy.
+
+```yaml
+version: "1"
+workspace: hypixo
+kind: meta
+
+router:
+  project: ./gateway   # path to another raioz project, relative to this file
+
+projects:
+  - path: ./api
+  - path: ./web
+  - path: ./gateway    # the router MAY also appear in projects:
+```
+
+| Field            | Type              | Default | Effect |
+|------------------|-------------------|---------|--------|
+| `router.project` | string (required) | —       | Path to the sibling raioz project that serves as the workspace edge router. Must contain a `raioz.yaml`. May overlap with an entry in `projects:`. |
+
+When `router:` is declared, `raioz up` (meta only, in v0.8):
+
+1. Brings the router project up **first**, before any consumer. A
+   non-zero exit from the router aborts the whole up; there is no
+   Caddy fallback.
+2. Skips the bundled Caddy on every consumer sub-project. The decision
+   surfaces as a single info line per consumer:
+   `Using external router project (ADR-037); bundled Caddy skipped.`
+3. Tears the router down **last** on `raioz down`, after every
+   consumer has stopped.
+
+The contract between raioz and the router project is intentionally
+minimal in V1: the router owns its own templates / configuration
+files. There is no auto-generated routing config and no service-
+discovery contract — that surface is deferred to V2 once a second
+concrete case justifies the design.
+
+### `--router-off`
+
+`raioz up --router-off` bypasses the router phase for a single run.
+The bundled Caddy comes back up as before v0.8. Useful when debugging
+a routing issue in isolation, or when running locally without the
+router project checked out. No persistent workspace preference — the
+flag applies only to the current invocation.
+
+### Constraints and caveats
+
+- The router path is resolved relative to the meta `raioz.yaml`. It
+  may legitimately escape the meta directory (sibling-project rules
+  from ADR-008 apply) but never reach a system directory like `/etc`
+  or `/root` (path-safety H2).
+- Target existence is checked at **up time**, not at parse time.
+  Static analyzers and fixtures may reference a router path that
+  isn't checked out yet without failing the loader.
+- The router project gets the normal `raioz up` lifecycle for its
+  own contents (services, dependencies, hooks). Don't put `proxy:
+  <domain>` in the router project's own raioz.yaml — it IS the proxy,
+  not a service behind one.
+- A `proxy:` block in a consumer sub-yaml is informational under
+  `router:`. The router project owns routing; consumer `proxy:` fields
+  are ignored. V2 may consume them as inputs to label-based discovery.
+
+---
+
 ## Docker resource naming
 
 Service containers use a per-project name; dependencies in a workspace
@@ -701,6 +794,7 @@ values warn once and fall back to the default — surfaced by
 |-----|---------|--------|
 | `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the launcher's container to appear. |
 | `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container before invoking `stop:`. |
+| `RAIOZ_SIBLING_TIMEOUT` | `10m` | Upper bound on each mode-A sibling spawn (ADR-008). Hung sibling deadlines out with a "set RAIOZ_SIBLING_TIMEOUT higher" hint instead of blocking forever. Issue 072. |
 
 Adding a new duration env var? Append it to
 `host.KnownDurationEnvs()` so `raioz doctor` picks it up — same

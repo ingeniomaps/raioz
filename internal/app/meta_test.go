@@ -63,7 +63,7 @@ func TestMetaRunner_UpHappyPath(t *testing.T) {
 	cfg, _ := makeMetaProjects(t, "keycloak", "api", "ui")
 	r := &MetaRunner{Binary: bin}
 
-	summary := r.Up(context.Background(), cfg, nil, nil)
+	summary := r.Up(context.Background(), cfg, nil, nil, MetaUpOptions{})
 	if len(summary) != 3 {
 		t.Fatalf("expected 3 summary entries, got %d", len(summary))
 	}
@@ -86,7 +86,7 @@ func TestMetaRunner_UpFailingRequiredAborts(t *testing.T) {
 	cfg, _ := makeMetaProjects(t, "keycloak", "api", "ui")
 	r := &MetaRunner{Binary: bin}
 
-	summary := r.Up(context.Background(), cfg, nil, nil)
+	summary := r.Up(context.Background(), cfg, nil, nil, MetaUpOptions{})
 	if len(summary) != 1 {
 		t.Errorf("expected only the failing sub in summary, got %d entries: %+v",
 			len(summary), summary)
@@ -103,7 +103,7 @@ func TestMetaRunner_UpFailingOptionalContinues(t *testing.T) {
 	cfg.Projects[1].Optional = true
 
 	r := &MetaRunner{Binary: failing}
-	summary := r.Up(context.Background(), cfg, nil, nil)
+	summary := r.Up(context.Background(), cfg, nil, nil, MetaUpOptions{})
 
 	// All 3 subs are recorded — the optional one as Skipped, the others as
 	// failures (binary fails for everyone in this test). HasFailures should

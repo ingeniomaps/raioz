@@ -16,6 +16,8 @@ import "raioz/internal/domain/interfaces"
 //     unchanged from previous Configure.
 //   - nil Publish → unchanged (default true).
 func (m *Manager) Configure(cfg interfaces.ProxyConfig) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if cfg.Domain != "" {
 		m.domain = cfg.Domain
 	}
@@ -47,8 +49,10 @@ func caddyTLSValue(mode interfaces.TLSMode) string {
 }
 
 // IsPublished reports whether the proxy will bind host ports. Kept
-// public because test fixtures and the down flow consult it; not
-// deprecated.
+// public because test fixtures and the down flow consult it. Reads
+// under mu so a concurrent Configure publishes a consistent value.
 func (m *Manager) IsPublished() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.publish
 }

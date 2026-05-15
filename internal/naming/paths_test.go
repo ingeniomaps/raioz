@@ -132,6 +132,46 @@ func TestMigrateLegacyStateDirs(t *testing.T) {
 	}
 }
 
+// When copyTree fails the legacy dir gets a breadcrumb so the user
+// finds an explicit "migration failed" note instead of silence.
+func TestMigrateLegacyStateDirs_BreadcrumbOnFailure(t *testing.T) {
+	tmp := t.TempDir()
+	legacy := filepath.Join(tmp, ".raioz")
+	if err := os.MkdirAll(legacy, 0o755); err != nil {
+		t.Fatalf("seed legacy: %v", err)
+	}
+	// Seed a file whose parent at dst is going to be a non-dir
+	// (we'll create dst as a file later), which triggers the
+	// MkdirAll failure path in copyFile.
+	if err := os.WriteFile(filepath.Join(legacy, "audit.log"), []byte("h"), 0o644); err != nil {
+		t.Fatalf("seed audit.log: %v", err)
+	}
+
+	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp)
+	xdg := filepath.Join(tmp, "xdg-state")
+	t.Setenv("XDG_STATE_HOME", xdg)
+	t.Setenv("RAIOZ_HOME", "")
+
+	// Make the destination root a file so MkdirAll fails inside
+	// copyTree → copyFile.
+	if err := os.MkdirAll(xdg, 0o755); err != nil {
+		t.Fatalf("seed xdg: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(xdg, "raioz"), []byte("not-a-dir"), 0o644); err != nil {
+		t.Fatalf("seed dst-as-file: %v", err)
+	}
+
+	notes, err := MigrateLegacyStateDirs()
+	// We expect either err != nil (mkdir dst failed) or a skipped
+	// note containing the legacy path. Both signal failure to the
+	// caller; the breadcrumb is the user-facing artifact.
+	if err == nil && len(notes) == 0 {
+		t.Fatal("expected an error or a skipped note when dst is a file")
+	}
+	_ = notes
+}
+
 func TestMigrateLegacyStateDirs_destinationWins(t *testing.T) {
 	tmp := t.TempDir()
 

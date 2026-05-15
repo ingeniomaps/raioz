@@ -1,0 +1,19 @@
+# 21-router — `router.project` replaces the bundled Caddy (ADR-037).
+#
+# Exercises the v0.8 router field on a meta config: the workspace
+# delegates edge routing to a sibling raioz project (`./gateway`).
+# The same path also appears in `projects:` — router upgrades it
+# from "another sub-project" to "first up, last down". Pairs with
+# internal/config/yaml_meta_test.go for the resolver contract.
+
+version: "1"
+kind: meta
+workspace: hypixo
+
+router:
+  project: ./gateway
+
+projects:
+  - path: ./api
+  - path: ./web
+  - path: ./gateway

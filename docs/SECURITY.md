@@ -206,6 +206,34 @@ Reconsider any of these if a concrete incident demands them. The
 full case-by-case rationale is in
 [ADR-036](decisions/036-trust-model-yaml.md).
 
+### Transitive trust via sibling projects (mode A)
+
+`dependencies.<n>.project: ../sibling` (ADR-008 mode A) spawns a
+recursive `raioz up` in `../sibling`. The sibling's `pre:` /
+`preUp:` / `post:` hooks run as part of the parent invocation,
+even though the developer never opened the sibling's
+`raioz.yaml`. The threat model treats the sibling yaml as
+**code-equivalent** to the local yaml: the same H1/H2/H3
+gates from ADR-036 apply to the child's own yaml when it
+loads, but the parent does **not** preflight the sibling
+before spawning.
+
+The implication is symmetric with `make -C ../sibling` or
+`npm --prefix ../sibling run x`: by declaring the dependency,
+you are asserting trust in the sibling project and everyone
+who can write to it.
+
+Mitigations:
+
+- **Use mode B (`siblingProject:` + `image:`) when you do not
+  trust the sibling fully.** Mode B pulls the image by default
+  and only delegates to the sibling raioz when the developer
+  themselves brought it up locally. No transitive spawn.
+- **Audit `project:` paths during yaml review** the same way
+  you audit a new `make` target or shell script. ADR-040 keeps
+  the case-by-case rationale and lists what raioz deliberately
+  does NOT do (no sibling sandboxing, no script classifier).
+
 ## Sensitive data raioz handles
 
 ### TLS certificates (mkcert mode)

@@ -162,6 +162,26 @@ The child still takes the workspace lock when it touches the
 routes dir — that lock is per-workspace, and the parent's
 project lock is per-project. They don't collide.
 
+### Failure mode — parent SIGKILL and stale project lock
+
+`internal/lock/lock.go` uses `O_EXCL` + PID file (not `flock`) for
+portability with Windows. If a raioz process is SIGKILL'd the
+file survives. The acquisition path treats the lock as stale and
+sweeps it in two cases:
+
+1. **PID no longer exists** — `isProcessRunning` returns false
+   (`os.FindProcess` + `Signal(0)`). Common case.
+2. **Lock file older than `staleLockMaxAge` (24h)** — defense
+   against PID wraparound landing on a non-raioz process that
+   keeps the PID alive. A legitimate raioz session, including
+   `raioz dashboard` watch mode, rarely survives that long, so
+   the bound is generous in practice. Issue 075.
+
+The workspace proxy lock (`flock` via
+`internal/proxy/workspace_lock.go`) does not need this defense —
+the kernel releases the advisory lock automatically when the
+process holding it terminates, regardless of signal.
+
 ### Test infrastructure
 
 Cross-process tests for the workspace lock live in

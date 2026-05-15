@@ -196,6 +196,22 @@ cd ~/work/e-commerce && raioz up
 cd ~/work/admin-panel && raioz up   # joins the shared acme-corp proxy
 ```
 
+### Bring your own edge (router projects)
+
+If your production edge is nginx, HAProxy, Traefik, or Envoy, you can swap raioz's bundled Caddy for a sibling raioz project that owns workspace routing. Declare it in your meta config:
+
+```yaml
+kind: meta
+workspace: hypixo
+router:
+  project: ./gateway   # another raioz project — runs first, dies last
+projects:
+  - path: ./api
+  - path: ./web
+```
+
+`raioz up` brings the router up first, then starts consumers with the bundled Caddy suppressed. `--router-off` reverts to Caddy for a single run. See [docs/CONFIG_REFERENCE.md § Router project](docs/CONFIG_REFERENCE.md#router-project-router) for the full contract.
+
 ### Multi-workspace parallelism (no port contention)
 
 Set `proxy.publish: false` to skip binding host ports 80/443. The proxy becomes reachable only via its container IP, so multiple workspaces run in parallel, each on its own subnet. Users map hostnames via `/etc/hosts`:

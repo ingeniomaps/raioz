@@ -54,37 +54,92 @@ func (s MetaSummaryList) HasFailures() bool {
 	return false
 }
 
+// envRouterActive is the env var meta sets on consumer sub-up invocations
+// when an ADR-037 router project is running first. The consumer's upcase
+// reads it and suppresses the bundled Caddy. Defined here (not in
+// internal/env) so the meta runner has no upward dependency.
+const envRouterActive = "RAIOZ_ROUTER_ACTIVE"
+
+// MetaUpOptions tunes a meta up run. RouterOff bypasses the ADR-037 router
+// phase even when the config declares `router:`, restoring pre-v0.8
+// behavior for debugging. Future per-run knobs land here without
+// breaking callers.
+type MetaUpOptions struct {
+	RouterOff bool
+}
+
 // Up runs `raioz up` in each sub-project, in order. Optional subs that fail
 // are reported but don't abort the meta run. activeProfiles narrows the
 // iteration to projects that have no Profiles declared (always-on) or
-// whose Profiles intersect the list.
+// whose Profiles intersect the list. When cfg.Router is non-nil and
+// opts.RouterOff is false, the router project comes up first; consumers
+// then run with RAIOZ_ROUTER_ACTIVE=1 so they skip their bundled Caddy.
 func (m *MetaRunner) Up(
 	ctx context.Context, cfg *config.MetaConfig,
-	args, activeProfiles []string,
+	args, activeProfiles []string, opts MetaUpOptions,
 ) MetaSummaryList {
-	return m.run(ctx, cfg, "up", args, activeProfiles, false)
+	var results MetaSummaryList
+	var consumerEnv []string
+	skipPath := ""
+
+	if cfg.Router != nil && !opts.RouterOff {
+		// Phase 1: router first. The router project is treated as a
+		// non-optional sub — a failure aborts the whole meta up. No
+		// RAIOZ_ROUTER_ACTIVE here: the router project itself owns the
+		// edge routing (it IS the proxy), so its own Caddy/whatever
+		// must come up normally.
+		entry := m.runSingle(ctx, "up", *cfg.Router, args, nil)
+		results = append(results, entry)
+		if entry.Err != nil {
+			return results
+		}
+		consumerEnv = []string{envRouterActive + "=1"}
+		skipPath = cfg.Router.Path
+	}
+
+	consumers := m.run(
+		ctx, cfg, "up", args, activeProfiles, false, consumerEnv, skipPath,
+	)
+	return append(results, consumers...)
 }
 
 // Down runs `raioz down` in each sub-project in REVERSE order. Errors are
 // always tolerated — teardown should be best-effort. Profiles are
 // deliberately ignored here so a sub-project started under a different
 // `--meta-profile` set still gets cleaned up; you can't strand a service
-// you brought up earlier.
+// you brought up earlier. When cfg.Router is non-nil the router goes
+// down LAST — every consumer must be torn down before its edge dies.
 func (m *MetaRunner) Down(
 	ctx context.Context, cfg *config.MetaConfig, args []string,
 ) MetaSummaryList {
-	return m.run(ctx, cfg, "down", args, nil, true)
+	skipPath := ""
+	if cfg.Router != nil {
+		skipPath = cfg.Router.Path
+	}
+	results := m.run(ctx, cfg, "down", args, nil, true, nil, skipPath)
+	if cfg.Router != nil {
+		results = append(results, m.runSingle(ctx, "down", *cfg.Router, args, nil))
+	}
+	return results
 }
 
 // Status runs `raioz status` in each sub-project, in order. Errors are
 // tolerated so a single missing sub doesn't blank the rest of the report.
 // Respects activeProfiles for symmetry with Up — the report shows what
-// the matching `raioz up` would have started.
+// the matching `raioz up` would have started. When cfg.Router is set the
+// router is reported first, then consumers in declared order.
 func (m *MetaRunner) Status(
 	ctx context.Context, cfg *config.MetaConfig,
 	args, activeProfiles []string,
 ) MetaSummaryList {
-	return m.run(ctx, cfg, "status", args, activeProfiles, false)
+	var results MetaSummaryList
+	skipPath := ""
+	if cfg.Router != nil {
+		results = append(results, m.runSingle(ctx, "status", *cfg.Router, args, nil))
+		skipPath = cfg.Router.Path
+	}
+	rest := m.run(ctx, cfg, "status", args, activeProfiles, false, nil, skipPath)
+	return append(results, rest...)
 }
 
 // shouldIncludeMetaProject decides whether a project participates in this
@@ -109,20 +164,8 @@ func shouldIncludeMetaProject(p config.MetaProject, active []string) bool {
 func (m *MetaRunner) run(
 	ctx context.Context, cfg *config.MetaConfig,
 	subCmd string, extraArgs, activeProfiles []string, reverse bool,
+	extraEnv []string, skipPath string,
 ) MetaSummaryList {
-	binary := m.Binary
-	if binary == "" {
-		binary = os.Args[0]
-	}
-	stdout := m.Stdout
-	if stdout == nil {
-		stdout = os.Stdout
-	}
-	stderr := m.Stderr
-	if stderr == nil {
-		stderr = os.Stderr
-	}
-
 	projects := cfg.Projects
 	if len(activeProfiles) > 0 || !reverse {
 		// Filter by profile for up/status. Down passes activeProfiles=nil
@@ -141,31 +184,26 @@ func (m *MetaRunner) run(
 
 	results := make(MetaSummaryList, 0, len(projects))
 	for _, p := range projects {
-		printMetaBanner(stdout, subCmd, p)
-
-		args := append([]string{subCmd}, extraArgs...)
-		cmd := exec.CommandContext(ctx, binary, args...)
-		cmd.Dir = p.Path
-		cmd.Stdout = stdout
-		cmd.Stderr = stderr
-		// Pass through environment so workspace lookups, paths, etc. work.
-		cmd.Env = os.Environ()
-
-		err := cmd.Run()
-		entry := MetaSummary{Project: p.Name, Path: p.Path, Err: err}
+		if skipPath != "" && p.Path == skipPath {
+			// Router project already handled in the dedicated phase
+			// (Up phase 1 / Down phase 2). Skipping here prevents a
+			// double-up that would race with the dedicated phase.
+			continue
+		}
+		entry := m.runSingle(ctx, subCmd, p, extraArgs, extraEnv)
 		switch {
-		case err == nil:
+		case entry.Err == nil:
 			// success
 		case p.Optional && subCmd == "up":
 			entry.Skipped = true
 			output.PrintWarning(fmt.Sprintf(
-				"meta: optional project %q failed (%s) — continuing", p.Name, err,
+				"meta: optional project %q failed (%s) — continuing", p.Name, entry.Err,
 			))
 		case subCmd == "down" || subCmd == "status":
 			// Best-effort: keep going on remaining subs even if this one
 			// errored. The error is recorded in the summary.
 			output.PrintWarning(fmt.Sprintf(
-				"meta: %s for %q returned %s — continuing", subCmd, p.Name, err,
+				"meta: %s for %q returned %s — continuing", subCmd, p.Name, entry.Err,
 			))
 		default:
 			results = append(results, entry)
@@ -174,6 +212,44 @@ func (m *MetaRunner) run(
 		results = append(results, entry)
 	}
 	return results
+}
+
+// runSingle invokes the raioz binary once for a single sub-project and
+// returns the per-project summary entry. extraEnv is appended to the
+// inherited process environment so callers can layer flags (router
+// active, future per-call signals) without rewriting the whole env.
+func (m *MetaRunner) runSingle(
+	ctx context.Context, subCmd string,
+	p config.MetaProject, extraArgs, extraEnv []string,
+) MetaSummary {
+	binary := m.Binary
+	if binary == "" {
+		binary = os.Args[0]
+	}
+	stdout := m.Stdout
+	if stdout == nil {
+		stdout = os.Stdout
+	}
+	stderr := m.Stderr
+	if stderr == nil {
+		stderr = os.Stderr
+	}
+
+	printMetaBanner(stdout, subCmd, p)
+
+	args := append([]string{subCmd}, extraArgs...)
+	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd.Dir = p.Path
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	env := os.Environ()
+	if len(extraEnv) > 0 {
+		env = append(env, extraEnv...)
+	}
+	cmd.Env = env
+
+	err := cmd.Run()
+	return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
 }
 
 func reverseMetaProjects(in []config.MetaProject) []config.MetaProject {

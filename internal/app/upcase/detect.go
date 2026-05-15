@@ -115,7 +115,9 @@ func buildServiceContext(
 	}
 }
 
-// isYAMLMode returns true if the current config was loaded from a raioz.yaml file.
+// isYAMLMode reads SourceFormat (ADR-039). Inline SchemaVersion
+// literal readers elsewhere are tracked by the dual-flow ratchet
+// and will collapse through SelectFlow.
 func isYAMLMode(deps *models.Deps) bool {
-	return deps.SchemaVersion == "2.0"
+	return deps != nil && deps.SourceFormat == models.SourceFormatYAML
 }

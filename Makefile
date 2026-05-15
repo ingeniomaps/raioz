@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check ci
+.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -124,7 +124,19 @@ check-app-infra-imports: ## Ratchet down app/cli imports of internal/{docker,pro
 	@echo "Checking app-layer infra imports baseline..."
 	@./scripts/lint-app-infra-imports.sh
 
-check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports lint test ## Run all checks
+check-dual-flow: ## Ratchet down inline SchemaVersion readers (issue 069 / ADR-039)
+	@echo "Checking dual-flow readers baseline..."
+	@./scripts/lint-dual-flow.sh
+
+check-install: ## Smoke-test install.sh::verify_sha256 (issue 081)
+	@echo "Checking install.sh verify_sha256..."
+	@./scripts/test-install.sh
+
+check-errorlint: ## Ratchet down errorlint violations (issue 083)
+	@echo "Checking errorlint baseline..."
+	@./scripts/lint-errorlint.sh
+
+check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."

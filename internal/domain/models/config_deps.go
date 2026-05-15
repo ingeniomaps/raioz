@@ -1,9 +1,22 @@
 package models
 
+// SourceFormat marks the on-disk shape the loader produced. Orthogonal
+// to the yaml `version:` field. See ADR-039.
+type SourceFormat string
+
+const (
+	SourceFormatLegacyJSON SourceFormat = "legacy-json"
+	SourceFormatYAML       SourceFormat = "yaml"
+)
+
 // Deps is the canonical raioz project description. Built either from a
 // .raioz.json file (legacy) or from a raioz.yaml via the YAML bridge.
 type Deps struct {
+	// SchemaVersion is the legacy "1.0"/"2.0" discriminator. New code
+	// MUST read SourceFormat instead; SchemaVersion goes away in v1.0
+	// alongside the JSON loader (ADR-038, ADR-039).
 	SchemaVersion      string                `json:"schemaVersion"`
+	SourceFormat       SourceFormat          `json:"-"`                   // canonical discriminator (ADR-039)
 	Workspace          string                `json:"workspace,omitempty"` // Optional workspace name
 	Network            NetworkConfig         `json:"network,omitempty"`   // Network config (shared by workspace)
 	Project            Project               `json:"project"`

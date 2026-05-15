@@ -57,24 +57,19 @@ func PullImage(image string) error {
 func PullImageWithContext(ctx context.Context, image string) error {
 	logging.Info("Pulling Docker image", "image", image)
 
-	// Use circuit breaker and retry logic for docker pull
-	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 
 	pullOp := fmt.Sprintf("docker pull %s", image)
 	return resilience.RetryWithContext(ctx, retryConfig, pullOp, func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, pullOp, func(ctx context.Context) error {
-			// Create context with timeout
-			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerPullTimeout)
-			defer cancel()
+		timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerPullTimeout)
+		defer cancel()
 
-			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "pull", image)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "pull", image)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
-			err := cmd.Run()
-			return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker pull", exectimeout.DockerPullTimeout)
-		})
+		err := cmd.Run()
+		return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker pull", exectimeout.DockerPullTimeout)
 	})
 }
 

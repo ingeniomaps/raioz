@@ -4,9 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
+	"raioz/internal/output"
 )
+
+// warnedJSONDeprecation fires the .raioz.json banner once per process;
+// dependency_assist scans sub-projects via LoadDeps so multiple loads
+// per `raioz up` are normal. ADR-038.
+var warnedJSONDeprecation sync.Once
+
+// ResetJSONDeprecationWarningForTest clears the dedup for tests.
+func ResetJSONDeprecationWarningForTest() {
+	warnedJSONDeprecation = sync.Once{}
+}
 
 // Type aliases keep `config.Foo` callers compiling while the canonical
 // definitions live in internal/domain/models (see ADR-009).
@@ -20,6 +33,13 @@ type (
 	ServiceCommands     = models.ServiceCommands
 	SourceConfig        = models.SourceConfig
 	DockerConfig        = models.DockerConfig
+	SourceFormat        = models.SourceFormat
+)
+
+// Re-exports so callers stay on the config package surface.
+const (
+	SourceFormatLegacyJSON = models.SourceFormatLegacyJSON
+	SourceFormatYAML       = models.SourceFormatYAML
 )
 
 // LegacyProject mirrors the old config shape where network lived inside
@@ -36,6 +56,10 @@ func LoadDeps(path string) (*Deps, []string, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("read config %q: %w", path, err)
 	}
+
+	warnedJSONDeprecation.Do(func() {
+		output.PrintWarning(i18n.T("warning.json_format_deprecated"))
+	})
 
 	warnings, err := CheckDeprecatedFields(data)
 	if err != nil {
@@ -62,6 +86,7 @@ func LoadDeps(path string) (*Deps, []string, error) {
 
 	deps := Deps{
 		SchemaVersion: legacyStruct.SchemaVersion,
+		SourceFormat:  SourceFormatLegacyJSON,
 		Workspace:     legacyStruct.Workspace,
 		Project: Project{
 			Name:     legacyStruct.Project.Name,
@@ -96,6 +121,7 @@ func LoadDepsLegacy(path string) (*Deps, error) {
 func FilterByProfile(deps *Deps, profile string) *Deps {
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
+		SourceFormat:       deps.SourceFormat,
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,
@@ -156,6 +182,7 @@ func FilterByProfiles(deps *Deps, profiles []string) *Deps {
 	}
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
+		SourceFormat:       deps.SourceFormat,
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,

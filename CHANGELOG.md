@@ -6,6 +6,218 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-15
+
+### Added
+
+- **Replaceable edge router** (ADR-037, issue 066). Workspaces
+  can declare `router.project: ./gateway` in a meta config to
+  swap raioz's bundled Caddy for a sibling raioz project that
+  owns edge routing. The router project comes up first
+  (non-optional, abort-on-fail), consumer sub-ups see
+  `RAIOZ_ROUTER_ACTIVE=1` and skip their bundled Caddy via the
+  new `maybeStartProxy` gate, and `raioz down` tears the
+  router down last. `raioz up --router-off` bypasses the
+  branch for debugging. V1 ships without a service-discovery
+  contract from raioz to the router — the router owns its own
+  templates. New corpus fixture `21-router.yaml`, 9 unit tests
+  (`meta_router_test.go` + `router_env_test.go`), end-to-end
+  CI gate via `scripts/integration-test-router.sh` (push-only).
+  Documented in `docs/CONFIG_REFERENCE.md § Router project` and
+  the README "Bring your own edge" section.
+- **`.raioz.json` deprecation banner** (ADR-038, issue 068). The
+  JSON loader now emits a loud one-shot warning the first time
+  it runs in a process: "`.raioz.json` is deprecated — run
+  `raioz migrate yaml` to convert. Support is removed in v0.8."
+  The banner fires through `sync.Once` so a repo with multiple
+  JSON-shaped sub-projects sees the message once per `raioz`
+  invocation instead of once per scanned dir. The published
+  timeline (v0.7 warning → v0.8 hard-error → v1.0 loader
+  deletion) unblocks issue 069 (`isYAMLMode` dual-flow
+  consolidation).
+- **`Deps.SourceFormat` discriminator** (ADR-039, issue 070).
+  A typed `SourceFormat` enum (`"yaml"` / `"legacy-json"`) is
+  now stamped at every loader site (yaml bridge, json loader,
+  auto-detect, test helpers, migrate) and preserved in every
+  clone (filter-by-profile, feature-flag filter, ignore filter,
+  workspace-project-conflict merge). `isYAMLMode` reads the new
+  field; `SchemaVersion`'s magic literals (`"1.0"` / `"2.0"`)
+  remain in seven inline call sites until issue 069 collapses
+  them through `SelectFlow`. SchemaVersion is scheduled for
+  removal in v1.0.
+- **`SelectFlow` helper + dual-flow ratchet** (issue 069). New
+  `internal/app/flow.go` centralizes the YAML/legacy-JSON
+  branching that was duplicated inline across inspection
+  commands. `raioz down` migrated as the proof-of-pattern;
+  remaining six readers stay on the inline check and are
+  tracked in `scripts/dual-flow-baseline.txt`. The
+  `make check-dual-flow` ratchet fails on new readers and lets
+  existing ones leave the baseline as they migrate. Target: all
+  entries gone by v0.8 alongside the JSON loader removal.
+
+### Changed
+
+- `internal/infra/config/loader_impl.go::LoadDeps` no longer
+  appends `.raioz.json is deprecated...` to the warnings slice —
+  the message is now a direct `output.PrintWarning` at the
+  loader source, deduped per process (ADR-038).
+
+### Fixed
+
+- **`raioz logs <svc>` returned 0 bytes for Dockerfile-runtime
+  services** (issue 077). `DockerfileRunner.Logs` was wiring
+  `cmd.Stdout` to the (always-nil) `Stdout` field of a freshly
+  constructed `exec.Cmd`, so every byte from `docker logs` was
+  discarded. Now wires to `os.Stdout` / `os.Stderr` the way the
+  host runner does. New regression test pins the capture.
+
+### Security
+
+- **`install.sh` verifies the SHA-256 checksum of the downloaded
+  archive** before extracting (issue 081). Previously the
+  installer ignored the `checksums.txt` that goreleaser already
+  publishes with every release. A poisoned tarball would have
+  installed silently. The installer now fetches `checksums.txt`,
+  finds the exact-name entry for the archive, and hard-fails
+  on missing/mismatched checksums. `scripts/test-install.sh`
+  exercises match / missing / mismatch / substring-poisoning
+  cases; wired into `make check-install` and CI lint.
+
+### Refactor
+
+- **Caddyfile routes are sorted by hostname** (issue 074).
+  Map iteration order in Go is randomized; without sorting the
+  Caddyfile differed between runs with identical inputs.
+  `loadAllProjectRoutes` already sorted projects and
+  `HostsLine` already sorted hostnames — this closes the
+  intra-project gap. New `TestGenerateCaddyfileContent_Deterministic`
+  pins it.
+- **`raioz proxy status/stop` now i18n-aware** (issue 084).
+  `fmt.Println("Proxy is not configured")` and friends used to
+  bypass both `output.Print*` and the i18n catalog, so
+  `--lang es` rendered mixed English/Spanish. Migrated the
+  three hardcoded strings to `output.PrintInfo` /
+  `PrintSuccess` with new i18n keys (`proxy.not_configured`,
+  `proxy.status_running`, `proxy.status_stopped`). The other
+  CLI files flagged by the issue (env / tunnel / check) print
+  structured data rows that intentionally bypass i18n; left
+  as-is.
+- **`errorlint` ratchet enabled** (issue 083, paso 1). Existing
+  25 violations (`%s`-formatted errors, `==`/`!=` against
+  errors, type-asserting raw errors) are pinned in
+  `scripts/errorlint-baseline.txt`. New violations fail
+  `make check-errorlint`; entries leave the baseline as call
+  sites migrate to `%w` / `errors.Is` / `errors.As`. Wired
+  into CI. Target: empty baseline.
+- **`proxy.Manager` mutex protects configuration fields too**
+  (issue 080). The lock that already guarded the `routes` map
+  was renamed from `routesMu` to `mu` and extended to cover
+  the 8 fields `Configure` writes (`domain`, `tlsMode`,
+  `bindHost`, `projectName`, `workspaceName`, `networkSubnet`,
+  `containerIP`, `publish`). Today the path is single-shot at
+  startup; the lock is preventive for the hot-reconfig flows
+  (`raioz dev`, watch-mode reload) that ADR-028 already
+  hardened for the routes map. New
+  `TestConfigureConcurrentWithReaders` pins it under `-race`.
+- **`UseCase.Execute` early phases extracted** (issue 079, step
+  1 of an incremental decomposition). The project-dir
+  resolution + legacy ADR-011 state sweep + project-env
+  resolution moved to `usecase_prepare.go::resolveProjectContext`.
+  `usecase.go` drops from 391 → 359 LoC, restoring headroom
+  under the 400-line cap. Remaining phases (`runOrchestrationOrCompose`,
+  `persistAndAnnounce`, `attachOrWatch` and the
+  `processOrchestration` sub-phases) land in follow-ups.
+
+### Documentation
+
+- **Sibling mode A trust model written down** (ADR-040, issue
+  076). ADR-008 introduced `project:` siblings without
+  explicitly publishing the trust model, leaving reviewers
+  unsure whether H1/H2/H3 ran against sibling yamls before
+  spawn. ADR-040 records the answer ("transitive and
+  unaudited, same threat model as ADR-036") and SECURITY.md
+  gains a "Transitive trust via sibling projects" subsection
+  recommending mode B when the developer does not fully
+  trust the sibling. An opt-in `--audit-siblings` flag is
+  scoped out for a future release.
+
+### Added
+
+- **`raioz down --force-state-cleanup`** (issue 071). Escape
+  hatch for "Docker is dead and I just want my local state
+  gone." When the project liveness probe fails with a known
+  daemon-down signature (e.g. "Cannot connect to the Docker
+  daemon", "connection refused on docker.sock"), the flag
+  bypasses the probe and runs host-process teardown + state
+  file removal. The success message names the
+  `com.raioz.project` label so the user can `docker rm` the
+  orphan containers when the daemon recovers. Without the
+  flag, the same daemon-down detection now surfaces an
+  actionable suggestion pointing at the flag.
+
+### Fixed
+
+- **Project lock evicts after 24h to survive PID wraparound**
+  (issue 075). `internal/lock/lock.go` uses an `O_EXCL` + PID
+  file (portable to Windows; not `flock`). A SIGKILL'd parent
+  that left its PID number reusable could see the kernel
+  reassign that PID to a non-raioz process, making
+  `isProcessRunning` return `true` and pinning the lock until
+  the user `rm`-ed `.raioz.lock` by hand. The acquire path now
+  also evicts when the lock file is older than 24h, regardless
+  of liveness. Documented in `docs/LOCKS.md` under "Failure
+  mode — parent SIGKILL and stale project lock."
+- **Configuration drift emits one audit event per service**
+  (issue 085). The drift detection in `internal/app/upcase/state.go`
+  used to log a `warn` line and stop there; the
+  `audit.LogDriftDetected` helper was exported with no live
+  call site, so the audit log was missing the historical "when
+  did this project start diverging" signal. Now every drifted
+  service produces one `drift_detected` audit event with the
+  field-level summary, alongside the existing live warning.
+- **Legacy state migration failures are now user-visible**
+  (issue 073). `MigrateLegacyStateDirs` (ADR-022) used to send
+  both success and failure notes to `logging.Debug`, hidden at
+  the default log level. Now successes log at info; skipped /
+  failed sources escalate to `output.PrintWarning` so the user
+  knows their pre-upgrade audit log / workspace state did not
+  move. On failure the legacy dir also gets a
+  `.raioz-migration-failed` breadcrumb (timestamp + error) so
+  the user inspecting `~/.raioz/` later finds an explicit note
+  instead of silence.
+- **`mkcert` invocations now run under the caller's context**
+  (issue 082). `EnsureCerts` used `exec.Command` instead of
+  `exec.CommandContext`, so a macOS keychain prompt that never
+  got answered would hang the parent indefinitely — Ctrl+C
+  killed the raioz process but not the orphan mkcert. Now the
+  caller's context kills the child cleanly, consistent with
+  ADR-026's signal-handling umbrella. Signature changed:
+  `EnsureCerts(ctx, domain)` instead of `EnsureCerts(domain)`.
+- **Sibling spawn (ADR-008 mode A) gets a timeout** (issue 072).
+  `spawnSibling` used to call `cmd.Wait()` unbounded — a hung
+  child raioz held the parent forever. Capped at
+  `RAIOZ_SIBLING_TIMEOUT` (default `10m`). Listed in
+  `host.KnownDurationEnvs()` so `raioz doctor` surfaces
+  overrides and warns on malformed values (ADR-035). The
+  deadline error names the sibling dir and the env var, so
+  the user knows exactly where to look and what knob to turn.
+
+### Removed
+
+- **Dead `internal/app/dependency_assist.go`** (issue 078). The
+  exported `HandleDependencyAssist` had a single caller —
+  its own test. The live implementation lives in
+  `internal/app/upcase/dependency_assist.go`. Removing the
+  duplicate eliminates -556 LoC and the grep-confusion that
+  came with it.
+- **`internal/resilience/circuitbreaker.go`** and its 7 wrapping
+  call sites (issue 078). The breaker opened after 5 failures
+  but the retry layer above it capped at 3 attempts, so the
+  threshold was unreachable in practice — the two protections
+  never composed. Each call site collapses to a plain
+  `RetryWithContext` invocation; the retry behavior is
+  unchanged in user-visible terms.
+
 ## [0.7.0] - 2026-05-14
 
 Trust-boundary release. Three lines closed: `raioz.yaml` no longer

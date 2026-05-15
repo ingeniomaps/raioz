@@ -268,22 +268,22 @@ func TestGetLocalProjectCommand(t *testing.T) {
 
 func TestIsYAMLMode(t *testing.T) {
 	tests := []struct {
-		name    string
-		version string
-		want    bool
+		name   string
+		format models.SourceFormat
+		want   bool
 	}{
-		{"yaml v2", "2.0", true},
-		{"json v1", "1.0", false},
+		{"yaml", models.SourceFormatYAML, true},
+		{"legacy json", models.SourceFormatLegacyJSON, false},
 		{"empty", "", false},
-		{"unknown", "3.0", false},
+		{"unknown", models.SourceFormat("other"), false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := &models.Deps{SchemaVersion: tt.version}
+			d := &models.Deps{SourceFormat: tt.format}
 			got := isYAMLMode(d)
 			if got != tt.want {
-				t.Errorf("isYAMLMode(%q) = %v, want %v", tt.version, got, tt.want)
+				t.Errorf("isYAMLMode(%q) = %v, want %v", tt.format, got, tt.want)
 			}
 		})
 	}

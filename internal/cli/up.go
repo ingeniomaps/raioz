@@ -23,6 +23,7 @@ var (
 	watch        bool
 	exclusive    bool
 	notifyDone   bool
+	routerOff    bool
 )
 
 var upCmd = &cobra.Command{
@@ -55,6 +56,7 @@ var upCmd = &cobra.Command{
 		// MetaRunner before initializing project-mode dependencies.
 		if handled, metaErr := tryHandleMeta(
 			ctx, configPath, "up", nil, metaProfiles,
+			MetaDispatchOptions{RouterOff: routerOff},
 		); handled {
 			return metaErr
 		}
@@ -132,4 +134,7 @@ func init() {
 	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 	upCmd.Flags().StringSliceVar(&metaProfiles, "meta-profile", nil,
 		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")
+	upCmd.Flags().BoolVar(&routerOff, "router-off", false,
+		"Bypass the workspace router project (ADR-037) and run the bundled "+
+			"Caddy as before v0.8. No-op when `router:` is not declared.")
 }

@@ -1,0 +1,38 @@
+# Baseline allowlist for scripts/lint-dual-flow.sh — issue 069 /
+# ADR-039.
+#
+# Each entry is a non-test file that still reads the legacy
+# SchemaVersion magic literals ("1.0" / "2.0") inline instead of
+# routing through internal/app.SelectFlow or reading
+# Deps.SourceFormat directly.
+#
+# Rules:
+#   - NEW files matching the SchemaVersion literal patterns fail
+#     the lint outright.
+#   - REMOVING an entry happens when the file migrates to
+#     SelectFlow or to a SourceFormat read. Update in the same PR.
+#   - Test files are NOT tracked (the lint skips _test.go).
+#   - internal/domain/models/ and internal/app/flow.go are exempt
+#     by the script (model definition + the SelectFlow helper
+#     itself).
+#
+# To regenerate the live list:
+#
+#   grep -rln \
+#     -e 'SchemaVersion == "2.0"' \
+#     -e 'SchemaVersion != "2.0"' \
+#     -e 'SchemaVersion == "1.0"' \
+#     -e 'SchemaVersion != "1.0"' \
+#     internal | grep -v _test.go \
+#     | grep -v 'internal/domain/models/' \
+#     | grep -v 'internal/app/flow.go' | sort
+#
+# Target: all entries gone by v0.8 when ADR-038 retires the JSON
+# loader entirely. Until then, every PR that migrates a reader
+# shrinks this list by one.
+internal/app/down_orchestrated.go
+internal/app/envshow.go
+internal/app/upcase/docker.go
+internal/app/yaml_mode.go
+internal/production/migrate.go
+internal/validate/validate.go

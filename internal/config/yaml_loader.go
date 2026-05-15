@@ -52,6 +52,12 @@ func LoadYAML(path string) (*RaiozConfig, error) {
 
 	resolveYAMLPaths(&cfg, baseDir)
 
+	if cfg.Router != nil {
+		if _, err := validateRouterRef(path, baseDir, cfg.Router); err != nil {
+			return nil, err
+		}
+	}
+
 	return &cfg, nil
 }
 
@@ -184,6 +190,11 @@ func resolveYAMLPaths(cfg *RaiozConfig, baseDir string) {
 			dep.SiblingProject = filepath.Join(baseDir, dep.SiblingProject)
 		}
 		cfg.Deps[name] = dep
+	}
+
+	if cfg.Router != nil && cfg.Router.Project != "" &&
+		!filepath.IsAbs(cfg.Router.Project) {
+		cfg.Router.Project = filepath.Join(baseDir, cfg.Router.Project)
 	}
 
 	for i, cmd := range cfg.Pre {

@@ -29,6 +29,13 @@ type RaiozConfig struct {
 	Services  map[string]YAMLService    `yaml:"services,omitempty"`     // since: v0.1.0
 	Deps      map[string]YAMLDependency `yaml:"dependencies,omitempty"` // since: v0.1.0
 
+	// Router replaces raioz's internal Caddy with a sibling raioz project
+	// acting as the workspace's edge router. When set, raioz brings the
+	// router project up first, polls its `health:`, then starts consumers;
+	// the bundled Caddy is skipped entirely. The `--router-off` flag on
+	// `raioz up` bypasses this for a single invocation. See ADR-037.
+	Router *YAMLRouter `yaml:"router,omitempty"` // since: v0.8.0
+
 	// Kind discriminates the config shape. Empty / "project" (default) means
 	// the regular shape with services/dependencies. "meta" means this file
 	// is a meta-orchestrator that delegates to sub-projects.
@@ -58,6 +65,19 @@ type YAMLMetaProject struct {
 	// declared so the user can't strand a sub-project that was started
 	// with a different profile set.
 	Profiles YAMLStringSlice `yaml:"profiles,omitempty"` // since: v0.6.0
+}
+
+// YAMLRouter replaces the bundled Caddy with a sibling raioz project. V1
+// carries only the project path; the router project owns its own routing
+// templates (no service-discovery contract from raioz to the router). See
+// ADR-037 for the rationale.
+type YAMLRouter struct {
+	// Project is the relative path (from this raioz.yaml) to the sibling
+	// raioz project that should serve as the workspace's edge router. The
+	// target directory must contain a raioz.yaml. The same path MAY also
+	// appear under `projects:` in a meta config — `router:` just upgrades
+	// it from "another sub-project" to "first up, last down".
+	Project string `yaml:"project"` // since: v0.8.0
 }
 
 // YAMLNetwork lets the user override the Docker network raioz manages for a

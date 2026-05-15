@@ -31,12 +31,8 @@ func (l *ConfigLoaderImpl) LoadDeps(configPath string) (*models.Deps, []string, 
 	if config.IsYAMLConfig(configPath) {
 		return config.LoadDepsFromYAML(configPath)
 	}
-	// Legacy JSON config — deprecated
-	deps, warnings, err := config.LoadDeps(configPath)
-	if err == nil {
-		warnings = append(warnings, ".raioz.json is deprecated. Run 'raioz migrate yaml' to convert to raioz.yaml")
-	}
-	return deps, warnings, err
+	// JSON path. LoadDeps emits its own deprecation banner (ADR-038).
+	return config.LoadDeps(configPath)
 }
 
 // IsServiceEnabled checks if a service is enabled based on its configuration

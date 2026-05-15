@@ -116,6 +116,7 @@ func AutoDetect(dir string) (*Deps, error) {
 
 	return &Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  SourceFormatYAML,
 		Project:       Project{Name: projectName},
 		Network:       NetworkConfig{Name: projectName + "-net"},
 		Services:      services,

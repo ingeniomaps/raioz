@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -81,13 +83,19 @@ func init() {
 		if cmd.Name() != "version" {
 			MaybePrintDevBuildWarning()
 		}
-		// ADR-022: best-effort migration of legacy state dirs into
-		// the unified RaiozStateDir(). Notes only at debug level.
-		if notes, err := naming.MigrateLegacyStateDirs(); err != nil {
-			logging.Debug("legacy state migration failed", "error", err)
-		} else {
-			for _, n := range notes {
-				logging.Debug(n)
+		// ADR-022: best-effort migration of legacy state dirs.
+		// Successes log at info; skipped/failed sources escalate
+		// to PrintWarning so the user notices their pre-upgrade
+		// audit log / workspace state did not move.
+		notes, migrErr := naming.MigrateLegacyStateDirs()
+		if migrErr != nil {
+			output.PrintWarning(i18n.T("warning.state_migration_failed", migrErr.Error()))
+		}
+		for _, n := range notes {
+			if strings.HasPrefix(n, naming.MigrationSkippedPrefix) {
+				output.PrintWarning(n)
+			} else {
+				logging.Info(n)
 			}
 		}
 	}

@@ -2,9 +2,10 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 
 	"raioz/internal/app/proxycase"
+	"raioz/internal/i18n"
+	"raioz/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -27,16 +28,16 @@ var proxyStatusCmd = &cobra.Command{
 		}}
 		running, err := uc.Execute(cmd.Context(), proxycase.StatusOptions{})
 		if errors.Is(err, proxycase.ErrProxyNotConfigured) {
-			fmt.Println("Proxy is not configured")
+			output.PrintInfo(i18n.T("proxy.not_configured"))
 			return nil
 		}
 		if err != nil {
 			return err
 		}
 		if running {
-			fmt.Println("Proxy: running")
+			output.PrintSuccess(i18n.T("proxy.status_running"))
 		} else {
-			fmt.Println("Proxy: stopped")
+			output.PrintInfo(i18n.T("proxy.status_stopped"))
 		}
 		return nil
 	},
@@ -54,7 +55,7 @@ var proxyStopCmd = &cobra.Command{
 		}}
 		err := uc.Execute(cmd.Context(), proxycase.StopOptions{})
 		if errors.Is(err, proxycase.ErrProxyNotConfigured) {
-			fmt.Println("Proxy is not configured")
+			output.PrintInfo(i18n.T("proxy.not_configured"))
 			return nil
 		}
 		return err

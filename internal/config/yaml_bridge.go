@@ -52,6 +52,7 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 
 	deps := &Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  SourceFormatYAML,
 		Workspace:     cfg.Workspace,
 		Project: Project{
 			Name: cfg.Project,

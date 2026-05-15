@@ -29,8 +29,6 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 		return fmt.Errorf("invalid compose path: %w", err)
 	}
 
-	// Use circuit breaker and retry logic for docker compose up
-	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 
 	operationName := "docker compose up"
@@ -39,38 +37,35 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 	}
 
 	return resilience.RetryWithContext(ctx, retryConfig, operationName, func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, operationName, func(ctx context.Context) error {
-			// Create context with timeout
-			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
-			defer cancel()
+		timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
+		defer cancel()
 
-			// Build command: docker compose -f <path> [ -f <path2> ... ] up -d --remove-orphans [services...]
-			// --remove-orphans cleans up containers from services no longer in the compose file
-			// (e.g., after a Replace operation in a shared workspace). When the caller
-			// sets an explicit project name via WithComposeProjectName, it is exported
-			// as COMPOSE_PROJECT_NAME so --remove-orphans only affects containers in
-			// that project, not anything sharing the directory basename.
-			// `--env-file` flags must appear BEFORE the subcommand (docker
-			// compose parses them as top-level flags), which is why we
-			// prepend them instead of appending. The context-plumbed list
-			// is typically populated for dependencies declared with
-			// `compose:` whose user-supplied fragment uses ${VAR}
-			// interpolation from an external .env file.
-			args := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
-			args = append(args, ComposeFileArgs(composePath)...)
-			args = append(args, "up", "-d", "--remove-orphans")
-			if len(serviceNames) > 0 {
-				args = append(args, serviceNames...)
-			}
+		// Build command: docker compose -f <path> [ -f <path2> ... ] up -d --remove-orphans [services...]
+		// --remove-orphans cleans up containers from services no longer in the compose file
+		// (e.g., after a Replace operation in a shared workspace). When the caller
+		// sets an explicit project name via WithComposeProjectName, it is exported
+		// as COMPOSE_PROJECT_NAME so --remove-orphans only affects containers in
+		// that project, not anything sharing the directory basename.
+		// `--env-file` flags must appear BEFORE the subcommand (docker
+		// compose parses them as top-level flags), which is why we
+		// prepend them instead of appending. The context-plumbed list
+		// is typically populated for dependencies declared with
+		// `compose:` whose user-supplied fragment uses ${VAR}
+		// interpolation from an external .env file.
+		args := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
+		args = append(args, ComposeFileArgs(composePath)...)
+		args = append(args, "up", "-d", "--remove-orphans")
+		if len(serviceNames) > 0 {
+			args = append(args, serviceNames...)
+		}
 
-			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Env = composeCommandEnv(timeoutCtx)
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = composeCommandEnv(timeoutCtx)
 
-			err := cmd.Run()
-			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
-		})
+		err := cmd.Run()
+		return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
 	})
 }
 
@@ -80,26 +75,23 @@ func RestartServicesWithContext(ctx context.Context, composePath string, service
 		return fmt.Errorf("invalid compose path: %w", err)
 	}
 
-	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 	operationName := fmt.Sprintf("docker compose restart %v", serviceNames)
 
 	return resilience.RetryWithContext(ctx, retryConfig, operationName, func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, operationName, func(ctx context.Context) error {
-			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
-			defer cancel()
+		timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
+		defer cancel()
 
-			args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
-			args = append(args, "restart")
-			args = append(args, serviceNames...)
+		args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+		args = append(args, "restart")
+		args = append(args, serviceNames...)
 
-			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
-			err := cmd.Run()
-			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
-		})
+		err := cmd.Run()
+		return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
 	})
 }
 
@@ -109,26 +101,23 @@ func ForceRecreateServicesWithContext(ctx context.Context, composePath string, s
 		return fmt.Errorf("invalid compose path: %w", err)
 	}
 
-	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 	operationName := fmt.Sprintf("docker compose up --force-recreate %v", serviceNames)
 
 	return resilience.RetryWithContext(ctx, retryConfig, operationName, func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, operationName, func(ctx context.Context) error {
-			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
-			defer cancel()
+		timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeUpTimeout)
+		defer cancel()
 
-			args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
-			args = append(args, "up", "-d", "--force-recreate", "--no-deps")
-			args = append(args, serviceNames...)
+		args := append([]string{"compose"}, ComposeFileArgs(composePath)...)
+		args = append(args, "up", "-d", "--force-recreate", "--no-deps")
+		args = append(args, serviceNames...)
 
-			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
-			err := cmd.Run()
-			return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
-		})
+		err := cmd.Run()
+		return exectimeout.HandleTimeoutError(timeoutCtx, err, operationName, exectimeout.DockerComposeUpTimeout)
 	})
 }
 
@@ -186,27 +175,22 @@ func DownWithContext(ctx context.Context, composePath string) error {
 		return fmt.Errorf("invalid compose path: %w", err)
 	}
 
-	// Use circuit breaker and retry logic for docker compose down
-	dockerCB := resilience.GetDockerCircuitBreaker()
 	retryConfig := resilience.DockerRetryConfig()
 
 	return resilience.RetryWithContext(ctx, retryConfig, "docker compose down", func(ctx context.Context) error {
-		return dockerCB.ExecuteWithContext(ctx, "docker compose down", func(ctx context.Context) error {
-			// Create context with timeout
-			timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
-			defer cancel()
+		timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
+		defer cancel()
 
-			downArgs := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
-			downArgs = append(downArgs, ComposeFileArgs(composePath)...)
-			downArgs = append(downArgs, "down")
-			cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), downArgs...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Env = composeCommandEnv(timeoutCtx)
+		downArgs := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
+		downArgs = append(downArgs, ComposeFileArgs(composePath)...)
+		downArgs = append(downArgs, "down")
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), downArgs...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Env = composeCommandEnv(timeoutCtx)
 
-			err := cmd.Run()
-			return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose down", exectimeout.DockerComposeDownTimeout)
-		})
+		err := cmd.Run()
+		return exectimeout.HandleTimeoutError(timeoutCtx, err, "docker compose down", exectimeout.DockerComposeDownTimeout)
 	})
 }
 

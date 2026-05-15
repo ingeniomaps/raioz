@@ -249,6 +249,7 @@ func SetSettleWindowForTest(d time.Duration) (restore func()) {
 const (
 	launcherWaitTimeoutEnv  = "RAIOZ_LAUNCHER_TIMEOUT"
 	launcherDrainTimeoutEnv = "RAIOZ_LAUNCHER_DRAIN_TIMEOUT"
+	siblingSpawnTimeoutEnv  = "RAIOZ_SIBLING_TIMEOUT"
 )
 
 // LauncherWaitTimeout — post-launcher container-appearance wait
@@ -261,6 +262,13 @@ func LauncherWaitTimeout() time.Duration {
 // during `raioz down` before invoking `stop:`. ADR-025.
 func LauncherDrainTimeout() time.Duration {
 	return durationFromEnv(launcherDrainTimeoutEnv, 30*time.Second)
+}
+
+// SiblingSpawnTimeout caps each mode-A `raioz up` child. Default 10m
+// is 5× the typical 30s–2m spawn; bump RAIOZ_SIBLING_TIMEOUT for
+// projects with heavy `pre:` hooks.
+func SiblingSpawnTimeout() time.Duration {
+	return durationFromEnv(siblingSpawnTimeoutEnv, 10*time.Minute)
 }
 
 // EnvDurationStatus snapshots how a duration-typed env var resolved.
@@ -301,6 +309,7 @@ func KnownDurationEnvs() []EnvDurationStatus {
 	return []EnvDurationStatus{
 		InspectDurationEnv(launcherWaitTimeoutEnv, 60*time.Second),
 		InspectDurationEnv(launcherDrainTimeoutEnv, 30*time.Second),
+		InspectDurationEnv(siblingSpawnTimeoutEnv, 10*time.Minute),
 	}
 }
 

@@ -15,6 +15,12 @@ import (
 
 const lockFileName = ".raioz.lock"
 
+// staleLockMaxAge evicts a lock whose PID number is alive but was
+// reused by a non-raioz process (PID wraparound, common in containers
+// with low pid_max). 24h is generous — even `raioz dashboard` watch
+// mode rarely survives that long.
+const staleLockMaxAge = 24 * time.Hour
+
 type Lock struct {
 	ws   *workspace.Workspace
 	path string
@@ -31,6 +37,16 @@ func isProcessRunning(pid int) bool {
 	// Send signal 0 to check if process exists (doesn't actually send a signal)
 	err = process.Signal(syscall.Signal(0))
 	return err == nil
+}
+
+// isLockExpired returns true when the lock file is older than
+// staleLockMaxAge. See the constant for the PID-reuse rationale.
+func isLockExpired(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return time.Since(info.ModTime()) > staleLockMaxAge
 }
 
 // readLockPID reads the PID from an existing lock file
@@ -78,8 +94,8 @@ func Acquire(ws *workspace.Workspace) (*Lock, error) {
 				if err != nil {
 					return nil, fmt.Errorf("failed to acquire lock after cleaning stale lock: %w", err)
 				}
-			} else if !isProcessRunning(lockPID) {
-				// Process is not running - remove stale lock and try again
+			} else if !isProcessRunning(lockPID) || isLockExpired(path) {
+				// PID dead or lock aged out (PID-reuse defense).
 				os.Remove(path)
 				file, err = os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 				if err != nil {

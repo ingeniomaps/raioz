@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"raioz/internal/config"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -95,7 +96,12 @@ func spawnSibling(
 
 	output.PrintProgress(i18n.T("up.sibling_spawn_starting", depName, sib.Dir))
 
-	cmd := exec.CommandContext(ctx, bin, "up")
+	// Cap the wait so a hung sibling can't block the parent forever.
+	timeout := host.SiblingSpawnTimeout()
+	childCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(childCtx, bin, "up")
 	cmd.Dir = sib.Dir
 	cmd.Env = append(os.Environ(), pushSiblingStack(consumerDir, sib.Dir))
 	// Propagate the audit/log correlation ID so the child's events
@@ -131,6 +137,13 @@ func spawnSibling(
 	go streamPrefixed(stderr, prefix)
 
 	if err := cmd.Wait(); err != nil {
+		if childCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf(
+				"sibling project %q timed out after %s — set "+
+					"RAIOZ_SIBLING_TIMEOUT higher, or investigate the "+
+					"hang in %s",
+				depName, timeout, sib.Dir)
+		}
 		return fmt.Errorf(
 			"sibling project %q failed to come up — run "+
 				"`cd %s && raioz up` to diagnose: %w",

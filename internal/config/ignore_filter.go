@@ -25,6 +25,7 @@ func FilterIgnoredServices(deps *Deps) (*Deps, []string, error) {
 
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
+		SourceFormat:       deps.SourceFormat,
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,
