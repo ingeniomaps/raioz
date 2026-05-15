@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage build install clean
-.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check ci
+.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -132,7 +132,11 @@ check-install: ## Smoke-test install.sh::verify_sha256 (issue 081)
 	@echo "Checking install.sh verify_sha256..."
 	@./scripts/test-install.sh
 
-check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install lint test ## Run all checks
+check-errorlint: ## Ratchet down errorlint violations (issue 083)
+	@echo "Checking errorlint baseline..."
+	@./scripts/lint-errorlint.sh
+
+check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."

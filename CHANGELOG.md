@@ -68,6 +68,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Refactor
 
+- **`errorlint` ratchet enabled** (issue 083, paso 1). Existing
+  25 violations (`%s`-formatted errors, `==`/`!=` against
+  errors, type-asserting raw errors) are pinned in
+  `scripts/errorlint-baseline.txt`. New violations fail
+  `make check-errorlint`; entries leave the baseline as call
+  sites migrate to `%w` / `errors.Is` / `errors.As`. Wired
+  into CI. Target: empty baseline.
 - **`proxy.Manager` mutex protects configuration fields too**
   (issue 080). The lock that already guarded the `routes` map
   was renamed from `routesMu` to `mu` and extended to cover
