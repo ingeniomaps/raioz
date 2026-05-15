@@ -35,6 +35,14 @@ type (
 	ServiceCommands     = models.ServiceCommands
 	SourceConfig        = models.SourceConfig
 	DockerConfig        = models.DockerConfig
+	SourceFormat        = models.SourceFormat
+)
+
+// Re-export the SourceFormat constants so callers can read
+// `config.SourceFormatYAML` without reaching into domain/models.
+const (
+	SourceFormatLegacyJSON = models.SourceFormatLegacyJSON
+	SourceFormatYAML       = models.SourceFormatYAML
 )
 
 // LegacyProject mirrors the old config shape where network lived inside
@@ -81,6 +89,7 @@ func LoadDeps(path string) (*Deps, []string, error) {
 
 	deps := Deps{
 		SchemaVersion: legacyStruct.SchemaVersion,
+		SourceFormat:  SourceFormatLegacyJSON,
 		Workspace:     legacyStruct.Workspace,
 		Project: Project{
 			Name:     legacyStruct.Project.Name,
@@ -115,6 +124,7 @@ func LoadDepsLegacy(path string) (*Deps, error) {
 func FilterByProfile(deps *Deps, profile string) *Deps {
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
+		SourceFormat:       deps.SourceFormat,
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,
@@ -175,6 +185,7 @@ func FilterByProfiles(deps *Deps, profiles []string) *Deps {
 	}
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
+		SourceFormat:       deps.SourceFormat,
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,

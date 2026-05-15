@@ -22,6 +22,7 @@ func MigrateComposeToDeps(
 
 	deps := &models.Deps{
 		SchemaVersion: "1.0",
+		SourceFormat:  models.SourceFormatLegacyJSON,
 		Network:       models.NetworkConfig{Name: networkName, IsObject: false},
 		Project: models.Project{
 			Name: projectName,

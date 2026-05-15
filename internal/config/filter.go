@@ -12,6 +12,7 @@ var profileNameRegex = regexp.MustCompile(`^[a-z0-9-]+$`)
 func FilterByFeatureFlags(deps *Deps, profile string, envVars map[string]string) (*Deps, []string) {
 	filtered := &Deps{
 		SchemaVersion:      deps.SchemaVersion,
+		SourceFormat:       deps.SourceFormat,
 		Workspace:          deps.Workspace,
 		Network:            deps.Network,
 		Project:            deps.Project,

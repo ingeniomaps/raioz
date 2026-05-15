@@ -28,6 +28,7 @@ func CreateTestDepsJSON(tdir string, deps *models.Deps) (string, error) {
 func CreateMinimalTestDeps() *models.Deps {
 	return &models.Deps{
 		SchemaVersion: "1.0",
+		SourceFormat:  models.SourceFormatLegacyJSON,
 		Network:       models.NetworkConfig{Name: "test-network", IsObject: false},
 		Project: models.Project{
 			Name: "test-project",

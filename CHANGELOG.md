@@ -18,6 +18,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   timeline (v0.7 warning → v0.8 hard-error → v1.0 loader
   deletion) unblocks issue 069 (`isYAMLMode` dual-flow
   consolidation).
+- **`Deps.SourceFormat` discriminator** (ADR-039, issue 070).
+  A typed `SourceFormat` enum (`"yaml"` / `"legacy-json"`) is
+  now stamped at every loader site (yaml bridge, json loader,
+  auto-detect, test helpers, migrate) and preserved in every
+  clone (filter-by-profile, feature-flag filter, ignore filter,
+  workspace-project-conflict merge). `isYAMLMode` reads the new
+  field; `SchemaVersion`'s magic literals (`"1.0"` / `"2.0"`)
+  remain in seven inline call sites until issue 069 collapses
+  them through `SelectFlow`. SchemaVersion is scheduled for
+  removal in v1.0.
 
 ### Changed
 
