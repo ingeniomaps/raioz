@@ -66,6 +66,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   exercises match / missing / mismatch / substring-poisoning
   cases; wired into `make check-install` and CI lint.
 
+### Refactor
+
+- **`UseCase.Execute` early phases extracted** (issue 079, step
+  1 of an incremental decomposition). The project-dir
+  resolution + legacy ADR-011 state sweep + project-env
+  resolution moved to `usecase_prepare.go::resolveProjectContext`.
+  `usecase.go` drops from 391 → 359 LoC, restoring headroom
+  under the 400-line cap. Remaining phases (`runOrchestrationOrCompose`,
+  `persistAndAnnounce`, `attachOrWatch` and the
+  `processOrchestration` sub-phases) land in follow-ups.
+
 ### Documentation
 
 - **Sibling mode A trust model written down** (ADR-040, issue
