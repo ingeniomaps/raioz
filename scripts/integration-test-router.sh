@@ -26,9 +26,11 @@ fi
 BINARY="$(cd "$(dirname "$BINARY")" && pwd)/$(basename "$BINARY")"
 
 # Host port for nginx. raioz.yaml's `publish:` only accepts bool/int/
-# []int (no host:container strings), so nginx publishes container :80
-# to host :80. CI runners ubuntu-latest don't bind :80 by default.
-HOST_PORT=80
+# []int (no host:container strings), so we publish the same port host
+# and container side. nginx is configured to listen on $ROUTER_PORT,
+# not the default 80, because CI runners can have :80 in use and
+# `raioz up` is non-interactive there.
+ROUTER_PORT=18080
 WORKSPACE=router-e2e
 
 # Scratch workspace
@@ -42,7 +44,7 @@ cleanup() {
 trap cleanup EXIT
 
 # ---------------------------------------------------------------------------
-# Stage the router project: a single nginx dependency exposing $HOST_PORT.
+# Stage the router project: a single nginx dependency exposing $ROUTER_PORT.
 # ---------------------------------------------------------------------------
 mkdir -p "$SCRATCH/gateway"
 cat > "$SCRATCH/gateway/raioz.yaml" <<YAML
@@ -52,14 +54,14 @@ workspace: $WORKSPACE
 dependencies:
   nginx:
     image: nginx:alpine
-    publish: $HOST_PORT
+    publish: $ROUTER_PORT
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
 YAML
 
 cat > "$SCRATCH/gateway/nginx.conf" <<NGINX
 server {
-    listen 80;
+    listen $ROUTER_PORT;
     location / {
         add_header Content-Type text/plain;
         return 200 "router-ok\n";
@@ -127,9 +129,9 @@ echo "[1/5] raioz up"
 "$BINARY" up
 
 # ---------------------------------------------------------------------------
-echo "[2/5] Verify router (nginx) responds on host:$HOST_PORT"
+echo "[2/5] Verify router (nginx) responds on host:$ROUTER_PORT"
 for i in 1 2 3 4 5; do
-    if curl -sf "http://localhost:$HOST_PORT/" | grep -q "router-ok"; then
+    if curl -sf "http://localhost:$ROUTER_PORT/" | grep -q "router-ok"; then
         echo "  PASS: router responding"
         break
     fi
@@ -172,7 +174,7 @@ echo "  PASS: router project containers up before consumer"
 echo "[5/5] raioz down + verify cleanup"
 "$BINARY" down
 sleep 2
-if curl -sf "http://localhost:$HOST_PORT/" 2>/dev/null; then
+if curl -sf "http://localhost:$ROUTER_PORT/" 2>/dev/null; then
     echo "  FAIL: router still reachable after down"
     exit 1
 fi
