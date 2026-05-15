@@ -136,6 +136,16 @@ The five open questions in issue 066 resolve as follows for V1:
   useful info (the hostname the service expects to be reachable at)
   that V2 may consume. Keep, document the override.
 
+### Trust
+
+`router.project` reuses the mode-A spawn mechanism (recursive
+`raioz up` in another directory). ADR-040 documents the trust
+model: transitive and unaudited, code-equivalent to the local
+yaml. The router surface is **strictly more trusted** than a
+mode-A sibling — workspaces *require* their router, so opting
+out is not an option (mode B has no parallel here). Audit the
+router project the same way you audit a `make` target.
+
 ## Alternatives considered
 
 - **Sibling-dep + manual ordering.** ADR-008 already lets a project

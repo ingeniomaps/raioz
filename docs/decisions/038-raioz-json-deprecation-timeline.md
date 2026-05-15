@@ -54,11 +54,16 @@ the warning itself so users see when the warning becomes an error.
   `.raioz.json` path through the public loader. `raioz migrate
   yaml` retains JSON-reading capability through a private,
   unexported migration loader so the escape hatch survives.
+  In the same release, `Deps.SchemaVersion` is removed and the
+  six entries in `scripts/dual-flow-baseline.txt` migrate to
+  `SelectFlow` (ADR-039). The two changes ship together: once
+  the JSON loader hard-errors, every `LoadDeps` returns
+  `SourceFormatYAML`, so the legacy literal readers would
+  silently delete their YAML-mode branch if migrated
+  independently.
 - **v1.0** — the public JSON loader is deleted. `raioz migrate
   yaml` becomes a stand-alone command with its own mini-loader;
-  no other code path can read `.raioz.json`. `isYAMLMode` and
-  the seven branching sites (issue 069) collapse into the YAML
-  path.
+  no other code path can read `.raioz.json`.
 
 ### Why "loud one-shot" instead of "loud always"
 

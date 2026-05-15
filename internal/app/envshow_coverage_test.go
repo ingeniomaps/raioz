@@ -61,8 +61,8 @@ func TestEnvShowUseCase_Execute_WithDiscovery(t *testing.T) {
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
 			return &models.Deps{
-				Project:       models.Project{Name: "test"},
-				SchemaVersion: "2.0",
+				Project:      models.Project{Name: "test"},
+				SourceFormat: models.SourceFormatYAML,
 				Services: map[string]models.Service{
 					"api": {
 						Source: models.SourceConfig{Path: "."},

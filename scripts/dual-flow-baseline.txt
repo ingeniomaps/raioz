@@ -31,7 +31,6 @@
 # loader entirely. Until then, every PR that migrates a reader
 # shrinks this list by one.
 internal/app/down_orchestrated.go
-internal/app/envshow.go
 internal/app/upcase/docker.go
 internal/app/yaml_mode.go
 internal/production/migrate.go

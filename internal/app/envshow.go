@@ -81,7 +81,7 @@ func (uc *EnvShowUseCase) Execute(
 	)...)
 
 	// 2. Discovery variables (YAML/orchestrated mode)
-	if deps.SchemaVersion == "2.0" {
+	if deps.SourceFormat == models.SourceFormatYAML {
 		entries = append(entries, resolveDiscoveryVars(
 			deps, opts.ServiceName, projectDir,
 		)...)

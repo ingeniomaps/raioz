@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- **ADR-037 ↔ ADR-040 cross-referenced.** ADR-037 now carries a
+  Trust subsection pointing at ADR-040 and noting the router is
+  strictly more trusted than mode A (mandatory, no mode-B
+  parallel). ADR-040 enumerates the three transitive-trust
+  surfaces (`dependencies.<n>.project`,
+  `dependencies.<n>.siblingProject` + `image:`, `router.project`)
+  so SECURITY.md only needs one anchor.
+- **ADR-038 couples v0.8 SchemaVersion removal with the JSON
+  loader cut.** Once the loader hard-errors, every `LoadDeps`
+  returns `SourceFormatYAML`; migrating the 5 remaining
+  dual-flow entries independently would silently delete their
+  YAML branch. The ADR's Timeline now states the two ship
+  together.
+
+### Refactor
+
+- **`envshow.go` reads `SourceFormat`** (one entry off the
+  dual-flow baseline). `deps.SchemaVersion == "2.0"` was the
+  easiest of the 5 inline readers to migrate cleanly because
+  the branch only gates discovery-var resolution. Baseline now
+  at 5 entries; target 0 by v0.8.
+
 ### Fixed
 
 - **Meta runner now wires `Pdeathsig` on its sub-processes**
