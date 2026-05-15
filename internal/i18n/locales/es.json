@@ -720,6 +720,7 @@
   "up.proxy.retrying": "Reintentando inicio del proxy...",
   "up.proxy.retry_failed": "Reintento fallido: %s",
   "up.proxy.skip_continue": "Continuando sin proxy. Los servicios siguen accesibles por puerto/nombre de contenedor.",
+  "up.proxy.router_active": "Usando un proyecto router externo (ADR-037); el Caddy interno se omite.",
   "up.proxy.prompt_header": "¿Cómo deseas proceder?",
   "up.proxy.prompt_opt_retry": "  [1] Reintentar (ya liberé los puertos)",
   "up.proxy.prompt_opt_skip": "  [2] Omitir el proxy para esta ejecución (los servicios siguen funcionando sin https://*.localhost)",

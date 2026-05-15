@@ -292,12 +292,11 @@ func (uc *UseCase) processOrchestration(
 	saveHostPIDs(projectDir, deps.Project.Name, deps.Workspace, networkName,
 		dispatcher, serviceNames, detections, deferredDeps)
 
-	// Step 4 — proxy (see orchestration_proxy.go). Failure aborts:
-	// `proxy: true` is opt-in, so silent fallback would hide the bug.
-	if deps.Proxy && uc.deps.ProxyManager != nil {
-		if err := uc.startProxy(ctx, deps, detections, serviceNames, networkName); err != nil {
-			return nil, err
-		}
+	// Step 4 — proxy (see orchestration_proxy.go + router_env.go).
+	if err := uc.maybeStartProxy(
+		ctx, deps, detections, serviceNames, networkName,
+	); err != nil {
+		return nil, err
 	}
 
 	return &orchestrationResult{

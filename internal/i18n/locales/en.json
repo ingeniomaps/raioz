@@ -720,6 +720,7 @@
   "up.proxy.retrying": "Retrying proxy start...",
   "up.proxy.retry_failed": "Retry failed: %s",
   "up.proxy.skip_continue": "Continuing without proxy. Services remain reachable by port/container name.",
+  "up.proxy.router_active": "Using external router project (ADR-037); bundled Caddy skipped.",
   "up.proxy.prompt_header": "How would you like to proceed?",
   "up.proxy.prompt_opt_retry": "  [1] Retry (I've freed the ports)",
   "up.proxy.prompt_opt_skip": "  [2] Skip the proxy for this run (services keep working without https://*.localhost)",

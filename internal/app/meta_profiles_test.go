@@ -107,7 +107,7 @@ func TestMetaRunner_Up_WithoutProfiles_SkipsTaggedProject(t *testing.T) {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
-	summary := r.Up(context.Background(), cfg, nil, nil)
+	summary := r.Up(context.Background(), cfg, nil, nil, MetaUpOptions{})
 
 	if len(summary) != 1 {
 		t.Errorf("expected 1 invocation, got %d (%+v)", len(summary), summary)
@@ -122,7 +122,7 @@ func TestMetaRunner_Up_WithMatchingProfile_IncludesTagged(t *testing.T) {
 	cfg, bin, counter := stageMetaWithProfiles(t)
 	r := &MetaRunner{Binary: bin, Stdout: os.Stdout, Stderr: os.Stderr}
 
-	summary := r.Up(context.Background(), cfg, nil, []string{"edge"})
+	summary := r.Up(context.Background(), cfg, nil, []string{"edge"}, MetaUpOptions{})
 
 	if len(summary) != 2 {
 		t.Errorf("expected 2 invocations, got %d (%+v)", len(summary), summary)

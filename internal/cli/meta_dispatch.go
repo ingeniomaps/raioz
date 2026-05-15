@@ -15,9 +15,17 @@ import (
 // regular project, it returns (false, nil) so the caller proceeds with the
 // normal use case. activeProfiles filters which sub-projects participate
 // in `up` / `status`; `down` ignores it (see MetaRunner.Down).
+// MetaDispatchOptions tunes a meta dispatch run. RouterOff propagates the
+// `--router-off` CLI flag to the meta runner so the ADR-037 router phase
+// can be bypassed for debugging. Fields are zero-valued for non-up
+// subcommands.
+type MetaDispatchOptions struct {
+	RouterOff bool
+}
+
 func tryHandleMeta(
 	ctx context.Context, configPath, subCmd string,
-	args, activeProfiles []string,
+	args, activeProfiles []string, opts MetaDispatchOptions,
 ) (bool, error) {
 	if configPath == "" || configPath == AutoDetectMarker {
 		return false, nil
@@ -47,7 +55,8 @@ func tryHandleMeta(
 	var summary app.MetaSummaryList
 	switch subCmd {
 	case "up":
-		summary = runner.Up(ctx, cfg, args, activeProfiles)
+		summary = runner.Up(ctx, cfg, args, activeProfiles,
+			app.MetaUpOptions{RouterOff: opts.RouterOff})
 	case "down":
 		summary = runner.Down(ctx, cfg, args)
 	case "status":
