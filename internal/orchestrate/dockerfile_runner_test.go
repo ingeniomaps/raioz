@@ -1,8 +1,12 @@
 package orchestrate
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/interfaces"
@@ -252,4 +256,63 @@ func TestDockerfileRunner_Logs_CommandFails(t *testing.T) {
 	if err := r.Logs(context.Background(), svc, false, 0); err == nil {
 		t.Error("expected error when logs command fails")
 	}
+}
+
+// TestDockerfileRunner_Logs_WritesToStdout pins issue 077: Logs used
+// to assign `cmd.Stdout = exec.CommandContext(ctx, "echo").Stdout`,
+// which is always nil, so `raioz logs <svc>` returned zero bytes
+// even when the underlying docker logs invocation produced output.
+// The fake docker script prints a marker; capturing os.Stdout
+// during r.Logs proves the wiring routes through.
+func TestDockerfileRunner_Logs_WritesToStdout(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+
+	dir := t.TempDir()
+	const marker = "raioz-077-fake-docker-output"
+	script := dir + "/fake-docker.sh"
+	if err := writeExecutable(script, "#!/bin/sh\necho "+marker+"\n"); err != nil {
+		t.Fatalf("writeExecutable: %v", err)
+	}
+	withRuntimeBinary(t, script)
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+
+	out := captureOrchestrateStdout(t, func() {
+		if err := r.Logs(context.Background(), svc, false, 0); err != nil {
+			t.Fatalf("Logs: %v", err)
+		}
+	})
+	if !strings.Contains(out, marker) {
+		t.Fatalf("Logs stdout missing marker %q; captured: %q", marker, out)
+	}
+}
+
+// captureOrchestrateStdout reroutes os.Stdout for fn and returns
+// whatever fn wrote. Local to this package — host_runner already
+// uses the same os.Stdout assignment, so a shared helper would
+// add cross-package coupling for one test.
+func captureOrchestrateStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	defer func() { os.Stdout = old }()
+
+	done := make(chan struct{})
+	var buf bytes.Buffer
+	go func() {
+		_, _ = io.Copy(&buf, r)
+		close(done)
+	}()
+
+	fn()
+	_ = w.Close()
+	<-done
+	return buf.String()
 }

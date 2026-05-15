@@ -45,6 +45,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the message is now a direct `output.PrintWarning` at the
   loader source, deduped per process (ADR-038).
 
+### Fixed
+
+- **`raioz logs <svc>` returned 0 bytes for Dockerfile-runtime
+  services** (issue 077). `DockerfileRunner.Logs` was wiring
+  `cmd.Stdout` to the (always-nil) `Stdout` field of a freshly
+  constructed `exec.Cmd`, so every byte from `docker logs` was
+  discarded. Now wires to `os.Stdout` / `os.Stderr` the way the
+  host runner does. New regression test pins the capture.
+
 ## [0.7.0] - 2026-05-14
 
 Trust-boundary release. Three lines closed: `raioz.yaml` no longer

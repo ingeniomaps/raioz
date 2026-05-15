@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -119,8 +120,8 @@ func (r *DockerfileRunner) Logs(ctx context.Context, svc interfaces.ServiceConte
 	args = append(args, svc.ContainerName)
 
 	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-	cmd.Stdout = exec.CommandContext(ctx, "echo").Stdout
-	cmd.Stderr = exec.CommandContext(ctx, "echo").Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("docker logs: %w", err)
 	}
