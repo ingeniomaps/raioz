@@ -161,6 +161,29 @@ Digest pinning (`@sha256:...`) is accepted. Compose-backed deps
 without `image:` are not affected. Warning only — `raioz up`
 proceeds.
 
+### Auth selector for private git repos (issue 067)
+
+`services.<n>.auth` is the schema-level expression of the
+"secrets never in yaml" policy. It's a **selector**, never a
+carrier — the value is one of:
+
+- omit (default): strict / public-only hardening (v0.1 behavior).
+- `inherit`: raioz removes its hardening for that clone, delegating
+  fully to the dev's global git config (credential helper,
+  ssh-agent, OS keychain, Kerberos, smart card). Whatever
+  `git clone <repo>` would do in the dev's shell is what raioz
+  does.
+- `gh` / `ssh`: provider placeholders in fase 1 — fail at clone
+  with a "not implemented" error that points at `inherit` as the
+  working alternative. The functional implementations land in
+  fase 2 / fase 3 of issue 067.
+
+The yaml carries the **selector**; the credentials live in the
+dev's environment. A teammate who clones the repo and runs
+`raioz up` uses *their* credentials, never the original author's.
+That is the entire reason `auth:` exists as a string field
+instead of a map carrying token values.
+
 ### What this policy intentionally does NOT do
 
 ADR-036 "won't do" section preserves the rationale for trust-pass

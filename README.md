@@ -429,6 +429,33 @@ there first" in a comment:
 - Cycles fail fast: A → B → A is detected via `RAIOZ_SIBLING_STACK` and
   the chain is printed in the error.
 
+### Private repos
+
+By default raioz clones public repos only — every interactive prompt
+and credential helper is disabled (v0.1 hardening). For a private
+repo, opt in per service:
+
+```yaml
+services:
+  api:
+    git: github.com/acme/private-api
+    branch: develop
+    path: ./api
+    auth: inherit   # delegates to your global git config
+```
+
+`auth: inherit` is the working setting today (fase 1 of issue 067).
+It tells raioz to drop its hardening for this clone and use whatever
+`git clone <repo>` would do in your shell — credential helper,
+ssh-agent, OS keychain, Kerberos, etc. `auth: gh` and `auth: ssh`
+are placeholders in fase 1 and ship as functional providers in
+fase 2 / fase 3.
+
+**Tokens never live in the yaml.** The field is a *selector*; the
+credentials live in your environment. See
+[docs/SECURITY.md § Auth selector for private git repos](docs/SECURITY.md)
+for the full policy.
+
 ## How It Works
 
 ```

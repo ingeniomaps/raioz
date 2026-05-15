@@ -153,6 +153,7 @@ dependencies:               # what I need running (Docker images)
 - `dependencies.<n>.project` — depend on a sibling raioz project (mode A). Empty image/compose; raioz spawns `raioz up` recursively in the sibling cwd when needed. `down` of the consumer never tumba al hermano.
 - `dependencies.<n>.siblingProject` — fallback variant: pair with `image:`/`compose:` and raioz skips the local declaration only when the sibling is currently active. Useful for CI / contributors without the sibling cloned.
 - `dependencies.<n>.requiredHostname` — assert the sibling's raioz.yaml declares this hostname before deferring to it. Empty = no validation.
+- `services.<n>.auth` — opt-in selector for cloning private git repos. Empty (default) keeps the v0.1 strict hardening (public-only); `inherit` delegates to the dev's global git config (credential helper, ssh-agent, OS keychain); `gh` and `ssh` ship as placeholders today (issue 067 fase 1) and become functional in fase 2/3. **The yaml never carries the credential** — only the selector (ADR-036 § secrets-never-in-yaml).
 
 ## Key Concepts
 
