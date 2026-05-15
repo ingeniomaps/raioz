@@ -794,6 +794,7 @@ values warn once and fall back to the default — surfaced by
 |-----|---------|--------|
 | `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the launcher's container to appear. |
 | `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container before invoking `stop:`. |
+| `RAIOZ_SIBLING_TIMEOUT` | `10m` | Upper bound on each mode-A sibling spawn (ADR-008). Hung sibling deadlines out with a "set RAIOZ_SIBLING_TIMEOUT higher" hint instead of blocking forever. Issue 072. |
 
 Adding a new duration env var? Append it to
 `host.KnownDurationEnvs()` so `raioz doctor` picks it up — same

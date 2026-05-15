@@ -66,6 +66,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   exercises match / missing / mismatch / substring-poisoning
   cases; wired into `make check-install` and CI lint.
 
+### Fixed
+
+- **Sibling spawn (ADR-008 mode A) gets a timeout** (issue 072).
+  `spawnSibling` used to call `cmd.Wait()` unbounded — a hung
+  child raioz held the parent forever. Capped at
+  `RAIOZ_SIBLING_TIMEOUT` (default `10m`). Listed in
+  `host.KnownDurationEnvs()` so `raioz doctor` surfaces
+  overrides and warns on malformed values (ADR-035). The
+  deadline error names the sibling dir and the env var, so
+  the user knows exactly where to look and what knob to turn.
+
 ### Removed
 
 - **Dead `internal/app/dependency_assist.go`** (issue 078). The

@@ -89,6 +89,24 @@ func TestKnownDurationEnvs_CoversBothLauncherVars(t *testing.T) {
 	if !names[launcherWaitTimeoutEnv] || !names[launcherDrainTimeoutEnv] {
 		t.Errorf("KnownDurationEnvs must list both launcher vars; got %v", names)
 	}
+	if !names[siblingSpawnTimeoutEnv] {
+		t.Errorf("KnownDurationEnvs must list RAIOZ_SIBLING_TIMEOUT (issue 072); got %v", names)
+	}
+}
+
+func TestSiblingSpawnTimeout_DefaultAndOverride(t *testing.T) {
+	t.Run("default 10 minutes when unset", func(t *testing.T) {
+		stubEnv(t, map[string]string{})
+		if got := SiblingSpawnTimeout(); got != 10*time.Minute {
+			t.Errorf("default = %s, want 10m", got)
+		}
+	})
+	t.Run("override honored", func(t *testing.T) {
+		stubEnv(t, map[string]string{siblingSpawnTimeoutEnv: "2m30s"})
+		if got := SiblingSpawnTimeout(); got != 2*time.Minute+30*time.Second {
+			t.Errorf("override = %s, want 2m30s", got)
+		}
+	})
 }
 
 func TestKnownDurationEnvs_PropagatesMalformed(t *testing.T) {
