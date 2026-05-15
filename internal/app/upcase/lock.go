@@ -8,6 +8,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/protocol"
 )
 
 // LockInstance wraps a lock instance for deferred release
@@ -37,9 +38,9 @@ func (l *LockInstance) Release() error {
 // no-op LockInstance whose Release() is also a no-op. Trust is bounded
 // by the parent: only the parent's `raioz up` can set the env var.
 func (uc *UseCase) acquireLock(ctx context.Context, ws *interfaces.Workspace) (*LockInstance, error) {
-	if os.Getenv(siblingStackEnv) != "" {
+	if os.Getenv(protocol.SiblingStack) != "" {
 		logging.DebugWithContext(ctx, "Skipping lock — recursive sibling spawn",
-			"workspace", ws.Root, "stack", os.Getenv(siblingStackEnv))
+			"workspace", ws.Root, "stack", os.Getenv(protocol.SiblingStack))
 		return &LockInstance{lock: nil, ctx: ctx, ws: ws}, nil
 	}
 

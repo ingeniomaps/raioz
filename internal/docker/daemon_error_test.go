@@ -11,11 +11,11 @@ import (
 // Other failures must pass through without the sentinel.
 func TestWrapDaemonError(t *testing.T) {
 	tests := []struct {
-		name      string
-		output    string
-		err       error
-		wantSent  bool
-		wantNil   bool
+		name     string
+		output   string
+		err      error
+		wantSent bool
+		wantNil  bool
 	}{
 		{
 			name:    "nil err returns nil",

@@ -12,6 +12,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
 	errpkg "raioz/internal/errors"
+	"raioz/internal/protocol"
 	rt "raioz/internal/runtime"
 )
 
@@ -112,7 +113,7 @@ func TestDecideSibling_ModeA_DetectsCycle(t *testing.T) {
 			"services:\n  keycloak:\n    path: .\n")
 	// Pretend we're already mid-spawn for siblingDir — simulate the
 	// child raioz process running in a recursive chain.
-	t.Setenv(siblingStackEnv, siblingDir)
+	t.Setenv(protocol.SiblingStack, siblingDir)
 
 	inline := &models.Infra{Project: siblingDir}
 	_, err := decideSibling(context.Background(), "keycloak", inline, "hypixo")

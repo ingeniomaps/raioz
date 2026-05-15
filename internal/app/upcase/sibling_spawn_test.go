@@ -11,19 +11,20 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/logging"
+	"raioz/internal/protocol"
 )
 
 // --- stack helpers --------------------------------------------------------
 
 func TestReadSiblingStack_Empty(t *testing.T) {
-	t.Setenv(siblingStackEnv, "")
+	t.Setenv(protocol.SiblingStack, "")
 	if got := readSiblingStack(); got != nil {
 		t.Errorf("expected nil for empty env, got %v", got)
 	}
 }
 
 func TestReadSiblingStack_Populated(t *testing.T) {
-	t.Setenv(siblingStackEnv, "/a"+string(os.PathListSeparator)+"/b")
+	t.Setenv(protocol.SiblingStack, "/a"+string(os.PathListSeparator)+"/b")
 	got := readSiblingStack()
 	if len(got) != 2 || got[0] != "/a" || got[1] != "/b" {
 		t.Errorf("got %v, want [/a /b]", got)
@@ -31,19 +32,19 @@ func TestReadSiblingStack_Populated(t *testing.T) {
 }
 
 func TestPushSiblingStack_AppendsToExisting(t *testing.T) {
-	t.Setenv(siblingStackEnv, "/a")
+	t.Setenv(protocol.SiblingStack, "/a")
 	got := pushSiblingStack("/b", "/c")
 	sep := string(os.PathListSeparator)
-	want := siblingStackEnv + "=/a" + sep + "/b" + sep + "/c"
+	want := protocol.SiblingStack + "=/a" + sep + "/b" + sep + "/c"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
 func TestPushSiblingStack_FirstEntry(t *testing.T) {
-	t.Setenv(siblingStackEnv, "")
+	t.Setenv(protocol.SiblingStack, "")
 	got := pushSiblingStack("/parent", "/child")
-	want := siblingStackEnv + "=/parent" + string(os.PathListSeparator) + "/child"
+	want := protocol.SiblingStack + "=/parent" + string(os.PathListSeparator) + "/child"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -52,7 +53,7 @@ func TestPushSiblingStack_FirstEntry(t *testing.T) {
 // --- checkSiblingCycle ----------------------------------------------------
 
 func TestCheckSiblingCycle_NoStack(t *testing.T) {
-	t.Setenv(siblingStackEnv, "")
+	t.Setenv(protocol.SiblingStack, "")
 	sib := &config.SiblingInfo{Dir: "/some/path", Project: "x"}
 	if err := checkSiblingCycle("x", sib); err != nil {
 		t.Errorf("expected nil for empty stack, got %v", err)
@@ -60,7 +61,7 @@ func TestCheckSiblingCycle_NoStack(t *testing.T) {
 }
 
 func TestCheckSiblingCycle_DetectsLoop(t *testing.T) {
-	t.Setenv(siblingStackEnv, "/a"+string(os.PathListSeparator)+"/b")
+	t.Setenv(protocol.SiblingStack, "/a"+string(os.PathListSeparator)+"/b")
 	sib := &config.SiblingInfo{Dir: "/a", Project: "a"}
 	err := checkSiblingCycle("a-dep", sib)
 	if err == nil || !strings.Contains(err.Error(), "sibling cycle") {
@@ -73,7 +74,7 @@ func TestCheckSiblingCycle_DetectsLoop(t *testing.T) {
 }
 
 func TestCheckSiblingCycle_PathNotInStack(t *testing.T) {
-	t.Setenv(siblingStackEnv, "/a"+string(os.PathListSeparator)+"/b")
+	t.Setenv(protocol.SiblingStack, "/a"+string(os.PathListSeparator)+"/b")
 	sib := &config.SiblingInfo{Dir: "/c", Project: "c"}
 	if err := checkSiblingCycle("c-dep", sib); err != nil {
 		t.Errorf("expected nil when target not in stack, got %v", err)

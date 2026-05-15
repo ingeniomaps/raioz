@@ -9,3 +9,10 @@ package protocol
 // (ADR-037). The consumer-side upcase reads it to suppress the bundled
 // Caddy. Truthy values: "1", "true", "yes" (case-insensitive).
 const RouterActive = "RAIOZ_ROUTER_ACTIVE"
+
+// SiblingStack carries the call-chain of recursive `raioz up`
+// invocations across a mode-A spawn (ADR-008). The parent appends its
+// own project dir before exec; the child reads it to fail fast on
+// A → B → A cycles and to bypass the project-lock acquisition that
+// the parent already holds.
+const SiblingStack = "RAIOZ_SIBLING_STACK"

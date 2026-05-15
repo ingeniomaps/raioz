@@ -15,20 +15,14 @@ import (
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
+	"raioz/internal/protocol"
 )
-
-// siblingStackEnv carries the call-chain of recursive `raioz up`
-// invocations across a Mode A spawn. The parent appends its own
-// project dir before exec; the child reads the variable in
-// checkSiblingCycle to fail fast on A → B → A loops instead of running
-// forever.
-const siblingStackEnv = "RAIOZ_SIBLING_STACK"
 
 // readSiblingStack returns the absolute project directories already on
 // the recursive-up call chain. Empty when this raioz was invoked
 // directly by the user.
 func readSiblingStack() []string {
-	raw := os.Getenv(siblingStackEnv)
+	raw := os.Getenv(protocol.SiblingStack)
 	if raw == "" {
 		return nil
 	}
@@ -44,7 +38,7 @@ func readSiblingStack() []string {
 // pair.
 func pushSiblingStack(consumerDir, siblingDir string) string {
 	cur := append(readSiblingStack(), consumerDir, siblingDir)
-	return siblingStackEnv + "=" + strings.Join(cur, string(os.PathListSeparator))
+	return protocol.SiblingStack + "=" + strings.Join(cur, string(os.PathListSeparator))
 }
 
 // checkSiblingCycle returns an error when sib.Dir is already on the
