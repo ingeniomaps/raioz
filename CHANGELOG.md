@@ -24,6 +24,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Refactor
 
+- **Typed `interfaces.ErrDaemonUnreachable`** replaces the
+  substring scan in the app layer. The docker adapter
+  (`internal/docker/daemon_error.go`) owns the CLI-prose →
+  sentinel translation; `app/down_offline.go::isDockerUnreachable`
+  is now a one-liner `errors.Is(err, interfaces.ErrDaemonUnreachable)`.
+  Aligns with ADR-029 — the app layer no longer reads docker
+  stdout strings. `IsProjectActive` switched to `CombinedOutput`
+  so the adapter sees the daemon-down message that lives on
+  stderr.
 - **`RAIOZ_ROUTER_ACTIVE` lives in `internal/protocol`** so the
   meta producer and the upcase consumer can no longer drift on
   the literal. New `protocol.RouterActive` const; the local

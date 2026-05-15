@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"strings"
+	"errors"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/i18n"
@@ -11,27 +11,12 @@ import (
 	"raioz/internal/root"
 )
 
-// isDockerUnreachable matches well-known daemon-down signatures via
-// substring. Avoids importing docker-go-client typed errors into the
-// app layer; the matched strings are stable across docker versions.
+// isDockerUnreachable reads the typed sentinel
+// interfaces.ErrDaemonUnreachable that the docker adapter wraps onto
+// daemon-down failures. The CLI prose → sentinel translation lives in
+// internal/docker; the app layer no longer matches strings.
 func isDockerUnreachable(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	signatures := []string{
-		"cannot connect to the docker daemon",
-		"connection refused",
-		"no such host",
-		"is the docker daemon running",
-		"dial unix /var/run/docker.sock",
-	}
-	for _, sig := range signatures {
-		if strings.Contains(msg, sig) {
-			return true
-		}
-	}
-	return false
+	return errors.Is(err, interfaces.ErrDaemonUnreachable)
 }
 
 // forceOfflineCleanup runs the cleanup steps that don't touch Docker:
