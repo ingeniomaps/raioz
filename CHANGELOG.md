@@ -24,6 +24,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Refactor
 
+- **`RAIOZ_ROUTER_ACTIVE` lives in `internal/protocol`** so the
+  meta producer and the upcase consumer can no longer drift on
+  the literal. New `protocol.RouterActive` const; the local
+  copies in `internal/app/meta.go` and
+  `internal/app/upcase/router_env.go` are gone. Future
+  parent→child env-var contracts (e.g. `RAIOZ_SIBLING_STACK`)
+  can move here too.
 - **`envshow.go` reads `SourceFormat`** (one entry off the
   dual-flow baseline). `deps.SchemaVersion == "2.0"` was the
   easiest of the 5 inline readers to migrate cleanly because

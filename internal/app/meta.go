@@ -10,6 +10,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/host"
 	"raioz/internal/output"
+	"raioz/internal/protocol"
 )
 
 // MetaRunner orchestrates a meta-orchestrator config: a raioz.yaml with
@@ -55,12 +56,6 @@ func (s MetaSummaryList) HasFailures() bool {
 	return false
 }
 
-// envRouterActive is the env var meta sets on consumer sub-up invocations
-// when an ADR-037 router project is running first. The consumer's upcase
-// reads it and suppresses the bundled Caddy. Defined here (not in
-// internal/env) so the meta runner has no upward dependency.
-const envRouterActive = "RAIOZ_ROUTER_ACTIVE"
-
 // MetaUpOptions tunes a meta up run. RouterOff bypasses the ADR-037 router
 // phase even when the config declares `router:`, restoring pre-v0.8
 // behavior for debugging. Future per-run knobs land here without
@@ -94,7 +89,7 @@ func (m *MetaRunner) Up(
 		if entry.Err != nil {
 			return results
 		}
-		consumerEnv = []string{envRouterActive + "=1"}
+		consumerEnv = []string{protocol.RouterActive + "=1"}
 		skipPath = cfg.Router.Path
 	}
 
