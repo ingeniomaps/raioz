@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/protocol"
 )
@@ -192,15 +193,15 @@ func (m *MetaRunner) run(
 			// success
 		case p.Optional && subCmd == "up":
 			entry.Skipped = true
-			output.PrintWarning(fmt.Sprintf(
-				"meta: optional project %q failed (%s) — continuing", p.Name, entry.Err,
-			))
+			output.PrintWarning(
+				i18n.T("meta.optional_failed", p.Name, entry.Err),
+			)
 		case subCmd == "down" || subCmd == "status":
 			// Best-effort: keep going on remaining subs even if this one
 			// errored. The error is recorded in the summary.
-			output.PrintWarning(fmt.Sprintf(
-				"meta: %s for %q returned %s — continuing", subCmd, p.Name, entry.Err,
-			))
+			output.PrintWarning(
+				i18n.T("meta.sub_error_continuing", subCmd, p.Name, entry.Err),
+			)
 		default:
 			results = append(results, entry)
 			return results // hard fail on first non-optional up failure
@@ -273,8 +274,8 @@ func reverseMetaProjects(in []config.MetaProject) []config.MetaProject {
 func printMetaBanner(w *os.File, subCmd string, p config.MetaProject) {
 	tag := strings.ToUpper(subCmd)
 	if p.Optional {
-		fmt.Fprintf(w, "\n=== [%s] %s (optional) ===\n", tag, p.Name)
+		fmt.Fprintln(w, "\n"+i18n.T("meta.banner_optional", tag, p.Name))
 	} else {
-		fmt.Fprintf(w, "\n=== [%s] %s ===\n", tag, p.Name)
+		fmt.Fprintln(w, "\n"+i18n.T("meta.banner", tag, p.Name))
 	}
 }
