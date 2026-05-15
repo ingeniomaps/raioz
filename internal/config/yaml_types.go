@@ -118,6 +118,7 @@ type YAMLService struct {
 	Profiles        YAMLStringSlice `yaml:"profiles,omitempty"`        // since: v0.1.0
 	Git             string          `yaml:"git,omitempty"`             // since: v0.1.0
 	Branch          string          `yaml:"branch,omitempty"`          // since: v0.1.0
+	Auth            string          `yaml:"auth,omitempty"`            // since: v0.7.0
 
 	// Command overrides auto-detection: raioz runs this command verbatim on the
 	// host via HostRunner, passing env vars from `env` as process environment.

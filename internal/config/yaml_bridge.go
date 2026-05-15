@@ -116,6 +116,7 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 			Branch: svc.Branch,
 			Path:   svc.Path,
 			Access: "editable",
+			Auth:   svc.Auth,
 		}
 	} else if svc.Path != "" {
 		service.Source = SourceConfig{
