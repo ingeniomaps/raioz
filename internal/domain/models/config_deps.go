@@ -16,7 +16,7 @@ type Deps struct {
 	// MUST read SourceFormat instead; SchemaVersion goes away in v1.0
 	// alongside the JSON loader (ADR-038, ADR-039).
 	SchemaVersion      string                `json:"schemaVersion"`
-	SourceFormat       SourceFormat          `json:"-"` // canonical discriminator (ADR-039)
+	SourceFormat       SourceFormat          `json:"-"`                   // canonical discriminator (ADR-039)
 	Workspace          string                `json:"workspace,omitempty"` // Optional workspace name
 	Network            NetworkConfig         `json:"network,omitempty"`   // Network config (shared by workspace)
 	Project            Project               `json:"project"`
