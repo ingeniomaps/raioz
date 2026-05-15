@@ -6,6 +6,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-05-15
+
+### Fixed
+
+- **`raioz down --project <name>` no longer panics outside the
+  project directory.** The fall-through path from the `SelectFlow`
+  legacy branch left `stateDeps` nil; `down.go:198` then
+  dereferenced `stateDeps.Project.Name`. Now guards the success
+  message and the network-in-use logging behind a nil check,
+  falling back to the CLI-resolved `projectName`. Caught by the
+  `go-quality-reviewer` audit of v0.8.0.
+- **`internal/lock` differentiates concurrent races from
+  unremovable stale locks.** After evicting a PID-dead or aged-out
+  lock, if the re-acquire fails with `os.IsExist` the helper now
+  re-reads the new lock's PID and reports `"another raioz process
+  acquired the lock concurrently"` instead of the generic "after
+  cleaning stale lock" message. Filesystem-level failures keep the
+  original wrapped error so the cause stays in the chain.
+
+### Refactor
+
+- **`MetaRunner` user-visible strings route through `i18n.T()`.**
+  The `=== [UP|DOWN|STATUS] <project> ===` banner and the two
+  optional/best-effort warning lines bypassed both the catalog and
+  the i18n-source ratchet (they were dynamic `fmt.Sprintf` calls
+  the ratchet does not catch). New keys `meta.banner`,
+  `meta.banner_optional`, `meta.optional_failed`,
+  `meta.sub_error_continuing` in en + es.
+
 ### Documentation
 
 - **`docs/RATCHETS.md`** indexes the four shrinking-baseline
