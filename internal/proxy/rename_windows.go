@@ -4,6 +4,7 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"syscall"
 	"time"
@@ -12,8 +13,8 @@ import (
 // Windows-side errnos os.Rename can produce when another handle is open
 // on either src or dst. Stable values from <winerror.h>.
 const (
-	winAccessDenied      syscall.Errno = 5  // ERROR_ACCESS_DENIED
-	winSharingViolation  syscall.Errno = 32 // ERROR_SHARING_VIOLATION
+	winAccessDenied     syscall.Errno = 5  // ERROR_ACCESS_DENIED
+	winSharingViolation syscall.Errno = 32 // ERROR_SHARING_VIOLATION
 )
 
 // renameWithRetry replaces dst atomically. Unix's rename(2) makes this
@@ -27,16 +28,16 @@ func renameWithRetry(src, dst string) error {
 	delay := 5 * time.Millisecond
 	var lastErr error
 	for i := 0; i < maxAttempts; i++ {
-		if err := os.Rename(src, dst); err == nil {
+		err := os.Rename(src, dst)
+		if err == nil {
 			return nil
-		} else {
-			lastErr = err
-			if !errors.Is(err, winAccessDenied) && !errors.Is(err, winSharingViolation) {
-				return err
-			}
+		}
+		lastErr = err
+		if !errors.Is(err, winAccessDenied) && !errors.Is(err, winSharingViolation) {
+			return fmt.Errorf("rename %s → %s: %w", src, dst, err)
 		}
 		time.Sleep(delay)
 		delay *= 2 // 5ms → 10 → 20 → 40 → 80 → 160 → 320 → 640 (~1.27s total)
 	}
-	return lastErr
+	return fmt.Errorf("rename %s → %s after %d retries: %w", src, dst, maxAttempts, lastErr)
 }
