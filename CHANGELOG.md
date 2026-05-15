@@ -6,8 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-15
+
 ### Added
 
+- **Replaceable edge router** (ADR-037, issue 066). Workspaces
+  can declare `router.project: ./gateway` in a meta config to
+  swap raioz's bundled Caddy for a sibling raioz project that
+  owns edge routing. The router project comes up first
+  (non-optional, abort-on-fail), consumer sub-ups see
+  `RAIOZ_ROUTER_ACTIVE=1` and skip their bundled Caddy via the
+  new `maybeStartProxy` gate, and `raioz down` tears the
+  router down last. `raioz up --router-off` bypasses the
+  branch for debugging. V1 ships without a service-discovery
+  contract from raioz to the router — the router owns its own
+  templates. New corpus fixture `21-router.yaml`, 9 unit tests
+  (`meta_router_test.go` + `router_env_test.go`), end-to-end
+  CI gate via `scripts/integration-test-router.sh` (push-only).
+  Documented in `docs/CONFIG_REFERENCE.md § Router project` and
+  the README "Bring your own edge" section.
 - **`.raioz.json` deprecation banner** (ADR-038, issue 068). The
   JSON loader now emits a loud one-shot warning the first time
   it runs in a process: "`.raioz.json` is deprecated — run
