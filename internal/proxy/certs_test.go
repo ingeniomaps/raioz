@@ -3,9 +3,17 @@ package proxy
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
+
+// setHome forces both Unix HOME and Windows USERPROFILE to the same
+// path so os.UserHomeDir-driven helpers (CertsDir, LegacyStateDirs)
+// pick our tempdir regardless of OS.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+}
 
 func TestCertsDir(t *testing.T) {
 	dir := CertsDir()
@@ -18,11 +26,8 @@ func TestCertsDir(t *testing.T) {
 }
 
 func TestEnsureCerts_AlreadyExist(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
-	}
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	// Pre-populate the per-domain subdir with a valid cert whose SAN covers
 	// localhost + *.localhost. EnsureCerts must accept it as-is and skip
@@ -45,11 +50,8 @@ func TestEnsureCerts_AlreadyExist(t *testing.T) {
 }
 
 func TestEnsureCerts_DefaultDomain(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: CertsDir uses HOME on Unix vs USERPROFILE on Windows")
-	}
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 
 	domainDir := filepath.Join(home, ".raioz", "certs", "localhost")
 	os.MkdirAll(domainDir, 0o755)

@@ -6,6 +6,118 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-14
+
+Trust-boundary release. Three lines closed: `raioz.yaml` no longer
+accepts credentials or unsafe paths (ADR-036), private repos clone
+without downgrading the public-only hardening (issue 067 fases 1-3),
+and the Windows runtime CI gate (ADR-030) actually runs green so the
+release pipeline can vouch for windows binaries again. No
+user-facing breaking changes.
+
+### Added
+
+- **YAML hygiene gates** (ADR-036). Three pre-flight checks that
+  trip at config load:
+  - **Secret scanner** — rejects `raioz.yaml` containing a known
+    credential pattern (GitHub PATs `ghp_*`/`gho_*`/`ghu_*`/
+    `ghs_*`/`ghr_*`, GitLab PATs `glpat-*`, AWS access keys
+    `AKIA*`, Slack tokens `xox[bopa]-*`, PEM private keys).
+    Error message never echoes the leaked literal — a committed
+    secret is a credential-rotation incident, the scanner stops
+    it at the boundary.
+  - **Path traversal rejection** — every path declared in
+    `raioz.yaml` must resolve inside the project dir (sibling
+    project paths excepted) and may not target system locations
+    like `/etc` or `/root`. Catches typos and traversal before
+    they reach disk.
+  - **Unpinned image warning** — `dependencies.<n>.image:` with no
+    tag or `:latest` emits a warning at load. Digest-pinning
+    (`@sha256:…`) is accepted; compose-backed deps without
+    `image:` are unaffected.
+- **`services.<n>.auth` selector** (issue 067, fases 1-3
+  complete). Picks the auth strategy `raioz clone` / `raioz dev`
+  apply when reaching a private repo:
+  - `auth: inherit` — fully delegates to the developer's git
+    config (helper, ssh-agent, Kerberos, OS keychain).
+  - `auth: strict` (default, empty) — preserves v0.1 public-only
+    hardening bit-for-bit. No credential.helper, no
+    GIT_ASKPASS, no GIT_SSH_COMMAND, no terminal prompts.
+  - `auth: gh` — scopes `gh auth git-credential` to the single
+    git invocation. Token resolution lives inside the gh
+    process; nothing on the command line, no global config
+    mutation. Validate fails fast when `gh` is missing or
+    `gh auth login` hasn't completed.
+  - `auth: ssh` — rewrites `https://{github,gitlab,bitbucket}`
+    URLs to `git@host:owner/repo.git` and runs git over SSH with
+    `StrictHostKeyChecking=accept-new BatchMode=yes
+    ConnectTimeout=10`. Trust ssh-agent / `~/.ssh/config` for
+    identity selection. Self-hosted hosts pass URLs through
+    unchanged.
+  - Validation rejects unknown values; declaring `auth:` without
+    `git:` warns instead of dropping silently.
+- New `internal/git/auth/` package — `Provider` abstraction that
+  gives every clone site (`ForceReclone`, `EnsureReadonlyRepo`,
+  `EnsureEditableRepo`) one seam to swap hardening for per-service
+  auth strategies.
+
+### Changed
+
+- `HostRunner.Stop` on Windows now sends a real graceful signal.
+  `KillProcessTree` switched from `taskkill /T` (WM_CLOSE — silent
+  no-op for console apps) to `GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT)`,
+  the Windows analogue of SIGTERM for console processes.
+  `SetNewProcessGroup` now wires `CREATE_NEW_PROCESS_GROUP` so the
+  signal is deliverable. Stops cutting to the 5s timeout +
+  ForceKill loop on every host-service teardown.
+- Centralized the clone-hardening helper inside `internal/git/` so
+  the three call sites that copy-pasted the
+  `credential.helper=`/`GIT_ASKPASS=echo`/`GIT_SSH_COMMAND=false`/
+  `GIT_TERMINAL_PROMPT=0` setup verbatim share one source of truth.
+- Build-tagged helpers replace skips on Windows runtime CI
+  (issue 068): `ports_probe_{unix,windows}.go` map
+  `WSAECONNREFUSED` / `WSAEADDRINUSE` so the TCP probes return
+  definitive answers; `rename_{unix,windows}.go` wraps
+  `os.Rename` with a retry-backoff loop on
+  `ERROR_SHARING_VIOLATION` / `ERROR_ACCESS_DENIED` (antivirus /
+  indexer / concurrent reader); `dir_unwritable_{unix,windows}_test.go`
+  uses `chmod 0555` on Unix and `icacls /deny <USER>:(W)` on
+  Windows to set up the same precondition cross-platform.
+
+### Fixed
+
+- 13 OS-specific tests that the Windows CI gate (ADR-030) surfaced
+  on the v0.6.0 push now run green on `windows-latest`. Causes
+  covered: path-separator assertions (`filepath.ToSlash`),
+  `HOME` vs `USERPROFILE` for `os.UserHomeDir`-driven helpers
+  (`setHome` helper in cert tests), legacy-migration setup
+  (`USERPROFILE` alongside `HOME`), the file-permission assertion
+  in `TestSaveAndLoadProcessesState` (now conditional — Windows
+  ACL doesn't map to POSIX mode bits), `TestKillProcessTree_RealChild`
+  (cross-platform binary choice + CTRL_BREAK_EVENT delivery),
+  `TestSaveProjectRoutes_AtomicUnderConcurrency` (rename retry
+  loop), `TestAssertProxyDirWritable_DirReadOnly` (icacls deny
+  ACE setup). Issue 068 closed at 100%.
+- `renameWithRetry` returned `os.Rename`'s error bare; wrapcheck
+  flagged it. Wrapped with `fmt.Errorf("rename %s → %s: %w", ...)`
+  on both Unix and Windows variants.
+- `scripts/check-config-fixtures.sh` no longer fires on
+  comment-only edits to schema files (`yaml_types.go` /
+  `yaml_aux_types.go`). Now diffs each file and only counts as
+  a "real schema change" when at least one non-comment,
+  non-blank line moved.
+
+### Notes
+
+- The Windows port keeps existing pre-v0.6.0 skips in
+  `internal/infra/exec/` and `internal/host/process_test.go`
+  (tests that genuinely require a Unix shell). Those are out of
+  scope for issue 068 — a separate sweep.
+- ADR-037 (replaceable edge router) was authored during this
+  cycle but lands in v0.8 — not implemented yet. See
+  `docs/decisions/037-replaceable-edge-router.md` for the
+  scoped V1 plan.
+
 ## [0.6.0] - 2026-05-14
 
 Minor release. Tightens the proxy port contract, lands meta-orchestrator

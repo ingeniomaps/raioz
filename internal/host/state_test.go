@@ -32,9 +32,6 @@ func TestLoadProcessesStateMissingFile(t *testing.T) {
 }
 
 func TestSaveAndLoadProcessesState(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: Windows ACL doesn't map to Unix 0600 perms")
-	}
 	ws := newTestWorkspace(t)
 
 	processes := map[string]*ProcessInfo{
@@ -64,7 +61,9 @@ func TestSaveAndLoadProcessesState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat state file: %v", err)
 	}
-	if info.Mode().Perm() != 0600 {
+	// Windows ACL doesn't round-trip Unix POSIX mode bits, so the
+	// 0600 assertion only applies on Unix-likes.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Errorf("state file permissions = %v, want 0600", info.Mode().Perm())
 	}
 

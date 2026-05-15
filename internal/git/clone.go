@@ -36,7 +36,7 @@ func EnsureRepoWithForce(src models.SourceConfig, baseDir string, force bool) er
 		logging.Info("Force re-cloning repository", "path", src.Path)
 		ctx, cancel := exectimeout.WithTimeout(exectimeout.GitCloneTimeout)
 		defer cancel()
-		if err := ForceReclone(ctx, target, src.Repo, src.Branch); err != nil {
+		if err := ForceReclone(ctx, target, src); err != nil {
 			return fmt.Errorf("failed to force re-clone repository: %w", err)
 		}
 		return nil

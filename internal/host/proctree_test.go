@@ -43,13 +43,19 @@ func TestSetNewProcessGroup_NoPanicOnExecCmd(t *testing.T) {
 }
 
 func TestKillProcessTree_RealChild(t *testing.T) {
+	// Pick a long-running command that exists by default on the OS.
+	// `sleep` is in PATH on Unix; on Windows it isn't a built-in, so
+	// use `ping` with a high count — it's always present on
+	// windows-latest runners and responds to CTRL_BREAK_EVENT.
+	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: taskkill exit-code mapping diverges on Windows")
+		cmd = exec.Command("ping", "-n", "30", "127.0.0.1")
+	} else {
+		cmd = exec.Command("sleep", "30")
 	}
-	cmd := exec.Command("sleep", "30")
 	SetNewProcessGroup(cmd)
 	if err := cmd.Start(); err != nil {
-		t.Skipf("sleep not available: %v", err)
+		t.Skipf("long-running command not available: %v", err)
 	}
 	pid := cmd.Process.Pid
 
@@ -62,9 +68,9 @@ func TestKillProcessTree_RealChild(t *testing.T) {
 	go func() { done <- cmd.Wait() }()
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(3 * time.Second):
 		_ = ForceKillProcessTree(pid)
 		<-done
-		t.Errorf("sleep didn't exit within 2s of KillProcessTree")
+		t.Errorf("child didn't exit within 3s of KillProcessTree")
 	}
 }

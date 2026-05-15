@@ -1,0 +1,16 @@
+# 20-service-auth-inherit — `services.<n>.auth:` provider selector.
+#
+# Issue 067 adds an opt-in auth selector for git clones. Empty/omitted
+# reproduces the v0.1 strict (public-only) hardening; `inherit` (the
+# escape hatch landed in fase 1) delegates to the dev's global git
+# config. `gh` and `ssh` are placeholders until fase 2/3. The field
+# is a SELECTOR — never a credential (ADR-036 § secrets-never-in-yaml).
+
+project: auth-inherit
+
+services:
+  api:
+    git: github.com/acme/private-api
+    branch: develop
+    path: ./api
+    auth: inherit

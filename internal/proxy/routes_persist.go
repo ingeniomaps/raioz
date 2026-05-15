@@ -114,7 +114,7 @@ func (m *Manager) SaveProjectRoutes() error {
 		cleanup()
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
+	if err := renameWithRetry(tmpPath, path); err != nil {
 		cleanup()
 		return fmt.Errorf("failed to rename routes file: %w", err)
 	}

@@ -18,6 +18,14 @@ func LoadYAML(path string) (*RaiozConfig, error) {
 		return nil, fmt.Errorf("cannot read config file %s: %w", path, err)
 	}
 
+	// ADR-036 hygiene rule H1: reject the yaml before parsing if it
+	// contains anything that matches a known credential format. The
+	// rest of the loader assumes the bytes are safe to surface in
+	// error messages, which only holds after this gate.
+	if err := ScanForSecrets(data); err != nil {
+		return nil, err
+	}
+
 	var cfg RaiozConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf(
@@ -33,7 +41,16 @@ func LoadYAML(path string) (*RaiozConfig, error) {
 	}
 
 	absPath, _ := filepath.Abs(path)
-	resolveYAMLPaths(&cfg, filepath.Dir(absPath))
+	baseDir := filepath.Dir(absPath)
+
+	// ADR-036 hygiene rule H2: every path in the yaml must resolve
+	// inside baseDir (sibling project paths excepted) and must not
+	// target a known sensitive system directory.
+	if err := validatePathSafety(&cfg, baseDir); err != nil {
+		return nil, err
+	}
+
+	resolveYAMLPaths(&cfg, baseDir)
 
 	return &cfg, nil
 }
@@ -69,7 +86,11 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 		}
 	}
 
-	return validateDependsOnRefs(cfg)
+	if err := validateDependsOnRefs(cfg); err != nil {
+		return err
+	}
+
+	return validateAuthValues(cfg, path)
 }
 
 // validateSiblingDependency enforces the mutual-exclusion rules around the

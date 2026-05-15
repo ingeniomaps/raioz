@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"raioz/internal/domain/models"
 )
 
 func TestBranchExists(t *testing.T) {
@@ -126,7 +128,7 @@ func TestForceReclone(t *testing.T) {
 	// Test ForceReclone with a fake repo (will fail, but tests the function)
 	// Note: This test requires a real remote repo to fully test
 	// For now, we just verify the function exists and removes the directory
-	err := ForceReclone(context.Background(), repoPath, "https://github.com/test/test.git", "main")
+	err := ForceReclone(context.Background(), repoPath, models.SourceConfig{Repo: "https://github.com/test/test.git", Branch: "main"})
 	if err != nil {
 		// Expected to fail since it's not a real repo, but directory should be removed
 		if _, err := os.Stat(repoPath); err == nil {

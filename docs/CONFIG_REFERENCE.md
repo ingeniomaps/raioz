@@ -218,6 +218,49 @@ and starts with the native tool (go run, npm dev, etc.).
 | `profiles` | string or list | no | — | Profile tags for selective startup (`raioz up --profile X`). |
 | `git` | string | no | — | Git repository URL. Raioz clones it to `path`. |
 | `branch` | string | no | — | Git branch to checkout. Used with `git`. |
+| `auth` | string | no | — | Auth provider selector for private repos: `inherit` / `gh` / `ssh`. See [Auth providers](#auth-providers-for-private-git-repos) below. |
+
+> **Path safety (ADR-036 H2):** `path`, `compose`, `env`, and
+> `command`/`stop` (when path-shaped) must resolve inside the
+> project directory and must not target `/etc`, `/root`,
+> `/var/lib`, `/sys`, `/proc`, `/dev`, or `/boot`. Violations
+> abort `raioz up` at preflight.
+
+### Auth providers for private git repos
+
+`services.<n>.auth` is a **selector** for how raioz authenticates
+the clone of a private repo. It is NEVER a credential carrier —
+ADR-036's "secrets never in yaml" policy guarantees that.
+
+| Value | Behavior |
+|-------|----------|
+| omit (default) | Strict / public-only. Credential helper, askpass, and custom SSH command are all disabled; private repos fail fast. |
+| `inherit` | Raioz drops the hardening for this clone and delegates to the dev's global git config (credential helper, ssh-agent, OS keychain, Kerberos, …). Whatever `git clone <repo>` would do in the dev's shell is what raioz does. |
+| `gh` | Placeholder in fase 1 — fails at clone time with a "not implemented" error. The functional GitHub CLI integration lands in fase 2 of issue 067. |
+| `ssh` | Placeholder in fase 1 — fails at clone time. The functional SSH URL-rewriting integration lands in fase 3. |
+
+```yaml
+services:
+  api:
+    git: github.com/acme/private-api
+    branch: develop
+    path: ./api
+    auth: inherit       # uses your gh/ssh-agent/keychain setup
+```
+
+**Why a selector and not a token field?** The yaml ships with the
+project repo — a teammate who clones it and runs `raioz up` uses
+*their* credentials, never the original author's. Putting a token
+in the yaml would either commit a secret (incident) or make the
+yaml unusable across machines. Both are worse than asking the dev
+to configure git globally once.
+
+**Validation:**
+- Unknown values (`auth: github`, `auth: GH`, etc.) abort
+  `raioz up` at preflight with an actionable error.
+- `auth:` without `git:` is silently dropped in the bridge (the
+  service has no git source to authenticate against), but raioz
+  warns about the misconfiguration so the dev can clean it up.
 
 ---
 
@@ -241,6 +284,18 @@ Exactly one of `image`, `compose`, or `project` is required.
 | `hostname` | string | no | dependency name | Custom hostname in Docker network. |
 | `routing` | object | no | — | Proxy routing options. Setting this (even to an empty object `{}`) opts the dep into getting an HTTPS route when its image would otherwise be skipped by the DB/broker heuristic (postgres, redis, mysql, etc.). See [Routing config](#routing-config). |
 | `dev` | object | no | — | Local development override. See [Dev config](#dev-config). |
+
+> **Image pinning warning (ADR-036 H3):** raioz emits a warning
+> at load time when `image:` has no explicit tag (e.g.,
+> `postgres`) or uses `:latest`. Pin to a specific tag
+> (`postgres:16`) or digest (`postgres@sha256:...`) for
+> reproducibility. Compose-backed deps without `image:` are
+> unaffected.
+>
+> **Path safety (ADR-036 H2):** `env`, `compose`, and `dev.path`
+> must resolve inside the project. Sibling paths (`project`,
+> `siblingProject`) may legitimately point outside the project
+> but cannot target system directories.
 
 ### Sibling raioz projects as deps
 
@@ -500,6 +555,12 @@ post:
   - rm -f .env.*.tmp
   - echo "Ready"
 ```
+
+> **Path safety (ADR-036 H2):** when a hook entry is path-shaped
+> (first token starts with `./`/`../`/`/`), the path must resolve
+> inside the project. Bare commands (`make build`,
+> `rm -f .env.tmp`) pass through unchanged; shell constructions
+> like `bash ./scripts/foo.sh` are not introspected by design.
 
 ---
 

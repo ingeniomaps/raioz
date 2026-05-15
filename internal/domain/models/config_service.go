@@ -78,6 +78,7 @@ type SourceConfig struct {
 	Tag          string   `json:"tag,omitempty"`          // Required if kind == "image"
 	Path         string   `json:"path,omitempty"`         // Required if kind == "git" or "local"
 	Access       string   `json:"access,omitempty"`       // "readonly" | "editable" (default: "editable", only for git)
+	Auth         string   `json:"auth,omitempty"`         // "" (strict, default) | "inherit" | "gh" | "ssh" — issue 067
 	Command      string   `json:"command,omitempty"`      // Command to run directly on host (without Docker)
 	Runtime      string   `json:"runtime,omitempty"`      // Runtime type for host execution (optional)
 	ComposeFiles []string `json:"composeFiles,omitempty"` // Explicit compose files (overrides auto-detect)

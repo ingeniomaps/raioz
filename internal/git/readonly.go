@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -52,19 +51,11 @@ func EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			cmd := exec.CommandContext(
-				ctx, "git", "-c", "credential.helper=",
-				"clone", "--depth", "1", "-b",
-				src.Branch, src.Repo, target,
-			)
-			// Disable interactive prompts for public repos
-			cmd.Env = append(
-				os.Environ(),
-				"GIT_TERMINAL_PROMPT=0",
-				"GIT_ASKPASS=", "GIT_SSH_COMMAND=",
-			)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+			cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 
 			if err := cmd.Run(); err != nil {
 				// Check for timeout
@@ -158,19 +149,11 @@ func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
 
-			cmd := exec.CommandContext(
-				ctx, "git", "-c", "credential.helper=",
-				"clone", "--depth", "1", "-b",
-				src.Branch, src.Repo, target,
-			)
-			// Disable interactive prompts for public repos
-			cmd.Env = append(
-				os.Environ(),
-				"GIT_TERMINAL_PROMPT=0",
-				"GIT_ASKPASS=", "GIT_SSH_COMMAND=",
-			)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+			cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 
 			if err := cmd.Run(); err != nil {
 				// Check for timeout

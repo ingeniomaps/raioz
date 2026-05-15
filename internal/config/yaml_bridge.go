@@ -116,6 +116,7 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 			Branch: svc.Branch,
 			Path:   svc.Path,
 			Access: "editable",
+			Auth:   svc.Auth,
 		}
 	} else if svc.Path != "" {
 		service.Source = SourceConfig{
@@ -347,6 +348,8 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 
 	warnings := schemaVersionWarnings(cfg)
 	warnings = append(warnings, yamlDeprecationWarnings(cfg)...)
+	warnings = append(warnings, imagePinningWarnings(cfg)...)
+	warnings = append(warnings, authWarnings(cfg)...)
 
 	// Strict re-parse on the raw bytes for unknown-field detection. Any
 	// read error here is purely diagnostic — the lenient load already

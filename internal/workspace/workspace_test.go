@@ -3,7 +3,6 @@ package workspace
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -177,20 +176,19 @@ func TestResolveEdgeCases(t *testing.T) {
 }
 
 func TestGetBaseDirFromWorkspace(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("docs/issues/068: assertion uses Unix path separators")
-	}
 	ws := &Workspace{
 		Root:        "/tmp/base/workspaces/test-project",
 		ServicesDir: "/tmp/base/services",
 		EnvDir:      "/tmp/base/env",
 	}
 
-	baseDir := GetBaseDirFromWorkspace(ws)
+	// Normalize so the Unix-style expected works on Windows
+	// (filepath.Dir emits `\` there).
+	got := filepath.ToSlash(GetBaseDirFromWorkspace(ws))
 	expected := "/tmp/base"
 
-	if baseDir != expected {
-		t.Errorf("GetBaseDirFromWorkspace() = %v, want %v", baseDir, expected)
+	if got != expected {
+		t.Errorf("GetBaseDirFromWorkspace() = %v, want %v", got, expected)
 	}
 }
 

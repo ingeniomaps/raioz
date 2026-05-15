@@ -1,10 +1,8 @@
 package proxy
 
 import (
-	"errors"
 	"fmt"
 	"net"
-	"syscall"
 	"time"
 )
 
@@ -68,32 +66,31 @@ const tcpProbeTimeout = 250 * time.Millisecond
 var portCheckFunc = isHostPortInUse
 
 // probeTCPDial tries to OPEN a TCP connection to host:port. Doesn't require
-// any privilege — works as non-root against privileged ports too.
+// any privilege — works as non-root against privileged ports too. isConnRefused
+// is OS-specific so the Windows variant matches WSAECONNREFUSED too.
 func probeTCPDial(host string, port int) (inUse, probed bool) {
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), tcpProbeTimeout)
 	if err == nil {
 		_ = conn.Close()
 		return true, true
 	}
-	if errors.Is(err, syscall.ECONNREFUSED) {
+	if isConnRefused(err) {
 		return false, true
 	}
 	return false, false
 }
 
 // probeTCPBind attempts to bind host:port. Returns (inUse, probed) where
-// `probed` is false when we couldn't determine either way.
+// `probed` is false when we couldn't determine either way. isAddrInUse covers
+// WSAEADDRINUSE on Windows in addition to EADDRINUSE.
 func probeTCPBind(host string, port int) (inUse, probed bool) {
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err == nil {
 		_ = ln.Close()
 		return false, true
 	}
-	if errors.Is(err, syscall.EADDRINUSE) {
+	if isAddrInUse(err) {
 		return true, true
-	}
-	if errors.Is(err, syscall.EACCES) || errors.Is(err, syscall.EPERM) {
-		return false, false
 	}
 	return false, false
 }

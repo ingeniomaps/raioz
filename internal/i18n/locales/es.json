@@ -772,5 +772,14 @@
   "output.switch_conflict_line": "  - %s (puertos del host: %s)",
   "output.switch_confirm": "¿Detener los proyectos arriba y levantar el cwd? (yes/no): ",
   "output.switch_cancelled": "Switch cancelado — el proyecto del cwd NO se levanto.",
-  "output.switch_stopped": "Detenidos %d proyecto(s) en conflicto"
+  "output.switch_stopped": "Detenidos %d proyecto(s) en conflicto",
+  "error.secret_in_yaml": "raioz.yaml contiene lo que parece un %s (línea ~%d). Los secretos nunca deben vivir en el yaml.",
+  "error.secret_in_yaml_suggestion": "Mové la credencial a variables de entorno, un archivo .env, o un secret manager. Para auth de git, ver ADR-036 (yaml hygiene policy).",
+  "error.path_escapes_repo": "el path %q resuelve fuera del directorio del proyecto (resolvería a %s)",
+  "error.path_escapes_repo_suggestion": "Los paths en raioz.yaml deben resolver dentro del directorio del proyecto. Usá paths relativos como ./api/ o ./scripts/setup.sh.",
+  "error.path_in_system_dir": "el path %q apunta al directorio de sistema %s, raioz no opera sobre él",
+  "error.path_in_system_dir_suggestion": "Mové el archivo dentro del proyecto, o usá otro mecanismo (variable de entorno, volume mount).",
+  "error.path_invalid": "el path %q es inválido",
+  "warning.image_no_tag": "la dependencia %q usa la imagen %q sin tag explícito; pineá un tag para reproducibilidad",
+  "warning.image_latest": "la dependencia %q usa la imagen %q con :latest; pineá un tag específico para reproducibilidad"
 }
