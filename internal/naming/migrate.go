@@ -5,11 +5,24 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Dropped in legacy dirs after migration so subsequent startups
 // skip them without rescanning.
 const migratedMarker = ".raioz-migrated-to-xdg"
+
+// migrationFailedBreadcrumb names the file dropped in the legacy
+// dir when copyTree fails. Issue 073: the user inspecting the
+// legacy dir later finds an explicit "migration failed at X with
+// error Y" note instead of silence.
+const migrationFailedBreadcrumb = ".raioz-migration-failed"
+
+// MigrationSkippedPrefix marks notes whose meaning is "we tried
+// and couldn't" rather than "we copied successfully". Callers
+// (CLI root) branch on this prefix to escalate skipped notes to
+// PrintWarning while success notes go to logging.Info.
+const MigrationSkippedPrefix = "migration from "
 
 // MigrateLegacyStateDirs copies legacy state dirs into RaiozStateDir()
 // once on first run; ADR-022. Best-effort — a populated destination
@@ -36,8 +49,13 @@ func MigrateLegacyStateDirs() ([]string, error) {
 			continue
 		}
 		if err := copyTree(src, dst); err != nil {
+			breadcrumb := filepath.Join(src, migrationFailedBreadcrumb)
+			_ = os.WriteFile(breadcrumb,
+				fmt.Appendf(nil, "%s\nmigration to %s failed: %v\n",
+					time.Now().Format(time.RFC3339), dst, err),
+				0o644)
 			notes = append(notes,
-				fmt.Sprintf("migration from %s skipped: %v", src, err))
+				fmt.Sprintf("%s%s skipped: %v", MigrationSkippedPrefix, src, err))
 			continue
 		}
 		_ = os.WriteFile(

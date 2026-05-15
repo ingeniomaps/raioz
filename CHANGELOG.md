@@ -123,6 +123,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Legacy state migration failures are now user-visible**
+  (issue 073). `MigrateLegacyStateDirs` (ADR-022) used to send
+  both success and failure notes to `logging.Debug`, hidden at
+  the default log level. Now successes log at info; skipped /
+  failed sources escalate to `output.PrintWarning` so the user
+  knows their pre-upgrade audit log / workspace state did not
+  move. On failure the legacy dir also gets a
+  `.raioz-migration-failed` breadcrumb (timestamp + error) so
+  the user inspecting `~/.raioz/` later finds an explicit note
+  instead of silence.
 - **`mkcert` invocations now run under the caller's context**
   (issue 082). `EnsureCerts` used `exec.Command` instead of
   `exec.CommandContext`, so a macOS keychain prompt that never
