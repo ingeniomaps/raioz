@@ -8,6 +8,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- **`docs/RATCHETS.md`** indexes the four shrinking-baseline
+  ratchets (i18n-source, app-infra-imports, dual-flow, errorlint)
+  with their target-zero ADR and current size. Future ratchets
+  must publish a target — a baseline without one is permanent
+  drift in disguise.
+- **`docs/LOCKS.md` § Meta runner sits outside both locks** —
+  documents that the meta runner takes neither the project nor
+  the workspace lock, so a SIGKILL relies on Pdeathsig
+  (`host.AttachPdeathsig`) on Linux and the 24h project-lock age
+  cap as the cross-platform floor.
+- **ADR-037 § Implementation status** updated to name the four
+  shipping commits, including the E2E integration test that the
+  earlier write-up listed as "deferred follow-up".
 - **ADR-037 ↔ ADR-040 cross-referenced.** ADR-037 now carries a
   Trust subsection pointing at ADR-040 and noting the router is
   strictly more trusted than mode A (mandatory, no mode-B

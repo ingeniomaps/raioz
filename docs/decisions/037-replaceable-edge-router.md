@@ -171,21 +171,23 @@ router project the same way you audit a `make` target.
 
 ## Implementation status
 
-**Shipped in v0.8.0 (2026-05-15).** Three commits on `develop`:
+**Shipped in v0.8.0 (2026-05-15).** Four commits on `develop`:
 
-- `feat(config): add router.project schema` — schema, validation, corpus
-  fixture, unit tests.
+- `feat(config): add router.project schema` — schema, validation,
+  corpus fixture, unit tests.
 - `feat(orchestrate): wire router.project lifecycle` — meta runner
   router-first / router-last, `RAIOZ_ROUTER_ACTIVE=1` propagation to
   consumer sub-ups, `maybeStartProxy` gate, `--router-off` flag.
 - `docs: document router.project (ADR-037)` — CONFIG_REFERENCE
   section, README pointer, this status flip.
+- `build(ci): add router project E2E integration test` —
+  `scripts/integration-test-router.sh` with a real nginx fronting
+  two consumer projects, wired into the `integration-router` job in
+  `.github/workflows/ci.yml` (push-only to develop/main).
 
-Deferred follow-up: an end-to-end integration test
-(`scripts/integration-test-router.sh`) with a real nginx fronting
-two consumer projects. Will land in a follow-up minor — the unit
-tests in `internal/app/meta_router_test.go` already cover the
-ordering and env-var propagation.
+Unit tests in `internal/app/meta_router_test.go` cover the ordering
+and env-var propagation; the E2E catches anything that only surfaces
+under real Docker.
 
 ## References
 
