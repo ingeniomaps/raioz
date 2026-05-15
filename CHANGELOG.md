@@ -66,6 +66,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   exercises match / missing / mismatch / substring-poisoning
   cases; wired into `make check-install` and CI lint.
 
+### Removed
+
+- **Dead `internal/app/dependency_assist.go`** (issue 078). The
+  exported `HandleDependencyAssist` had a single caller —
+  its own test. The live implementation lives in
+  `internal/app/upcase/dependency_assist.go`. Removing the
+  duplicate eliminates -556 LoC and the grep-confusion that
+  came with it.
+- **`internal/resilience/circuitbreaker.go`** and its 7 wrapping
+  call sites (issue 078). The breaker opened after 5 failures
+  but the retry layer above it capped at 3 attempts, so the
+  threshold was unreachable in practice — the two protections
+  never composed. Each call site collapses to a plain
+  `RetryWithContext` invocation; the retry behavior is
+  unchanged in user-visible terms.
+
 ## [0.7.0] - 2026-05-14
 
 Trust-boundary release. Three lines closed: `raioz.yaml` no longer

@@ -40,43 +40,40 @@ func EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 	ctx, cancel := exectimeout.WithTimeout(exectimeout.GitCloneTimeout)
 	defer cancel()
 
-	// Use circuit breaker and retry logic for git clone
-	gitCB := resilience.GetGitCircuitBreaker()
+	// Retry logic for git clone (issue 078 removed the CB).
 	retryConfig := resilience.GitRetryConfig()
 
 	err := resilience.RetryWithContext(ctx, retryConfig, "git clone readonly", func(ctx context.Context) error {
-		return gitCB.ExecuteWithContext(ctx, "git clone readonly", func(ctx context.Context) error {
-			// Ensure parent directory exists
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return fmt.Errorf("failed to create parent directory: %w", err)
+		// Ensure parent directory exists
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			return fmt.Errorf("failed to create parent directory: %w", err)
+		}
+
+		cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+
+		if err := cmd.Run(); err != nil {
+			// Check for timeout
+			if exectimeout.IsTimeoutError(ctx, err) {
+				return exectimeout.HandleTimeoutError(ctx, err, "git clone", exectimeout.GitCloneTimeout)
 			}
 
-			cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
-			if err != nil {
-				return err
+			// Check if error is about branch not existing (not retryable)
+			output := err.Error()
+			if strings.Contains(output, "could not find remote branch") ||
+				strings.Contains(output, "fatal: Remote branch") {
+				return fmt.Errorf(
+					"branch '%s' does not exist in repository '%s'. "+
+						"Please verify the branch name or create it in the repository",
+					src.Branch, src.Repo,
+				)
 			}
-			defer cleanup()
-
-			if err := cmd.Run(); err != nil {
-				// Check for timeout
-				if exectimeout.IsTimeoutError(ctx, err) {
-					return exectimeout.HandleTimeoutError(ctx, err, "git clone", exectimeout.GitCloneTimeout)
-				}
-
-				// Check if error is about branch not existing (not retryable)
-				output := err.Error()
-				if strings.Contains(output, "could not find remote branch") ||
-					strings.Contains(output, "fatal: Remote branch") {
-					return fmt.Errorf(
-						"branch '%s' does not exist in repository '%s'. "+
-							"Please verify the branch name or create it in the repository",
-						src.Branch, src.Repo,
-					)
-				}
-				return fmt.Errorf("failed to clone readonly repository: %w", err)
-			}
-			return nil
-		})
+			return fmt.Errorf("failed to clone readonly repository: %w", err)
+		}
+		return nil
 	})
 
 	if err != nil {
@@ -138,43 +135,40 @@ func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 	ctx, cancel := exectimeout.WithTimeout(exectimeout.GitCloneTimeout)
 	defer cancel()
 
-	// Use circuit breaker and retry logic for git clone
-	gitCB := resilience.GetGitCircuitBreaker()
+	// Retry logic for git clone (issue 078 removed the CB).
 	retryConfig := resilience.GitRetryConfig()
 
 	err := resilience.RetryWithContext(ctx, retryConfig, "git clone editable", func(ctx context.Context) error {
-		return gitCB.ExecuteWithContext(ctx, "git clone editable", func(ctx context.Context) error {
-			// Ensure parent directory exists
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return fmt.Errorf("failed to create parent directory: %w", err)
+		// Ensure parent directory exists
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			return fmt.Errorf("failed to create parent directory: %w", err)
+		}
+
+		cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+
+		if err := cmd.Run(); err != nil {
+			// Check for timeout
+			if exectimeout.IsTimeoutError(ctx, err) {
+				return exectimeout.HandleTimeoutError(ctx, err, "git clone", exectimeout.GitCloneTimeout)
 			}
 
-			cmd, cleanup, err := newAuthenticatedCloneCmd(ctx, src, target)
-			if err != nil {
-				return err
+			// Check if error is about branch not existing (not retryable)
+			output := err.Error()
+			if strings.Contains(output, "could not find remote branch") ||
+				strings.Contains(output, "fatal: Remote branch") {
+				return fmt.Errorf(
+					"branch '%s' does not exist in repository '%s'. "+
+						"Please verify the branch name or create it in the repository",
+					src.Branch, src.Repo,
+				)
 			}
-			defer cleanup()
-
-			if err := cmd.Run(); err != nil {
-				// Check for timeout
-				if exectimeout.IsTimeoutError(ctx, err) {
-					return exectimeout.HandleTimeoutError(ctx, err, "git clone", exectimeout.GitCloneTimeout)
-				}
-
-				// Check if error is about branch not existing (not retryable)
-				output := err.Error()
-				if strings.Contains(output, "could not find remote branch") ||
-					strings.Contains(output, "fatal: Remote branch") {
-					return fmt.Errorf(
-						"branch '%s' does not exist in repository '%s'. "+
-							"Please verify the branch name or create it in the repository",
-						src.Branch, src.Repo,
-					)
-				}
-				return fmt.Errorf("failed to clone repository: %w", err)
-			}
-			return nil
-		})
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
+		return nil
 	})
 
 	if err != nil {
