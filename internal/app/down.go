@@ -26,11 +26,17 @@ type DownOptions struct {
 	// Same exclusivity rule as Conflicting.
 	AllProjects bool
 	// Services restricts the down to a subset of services / dependencies
-	// declared in raioz.yaml. Empty means "whole project" (legacy
+	// declared in raioz.yaml. Empty means "whole state" (legacy
 	// behavior). When non-empty, only these are stopped — network, proxy
 	// and state file are left intact so the rest of the project keeps
 	// running.
 	Services []string
+	// ForceStateCleanup proceeds with host-process + state-file
+	// cleanup when the Docker daemon is unreachable. Containers that
+	// may still be alive when Docker comes back are listed in the
+	// warning by label so the user can `docker rm` them manually.
+	// Issue 071.
+	ForceStateCleanup bool
 }
 
 // DownUseCase handles the "down" use case - stopping a project
@@ -114,13 +120,18 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 	// processes).
 	active, err := uc.deps.DockerRunner.IsProjectActive(ctx, workspaceName, projectName)
 	if err != nil {
+		if opts.ForceStateCleanup && isDockerUnreachable(err) {
+			return uc.forceOfflineCleanup(ctx, ws, opts, projectName, err)
+		}
 		logging.ErrorWithContext(ctx, "Failed to probe project liveness", "workspace", wsRoot, "error", err.Error())
+		suggestion := i18n.T("error.state_load_suggestion")
+		if isDockerUnreachable(err) {
+			suggestion = i18n.T("error.state_load_suggestion_force_cleanup")
+		}
 		return errors.New(
 			errors.ErrCodeStateLoadError,
 			i18n.T("error.state_load"),
-		).WithSuggestion(
-			i18n.T("error.state_load_suggestion"),
-		).WithContext("workspace", wsRoot).WithError(err)
+		).WithSuggestion(suggestion).WithContext("workspace", wsRoot).WithError(err)
 	}
 	if !active {
 		logging.WarnWithContext(ctx, "Project not running", "workspace", wsRoot)

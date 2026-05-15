@@ -13,6 +13,7 @@ import (
 
 var projectName string
 var downAll bool
+var downForceStateCleanup bool
 var pruneShared bool
 var downConflicting bool
 var downAllProjects bool
@@ -64,13 +65,14 @@ var downCmd = &cobra.Command{
 		}
 
 		downErr := downUseCase.Execute(ctx, app.DownOptions{
-			ProjectName: projectName,
-			ConfigPath:  configPath,
-			All:         downAll,
-			PruneShared: pruneShared,
-			Conflicting: downConflicting,
-			AllProjects: downAllProjects,
-			Services:    args,
+			ProjectName:       projectName,
+			ConfigPath:        configPath,
+			All:               downAll,
+			PruneShared:       pruneShared,
+			Conflicting:       downConflicting,
+			AllProjects:       downAllProjects,
+			Services:          args,
+			ForceStateCleanup: downForceStateCleanup,
 		})
 
 		// Handle local project down command
@@ -97,4 +99,6 @@ func init() {
 		"Stop other active raioz projects whose host ports collide with the cwd's raioz.yaml")
 	downCmd.Flags().BoolVar(&downAllProjects, "all-projects", false,
 		"Stop every active raioz project except the cwd's (cross-workspace)")
+	downCmd.Flags().BoolVar(&downForceStateCleanup, "force-state-cleanup", false,
+		"Clean local state (host PIDs, state files) when Docker is unreachable. Issue 071.")
 }

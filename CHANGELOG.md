@@ -107,6 +107,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   trust the sibling. An opt-in `--audit-siblings` flag is
   scoped out for a future release.
 
+### Added
+
+- **`raioz down --force-state-cleanup`** (issue 071). Escape
+  hatch for "Docker is dead and I just want my local state
+  gone." When the project liveness probe fails with a known
+  daemon-down signature (e.g. "Cannot connect to the Docker
+  daemon", "connection refused on docker.sock"), the flag
+  bypasses the probe and runs host-process teardown + state
+  file removal. The success message names the
+  `com.raioz.project` label so the user can `docker rm` the
+  orphan containers when the daemon recovers. Without the
+  flag, the same daemon-down detection now surfaces an
+  actionable suggestion pointing at the flag.
+
 ### Fixed
 
 - **`mkcert` invocations now run under the caller's context**

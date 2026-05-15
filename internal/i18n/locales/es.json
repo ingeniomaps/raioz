@@ -783,5 +783,8 @@
   "error.path_invalid": "el path %q es inválido",
   "warning.image_no_tag": "la dependencia %q usa la imagen %q sin tag explícito; pineá un tag para reproducibilidad",
   "warning.image_latest": "la dependencia %q usa la imagen %q con :latest; pineá un tag específico para reproducibilidad",
-  "warning.json_format_deprecated": ".raioz.json está deprecado — ejecutá `raioz migrate yaml` para convertir. El soporte se retira en v0.8 (ver ADR-038)."
+  "warning.json_format_deprecated": ".raioz.json está deprecado — ejecutá `raioz migrate yaml` para convertir. El soporte se retira en v0.8 (ver ADR-038).",
+  "warning.docker_unreachable_force_cleanup": "Docker no responde; limpiando estado local del proyecto %q. Los contenedores que sigan vivos cuando Docker vuelva van a aparecer como huérfanos — listalos con `docker ps -a --filter label=com.raioz.project=%[1]s` y eliminalos con `docker rm <id>`.",
+  "output.offline_cleanup_done": "Limpieza offline del estado del proyecto %q completada.",
+  "error.state_load_suggestion_force_cleanup": "Docker no responde. Si querés limpiar el estado local sin tocar contenedores, reintentá con `--force-state-cleanup` (issue 071)."
 }
