@@ -4,9 +4,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
+	"raioz/internal/output"
 )
+
+// warnedJSONDeprecation makes the .raioz.json deprecation banner fire
+// exactly once per process even when LoadDeps is called repeatedly
+// (e.g. dependency_assist scanning sub-projects). See ADR-038.
+var warnedJSONDeprecation sync.Once
+
+// ResetJSONDeprecationWarningForTest clears the dedup so a test can
+// verify the warning fires on the first hit without depending on
+// test ordering. Test-only.
+func ResetJSONDeprecationWarningForTest() {
+	warnedJSONDeprecation = sync.Once{}
+}
 
 // Type aliases keep `config.Foo` callers compiling while the canonical
 // definitions live in internal/domain/models (see ADR-009).
@@ -36,6 +51,10 @@ func LoadDeps(path string) (*Deps, []string, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("read config %q: %w", path, err)
 	}
+
+	warnedJSONDeprecation.Do(func() {
+		output.PrintWarning(i18n.T("warning.json_format_deprecated"))
+	})
 
 	warnings, err := CheckDeprecatedFields(data)
 	if err != nil {

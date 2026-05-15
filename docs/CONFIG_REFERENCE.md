@@ -197,6 +197,31 @@ warnings and lock the expected schema.
 
 ---
 
+## Legacy `.raioz.json` (deprecated)
+
+`.raioz.json` was the original config format. `raioz.yaml` superseded
+it; the JSON loader is on a removal ramp documented in ADR-038.
+
+| Release | Behavior on `.raioz.json` |
+| ------- | ------------------------- |
+| v0.5.x and earlier | Loads silently. Field-level deprecation warnings only (`namespace`, service `type`, infra `type`). |
+| **v0.7 (current)** | Loads with a loud one-shot banner: "`.raioz.json` is deprecated — run `raioz migrate yaml` to convert. Support is removed in v0.8 (see ADR-038)." Banner fires once per process. |
+| v0.8 (planned) | Public loader returns a hard error. `raioz migrate yaml` keeps reading JSON through a private migration loader. |
+| v1.0 (planned) | JSON loader deleted. `raioz migrate yaml` ships with its own mini-loader; no other code path can read `.raioz.json`. |
+
+### Migrating today
+
+```bash
+raioz migrate yaml                  # reads .raioz.json, writes raioz.yaml
+raioz migrate yaml --from old.json -o new.yaml  # explicit paths
+```
+
+The command preserves project name, services, and infra. Field-level
+deprecations inside the JSON (e.g. `namespace`, `type`) are dropped
+during migration — they had been ignored at runtime since v0.4.x.
+
+---
+
 ## Service config
 
 Services are local code you're developing. Raioz detects the runtime

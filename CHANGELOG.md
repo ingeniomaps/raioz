@@ -6,6 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`.raioz.json` deprecation banner** (ADR-038, issue 068). The
+  JSON loader now emits a loud one-shot warning the first time
+  it runs in a process: "`.raioz.json` is deprecated — run
+  `raioz migrate yaml` to convert. Support is removed in v0.8."
+  The banner fires through `sync.Once` so a repo with multiple
+  JSON-shaped sub-projects sees the message once per `raioz`
+  invocation instead of once per scanned dir. The published
+  timeline (v0.7 warning → v0.8 hard-error → v1.0 loader
+  deletion) unblocks issue 069 (`isYAMLMode` dual-flow
+  consolidation).
+
+### Changed
+
+- `internal/infra/config/loader_impl.go::LoadDeps` no longer
+  appends `.raioz.json is deprecated...` to the warnings slice —
+  the message is now a direct `output.PrintWarning` at the
+  loader source, deduped per process (ADR-038).
+
 ## [0.7.0] - 2026-05-14
 
 Trust-boundary release. Three lines closed: `raioz.yaml` no longer

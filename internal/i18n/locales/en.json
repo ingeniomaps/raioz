@@ -781,5 +781,6 @@
   "error.path_in_system_dir_suggestion": "Move the file inside the project, or use a different mechanism (env var, host volume mount).",
   "error.path_invalid": "path %q is invalid",
   "warning.image_no_tag": "dependency %q uses image %q without an explicit tag; pin a tag for reproducibility",
-  "warning.image_latest": "dependency %q uses image %q with :latest; pin a specific tag for reproducibility"
+  "warning.image_latest": "dependency %q uses image %q with :latest; pin a specific tag for reproducibility",
+  "warning.json_format_deprecated": ".raioz.json is deprecated — run `raioz migrate yaml` to convert. Support is removed in v0.8 (see ADR-038)."
 }
