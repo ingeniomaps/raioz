@@ -86,7 +86,11 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 		}
 	}
 
-	return validateDependsOnRefs(cfg)
+	if err := validateDependsOnRefs(cfg); err != nil {
+		return err
+	}
+
+	return validateAuthValues(cfg, path)
 }
 
 // validateSiblingDependency enforces the mutual-exclusion rules around the

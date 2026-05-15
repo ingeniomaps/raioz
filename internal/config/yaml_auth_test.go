@@ -19,7 +19,8 @@ func TestYAMLService_AuthField_Unmarshal(t *testing.T) {
 		{"inherit roundtrips", "inherit", "inherit"},
 		{"gh roundtrips even before provider lands", "gh", "gh"},
 		{"ssh roundtrips even before provider lands", "ssh", "ssh"},
-		{"unknown value carries through", "garbage", "garbage"},
+		// Unknown values are rejected by validateAuthValues — that
+		// rejection path is covered in auth_check_test.go.
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
