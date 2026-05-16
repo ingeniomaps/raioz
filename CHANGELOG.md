@@ -60,6 +60,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   runs don't trip the race detector, and the "after stale cleanup"
   error wraps the underlying fs error with `%w` so callers can
   `errors.Is()` down to the cause.
+- **`lock.isProcessRunning` works on Windows.** The previous
+  `process.Signal(syscall.Signal(0))` probe returned
+  `ERROR_CALL_NOT_IMPLEMENTED` on Windows — every live PID was
+  reported as dead, so a concurrent racer fell through to the
+  generic stale-cleanup error instead of "concurrent acquire".
+  Split into `process_unix.go` (FindProcess + Signal(0)) and
+  `process_windows.go` (`OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)`
+  + `GetExitCodeProcess == STILL_ACTIVE`). Caught by the ADR-030
+  Windows CI gate against PR #60 (`54438fa`).
 - **`streamPrefixed` survives sibling log lines > 64 KiB.**
   Previously the default `bufio.Scanner` buffer truncated single
   JSON / stack-trace lines silently. The cap rises to 16 MiB and a
