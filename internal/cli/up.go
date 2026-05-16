@@ -146,8 +146,11 @@ func init() {
 		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")
 	upCmd.Flags().BoolVar(&auditSiblings, "audit-siblings", false,
 		"Run ADR-036 hygiene gates (H1 secret scan, H2 path safety, H3 image "+
-			"pinning) on every sibling / router project yaml before spawn. "+
-			"Off by default — opt-in for CI / paranoid setups (issue 031).")
+			"pinning) on the direct sibling / router project yamls of this "+
+			"run before spawn. One-hop only — the flag does not propagate "+
+			"to child invocations, so a sibling's own siblings get default "+
+			"gates (no H3 escalation). Off by default; opt-in for CI / "+
+			"paranoid setups (issue 031).")
 	upCmd.Flags().BoolVar(&routerOff, "router-off", false,
 		"Bypass the workspace router project (ADR-037) and run the bundled "+
 			"Caddy as before v0.8. In meta mode, prevents the meta runner "+
