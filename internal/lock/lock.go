@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
+	"sync"
 	"time"
 
+	"raioz/internal/i18n"
 	"raioz/internal/workspace"
 )
 
@@ -27,17 +28,9 @@ type Lock struct {
 	file *os.File
 }
 
-// isProcessRunning checks if a process with the given PID is still running
-func isProcessRunning(pid int) bool {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// Send signal 0 to check if process exists (doesn't actually send a signal)
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
-}
+// isProcessRunning reports whether the given PID names a live process.
+// Implemented per-OS (process_unix.go / process_windows.go) because
+// the Unix-style signal(0) probe doesn't exist on Windows.
 
 // isLockExpired returns true when the lock file is older than
 // staleLockMaxAge. See the constant for the PID-reuse rationale.
@@ -77,6 +70,36 @@ func readLockPID(path string) (int, error) {
 	return 0, fmt.Errorf("PID not found in lock file")
 }
 
+// afterStaleRemoveHook fires inside replaceStaleLock between the Remove
+// and the re-OpenFile. Tests use it to simulate a racing planter (live
+// or dead PID) so the IsExist branch can be exercised deterministically.
+// Production: nil. Mutex-guarded because `go test -race` would otherwise
+// flag the test-vs-Acquire access pair.
+var (
+	afterStaleRemoveMu   sync.Mutex
+	afterStaleRemoveHook func()
+)
+
+// setAfterStaleRemoveHook installs the test hook (or clears it when h
+// is nil). Test-only entry point; tests must pair set with a cleanup.
+func setAfterStaleRemoveHook(h func()) {
+	afterStaleRemoveMu.Lock()
+	afterStaleRemoveHook = h
+	afterStaleRemoveMu.Unlock()
+}
+
+// runAfterStaleRemoveHook snapshots the hook under the mutex and runs
+// it outside the critical section so a hook that re-enters lock code
+// can't deadlock.
+func runAfterStaleRemoveHook() {
+	afterStaleRemoveMu.Lock()
+	h := afterStaleRemoveHook
+	afterStaleRemoveMu.Unlock()
+	if h != nil {
+		h()
+	}
+}
+
 // replaceStaleLock removes a stale lock file and re-opens it with the
 // same O_CREATE|O_EXCL guarantee. If the re-open fails with IsExist a
 // concurrent raioz process slipped in between Remove and OpenFile —
@@ -87,6 +110,7 @@ func replaceStaleLock(path string) (*os.File, error) {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("remove stale lock %q: %w", path, err)
 	}
+	runAfterStaleRemoveHook()
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err == nil {
 		return file, nil
@@ -97,13 +121,15 @@ func replaceStaleLock(path string) (*os.File, error) {
 		// user the right next action (wait + retry vs. inspect FS).
 		newPID, pidErr := readLockPID(path)
 		if pidErr == nil && isProcessRunning(newPID) {
-			return nil, fmt.Errorf(
-				"another raioz process acquired the lock concurrently "+
-					"(pid=%d); retry in a moment", newPID,
-			)
+			return nil, fmt.Errorf("%s",
+				i18n.T("error.lock_concurrent_acquire", newPID))
 		}
+		// Corrupt/unreadable racer lock or dead PID — fall through to
+		// the generic stale-cleanup error below so the user sees the
+		// underlying OpenFile cause via the %w chain.
 	}
-	return nil, fmt.Errorf("failed to acquire lock after cleaning stale lock: %w", err)
+	return nil, fmt.Errorf("%s: %w",
+		i18n.T("error.lock_after_stale_cleanup"), err)
 }
 
 func Acquire(ws *workspace.Workspace) (*Lock, error) {
@@ -133,10 +159,8 @@ func Acquire(ws *workspace.Workspace) (*Lock, error) {
 			}
 		default:
 			// Process is still running - lock is valid
-			return nil, fmt.Errorf(
-				"lock already exists: another raioz process may be running (pid=%d)",
-				lockPID,
-			)
+			return nil, fmt.Errorf("%s",
+				i18n.T("error.lock_already_held", lockPID))
 		}
 	}
 

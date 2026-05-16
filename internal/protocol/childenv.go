@@ -16,3 +16,11 @@ const RouterActive = "RAIOZ_ROUTER_ACTIVE"
 // A → B → A cycles and to bypass the project-lock acquisition that
 // the parent already holds.
 const SiblingStack = "RAIOZ_SIBLING_STACK"
+
+// CorrelationID carries the request/correlation ID across recursive
+// `raioz` invocations (mode A sibling spawn, ADR-024). The parent
+// stamps its own ID into this env var when spawning a child so audit
+// and log records share the value across the whole spawn tree.
+// `internal/logging.CorrelationIDEnv` is a backwards-compat alias for
+// pre-protocol callers; new code should import this constant directly.
+const CorrelationID = "RAIOZ_CORRELATION_ID"

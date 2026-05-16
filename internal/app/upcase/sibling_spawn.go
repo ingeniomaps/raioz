@@ -52,12 +52,7 @@ func checkSiblingCycle(depName string, sib *config.SiblingInfo) error {
 		return nil
 	}
 	chain := strings.Join(append(stack, sib.Dir), " → ")
-	return fmt.Errorf(
-		"sibling cycle: dep %q points back at %s which is already in the "+
-			"recursive-up chain (%s) — break the cycle by removing one of "+
-			"the `project:` declarations or use `siblingProject:` (mode B) "+
-			"on one side instead",
-		depName, sib.Dir, chain)
+	return fmt.Errorf("%s", i18n.T("error.sibling_cycle", depName, sib.Dir, chain))
 }
 
 // spawnRaiozBinary returns the path to the raioz executable that
@@ -115,9 +110,8 @@ func spawnSibling(
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf(
-			"start `raioz up` in %s for sibling dep %q: %w",
-			sib.Dir, depName, err)
+		return fmt.Errorf("%s",
+			i18n.T("error.sibling_spawn_start", sib.Dir, depName, err))
 	}
 
 	prefix := "[sibling: " + depName + "] "
@@ -126,16 +120,11 @@ func spawnSibling(
 
 	if err := cmd.Wait(); err != nil {
 		if childCtx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf(
-				"sibling project %q timed out after %s — set "+
-					"RAIOZ_SIBLING_TIMEOUT higher, or investigate the "+
-					"hang in %s",
-				depName, timeout, sib.Dir)
+			return fmt.Errorf("%s",
+				i18n.T("error.sibling_timeout", depName, timeout, sib.Dir))
 		}
-		return fmt.Errorf(
-			"sibling project %q failed to come up — run "+
-				"`cd %s && raioz up` to diagnose: %w",
-			depName, sib.Dir, err)
+		return fmt.Errorf("%s",
+			i18n.T("error.sibling_run_failed", depName, sib.Dir, err))
 	}
 	output.PrintProgressDone(i18n.T("up.sibling_spawn_done", depName))
 	return nil
@@ -144,10 +133,19 @@ func spawnSibling(
 // streamPrefixed reads lines from r and forwards each one to PrintInfo
 // with prefix prepended, until r is closed. Used by spawnSibling to
 // keep the recursive raioz output legible.
+//
+// The 16 MiB buffer (Scanner default is 64 KiB) covers single-line JSON
+// logs and stack traces from the child. Err() is surfaced so a
+// truncation never goes silent.
 func streamPrefixed(r io.ReadCloser, prefix string) {
 	defer func() { _ = r.Close() }()
 	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 64*1024), 16*1024*1024)
 	for sc.Scan() {
 		output.PrintInfo(prefix + sc.Text())
+	}
+	if err := sc.Err(); err != nil {
+		logging.Warn("sibling stream scanner error",
+			"prefix", prefix, "error", err.Error())
 	}
 }

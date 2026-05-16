@@ -1,5 +1,10 @@
 package app
 
+// TODO(ADR-038): inline this when the legacy JSON loader is removed in
+// v1.0. The Flow enum + SelectFlow helper exist purely to differentiate
+// the two loader implementations during the deprecation ramp. Tracked
+// in scripts/dual-flow-baseline.txt and docs/RATCHETS.md.
+
 import (
 	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"

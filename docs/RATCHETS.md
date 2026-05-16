@@ -23,7 +23,7 @@ ratchet must publish one.
 | --- | --- | --- | --- | --- |
 | `scripts/i18n-source-baseline.txt` | `scripts/check-i18n-source.sh` | `check-i18n-source` | ADR-027 (every user-facing string through `i18n.T`) | per-file caps |
 | `scripts/app-infra-imports-baseline.txt` | `scripts/lint-app-infra-imports.sh` | `check-app-infra-imports` | ADR-029 (all app code routes through `internal/domain/interfaces/`) | 22 files |
-| `scripts/dual-flow-baseline.txt` | `scripts/lint-dual-flow.sh` | `check-dual-flow` | ADR-038 (JSON loader removed in v0.8; ADR-039 `SchemaVersion` field deleted in the same release) | 5 files |
+| `scripts/dual-flow-baseline.txt` | `scripts/lint-dual-flow.sh` | `check-dual-flow` | ADR-038 (JSON loader removed in v0.8; ADR-039 `SchemaVersion` field deleted in the same release) — cleanup marker lives at top of `internal/app/flow.go` | 5 files |
 | `scripts/errorlint-baseline.txt` | `scripts/lint-errorlint.sh` | `check-errorlint` | every `fmt.Errorf` chained with `%w` / every error compared via `errors.Is` / every type-assertion through `errors.As` | 25 sites |
 
 ## When to add a new ratchet

@@ -147,6 +147,31 @@ func TestMetaRunner_DownToleratesFailures(t *testing.T) {
 	}
 }
 
+// Under `go test`, an empty Binary must surface an explicit error
+// instead of falling back to os.Executable() (which would recurse into
+// the test runner) or os.Args[0] (which is the test binary path). The
+// gate forces every test that exercises a real spawn to set m.Binary,
+// turning a silent footgun into a hard error.
+func TestMetaRunner_ResolveBinary_RefusesFallbackUnderGoTest(t *testing.T) {
+	r := &MetaRunner{}
+	if _, err := r.resolveBinary(); err == nil {
+		t.Fatal("expected error when m.Binary is empty under go test")
+	}
+}
+
+// When m.Binary is explicitly set (test pattern), resolveBinary must
+// honor it as-is without touching os.Args[0] or os.Executable.
+func TestMetaRunner_ResolveBinary_BinaryFieldWins(t *testing.T) {
+	r := &MetaRunner{Binary: "/explicit/path/raioz"}
+	got, err := r.resolveBinary()
+	if err != nil {
+		t.Fatalf("resolveBinary: %v", err)
+	}
+	if got != "/explicit/path/raioz" {
+		t.Errorf("expected explicit override, got %q", got)
+	}
+}
+
 // Status reports per-project outcome and tolerates failures (a sub that's
 // missing or not yet up shouldn't blank the rest of the report).
 func TestMetaRunner_StatusToleratesFailures(t *testing.T) {

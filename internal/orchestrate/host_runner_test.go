@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 	"time"
 
@@ -11,6 +12,53 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/naming"
 )
+
+// Once Start returns the spawned process must outlive a parent ctx
+// cancel. exec.CommandContext used to SIGKILL the launcher mid-build
+// on every clean raioz exit; this asserts the detached lifecycle holds.
+func TestHostRunner_Start_SubprocessSurvivesParentCtxCancel(t *testing.T) {
+	if _, err := exec.LookPath("sleep"); err != nil {
+		t.Skip("sleep not available")
+	}
+
+	r := &HostRunner{}
+	dir := t.TempDir()
+	svc := interfaces.ServiceContext{
+		Name:        "survivor",
+		Path:        dir,
+		ProjectName: "host-survive-" + t.Name(),
+		Detection: models.DetectResult{
+			Runtime:      models.RuntimeMake,
+			StartCommand: "sleep 5",
+		},
+	}
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+	t.Cleanup(func() {
+		// Best-effort cleanup in case the test fails before Stop.
+		_ = r.Stop(context.Background(), svc)
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := r.Start(ctx, svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	pid := r.GetPID("survivor")
+	if pid == 0 {
+		t.Fatal("expected non-zero PID")
+	}
+
+	cancel()
+	// 500ms is generous: the broken CommandContext behavior reaped
+	// within tens of milliseconds.
+	time.Sleep(500 * time.Millisecond)
+
+	if proc, err := os.FindProcess(pid); err != nil || proc == nil {
+		t.Fatalf("child gone after parent ctx cancel (pid=%d): %v", pid, err)
+	}
+	if err := exec.Command("kill", "-0", strconv.Itoa(pid)).Run(); err != nil {
+		t.Errorf("kill -0 pid=%d failed after ctx cancel: %v", pid, err)
+	}
+}
 
 func TestHostRunner_Start_NoCommand(t *testing.T) {
 	r := &HostRunner{}

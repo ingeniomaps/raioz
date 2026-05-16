@@ -12,18 +12,19 @@ import (
 )
 
 var (
-	configPath   string
-	profile      string
-	metaProfiles []string
-	forceReclone bool
-	dryRun       bool
-	onlyServices []string
-	hostBind     string
-	attach       bool
-	watch        bool
-	exclusive    bool
-	notifyDone   bool
-	routerOff    bool
+	configPath    string
+	profile       string
+	metaProfiles  []string
+	forceReclone  bool
+	dryRun        bool
+	onlyServices  []string
+	hostBind      string
+	attach        bool
+	watch         bool
+	exclusive     bool
+	notifyDone    bool
+	routerOff     bool
+	auditSiblings bool
 )
 
 var upCmd = &cobra.Command{
@@ -56,8 +57,15 @@ var upCmd = &cobra.Command{
 		// MetaRunner before initializing project-mode dependencies.
 		if handled, metaErr := tryHandleMeta(
 			ctx, configPath, "up", nil, metaProfiles,
-			MetaDispatchOptions{RouterOff: routerOff},
+			app.MetaUpOptions{RouterOff: routerOff, AuditSiblings: auditSiblings},
 		); handled {
+			if notifyDone {
+				if metaErr == nil {
+					notify.Send("Raioz", i18n.T("up.notify_ready"))
+				} else {
+					notify.Send("Raioz", i18n.T("up.notify_failed"))
+				}
+			}
 			return metaErr
 		}
 
@@ -73,15 +81,17 @@ var upCmd = &cobra.Command{
 
 		// Execute use case
 		execErr := upUseCase.Execute(ctx, app.UpOptions{
-			ConfigPath:   configPath,
-			Profile:      profile,
-			ForceReclone: forceReclone,
-			DryRun:       dryRun,
-			Only:         only,
-			Host:         hostBind,
-			Attach:       attach,
-			Watch:        watch,
-			Exclusive:    exclusive,
+			ConfigPath:    configPath,
+			Profile:       profile,
+			ForceReclone:  forceReclone,
+			DryRun:        dryRun,
+			Only:          only,
+			Host:          hostBind,
+			Attach:        attach,
+			Watch:         watch,
+			Exclusive:     exclusive,
+			RouterOff:     routerOff,
+			AuditSiblings: auditSiblings,
 		})
 
 		if notifyDone {
@@ -134,7 +144,17 @@ func init() {
 	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 	upCmd.Flags().StringSliceVar(&metaProfiles, "meta-profile", nil,
 		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")
+	upCmd.Flags().BoolVar(&auditSiblings, "audit-siblings", false,
+		"Run ADR-036 hygiene gates (H1 secret scan, H2 path safety, H3 image "+
+			"pinning) on the direct sibling / router project yamls of this "+
+			"run before spawn. One-hop only — the flag does not propagate "+
+			"to child invocations, so a sibling's own siblings get default "+
+			"gates (no H3 escalation). Off by default; opt-in for CI / "+
+			"paranoid setups (ADR-036 § Optional escape hatch).")
 	upCmd.Flags().BoolVar(&routerOff, "router-off", false,
 		"Bypass the workspace router project (ADR-037) and run the bundled "+
-			"Caddy as before v0.8. No-op when `router:` is not declared.")
+			"Caddy as before v0.8. In meta mode, prevents the meta runner "+
+			"from setting RAIOZ_ROUTER_ACTIVE=1 on consumers; in project "+
+			"mode, overrides an inherited RAIOZ_ROUTER_ACTIVE=1 so the "+
+			"bundled Caddy still starts. No-op when no router is in play.")
 }

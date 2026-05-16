@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
+	"testing"
+	"time"
 
+	"raioz/internal/audit"
 	"raioz/internal/config"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
@@ -63,6 +67,11 @@ func (s MetaSummaryList) HasFailures() bool {
 // breaking callers.
 type MetaUpOptions struct {
 	RouterOff bool
+	// AuditSiblings enables the opt-in preflight that runs ADR-036
+	// hygiene gates against every router / sub-project yaml before
+	// spawn. Off by default (transitive trust is the documented v0.7+
+	// policy). See ADR-040 § Optional escape hatch.
+	AuditSiblings bool
 }
 
 // Up runs `raioz up` in each sub-project, in order. Optional subs that fail
@@ -74,8 +83,26 @@ type MetaUpOptions struct {
 func (m *MetaRunner) Up(
 	ctx context.Context, cfg *config.MetaConfig,
 	args, activeProfiles []string, opts MetaUpOptions,
-) MetaSummaryList {
-	var results MetaSummaryList
+) (results MetaSummaryList) {
+	start := time.Now()
+	_ = audit.LogLifecycleStart(ctx, "meta_up", metaAuditTarget(cfg), cfg.Workspace)
+	defer func() {
+		logMetaLifecycleComplete(ctx, "meta_up", cfg, results, start)
+	}()
+
+	// Opt-in preflight (ADR-036): scan every router + sub-project
+	// yaml for H1/H2/H3 violations before any spawn. Failure aborts
+	// the whole meta up so no sibling gets a chance to run with a
+	// surface raioz wouldn't have accepted itself.
+	if opts.AuditSiblings {
+		if err := auditMetaTargets(cfg); err != nil {
+			results = append(results, MetaSummary{
+				Project: "audit-siblings", Err: err,
+			})
+			return results
+		}
+	}
+
 	var consumerEnv []string
 	skipPath := ""
 
@@ -97,7 +124,8 @@ func (m *MetaRunner) Up(
 	consumers := m.run(
 		ctx, cfg, "up", args, activeProfiles, false, consumerEnv, skipPath,
 	)
-	return append(results, consumers...)
+	results = append(results, consumers...)
+	return results
 }
 
 // Down runs `raioz down` in each sub-project in REVERSE order. Errors are
@@ -108,12 +136,18 @@ func (m *MetaRunner) Up(
 // down LAST — every consumer must be torn down before its edge dies.
 func (m *MetaRunner) Down(
 	ctx context.Context, cfg *config.MetaConfig, args []string,
-) MetaSummaryList {
+) (results MetaSummaryList) {
+	start := time.Now()
+	_ = audit.LogLifecycleStart(ctx, "meta_down", metaAuditTarget(cfg), cfg.Workspace)
+	defer func() {
+		logMetaLifecycleComplete(ctx, "meta_down", cfg, results, start)
+	}()
+
 	skipPath := ""
 	if cfg.Router != nil {
 		skipPath = cfg.Router.Path
 	}
-	results := m.run(ctx, cfg, "down", args, nil, true, nil, skipPath)
+	results = m.run(ctx, cfg, "down", args, nil, true, nil, skipPath)
 	if cfg.Router != nil {
 		results = append(results, m.runSingle(ctx, "down", *cfg.Router, args, nil))
 	}
@@ -128,15 +162,21 @@ func (m *MetaRunner) Down(
 func (m *MetaRunner) Status(
 	ctx context.Context, cfg *config.MetaConfig,
 	args, activeProfiles []string,
-) MetaSummaryList {
-	var results MetaSummaryList
+) (results MetaSummaryList) {
+	start := time.Now()
+	_ = audit.LogLifecycleStart(ctx, "meta_status", metaAuditTarget(cfg), cfg.Workspace)
+	defer func() {
+		logMetaLifecycleComplete(ctx, "meta_status", cfg, results, start)
+	}()
+
 	skipPath := ""
 	if cfg.Router != nil {
 		results = append(results, m.runSingle(ctx, "status", *cfg.Router, args, nil))
 		skipPath = cfg.Router.Path
 	}
 	rest := m.run(ctx, cfg, "status", args, activeProfiles, false, nil, skipPath)
-	return append(results, rest...)
+	results = append(results, rest...)
+	return results
 }
 
 // shouldIncludeMetaProject decides whether a project participates in this
@@ -196,11 +236,23 @@ func (m *MetaRunner) run(
 			output.PrintWarning(
 				i18n.T("meta.optional_failed", p.Name, entry.Err),
 			)
+			_ = audit.LogWithContext(
+				ctx,
+				audit.EventTypeLifecycle,
+				metaSubFailureDetails(subCmd, p, entry.Err, true),
+				fmt.Sprintf("meta_sub_%s skipped: %s", subCmd, p.Name),
+			)
 		case subCmd == "down" || subCmd == "status":
 			// Best-effort: keep going on remaining subs even if this one
 			// errored. The error is recorded in the summary.
 			output.PrintWarning(
 				i18n.T("meta.sub_error_continuing", subCmd, p.Name, entry.Err),
+			)
+			_ = audit.LogWithContext(
+				ctx,
+				audit.EventTypeLifecycle,
+				metaSubFailureDetails(subCmd, p, entry.Err, false),
+				fmt.Sprintf("meta_sub_%s failed: %s", subCmd, p.Name),
 			)
 		default:
 			results = append(results, entry)
@@ -219,9 +271,9 @@ func (m *MetaRunner) runSingle(
 	ctx context.Context, subCmd string,
 	p config.MetaProject, extraArgs, extraEnv []string,
 ) MetaSummary {
-	binary := m.Binary
-	if binary == "" {
-		binary = os.Args[0]
+	binary, err := m.resolveBinary()
+	if err != nil {
+		return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
 	}
 	stdout := m.Stdout
 	if stdout == nil {
@@ -235,8 +287,43 @@ func (m *MetaRunner) runSingle(
 	printMetaBanner(stdout, subCmd, p)
 
 	cmd := m.buildSubCmd(ctx, binary, subCmd, p, extraArgs, extraEnv, stdout, stderr)
-	err := cmd.Run()
-	return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
+	runErr := cmd.Run()
+	return MetaSummary{Project: p.Name, Path: p.Path, Err: runErr}
+}
+
+// resolveBinary picks the raioz executable to invoke for a sub-project
+// spawn. Resolution order:
+//
+//  1. m.Binary when set (tests inject a fake binary here).
+//  2. Under `go test`, refuse to fall back further — os.Executable()
+//     would point at the test runner and runSingle would recurse into
+//     the suite. Callers must set m.Binary explicitly.
+//  3. os.Executable() — the path the kernel sees for this process. Stable
+//     under PATH changes and survives cwd switches.
+//  4. filepath.Abs(os.Args[0]) as a last-resort fallback. Required because
+//     runSingle sets cmd.Dir to the sub-project path before exec, which
+//     turns a relative os.Args[0] (e.g. "./raioz" from a dev build) into
+//     an unfindable path inside the sub-project dir.
+func (m *MetaRunner) resolveBinary() (string, error) {
+	if m.Binary != "" {
+		return m.Binary, nil
+	}
+	if testing.Testing() {
+		return "", fmt.Errorf(
+			"MetaRunner.Binary must be set under go test; " +
+				"os.Executable() points at the test runner")
+	}
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		return exe, nil
+	}
+	if len(os.Args) > 0 && os.Args[0] != "" {
+		abs, err := filepath.Abs(os.Args[0])
+		if err != nil {
+			return "", fmt.Errorf("resolve raioz binary path: %w", err)
+		}
+		return abs, nil
+	}
+	return "", fmt.Errorf("cannot resolve raioz binary path for meta dispatch")
 }
 
 // buildSubCmd constructs the *exec.Cmd for a sub-project invocation.

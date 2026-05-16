@@ -27,6 +27,7 @@ func (uc *UseCase) processOrchestration(
 	ws *interfaces.Workspace,
 	projectDir string,
 	configPath string,
+	routerOff bool,
 ) (*orchestrationResult, error) {
 	// Step 0 — kill stale host processes from a previous run, scoped
 	// to the services this `up` touches (full or `--only` subset).
@@ -294,7 +295,7 @@ func (uc *UseCase) processOrchestration(
 
 	// Step 4 — proxy (see orchestration_proxy.go + router_env.go).
 	if err := uc.maybeStartProxy(
-		ctx, deps, detections, serviceNames, networkName,
+		ctx, deps, detections, serviceNames, networkName, routerOff,
 	); err != nil {
 		return nil, err
 	}

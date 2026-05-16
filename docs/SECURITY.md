@@ -264,10 +264,59 @@ raioz inherits the **entire** `os.Environ()` when spawning:
 - Sibling spawn (`os.Executable()`) — child gets parent's full
   env (ADR-008).
 - Custom `stop:` (`down`) — same; explicit fix in issue 044.
+- Meta `runSingle` sub-spawns (ADR-037) — every consumer
+  sub-up and the router project run with the parent meta's full
+  env. raioz only **adds** signaling vars (`RAIOZ_SIBLING_STACK`,
+  `RAIOZ_ROUTER_ACTIVE`, `RAIOZ_CORRELATION_ID`).
 
 raioz does **not** scrub `AWS_*`, `GITHUB_TOKEN`, or any other
 common secret env vars. If you don't want a hook or sibling to
 see them, unset them before invoking `raioz`.
+
+#### Implication for sibling / router projects
+
+A `raioz.yaml` that names a sibling (`dependencies.<n>.project:`
+or `siblingProject:`, ADR-008 / ADR-040) or a workspace router
+(`router.project:`, ADR-037) at a contributor-provided path runs
+that project's code — including its own `pre:` / `command:` /
+`stop:` hooks — with whatever secrets the operator has exported
+in their shell. The flag `--router-off` only bypasses the router
+phase; it does NOT atenuate env inheritance for the other
+spawn points.
+
+#### Recommended posture
+
+- Only run `raioz up` against meta workspaces with known
+  siblings. Don't load a meta yaml from an untrusted source.
+- For CI and shared runners, prefer a sanitized invocation:
+
+  ```bash
+  env -i HOME="$HOME" PATH="$PATH" RAIOZ_HOME="$RAIOZ_HOME" raioz up
+  ```
+
+  Restrict inheritance to the env vars raioz itself documents in
+  [CONFIG_REFERENCE.md § Environment variables (read by raioz)](CONFIG_REFERENCE.md#environment-variables-read-by-raioz).
+
+#### Why raioz doesn't filter automatically
+
+A filter would have to know what each sibling / router project
+needs to read (database URLs, tool tokens, OIDC issuer URLs,
+...). raioz does not publish that contract today — every sibling
+consumes its own env at will. A strict allowlist would break
+most real workflows; ADR-040 documents this explicitly as
+"trust the operator, surface the surface area" instead of
+adding a filter. For the opt-in preflight scanner over sibling
+yamls, see `raioz up --audit-siblings` (issue 031).
+
+> **Scope note.** `--audit-siblings` is **one-hop only** — it
+> scans the current project's direct sibling deps + the meta
+> router/sub-projects with strict H3, but the flag does **not**
+> propagate to the child spawn. A sibling that itself depends on
+> another sibling will only get the default H1/H2 gates (no H3
+> escalation) when its own `raioz up` runs. Transitive preflight
+> is tracked for a follow-up release; until then, `--audit-siblings`
+> protects the trust boundary of the run you started, not the
+> whole recursive spawn tree.
 
 ### Audit log
 

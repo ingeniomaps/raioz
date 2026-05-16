@@ -4,11 +4,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"raioz/internal/i18n"
 	"raioz/internal/workspace"
 )
+
+func TestMain(m *testing.M) {
+	i18n.Init("en")
+	os.Exit(m.Run())
+}
 
 func TestAcquire(t *testing.T) {
 	// Create temporary workspace
@@ -215,6 +222,92 @@ func TestAcquire_AgeBasedStaleEviction(t *testing.T) {
 		t.Fatalf("Acquire must sweep an aged lock even with live PID; got %v", err)
 	}
 	t.Cleanup(func() { _ = lock.Release() })
+}
+
+// Race arm: while replaceStaleLock evicts a dead-PID lock, a second
+// raioz with a LIVE PID plants its own lock in the gap. The retry must
+// surface the "concurrent acquire" message naming the live PID — that's
+// the actionable next step the user needs.
+func TestAcquire_ReplaceStaleLock_RacerWithLivePID(t *testing.T) {
+	tmpDir := t.TempDir()
+	ws := &workspace.Workspace{Root: tmpDir}
+	lockPath := filepath.Join(tmpDir, lockFileName)
+
+	deadPID := pickDeadPID(t)
+	plantLock(t, lockPath, deadPID, time.Now())
+
+	livePID := os.Getpid()
+	setAfterStaleRemoveHook(func() {
+		plantLock(t, lockPath, livePID, time.Now())
+	})
+	t.Cleanup(func() { setAfterStaleRemoveHook(nil) })
+
+	_, err := Acquire(ws)
+	if err == nil {
+		t.Fatal("Acquire must fail when a live racer plants in the gap")
+	}
+	if !strings.Contains(err.Error(), "concurrent") {
+		t.Errorf("expected concurrent-acquire message, got: %v", err)
+	}
+}
+
+// Race arm: while replaceStaleLock evicts a dead-PID lock, a non-raioz
+// process with a DEAD PID re-grabs the slot (e.g. PID reuse). The retry
+// must fall through to the generic "after cleaning stale lock" error —
+// not the concurrent-acquire one, because the new PID isn't actually
+// alive.
+func TestAcquire_ReplaceStaleLock_RacerWithDeadPID(t *testing.T) {
+	tmpDir := t.TempDir()
+	ws := &workspace.Workspace{Root: tmpDir}
+	lockPath := filepath.Join(tmpDir, lockFileName)
+
+	deadPID := pickDeadPID(t)
+	plantLock(t, lockPath, deadPID, time.Now())
+
+	racerDeadPID := pickDeadPID(t)
+	setAfterStaleRemoveHook(func() {
+		plantLock(t, lockPath, racerDeadPID, time.Now())
+	})
+	t.Cleanup(func() { setAfterStaleRemoveHook(nil) })
+
+	_, err := Acquire(ws)
+	if err == nil {
+		t.Fatal("Acquire must fail when a dead-PID racer plants in the gap")
+	}
+	if strings.Contains(err.Error(), "concurrent") {
+		t.Errorf("dead-PID racer must NOT report concurrent acquire, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "after cleaning stale lock") {
+		t.Errorf("expected generic stale-lock error, got: %v", err)
+	}
+}
+
+// plantLock writes a lock file with the given PID and mtime. Helper for
+// race-arm tests that need to inject lock state mid-replaceStaleLock.
+func plantLock(t *testing.T, path string, pid int, mtime time.Time) {
+	t.Helper()
+	content := fmt.Sprintf("pid=%d\ntimestamp=%s\n",
+		pid, mtime.Format(time.RFC3339))
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("plant lock: %v", err)
+	}
+	if err := os.Chtimes(path, mtime, mtime); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+}
+
+// pickDeadPID returns a PID that's guaranteed dead at the moment of the
+// call. PIDs above 1<<22 don't exist on Linux; we use a high value and
+// double-check with isProcessRunning.
+func pickDeadPID(t *testing.T) int {
+	t.Helper()
+	for _, candidate := range []int{0x7ffffffe, 0x7ffffffd, 0x7ffffffc} {
+		if !isProcessRunning(candidate) {
+			return candidate
+		}
+	}
+	t.Skip("could not find a guaranteed-dead PID on this OS")
+	return 0
 }
 
 // Freshly-acquired lock must NOT be evicted by the age check.

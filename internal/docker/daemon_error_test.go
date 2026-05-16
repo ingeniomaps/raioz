@@ -52,6 +52,26 @@ func TestWrapDaemonError(t *testing.T) {
 			err:      errors.New("exit status 1"),
 			wantSent: false,
 		},
+		// podman / nerdctl fixtures, verified against podman 4.x/5.x
+		// and nerdctl 1.x/2.x stderr.
+		{
+			name:     "podman socket missing",
+			output:   "Error: unable to connect to Podman socket: Get \"http://d/v4.0.0/libpod/_ping\": dial unix /run/user/1000/podman/podman.sock: connect: no such file or directory",
+			err:      errors.New("exit status 125"),
+			wantSent: true,
+		},
+		{
+			name:     "nerdctl containerd down",
+			output:   "FATA[0000] failed to dial \"/run/containerd/containerd.sock\": context deadline exceeded: containerd is not running",
+			err:      errors.New("exit status 1"),
+			wantSent: true,
+		},
+		{
+			name:     "nerdctl containerd.sock dial",
+			output:   "ERRO[0000] cannot dial unix:///run/containerd/containerd.sock",
+			err:      errors.New("exit status 1"),
+			wantSent: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
