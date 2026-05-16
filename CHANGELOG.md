@@ -6,6 +6,103 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`--router-off` now overrides an inherited
+  `RAIOZ_ROUTER_ACTIVE=1` in project mode.** Previously the flag
+  was meta-only: it controlled whether the meta runner stamped the
+  env var on consumer sub-ups. A consumer invoked directly with
+  the var still leaked into its environment would silently skip
+  the bundled Caddy. Project mode now also honors the flag, so
+  `raioz up --router-off` recovers the bundled Caddy after a meta
+  exit. Threaded through `UpOptions` → `upcase.Options` →
+  `processOrchestration` → `maybeStartProxy`.
+- **`raioz up --audit-siblings` opt-in preflight.** Runs ADR-036
+  hygiene gates (H1 secret scan, H2 path containment, H3 image
+  pinning) against every sibling-dep / router-project yaml before
+  spawn. Off by default — transitive trust stays the documented
+  v0.7+ policy; CI and paranoid setups get the escape hatch.
+  Implementation: `config.AuditYAMLStrict`,
+  `upcase.auditSiblingYAMLs`, meta-side `auditMetaTargets`.
+- **`MetaRunner.Up/Down/Status` emit lifecycle audit events.**
+  Start fires before any sub spawns; complete is deferred so every
+  return path (success, partial failure, panic-after-recover)
+  closes the pair with status + duration + error. Per-sub failures
+  and optional skips also record their own audit entries so a meta
+  run is greppable in `audit.log` next to project-mode runs.
+
+### Fixed
+
+- **`internal/docker` daemon-down detection covers podman and
+  nerdctl.** `wrapDaemonError` previously only matched Docker
+  prose, so podman 4.x/5.x and nerdctl 1.x/2.x users got a raw
+  exec failure instead of the typed
+  `interfaces.ErrDaemonUnreachable` the app layer expects.
+  Fixtures cover the new substrings (`podman.sock`,
+  `containerd is not running`, `containerd.sock`).
+- **`HostRunner.Start` no longer SIGKILLs slow launchers on clean
+  raioz exit.** `exec.CommandContext` bound the child to cobra's
+  signal context; every clean `raioz up` cancel reaped launchers
+  like `make start` mid-build. Plain `exec.Command` plus an
+  explicit `ctx.Done` case during the settle window decouples the
+  long-running child while keeping SIGINT handling intact.
+- **`lock.replaceStaleLock` differentiates a live-PID racer from a
+  PID-reused dead racer.** A second raioz with a live PID planting
+  between `Remove` and re-`OpenFile` now surfaces the actionable
+  "concurrent acquire" message; a dead-PID re-grab (PID reuse by
+  an unrelated process) keeps the generic "after cleaning stale
+  lock" wrap. A `afterStaleRemoveHook` test hook exercises both
+  branches deterministically. Strings routed through `i18n.T()`.
+- **`streamPrefixed` survives sibling log lines > 64 KiB.**
+  Previously the default `bufio.Scanner` buffer truncated single
+  JSON / stack-trace lines silently. The cap rises to 16 MiB and a
+  `Warn` on `Scanner.Err()` surfaces any future truncation.
+- **`spawnSibling` deadline branch names `RAIOZ_SIBLING_TIMEOUT`.**
+  The end-to-end timeout error now points the operator at the
+  knob to turn instead of a bare "timed out" message. Error
+  strings for the sibling spawn path (cycle / start / timeout /
+  run-failed) routed through `i18n.T()`.
+
+### Refactor
+
+- **`RAIOZ_CORRELATION_ID` migrates to `internal/protocol`.**
+  Joins `RouterActive` and `SiblingStack` so every parent→child
+  env var raioz uses lives in one place. `internal/logging.
+  CorrelationIDEnv` keeps a const alias for pre-protocol callers;
+  both names resolve to the same compile-time literal so producer
+  and consumer can't drift.
+- **Meta dispatch strings + options cleanup + `resolveBinary`.**
+  Banner, summary rows, and error messages now route through
+  `i18n.T()`. `MetaDispatchOptions` collapses into
+  `app.MetaUpOptions` so a new knob lands in one place.
+  `MetaRunner.resolveBinary` prefers `os.Executable()` with
+  `filepath.Abs(os.Args[0])` fallback — dev builds invoked as
+  `./raioz` now survive `runSingle`'s `cmd.Dir = sub-project`.
+  A `newMetaRunner` package-level factory in `cli/meta_dispatch.go`
+  lets tests inject `Binary` without monkey-patching `os.Args[0]`.
+
+### Documentation
+
+- **ADR-023 § Degraded mode.** Documents why
+  `down --force-state-cleanup` relaxes the
+  state-mirrors-reality invariant when the Docker daemon is
+  unreachable: the container teardown can't run, the operator has
+  opted in, and `forceOfflineCleanup` removes state files +
+  emits a warning naming the `com.raioz.project=<name>` label
+  filter so orphans can be cleared manually once the daemon is
+  back.
+- **`docs/SECURITY.md` § Meta env inheritance.** Names the four
+  sub-spawn points that inherit the operator's full env (`pre:`
+  hook, sibling spawn, custom `stop:`, meta `runSingle`), warns
+  that `AWS_*` / `GITHUB_TOKEN` etc leak unfiltered, and
+  recommends `env -i HOME=$HOME PATH=$PATH RAIOZ_HOME=$RAIOZ_HOME
+  raioz up` for CI / untrusted yamls.
+- **`docs/RATCHETS.md` + `internal/app/flow.go`.** A
+  `TODO(ADR-038)` at the top of `flow.go` marks the v1.0 cleanup
+  site for the legacy JSON loader; the ratchets table cross-links
+  back so anyone reading the baseline lands on the file when the
+  loader is finally removed.
+
 ## [0.8.1] - 2026-05-15
 
 ### Fixed
