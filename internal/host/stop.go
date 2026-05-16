@@ -5,13 +5,18 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"syscall"
 	"time"
 
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 )
+
+// stopShutdownDeadline bounds how long Stop waits for the tracked PID
+// to disappear after KillProcessTree fires before escalating to
+// ForceKillProcessTree. Long enough for a well-behaved server to flush;
+// short enough that callers waiting on the port don't hang.
+const stopShutdownDeadline = 5 * time.Second
 
 // StopService stops a running host process by PID
 func StopService(ctx context.Context, pid int) error {
@@ -89,47 +94,55 @@ func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand str
 		}
 	}
 
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return fmt.Errorf("failed to find process %d: %w", pid, err)
-	}
-
-	// Try graceful shutdown first (SIGTERM)
-	if err := process.Signal(syscall.SIGTERM); err != nil {
-		// Process might already be dead
-		if err.Error() == "os: process already finished" {
-			return nil
-		}
-		return fmt.Errorf("failed to send SIGTERM to process %d: %w", pid, err)
-	}
-
-	// Wait a bit for graceful shutdown
-	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, 5*time.Second)
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() {
-		_, err := process.Wait()
-		done <- err
-	}()
-
-	select {
-	case <-timeoutCtx.Done():
-		// Timeout: force kill
-		if err := process.Kill(); err != nil {
-			return fmt.Errorf("failed to kill process %d: %w", pid, err)
-		}
+	if pid <= 0 {
 		return nil
-	case err := <-done:
-		// "no child processes" / "wait: no child processes" means the
-		// child was already reaped — typically by the settle-window
-		// goroutine in StartService. The process is gone,
-		// which is exactly what we wanted.
-		if err != nil && strings.Contains(err.Error(), "no child process") {
+	}
+	return killTrackedProcess(ctx, pid)
+}
+
+// killTrackedProcess terminates a host service started by raioz.
+// HostRunner.Start always calls SetNewProcessGroup, so the tracked PID
+// is the leader of its own group and KillProcessTree reaches every
+// descendant via `kill -PGID`. A direct SIGTERM to the PID covers the
+// legacy / test case where Setpgid wasn't applied (kill(-pid) is a
+// no-op when no group with that PGID exists). Polls until the leader
+// is reaped or stopShutdownDeadline expires, then escalates to
+// ForceKillProcessTree + direct os.Process.Kill as last resort.
+//
+// Before the v0.8.3 fix this function sent SIGTERM only to the lone
+// PID and let process.Wait() handle the barrier — but Wait returns
+// ECHILD immediately on a non-child PID, so the deadline was never
+// reached AND grandchildren like next-server / vite survived holding
+// the listening port.
+func killTrackedProcess(ctx context.Context, pid int) error {
+	_ = KillProcessTree(pid)
+	proc, _ := os.FindProcess(pid)
+	if proc != nil {
+		_ = proc.Signal(syscall.SIGTERM)
+		// Reap in the background. If we're the parent (typical in
+		// tests) this clears the zombie so IsProcessAlive below sees
+		// the PID truly gone. If not the parent, Wait returns ECHILD
+		// immediately (or blocks via pidfd until the process exits)
+		// — IsProcessAlive drives the deadline unchanged.
+		go func() { _, _ = proc.Wait() }()
+	}
+
+	deadline := time.Now().Add(stopShutdownDeadline)
+	for IsProcessAlive(pid) {
+		if !time.Now().Before(deadline) {
+			_ = ForceKillProcessTree(pid)
+			if proc != nil {
+				_ = proc.Kill()
+			}
 			return nil
 		}
-		return err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
 	}
+	return nil
 }
 
 // IsServiceRunning checks if a process is still running
