@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-05-16
+
 ### Added
 
 - **`--router-off` now overrides an inherited
@@ -92,6 +94,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`metaProjectYAMLPath` uses `filepath.Join`.** Replaces the
   string-concat-with-`os.PathSeparator` form so the path stays
   correct on Windows under the ADR-030 CI gate (`d53755e`).
+- **Comment hygiene pass across the release.** Dropped ephemeral
+  issue references from code comments (ADR refs stay; issue
+  numbers move to PR / changelog scope), condensed doc comments
+  that restated the diff, and replaced a hand-rolled `fmtPID`
+  helper in `host_runner_test` with `strconv.Itoa`. Net −44 lines
+  across 18 files; no behavior change (`3aec158`).
 
 ### Documentation
 
