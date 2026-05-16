@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"raioz/internal/audit"
@@ -79,7 +80,7 @@ func auditMetaProject(p config.MetaProject) error {
 // a fallback. Returns "" when neither exists.
 func metaProjectYAMLPath(p config.MetaProject) string {
 	for _, candidate := range []string{"raioz.yaml", "raioz.yml"} {
-		full := p.Path + string(os.PathSeparator) + candidate
+		full := filepath.Join(p.Path, candidate)
 		if _, err := os.Stat(full); err == nil {
 			return full
 		}
