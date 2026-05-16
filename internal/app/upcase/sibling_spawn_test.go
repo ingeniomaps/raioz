@@ -221,6 +221,68 @@ func TestSpawnSibling_PropagatesCorrelationID(t *testing.T) {
 	}
 }
 
+// TestSpawnSibling_LongLineDoesNotTruncateOutput asserts issue 027:
+// the streamer survives a child line longer than bufio.Scanner's
+// default 64 KiB buffer. Previously the scanner would silently stop
+// reading; now the buffer is raised to 16 MiB.
+func TestSpawnSibling_LongLineDoesNotTruncateOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake binary scripts are POSIX-only")
+	}
+
+	dir := t.TempDir()
+	binPath := filepath.Join(dir, "fakeraioz")
+	// 70 KiB of 'x' followed by a newline + final "done" marker. If
+	// the scanner truncates at 64 KiB, the spawn would fail; we just
+	// verify spawn succeeds end-to-end without orphan errors.
+	body := "#!/bin/sh\n" +
+		"perl -e 'print q(x) x 70000, \"\\n\"'\n" +
+		"echo done\n" +
+		"exit 0\n"
+	if err := os.WriteFile(binPath, []byte(body), 0o755); err != nil {
+		t.Fatalf("write fake raioz: %v", err)
+	}
+	prev := spawnRaiozBinary
+	spawnRaiozBinary = func() (string, error) { return binPath, nil }
+	t.Cleanup(func() { spawnRaiozBinary = prev })
+
+	sib := &config.SiblingInfo{Dir: t.TempDir(), Project: "kc"}
+	if err := spawnSibling(context.Background(), "/consumer", "kc", sib); err != nil {
+		t.Errorf("expected spawn to survive >64KiB line, got %v", err)
+	}
+}
+
+// Issue 028 — gap 3: when RAIOZ_SIBLING_TIMEOUT fires, the error must
+// name the env var so the operator knows which knob to turn. Previously
+// only the parser of the env var was tested; the end-to-end deadline
+// branch had no coverage.
+func TestSpawnSibling_TimeoutSurfacesEnvVarHint(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake binary scripts are POSIX-only")
+	}
+	t.Setenv("RAIOZ_SIBLING_TIMEOUT", "200ms")
+
+	// Fake binary sleeps for 5s — well past the 200ms deadline.
+	dir := t.TempDir()
+	binPath := filepath.Join(dir, "fakeraioz")
+	if err := os.WriteFile(binPath,
+		[]byte("#!/bin/sh\nsleep 5\n"), 0o755); err != nil {
+		t.Fatalf("write fake raioz: %v", err)
+	}
+	prev := spawnRaiozBinary
+	spawnRaiozBinary = func() (string, error) { return binPath, nil }
+	t.Cleanup(func() { spawnRaiozBinary = prev })
+
+	sib := &config.SiblingInfo{Dir: t.TempDir(), Project: "kc"}
+	err := spawnSibling(context.Background(), "/consumer", "kc", sib)
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+	if !strings.Contains(err.Error(), "RAIOZ_SIBLING_TIMEOUT") {
+		t.Errorf("timeout error must name the env var for actionability: %v", err)
+	}
+}
+
 func TestSpawnSibling_BinaryLookupFailure(t *testing.T) {
 	prev := spawnRaiozBinary
 	spawnRaiozBinary = func() (string, error) {
