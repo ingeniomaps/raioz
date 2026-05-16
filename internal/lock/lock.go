@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"raioz/internal/i18n"
@@ -29,17 +28,9 @@ type Lock struct {
 	file *os.File
 }
 
-// isProcessRunning checks if a process with the given PID is still running
-func isProcessRunning(pid int) bool {
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// Send signal 0 to check if process exists (doesn't actually send a signal)
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
-}
+// isProcessRunning reports whether the given PID names a live process.
+// Implemented per-OS (process_unix.go / process_windows.go) because
+// the Unix-style signal(0) probe doesn't exist on Windows.
 
 // isLockExpired returns true when the lock file is older than
 // staleLockMaxAge. See the constant for the PID-reuse rationale.
