@@ -77,8 +77,13 @@ func auditMetaProject(p config.MetaProject) error {
 
 // metaProjectYAMLPath picks the yaml file inside a meta sub-project
 // directory. raioz convention is raioz.yaml; raioz.yml is accepted as
-// a fallback. Returns "" when neither exists.
+// a fallback. Returns "" when neither exists or when p.Path is empty
+// (guards against filepath.Join silently resolving the candidate
+// relative to the process cwd).
 func metaProjectYAMLPath(p config.MetaProject) string {
+	if p.Path == "" {
+		return ""
+	}
 	for _, candidate := range []string{"raioz.yaml", "raioz.yml"} {
 		full := filepath.Join(p.Path, candidate)
 		if _, err := os.Stat(full); err == nil {

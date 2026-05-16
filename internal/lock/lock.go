@@ -137,6 +137,9 @@ func replaceStaleLock(path string) (*os.File, error) {
 			return nil, fmt.Errorf("%s",
 				i18n.T("error.lock_concurrent_acquire", newPID))
 		}
+		// Corrupt/unreadable racer lock or dead PID — fall through to
+		// the generic stale-cleanup error below so the user sees the
+		// underlying OpenFile cause via the %w chain.
 	}
 	return nil, fmt.Errorf("%s: %w",
 		i18n.T("error.lock_after_stale_cleanup"), err)

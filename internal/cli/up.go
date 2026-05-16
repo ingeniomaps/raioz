@@ -150,7 +150,7 @@ func init() {
 			"run before spawn. One-hop only — the flag does not propagate "+
 			"to child invocations, so a sibling's own siblings get default "+
 			"gates (no H3 escalation). Off by default; opt-in for CI / "+
-			"paranoid setups (issue 031).")
+			"paranoid setups (ADR-036 § Optional escape hatch).")
 	upCmd.Flags().BoolVar(&routerOff, "router-off", false,
 		"Bypass the workspace router project (ADR-037) and run the bundled "+
 			"Caddy as before v0.8. In meta mode, prevents the meta runner "+
