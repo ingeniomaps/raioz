@@ -32,6 +32,11 @@ type Options struct {
 	// Default (Attach=false && Watch=false): raioz up exits cleanly after
 	// services are healthy. Services keep running; use `raioz logs` / `raioz down`.
 	Watch bool
+	// RouterOff forces the bundled Caddy to start even when
+	// RAIOZ_ROUTER_ACTIVE=1 is inherited from the shell. Use to
+	// debug a consumer's own proxy in isolation from a meta run, or
+	// to recover from a shell with a leaked env var (issue 030).
+	RouterOff bool
 }
 
 // Dependencies contains the dependencies needed by the up use case
@@ -267,7 +272,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 
 	if isYAMLMode(deps) {
 		// New orchestrator flow: detect runtimes, start with native tools
-		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath)
+		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath, opts.RouterOff)
 		if err != nil {
 			return err
 		}

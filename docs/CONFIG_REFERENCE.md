@@ -808,6 +808,7 @@ These are managed by raioz itself; don't override them.
 |-----|-----|
 | `RAIOZ_SIBLING_STACK` | Recursion cycle detection in mode A sibling spawn (ADR-008). |
 | `RAIOZ_CORRELATION_ID` | Request/correlation ID propagated across recursive `raioz up` so audit logs from sibling spawns share an ID. |
+| `RAIOZ_ROUTER_ACTIVE` | Set to `1` by the meta runner on consumer sub-ups when `router.project:` is declared (ADR-037). Consumed by the consumer's upcase (`internal/app/upcase/router_env.go`) to suppress the bundled Caddy. Don't set manually unless emulating a meta run for testing. |
 
 ---
 

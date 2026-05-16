@@ -89,6 +89,7 @@ var upCmd = &cobra.Command{
 			Attach:       attach,
 			Watch:        watch,
 			Exclusive:    exclusive,
+			RouterOff:    routerOff,
 		})
 
 		if notifyDone {
@@ -143,5 +144,8 @@ func init() {
 		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")
 	upCmd.Flags().BoolVar(&routerOff, "router-off", false,
 		"Bypass the workspace router project (ADR-037) and run the bundled "+
-			"Caddy as before v0.8. No-op when `router:` is not declared.")
+			"Caddy as before v0.8. In meta mode, prevents the meta runner "+
+			"from setting RAIOZ_ROUTER_ACTIVE=1 on consumers; in project "+
+			"mode, overrides an inherited RAIOZ_ROUTER_ACTIVE=1 so the "+
+			"bundled Caddy still starts. No-op when no router is in play.")
 }

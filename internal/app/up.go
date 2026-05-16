@@ -21,6 +21,9 @@ type UpOptions struct {
 	Attach       bool   // Stay foreground streaming logs (no file watching)
 	Watch        bool   // Stay foreground file-watching services with watch: true
 	Exclusive    bool   // Stop other projects before starting this one
+	// RouterOff forces the bundled Caddy to start even when
+	// RAIOZ_ROUTER_ACTIVE=1 is inherited from the shell (issue 030).
+	RouterOff bool
 }
 
 // UpUseCase handles the "up" use case - starting a project
@@ -64,6 +67,7 @@ func (uc *UpUseCase) Execute(ctx context.Context, opts UpOptions) error {
 		Host:         opts.Host,
 		Attach:       opts.Attach,
 		Watch:        opts.Watch,
+		RouterOff:    opts.RouterOff,
 	}
 	return uc.useCase.Execute(ctx, options)
 }
