@@ -291,6 +291,64 @@ func TestDownUseCase_stopHostProcesses_WithProcesses(t *testing.T) {
 	}
 }
 
+// Issue 019 regression: single-project down must call
+// sweepLauncherOrphans for every host service so daemons that
+// re-parented to init (next-server, vite, esbuild) are cleared by
+// cwd. The orchestrated / selective / restart paths already do
+// this; down_host.go was the outlier.
+func TestDownUseCase_stopHostProcesses_SweepsLauncherOrphans(t *testing.T) {
+	initI18nForTest(t)
+	tmp := t.TempDir()
+	cfgPath := filepath.Join(tmp, "raioz.yaml")
+	servicePath := filepath.Join(tmp, "services", "web")
+	if err := os.MkdirAll(servicePath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var sweptPaths []string
+	prev := killOrphansByCwdFn
+	killOrphansByCwdFn = func(path string) []int {
+		sweptPaths = append(sweptPaths, path)
+		return nil
+	}
+	t.Cleanup(func() { killOrphansByCwdFn = prev })
+
+	uc := NewDownUseCase(&Dependencies{
+		HostRunner: &mocks.MockHostRunner{
+			LoadProcessesStateFunc: func(ws *workspace.Workspace) (map[string]*host.ProcessInfo, error) {
+				return map[string]*host.ProcessInfo{
+					"web": {PID: 1234},
+				}, nil
+			},
+			StopServiceWithCommandAndPathFunc: func(ctx context.Context, pid int, cmd, path string) error {
+				return nil
+			},
+			RemoveProcessesStateFunc: func(ws *workspace.Workspace) error { return nil },
+		},
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project: models.Project{Name: "p"},
+					Services: map[string]models.Service{
+						"web": {Source: models.SourceConfig{Path: "services/web"}},
+					},
+				}, nil, nil
+			},
+		},
+	})
+
+	uc.stopHostProcesses(
+		context.Background(),
+		&workspace.Workspace{Root: "/tmp"},
+		DownOptions{ConfigPath: cfgPath},
+	)
+
+	if len(sweptPaths) != 1 || sweptPaths[0] != servicePath {
+		t.Errorf("sweepLauncherOrphans paths = %v, want [%s]",
+			sweptPaths, servicePath)
+	}
+}
+
 // --- down_host.go: resolveHostStopCommand ----------------------------------
 
 func TestDownUseCase_resolveHostStopCommand_FromProcessInfo(t *testing.T) {
