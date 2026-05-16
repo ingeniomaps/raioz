@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 )
 
 // TestMain stubs the host-port busy probe for the entire upcase test suite.
@@ -14,10 +15,13 @@ import (
 // 3000") fail whenever the CI or developer host happens to already have that
 // port bound — turning what should be a deterministic unit test into a
 // host-specific flake. The production flow is unaffected: portInUseProbe is
-// restored to docker.CheckPortInUse after the tests run.
+// restored to docker.CheckPortInUse after the tests run. Also initializes
+// i18n so error.* keys render to their English catalog values for tests
+// asserting against translated error text.
 func TestMain(m *testing.M) {
 	prev := portInUseProbe
 	portInUseProbe = func(string) (bool, error) { return false, nil }
+	i18n.Init("en")
 	code := m.Run()
 	portInUseProbe = prev
 	os.Exit(code)

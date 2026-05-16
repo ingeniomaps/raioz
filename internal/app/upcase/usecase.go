@@ -37,6 +37,9 @@ type Options struct {
 	// debug a consumer's own proxy in isolation from a meta run, or
 	// to recover from a shell with a leaked env var (issue 030).
 	RouterOff bool
+	// AuditSiblings preflights sibling-dep yamls against ADR-036
+	// hygiene gates before spawn (issue 031). Opt-in.
+	AuditSiblings bool
 }
 
 // Dependencies contains the dependencies needed by the up use case
@@ -106,6 +109,16 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	deps, err = uc.applyFilters(deps, opts.Profile, opts.Only)
 	if err != nil {
 		return err
+	}
+
+	// Opt-in preflight (issue 031): when --audit-siblings is set,
+	// run ADR-036 hygiene gates against every sibling dependency's
+	// raioz.yaml before any spawn. Failure aborts the up. Off by
+	// default — transitive trust is the documented v0.7+ policy.
+	if opts.AuditSiblings {
+		if err := auditSiblingYAMLs(deps); err != nil {
+			return err
+		}
 	}
 
 	// Save filtered deps for re-applying --only after merge

@@ -12,18 +12,19 @@ import (
 )
 
 var (
-	configPath   string
-	profile      string
-	metaProfiles []string
-	forceReclone bool
-	dryRun       bool
-	onlyServices []string
-	hostBind     string
-	attach       bool
-	watch        bool
-	exclusive    bool
-	notifyDone   bool
-	routerOff    bool
+	configPath    string
+	profile       string
+	metaProfiles  []string
+	forceReclone  bool
+	dryRun        bool
+	onlyServices  []string
+	hostBind      string
+	attach        bool
+	watch         bool
+	exclusive     bool
+	notifyDone    bool
+	routerOff     bool
+	auditSiblings bool
 )
 
 var upCmd = &cobra.Command{
@@ -56,7 +57,7 @@ var upCmd = &cobra.Command{
 		// MetaRunner before initializing project-mode dependencies.
 		if handled, metaErr := tryHandleMeta(
 			ctx, configPath, "up", nil, metaProfiles,
-			app.MetaUpOptions{RouterOff: routerOff},
+			app.MetaUpOptions{RouterOff: routerOff, AuditSiblings: auditSiblings},
 		); handled {
 			if notifyDone {
 				if metaErr == nil {
@@ -80,16 +81,17 @@ var upCmd = &cobra.Command{
 
 		// Execute use case
 		execErr := upUseCase.Execute(ctx, app.UpOptions{
-			ConfigPath:   configPath,
-			Profile:      profile,
-			ForceReclone: forceReclone,
-			DryRun:       dryRun,
-			Only:         only,
-			Host:         hostBind,
-			Attach:       attach,
-			Watch:        watch,
-			Exclusive:    exclusive,
-			RouterOff:    routerOff,
+			ConfigPath:    configPath,
+			Profile:       profile,
+			ForceReclone:  forceReclone,
+			DryRun:        dryRun,
+			Only:          only,
+			Host:          hostBind,
+			Attach:        attach,
+			Watch:         watch,
+			Exclusive:     exclusive,
+			RouterOff:     routerOff,
+			AuditSiblings: auditSiblings,
 		})
 
 		if notifyDone {
@@ -142,6 +144,10 @@ func init() {
 	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 	upCmd.Flags().StringSliceVar(&metaProfiles, "meta-profile", nil,
 		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")
+	upCmd.Flags().BoolVar(&auditSiblings, "audit-siblings", false,
+		"Run ADR-036 hygiene gates (H1 secret scan, H2 path safety, H3 image "+
+			"pinning) on every sibling / router project yaml before spawn. "+
+			"Off by default — opt-in for CI / paranoid setups (issue 031).")
 	upCmd.Flags().BoolVar(&routerOff, "router-off", false,
 		"Bypass the workspace router project (ADR-037) and run the bundled "+
 			"Caddy as before v0.8. In meta mode, prevents the meta runner "+
