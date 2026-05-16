@@ -79,6 +79,39 @@ Landed in this commit:
 The selective path (`internal/app/down_selective.go`) is untouched —
 verified by the early-return at `downOrchestrated.go:51`.
 
+## Degraded mode: Docker unreachable
+
+When the Docker daemon is unreachable AND the operator invokes
+`raioz down --force-state-cleanup`, the
+`internal/app/down_offline.go::forceOfflineCleanup` path
+**relaxes** the "state mirrors reality" invariant. The reasoning:
+
+- The container teardown that the invariant normally guards
+  cannot run — there is no daemon to talk to.
+- The operator has explicitly opted in via
+  `--force-state-cleanup`, accepting that any container that
+  was alive before the daemon went down may survive as an
+  orphan.
+- Preserving the state file in this scenario buys nothing: the
+  reality the file used to mirror is unknown.
+
+`forceOfflineCleanup` therefore:
+
+1. Stops host PIDs we tracked (`stopHostProcesses`).
+2. Removes `.raioz.state.json` from the project dir
+   (`cleanLocalState`).
+3. Removes `raioz.root.json` via `root.Delete(ws)`.
+
+The teardown emits a warning naming the
+`com.raioz.project=<name>` label filter so the operator can
+recover any orphan containers manually with
+`docker rm $(docker ps -a --filter ...)` once the daemon is
+back. Issue 032 chose this documentation update over a
+breadcrumb-based auto-recovery because the path is opt-in and
+the documentation matches the behavior the operator already
+signed up for. Cross-references: ADR-029 (typed
+`ErrDaemonUnreachable` from infra), `internal/app/down_offline.go`.
+
 ## Consequences
 
 ### Positive
