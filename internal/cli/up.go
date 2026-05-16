@@ -56,8 +56,15 @@ var upCmd = &cobra.Command{
 		// MetaRunner before initializing project-mode dependencies.
 		if handled, metaErr := tryHandleMeta(
 			ctx, configPath, "up", nil, metaProfiles,
-			MetaDispatchOptions{RouterOff: routerOff},
+			app.MetaUpOptions{RouterOff: routerOff},
 		); handled {
+			if notifyDone {
+				if metaErr == nil {
+					notify.Send("Raioz", i18n.T("up.notify_ready"))
+				} else {
+					notify.Send("Raioz", i18n.T("up.notify_failed"))
+				}
+			}
 			return metaErr
 		}
 

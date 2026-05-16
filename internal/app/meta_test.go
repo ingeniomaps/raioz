@@ -147,6 +147,43 @@ func TestMetaRunner_DownToleratesFailures(t *testing.T) {
 	}
 }
 
+// resolveBinary must return an absolute path even when os.Args[0] is
+// relative (e.g. dev build invoked as `./raioz`). Without this, the
+// MetaRunner sub-spawn changes cwd via cmd.Dir and the relative path
+// vanishes, producing the "fork/exec ./raioz: no such file or directory"
+// regression smoke-tested in the 019-035 session.
+func TestMetaRunner_ResolveBinary_AbsolutePathFromRelativeArg0(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Args[0] semantics differ on Windows")
+	}
+	// Force the m.Binary fast-path off and stash a relative os.Args[0].
+	r := &MetaRunner{}
+	prev := os.Args[0]
+	os.Args[0] = "./does-not-exist-here"
+	t.Cleanup(func() { os.Args[0] = prev })
+
+	got, err := r.resolveBinary()
+	if err != nil {
+		t.Fatalf("resolveBinary: %v", err)
+	}
+	if !filepath.IsAbs(got) {
+		t.Errorf("expected absolute path, got %q", got)
+	}
+}
+
+// When m.Binary is explicitly set (test pattern), resolveBinary must
+// honor it as-is without touching os.Args[0] or os.Executable.
+func TestMetaRunner_ResolveBinary_BinaryFieldWins(t *testing.T) {
+	r := &MetaRunner{Binary: "/explicit/path/raioz"}
+	got, err := r.resolveBinary()
+	if err != nil {
+		t.Fatalf("resolveBinary: %v", err)
+	}
+	if got != "/explicit/path/raioz" {
+		t.Errorf("expected explicit override, got %q", got)
+	}
+}
+
 // Status reports per-project outcome and tolerates failures (a sub that's
 // missing or not yet up shouldn't blank the rest of the report).
 func TestMetaRunner_StatusToleratesFailures(t *testing.T) {

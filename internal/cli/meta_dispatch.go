@@ -6,26 +6,29 @@ import (
 
 	"raioz/internal/app"
 	"raioz/internal/config"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
+
+// newMetaRunner is the constructor tryHandleMeta uses to obtain a
+// MetaRunner. Tests override it to inject a fake binary (Binary field)
+// without monkey-patching os.Args[0] — the production MetaRunner
+// resolves its binary via os.Executable() (ADR-008), which under
+// `go test` returns the test runner and recursively re-enters the
+// suite. Package-level var to keep the override surface tiny.
+var newMetaRunner = func() *app.MetaRunner { return &app.MetaRunner{} }
 
 // tryHandleMeta detects whether configPath points at a meta-orchestrator
 // raioz.yaml (`kind: meta`). If yes, it dispatches to MetaRunner with the
 // matching sub-command and returns (handled=true, err). If the config is a
 // regular project, it returns (false, nil) so the caller proceeds with the
 // normal use case. activeProfiles filters which sub-projects participate
-// in `up` / `status`; `down` ignores it (see MetaRunner.Down).
-// MetaDispatchOptions tunes a meta dispatch run. RouterOff propagates the
-// `--router-off` CLI flag to the meta runner so the ADR-037 router phase
-// can be bypassed for debugging. Fields are zero-valued for non-up
-// subcommands.
-type MetaDispatchOptions struct {
-	RouterOff bool
-}
-
+// in `up` / `status`; `down` ignores it (see MetaRunner.Down). opts is
+// shared with app.MetaUpOptions so a new knob lands in one place; the
+// fields are ignored for non-up subcommands.
 func tryHandleMeta(
 	ctx context.Context, configPath, subCmd string,
-	args, activeProfiles []string, opts MetaDispatchOptions,
+	args, activeProfiles []string, opts app.MetaUpOptions,
 ) (bool, error) {
 	if configPath == "" || configPath == AutoDetectMarker {
 		return false, nil
@@ -47,16 +50,13 @@ func tryHandleMeta(
 		return false, nil
 	}
 
-	output.PrintInfo(fmt.Sprintf(
-		"meta-orchestrator: %d project(s)", len(cfg.Projects),
-	))
+	output.PrintInfo(i18n.T("meta.dispatch.header", len(cfg.Projects)))
 
-	runner := &app.MetaRunner{}
+	runner := newMetaRunner()
 	var summary app.MetaSummaryList
 	switch subCmd {
 	case "up":
-		summary = runner.Up(ctx, cfg, args, activeProfiles,
-			app.MetaUpOptions{RouterOff: opts.RouterOff})
+		summary = runner.Up(ctx, cfg, args, activeProfiles, opts)
 	case "down":
 		summary = runner.Down(ctx, cfg, args)
 	case "status":
@@ -74,15 +74,15 @@ func tryHandleMeta(
 
 func printMetaSummary(subCmd string, summary app.MetaSummaryList) {
 	output.PrintInfo("")
-	output.PrintInfo(fmt.Sprintf("=== meta %s summary ===", subCmd))
+	output.PrintInfo(i18n.T("meta.summary.header", subCmd))
 	for _, e := range summary {
 		switch {
 		case e.Err == nil:
-			output.PrintSuccess(fmt.Sprintf("  ok   %s", e.Project))
+			output.PrintSuccess(i18n.T("meta.summary.row_ok", e.Project))
 		case e.Skipped:
-			output.PrintWarning(fmt.Sprintf("  skip %s (%s)", e.Project, e.Err))
+			output.PrintWarning(i18n.T("meta.summary.row_skipped", e.Project, e.Err))
 		default:
-			output.PrintError(fmt.Sprintf("  fail %s (%s)", e.Project, e.Err))
+			output.PrintError(i18n.T("meta.summary.row_failed", e.Project, e.Err))
 		}
 	}
 }

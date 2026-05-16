@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"raioz/internal/config"
@@ -219,9 +220,9 @@ func (m *MetaRunner) runSingle(
 	ctx context.Context, subCmd string,
 	p config.MetaProject, extraArgs, extraEnv []string,
 ) MetaSummary {
-	binary := m.Binary
-	if binary == "" {
-		binary = os.Args[0]
+	binary, err := m.resolveBinary()
+	if err != nil {
+		return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
 	}
 	stdout := m.Stdout
 	if stdout == nil {
@@ -235,8 +236,35 @@ func (m *MetaRunner) runSingle(
 	printMetaBanner(stdout, subCmd, p)
 
 	cmd := m.buildSubCmd(ctx, binary, subCmd, p, extraArgs, extraEnv, stdout, stderr)
-	err := cmd.Run()
-	return MetaSummary{Project: p.Name, Path: p.Path, Err: err}
+	runErr := cmd.Run()
+	return MetaSummary{Project: p.Name, Path: p.Path, Err: runErr}
+}
+
+// resolveBinary picks the raioz executable to invoke for a sub-project
+// spawn. Resolution order:
+//
+//  1. m.Binary when set (tests inject a fake binary here).
+//  2. os.Executable() — the path the kernel sees for this process. Stable
+//     under PATH changes and survives cwd switches.
+//  3. filepath.Abs(os.Args[0]) as a last-resort fallback. Required because
+//     runSingle sets cmd.Dir to the sub-project path before exec, which
+//     turns a relative os.Args[0] (e.g. "./raioz" from a dev build) into
+//     an unfindable path inside the sub-project dir.
+func (m *MetaRunner) resolveBinary() (string, error) {
+	if m.Binary != "" {
+		return m.Binary, nil
+	}
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		return exe, nil
+	}
+	if len(os.Args) > 0 && os.Args[0] != "" {
+		abs, err := filepath.Abs(os.Args[0])
+		if err != nil {
+			return "", fmt.Errorf("resolve raioz binary path: %w", err)
+		}
+		return abs, nil
+	}
+	return "", fmt.Errorf("cannot resolve raioz binary path for meta dispatch")
 }
 
 // buildSubCmd constructs the *exec.Cmd for a sub-project invocation.

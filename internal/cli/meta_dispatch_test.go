@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"raioz/internal/app"
 )
 
 func skipOnWindows(t *testing.T) {
@@ -24,7 +26,7 @@ func TestTryHandleMeta_RegularProjectFallsThrough(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handled, err := tryHandleMeta(context.Background(), path, "up", nil, nil, MetaDispatchOptions{})
+	handled, err := tryHandleMeta(context.Background(), path, "up", nil, nil, app.MetaUpOptions{})
 	if err != nil {
 		t.Errorf("err = %v, want nil", err)
 	}
@@ -37,7 +39,7 @@ func TestTryHandleMeta_RegularProjectFallsThrough(t *testing.T) {
 // meta dispatch should kick in.
 func TestTryHandleMeta_AutoDetectMarkerSkipped(t *testing.T) {
 	handled, err := tryHandleMeta(
-		context.Background(), AutoDetectMarker, "up", nil, nil, MetaDispatchOptions{},
+		context.Background(), AutoDetectMarker, "up", nil, nil, app.MetaUpOptions{},
 	)
 	if err != nil || handled {
 		t.Errorf("auto-detect must not engage meta dispatch (handled=%v, err=%v)",
@@ -48,7 +50,7 @@ func TestTryHandleMeta_AutoDetectMarkerSkipped(t *testing.T) {
 // Empty path is also a no-op — early returns must guard the loader call.
 func TestTryHandleMeta_EmptyPathSkipped(t *testing.T) {
 	handled, err := tryHandleMeta(
-		context.Background(), "", "up", nil, nil, MetaDispatchOptions{},
+		context.Background(), "", "up", nil, nil, app.MetaUpOptions{},
 	)
 	if err != nil || handled {
 		t.Errorf("empty path must not engage meta dispatch")
@@ -74,27 +76,22 @@ func TestTryHandleMeta_DispatchesToFakeBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Stage a passing fake binary and prepend its dir to PATH so os/exec
-	// finds it as `raioz`. We don't go through tryHandleMeta directly
-	// because it uses os.Args[0]; instead we exercise the MetaRunner-via
-	// dispatch by setting up PATH and asserting the loader recognized
-	// the file as meta. The detailed behavior is covered by
-	// TestMetaRunner_*; this test just validates the parse + handed=true
-	// signal coming out of tryHandleMeta.
-	//
-	// We swap os.Args[0] for our fake so tryHandleMeta's MetaRunner picks
-	// it up via the default-binary path.
+	// Stage a passing fake binary and inject it via the newMetaRunner
+	// override. Doing this through MetaRunner.Binary (rather than
+	// os.Args[0]) is required because resolveBinary prefers
+	// os.Executable() — under `go test` that's the test runner itself,
+	// which would re-enter the suite recursively.
 	binDir := t.TempDir()
 	fake := filepath.Join(binDir, "raioz")
 	if err := os.WriteFile(fake, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	prevArg0 := os.Args[0]
-	os.Args[0] = fake
-	t.Cleanup(func() { os.Args[0] = prevArg0 })
+	prev := newMetaRunner
+	newMetaRunner = func() *app.MetaRunner { return &app.MetaRunner{Binary: fake} }
+	t.Cleanup(func() { newMetaRunner = prev })
 
 	handled, err := tryHandleMeta(
-		context.Background(), metaPath, "up", nil, nil, MetaDispatchOptions{},
+		context.Background(), metaPath, "up", nil, nil, app.MetaUpOptions{},
 	)
 	if !handled {
 		t.Fatalf("expected handled=true, got false (err=%v)", err)
@@ -114,7 +111,7 @@ func TestTryHandleMeta_InvalidMetaIsHandled(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	handled, err := tryHandleMeta(context.Background(), path, "up", nil, nil, MetaDispatchOptions{})
+	handled, err := tryHandleMeta(context.Background(), path, "up", nil, nil, app.MetaUpOptions{})
 	if !handled {
 		t.Errorf("invalid meta must still be handled (no fall-through)")
 	}
