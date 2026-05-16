@@ -237,10 +237,10 @@ func TestAcquire_ReplaceStaleLock_RacerWithLivePID(t *testing.T) {
 	plantLock(t, lockPath, deadPID, time.Now())
 
 	livePID := os.Getpid()
-	afterStaleRemoveHook = func() {
+	setAfterStaleRemoveHook(func() {
 		plantLock(t, lockPath, livePID, time.Now())
-	}
-	t.Cleanup(func() { afterStaleRemoveHook = nil })
+	})
+	t.Cleanup(func() { setAfterStaleRemoveHook(nil) })
 
 	_, err := Acquire(ws)
 	if err == nil {
@@ -265,10 +265,10 @@ func TestAcquire_ReplaceStaleLock_RacerWithDeadPID(t *testing.T) {
 	plantLock(t, lockPath, deadPID, time.Now())
 
 	racerDeadPID := pickDeadPID(t)
-	afterStaleRemoveHook = func() {
+	setAfterStaleRemoveHook(func() {
 		plantLock(t, lockPath, racerDeadPID, time.Now())
-	}
-	t.Cleanup(func() { afterStaleRemoveHook = nil })
+	})
+	t.Cleanup(func() { setAfterStaleRemoveHook(nil) })
 
 	_, err := Acquire(ws)
 	if err == nil {

@@ -471,7 +471,7 @@
   "error.sibling_timeout": "el proyecto hermano %q superó el tiempo límite de %s — sube RAIOZ_SIBLING_TIMEOUT o investiga el cuelgue en %s",
   "error.sibling_run_failed": "el proyecto hermano %q no pudo levantarse — ejecuta `cd %s && raioz up` para diagnosticar: %v",
   "error.lock_already_held": "el lock ya existe: otro proceso raioz puede estar corriendo (pid=%d)",
-  "error.lock_after_stale_cleanup": "no se pudo adquirir el lock tras limpiar uno obsoleto: %v",
+  "error.lock_after_stale_cleanup": "no se pudo adquirir el lock tras limpiar uno obsoleto",
   "error.lock_concurrent_acquire": "otro proceso raioz adquirió el lock de forma concurrente (pid=%d); reintenta en un momento",
   "meta.dispatch.header": "meta-orquestador: %d proyecto(s)",
   "meta.summary.header": "=== resumen meta %s ===",

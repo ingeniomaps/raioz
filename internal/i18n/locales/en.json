@@ -471,7 +471,7 @@
   "error.sibling_timeout": "sibling project %q timed out after %s — set RAIOZ_SIBLING_TIMEOUT higher, or investigate the hang in %s",
   "error.sibling_run_failed": "sibling project %q failed to come up — run `cd %s && raioz up` to diagnose: %v",
   "error.lock_already_held": "lock already exists: another raioz process may be running (pid=%d)",
-  "error.lock_after_stale_cleanup": "failed to acquire lock after cleaning stale lock: %v",
+  "error.lock_after_stale_cleanup": "failed to acquire lock after cleaning stale lock",
   "error.lock_concurrent_acquire": "another raioz process acquired the lock concurrently (pid=%d); retry in a moment",
   "meta.dispatch.header": "meta-orchestrator: %d project(s)",
   "meta.summary.header": "=== meta %s summary ===",

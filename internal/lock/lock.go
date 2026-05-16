@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -82,7 +83,35 @@ func readLockPID(path string) (int, error) {
 // and the re-OpenFile. Tests use it to simulate a racing planter (live
 // or dead PID) so the IsExist branch of replaceStaleLock can be
 // exercised deterministically. Production: nil = no-op.
-var afterStaleRemoveHook func()
+//
+// The mutex guards read/write because Acquire reads the hook from a
+// caller goroutine while tests write it via setAfterStaleRemoveHook;
+// under `go test -race -count=N` an unsynchronized access trips the
+// race detector even though no production path mutates.
+var (
+	afterStaleRemoveMu   sync.Mutex
+	afterStaleRemoveHook func()
+)
+
+// setAfterStaleRemoveHook installs the test hook (or clears it when h
+// is nil). Test-only entry point; tests must pair set with a cleanup.
+func setAfterStaleRemoveHook(h func()) {
+	afterStaleRemoveMu.Lock()
+	afterStaleRemoveHook = h
+	afterStaleRemoveMu.Unlock()
+}
+
+// runAfterStaleRemoveHook snapshots the hook under the mutex and runs
+// it outside the critical section so a hook that re-enters lock code
+// can't deadlock.
+func runAfterStaleRemoveHook() {
+	afterStaleRemoveMu.Lock()
+	h := afterStaleRemoveHook
+	afterStaleRemoveMu.Unlock()
+	if h != nil {
+		h()
+	}
+}
 
 // replaceStaleLock removes a stale lock file and re-opens it with the
 // same O_CREATE|O_EXCL guarantee. If the re-open fails with IsExist a
@@ -94,9 +123,7 @@ func replaceStaleLock(path string) (*os.File, error) {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("remove stale lock %q: %w", path, err)
 	}
-	if afterStaleRemoveHook != nil {
-		afterStaleRemoveHook()
-	}
+	runAfterStaleRemoveHook()
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err == nil {
 		return file, nil
@@ -111,8 +138,8 @@ func replaceStaleLock(path string) (*os.File, error) {
 				i18n.T("error.lock_concurrent_acquire", newPID))
 		}
 	}
-	return nil, fmt.Errorf("%s",
-		i18n.T("error.lock_after_stale_cleanup", err))
+	return nil, fmt.Errorf("%s: %w",
+		i18n.T("error.lock_after_stale_cleanup"), err)
 }
 
 func Acquire(ws *workspace.Workspace) (*Lock, error) {
