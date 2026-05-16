@@ -91,9 +91,8 @@ func TestMetaRunner_UpEmitsLifecycleEvents(t *testing.T) {
 	}
 }
 
-// TestMetaRunner_DownFailureEmitsPerSubAuditEvent asserts that issue 021
-// is closed — a failing sub during best-effort down leaves an audit
-// breadcrumb naming the sub and the error.
+// A failing sub during best-effort down must leave an audit breadcrumb
+// naming the sub and the error — otherwise the failure is silent.
 func TestMetaRunner_DownFailureEmitsPerSubAuditEvent(t *testing.T) {
 	logPath := pinMetaAuditHome(t)
 

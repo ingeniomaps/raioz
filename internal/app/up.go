@@ -22,10 +22,10 @@ type UpOptions struct {
 	Watch        bool   // Stay foreground file-watching services with watch: true
 	Exclusive    bool   // Stop other projects before starting this one
 	// RouterOff forces the bundled Caddy to start even when
-	// RAIOZ_ROUTER_ACTIVE=1 is inherited from the shell (issue 030).
+	// RAIOZ_ROUTER_ACTIVE=1 is inherited from the shell.
 	RouterOff bool
 	// AuditSiblings runs ADR-036 hygiene gates on every sibling
-	// dependency yaml before spawn. Opt-in (issue 031).
+	// dependency yaml before spawn. Opt-in.
 	AuditSiblings bool
 }
 

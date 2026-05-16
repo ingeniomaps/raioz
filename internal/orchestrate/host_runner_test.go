@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,11 +13,9 @@ import (
 	"raioz/internal/naming"
 )
 
-// Issue 035 — once Start returns, the spawned process must NOT be
-// killed when the parent context cancels. Previous behavior used
-// exec.CommandContext, which SIGKILLed the launcher mid-build when
-// raioz exited normally and the cobra signal context's deferred
-// stop() ran.
+// Once Start returns the spawned process must outlive a parent ctx
+// cancel. exec.CommandContext used to SIGKILL the launcher mid-build
+// on every clean raioz exit; this asserts the detached lifecycle holds.
 func TestHostRunner_Start_SubprocessSurvivesParentCtxCancel(t *testing.T) {
 	if _, err := exec.LookPath("sleep"); err != nil {
 		t.Skip("sleep not available")
@@ -39,8 +38,6 @@ func TestHostRunner_Start_SubprocessSurvivesParentCtxCancel(t *testing.T) {
 		_ = r.Stop(context.Background(), svc)
 	})
 
-	// Use a cancelable ctx and cancel it immediately AFTER Start
-	// returns. Asserts that the child outlives ctx cancel.
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := r.Start(ctx, svc); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -51,33 +48,16 @@ func TestHostRunner_Start_SubprocessSurvivesParentCtxCancel(t *testing.T) {
 	}
 
 	cancel()
-	// Give exec.Cmd's would-be killer a moment to fire if the ctx
-	// link were still in place. 500ms is generous — the previous
-	// (broken) behavior reaped within tens of milliseconds.
+	// 500ms is generous: the broken CommandContext behavior reaped
+	// within tens of milliseconds.
 	time.Sleep(500 * time.Millisecond)
 
-	// Process must still exist.
 	if proc, err := os.FindProcess(pid); err != nil || proc == nil {
 		t.Fatalf("child gone after parent ctx cancel (pid=%d): %v", pid, err)
 	}
-	if err := exec.Command("kill", "-0", fmtPID(pid)).Run(); err != nil {
+	if err := exec.Command("kill", "-0", strconv.Itoa(pid)).Run(); err != nil {
 		t.Errorf("kill -0 pid=%d failed after ctx cancel: %v", pid, err)
 	}
-}
-
-// fmtPID is here so the test stays Bash-portable on macOS/Linux
-// without pulling strconv.
-func fmtPID(pid int) string {
-	const digits = "0123456789"
-	if pid == 0 {
-		return "0"
-	}
-	var out []byte
-	for pid > 0 {
-		out = append([]byte{digits[pid%10]}, out...)
-		pid /= 10
-	}
-	return string(out)
 }
 
 func TestHostRunner_Start_NoCommand(t *testing.T) {

@@ -81,13 +81,9 @@ func readLockPID(path string) (int, error) {
 
 // afterStaleRemoveHook fires inside replaceStaleLock between the Remove
 // and the re-OpenFile. Tests use it to simulate a racing planter (live
-// or dead PID) so the IsExist branch of replaceStaleLock can be
-// exercised deterministically. Production: nil = no-op.
-//
-// The mutex guards read/write because Acquire reads the hook from a
-// caller goroutine while tests write it via setAfterStaleRemoveHook;
-// under `go test -race -count=N` an unsynchronized access trips the
-// race detector even though no production path mutates.
+// or dead PID) so the IsExist branch can be exercised deterministically.
+// Production: nil. Mutex-guarded because `go test -race` would otherwise
+// flag the test-vs-Acquire access pair.
 var (
 	afterStaleRemoveMu   sync.Mutex
 	afterStaleRemoveHook func()

@@ -24,7 +24,7 @@ import (
 //
 // When the runtime abstraction (`internal/runtime/`) adds a new
 // runtime, add a fixture to daemon_error_test.go and any missing
-// substring here. Issue 033 baselined this surface.
+// substring here.
 var daemonDownSignatures = []string{
 	// Docker
 	"cannot connect to the docker daemon",

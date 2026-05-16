@@ -25,11 +25,9 @@ const (
 	ServiceKey ContextKey = "service"
 )
 
-// CorrelationIDEnv aliases protocol.CorrelationID for callers that
-// stayed on logging.* before the protocol package existed (issue 034).
-// New code should import protocol directly. The alias keeps the
-// migration mechanical: producer and consumer never drift because both
-// resolve to the same literal at compile time.
+// CorrelationIDEnv aliases protocol.CorrelationID for pre-protocol
+// callers. New code should import protocol directly; both names resolve
+// to the same compile-time literal so producer and consumer can't drift.
 const CorrelationIDEnv = protocol.CorrelationID
 
 // generateRequestID generates a unique request ID

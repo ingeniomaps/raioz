@@ -221,10 +221,9 @@ func TestSpawnSibling_PropagatesCorrelationID(t *testing.T) {
 	}
 }
 
-// TestSpawnSibling_LongLineDoesNotTruncateOutput asserts issue 027:
-// the streamer survives a child line longer than bufio.Scanner's
-// default 64 KiB buffer. Previously the scanner would silently stop
-// reading; now the buffer is raised to 16 MiB.
+// streamPrefixed must survive a child line longer than bufio.Scanner's
+// default 64 KiB buffer (raised to 16 MiB). The default would silently
+// stop reading mid-stream.
 func TestSpawnSibling_LongLineDoesNotTruncateOutput(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake binary scripts are POSIX-only")
@@ -252,10 +251,9 @@ func TestSpawnSibling_LongLineDoesNotTruncateOutput(t *testing.T) {
 	}
 }
 
-// Issue 028 — gap 3: when RAIOZ_SIBLING_TIMEOUT fires, the error must
-// name the env var so the operator knows which knob to turn. Previously
-// only the parser of the env var was tested; the end-to-end deadline
-// branch had no coverage.
+// When RAIOZ_SIBLING_TIMEOUT fires the error must name the env var so
+// the operator knows which knob to turn — bare "timed out" leaves them
+// digging.
 func TestSpawnSibling_TimeoutSurfacesEnvVarHint(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake binary scripts are POSIX-only")

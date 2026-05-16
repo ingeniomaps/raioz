@@ -247,9 +247,9 @@ func stageConditionalBinary(t *testing.T, failNames ...string) (binPath, logFile
 	return binPath, logFile
 }
 
-// Issue 028 — gap 1: when the router is up and an OPTIONAL consumer
-// fails, the meta run must continue (the rest of the consumers come
-// up) and the failure must surface as Skipped, not HasFailures.
+// When the router is up and an OPTIONAL consumer fails, the meta run
+// must continue (the rest of the consumers come up) and the failure
+// must surface as Skipped, not HasFailures.
 func TestMetaRunner_RouterStaysUpWhenOptionalConsumerFails(t *testing.T) {
 	bin, _ := stageConditionalBinary(t, "api")
 	cfg := makeMetaWithRouter(t)
@@ -281,9 +281,9 @@ func TestMetaRunner_RouterStaysUpWhenOptionalConsumerFails(t *testing.T) {
 	}
 }
 
-// Issue 031: --audit-siblings flags a meta sub-project whose yaml
-// trips H3 (un-pinned image). The whole meta up aborts before any
-// spawn, and the summary names the audit phase as the failure.
+// --audit-siblings flags a meta sub-project whose yaml trips H3
+// (un-pinned image). The whole meta up aborts before any spawn, and
+// the summary names the audit phase as the failure.
 func TestMetaRunner_AuditSiblingsRejectsUnpinnedImage(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("uses POSIX path joins")
@@ -327,10 +327,9 @@ func TestMetaRunner_AuditSiblingsRejectsUnpinnedImage(t *testing.T) {
 	}
 }
 
-// Issue 028 — gap 2: the router runs regardless of `--meta-profile`
-// (it owns the edge; profiles only filter consumers). Asserting this
-// explicitly prevents a future "profile filter applied to router"
-// regression.
+// The router runs regardless of `--meta-profile` (it owns the edge;
+// profiles only filter consumers). Guards against a future "profile
+// filter applied to router" regression.
 func TestMetaRunner_RouterRunsRegardlessOfProfile(t *testing.T) {
 	bin, log := stageRecordingBinary(t)
 	cfg := makeMetaWithRouter(t)

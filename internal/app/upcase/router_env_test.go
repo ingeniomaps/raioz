@@ -6,11 +6,9 @@ import (
 	"raioz/internal/protocol"
 )
 
-// TestShouldSuppressBundledProxy_RouterOffOverridesInheritedEnv asserts
-// issue 030 — the bundled Caddy gate must respect --router-off even
-// when RAIOZ_ROUTER_ACTIVE=1 was inherited from the shell. Otherwise
-// the flag is silently ignored and the operator loses their debug
-// path.
+// --router-off must override an inherited RAIOZ_ROUTER_ACTIVE=1 so the
+// operator's debug path (force the bundled Caddy back on) isn't
+// silently swallowed.
 func TestShouldSuppressBundledProxy_Matrix(t *testing.T) {
 	cases := []struct {
 		name      string

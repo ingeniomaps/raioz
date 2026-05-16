@@ -52,8 +52,8 @@ func TestWrapDaemonError(t *testing.T) {
 			err:      errors.New("exit status 1"),
 			wantSent: false,
 		},
-		// Issue 033 — podman / nerdctl fixtures. Verified against podman
-		// 4.x/5.x and nerdctl 1.x/2.x stderr.
+		// podman / nerdctl fixtures, verified against podman 4.x/5.x
+		// and nerdctl 1.x/2.x stderr.
 		{
 			name:     "podman socket missing",
 			output:   "Error: unable to connect to Podman socket: Get \"http://d/v4.0.0/libpod/_ping\": dial unix /run/user/1000/podman/podman.sock: connect: no such file or directory",

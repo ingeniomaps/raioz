@@ -106,15 +106,13 @@ func (r *HostRunner) peekPID(svcName string) (int, bool) {
 
 // Start runs the detected start command in the service directory.
 //
-// Issue 035 — the spawned process is created with plain exec.Command
-// (NOT CommandContext) so it survives `raioz up` returning. The cobra
-// signal context cancels on normal exit (via the deferred stop() in
-// cli/root.go::Execute), which would otherwise SIGKILL slow launchers
-// like `make start` before their internal `docker compose up -d`
-// finishes. SetNewProcessGroup keeps the child reachable by Stop
-// later (via Kill(-pid)) while detaching it from the parent's
-// signal-driven lifecycle. SIGINT during the settle window is still
-// handled explicitly — see the select below.
+// The child is spawned with plain exec.Command (NOT CommandContext) so
+// it survives `raioz up` returning: the cobra signal context cancels on
+// every clean exit (deferred stop() in cli/root.go), which would
+// otherwise SIGKILL slow launchers like `make start` before their
+// internal `docker compose up -d` finishes. SetNewProcessGroup keeps
+// the child reachable by Stop later (via Kill(-pid)). SIGINT during
+// the settle window is still handled — see the select below.
 func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
 	command := svc.Detection.DevCommand
 	if command == "" {
@@ -134,11 +132,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 		"service", svc.Name, "command", command, "path", svc.Path)
 
 	parts := strings.Fields(command)
-	// Plain exec.Command (no ctx): see issue 035. The child is
-	// detached from the cobra signal context so a clean `raioz up`
-	// exit doesn't reap the launcher mid-build. ctx cancellation
-	// during the settle window is still honored via the goroutine
-	// below.
+	// exec.Command (no ctx) by design — see Start's doc comment.
 	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = svc.Path
 

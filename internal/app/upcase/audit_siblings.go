@@ -12,7 +12,7 @@ import (
 // dependency yaml referenced from deps (mode A `project:` and mode B
 // `siblingProject:`). Returns the first failure so the operator can
 // fix one yaml at a time. Called from upcase.Execute when
-// Options.AuditSiblings is set (issue 031).
+// Options.AuditSiblings is set.
 //
 // Order is deterministic (sorted dep name) so the same yaml always
 // trips first across runs.

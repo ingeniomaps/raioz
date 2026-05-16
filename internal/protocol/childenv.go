@@ -21,7 +21,6 @@ const SiblingStack = "RAIOZ_SIBLING_STACK"
 // `raioz` invocations (mode A sibling spawn, ADR-024). The parent
 // stamps its own ID into this env var when spawning a child so audit
 // and log records share the value across the whole spawn tree.
-// `internal/logging.CorrelationIDEnv` is an alias kept for backwards
-// compatibility with pre-protocol callers; new code should import this
-// constant directly (issue 034).
+// `internal/logging.CorrelationIDEnv` is a backwards-compat alias for
+// pre-protocol callers; new code should import this constant directly.
 const CorrelationID = "RAIOZ_CORRELATION_ID"

@@ -23,10 +23,9 @@ func routerActiveFromEnv() bool {
 
 // shouldSuppressBundledProxy reports whether the gate around
 // `startProxy` should short-circuit because an external router owns
-// edge routing. It returns true when `RAIOZ_ROUTER_ACTIVE=1` is in the
-// env AND the caller did NOT pass `--router-off` (issue 030 — the
-// flag must override an inherited env var so the bundled Caddy can
-// run for debugging).
+// edge routing. True iff `RAIOZ_ROUTER_ACTIVE=1` is in the env AND
+// `--router-off` was NOT passed — the flag must override an inherited
+// env var so the bundled Caddy can run for debugging.
 func shouldSuppressBundledProxy(routerOff bool) bool {
 	return !routerOff && routerActiveFromEnv()
 }
@@ -35,9 +34,8 @@ func shouldSuppressBundledProxy(routerOff bool) bool {
 // the presence of a ProxyManager, and ADR-037's RAIOZ_ROUTER_ACTIVE
 // suppression. When an external router project handles edge routing the
 // bundled Caddy is skipped with a single info line. routerOff overrides
-// the env-var suppression so the bundled Caddy runs regardless — used
-// by `raioz up --router-off` to recover from a leaked shell env var
-// (issue 030).
+// the env-var suppression so `raioz up --router-off` can recover the
+// bundled Caddy after a leaked shell env var.
 func (uc *UseCase) maybeStartProxy(
 	ctx context.Context,
 	deps *models.Deps,

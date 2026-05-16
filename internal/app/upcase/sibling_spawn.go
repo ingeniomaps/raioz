@@ -134,11 +134,9 @@ func spawnSibling(
 // with prefix prepended, until r is closed. Used by spawnSibling to
 // keep the recursive raioz output legible.
 //
-// Sub-process logs (keycloak JSON one-liners, Go stack traces) can
-// blow past Scanner's default 64 KiB buffer. We raise the cap to 16
-// MiB and log a warning on Err() so a truncated stream never goes
-// silent — losing output without notice was the failure mode this
-// guards against.
+// The 16 MiB buffer (Scanner default is 64 KiB) covers single-line JSON
+// logs and stack traces from the child. Err() is surfaced so a
+// truncation never goes silent.
 func streamPrefixed(r io.ReadCloser, prefix string) {
 	defer func() { _ = r.Close() }()
 	sc := bufio.NewScanner(r)

@@ -70,7 +70,7 @@ type MetaUpOptions struct {
 	// AuditSiblings enables the opt-in preflight that runs ADR-036
 	// hygiene gates against every router / sub-project yaml before
 	// spawn. Off by default (transitive trust is the documented v0.7+
-	// policy). See ADR-040 § Optional escape hatch and issue 031.
+	// policy). See ADR-040 § Optional escape hatch.
 	AuditSiblings bool
 }
 
@@ -90,7 +90,7 @@ func (m *MetaRunner) Up(
 		logMetaLifecycleComplete(ctx, "meta_up", cfg, results, start)
 	}()
 
-	// Opt-in preflight (issue 031): scan every router + sub-project
+	// Opt-in preflight (ADR-036): scan every router + sub-project
 	// yaml for H1/H2/H3 violations before any spawn. Failure aborts
 	// the whole meta up so no sibling gets a chance to run with a
 	// surface raioz wouldn't have accepted itself.
