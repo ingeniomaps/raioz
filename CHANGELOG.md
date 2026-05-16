@@ -6,6 +6,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-05-16
+
+### Fixed
+
+- **`raioz down` (single-project) no longer leaks grandchild
+  processes.** The single-project stop path sent SIGTERM only to
+  the tracked PID and relied on `process.Wait()` as the barrier —
+  but `Wait` returns `ECHILD` immediately on a non-child PID, so
+  the documented 5-second deadline never fired AND launchers that
+  fork a worker into the same process group (the classic
+  `bun run dev` → `node next dev` → `next-server` chain, or any
+  `sh -c 'cmd & wait'` wrapper) left the worker alive holding the
+  listening port. The next `raioz up` then crashed with
+  `EADDRINUSE` and the user had to `pkill` manually.
+  - `host.StopServiceWithCommandAndPath` now calls
+    `KillProcessTree` (group SIGTERM on Unix, `taskkill /T` on
+    Windows) plus a direct SIGTERM fallback for legacy / test
+    spawns without a group, polls `IsProcessAlive` against a real
+    deadline, and escalates to `ForceKillProcessTree` +
+    `os.Process.Kill` on timeout. The orchestrated meta-down,
+    selective down and restart paths already had this; this fix
+    closes the last divergent path.
+  - `down_host.go::stopHostProcesses` now also calls
+    `sweepLauncherOrphans` after every host stop, mirroring the
+    sibling paths so daemons that double-fork into a new session
+    (vite, esbuild, nx daemon) are cleaned up by cwd. Linux-only
+    sweep; no-op elsewhere.
+  - Regression covered by a new `TestStopServiceWithCommandKillsProcessGroup`
+    that reproduces the `sh -c 'sleep 60 & wait'` tree and
+    asserts the grandchild dies post-stop. Caught by issue 019
+    against `hypixo/ui/web` (Next.js 16 dev).
+
 ## [0.8.2] - 2026-05-16
 
 ### Added
