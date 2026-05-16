@@ -105,6 +105,16 @@ func (r *HostRunner) peekPID(svcName string) (int, bool) {
 }
 
 // Start runs the detected start command in the service directory.
+//
+// Issue 035 — the spawned process is created with plain exec.Command
+// (NOT CommandContext) so it survives `raioz up` returning. The cobra
+// signal context cancels on normal exit (via the deferred stop() in
+// cli/root.go::Execute), which would otherwise SIGKILL slow launchers
+// like `make start` before their internal `docker compose up -d`
+// finishes. SetNewProcessGroup keeps the child reachable by Stop
+// later (via Kill(-pid)) while detaching it from the parent's
+// signal-driven lifecycle. SIGINT during the settle window is still
+// handled explicitly — see the select below.
 func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
 	command := svc.Detection.DevCommand
 	if command == "" {
@@ -124,7 +134,12 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 		"service", svc.Name, "command", command, "path", svc.Path)
 
 	parts := strings.Fields(command)
-	cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+	// Plain exec.Command (no ctx): see issue 035. The child is
+	// detached from the cobra signal context so a clean `raioz up`
+	// exit doesn't reap the launcher mid-build. ctx cancellation
+	// during the settle window is still honored via the goroutine
+	// below.
+	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = svc.Path
 
 	// Merge env vars with current environment
@@ -180,6 +195,16 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 
 	if window := host.SettleWindow(); window > 0 {
 		select {
+		case <-ctx.Done():
+			// SIGINT / SIGTERM during the settle window: tear down
+			// the child explicitly (it isn't bound to ctx anymore).
+			// Kill the whole process group so `sh -c` wrappers and
+			// their make/docker-compose grandchildren all go.
+			_ = host.KillProcessTree(cmd.Process.Pid)
+			return fmt.Errorf(
+				"host runner '%s' cancelled during settle window: %w",
+				svc.Name, ctx.Err(),
+			)
 		case exitErr := <-waitCh:
 			if exitErr == nil {
 				// Clean exit 0 inside the window: the command was a
