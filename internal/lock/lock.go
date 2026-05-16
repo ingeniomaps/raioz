@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"raioz/internal/i18n"
 	"raioz/internal/workspace"
 )
 
@@ -77,6 +78,12 @@ func readLockPID(path string) (int, error) {
 	return 0, fmt.Errorf("PID not found in lock file")
 }
 
+// afterStaleRemoveHook fires inside replaceStaleLock between the Remove
+// and the re-OpenFile. Tests use it to simulate a racing planter (live
+// or dead PID) so the IsExist branch of replaceStaleLock can be
+// exercised deterministically. Production: nil = no-op.
+var afterStaleRemoveHook func()
+
 // replaceStaleLock removes a stale lock file and re-opens it with the
 // same O_CREATE|O_EXCL guarantee. If the re-open fails with IsExist a
 // concurrent raioz process slipped in between Remove and OpenFile —
@@ -86,6 +93,9 @@ func readLockPID(path string) (int, error) {
 func replaceStaleLock(path string) (*os.File, error) {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("remove stale lock %q: %w", path, err)
+	}
+	if afterStaleRemoveHook != nil {
+		afterStaleRemoveHook()
 	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err == nil {
@@ -97,13 +107,12 @@ func replaceStaleLock(path string) (*os.File, error) {
 		// user the right next action (wait + retry vs. inspect FS).
 		newPID, pidErr := readLockPID(path)
 		if pidErr == nil && isProcessRunning(newPID) {
-			return nil, fmt.Errorf(
-				"another raioz process acquired the lock concurrently "+
-					"(pid=%d); retry in a moment", newPID,
-			)
+			return nil, fmt.Errorf("%s",
+				i18n.T("error.lock_concurrent_acquire", newPID))
 		}
 	}
-	return nil, fmt.Errorf("failed to acquire lock after cleaning stale lock: %w", err)
+	return nil, fmt.Errorf("%s",
+		i18n.T("error.lock_after_stale_cleanup", err))
 }
 
 func Acquire(ws *workspace.Workspace) (*Lock, error) {
@@ -133,10 +142,8 @@ func Acquire(ws *workspace.Workspace) (*Lock, error) {
 			}
 		default:
 			// Process is still running - lock is valid
-			return nil, fmt.Errorf(
-				"lock already exists: another raioz process may be running (pid=%d)",
-				lockPID,
-			)
+			return nil, fmt.Errorf("%s",
+				i18n.T("error.lock_already_held", lockPID))
 		}
 	}
 
