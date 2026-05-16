@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"raioz/internal/audit"
@@ -294,15 +295,23 @@ func (m *MetaRunner) runSingle(
 // spawn. Resolution order:
 //
 //  1. m.Binary when set (tests inject a fake binary here).
-//  2. os.Executable() — the path the kernel sees for this process. Stable
+//  2. Under `go test`, refuse to fall back further — os.Executable()
+//     would point at the test runner and runSingle would recurse into
+//     the suite. Callers must set m.Binary explicitly.
+//  3. os.Executable() — the path the kernel sees for this process. Stable
 //     under PATH changes and survives cwd switches.
-//  3. filepath.Abs(os.Args[0]) as a last-resort fallback. Required because
+//  4. filepath.Abs(os.Args[0]) as a last-resort fallback. Required because
 //     runSingle sets cmd.Dir to the sub-project path before exec, which
 //     turns a relative os.Args[0] (e.g. "./raioz" from a dev build) into
 //     an unfindable path inside the sub-project dir.
 func (m *MetaRunner) resolveBinary() (string, error) {
 	if m.Binary != "" {
 		return m.Binary, nil
+	}
+	if testing.Testing() {
+		return "", fmt.Errorf(
+			"MetaRunner.Binary must be set under go test; " +
+				"os.Executable() points at the test runner")
 	}
 	if exe, err := os.Executable(); err == nil && exe != "" {
 		return exe, nil

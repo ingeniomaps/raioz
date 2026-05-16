@@ -147,27 +147,15 @@ func TestMetaRunner_DownToleratesFailures(t *testing.T) {
 	}
 }
 
-// resolveBinary must return an absolute path even when os.Args[0] is
-// relative (e.g. dev build invoked as `./raioz`). Without this, the
-// MetaRunner sub-spawn changes cwd via cmd.Dir and the relative path
-// vanishes, producing the "fork/exec ./raioz: no such file or directory"
-// regression smoke-tested in the 019-035 session.
-func TestMetaRunner_ResolveBinary_AbsolutePathFromRelativeArg0(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Args[0] semantics differ on Windows")
-	}
-	// Force the m.Binary fast-path off and stash a relative os.Args[0].
+// Under `go test`, an empty Binary must surface an explicit error
+// instead of falling back to os.Executable() (which would recurse into
+// the test runner) or os.Args[0] (which is the test binary path). The
+// gate forces every test that exercises a real spawn to set m.Binary,
+// turning a silent footgun into a hard error.
+func TestMetaRunner_ResolveBinary_RefusesFallbackUnderGoTest(t *testing.T) {
 	r := &MetaRunner{}
-	prev := os.Args[0]
-	os.Args[0] = "./does-not-exist-here"
-	t.Cleanup(func() { os.Args[0] = prev })
-
-	got, err := r.resolveBinary()
-	if err != nil {
-		t.Fatalf("resolveBinary: %v", err)
-	}
-	if !filepath.IsAbs(got) {
-		t.Errorf("expected absolute path, got %q", got)
+	if _, err := r.resolveBinary(); err == nil {
+		t.Fatal("expected error when m.Binary is empty under go test")
 	}
 }
 
