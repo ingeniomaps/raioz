@@ -53,6 +53,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   an unrelated process) keeps the generic "after cleaning stale
   lock" wrap. A `afterStaleRemoveHook` test hook exercises both
   branches deterministically. Strings routed through `i18n.T()`.
+  Follow-up (`c13ee3c`, post go-quality + security review):
+  the hook is now mutex-guarded so concurrent `go test -race -count`
+  runs don't trip the race detector, and the "after stale cleanup"
+  error wraps the underlying fs error with `%w` so callers can
+  `errors.Is()` down to the cause.
 - **`streamPrefixed` survives sibling log lines > 64 KiB.**
   Previously the default `bufio.Scanner` buffer truncated single
   JSON / stack-trace lines silently. The cap rises to 16 MiB and a
@@ -80,6 +85,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `./raioz` now survive `runSingle`'s `cmd.Dir = sub-project`.
   A `newMetaRunner` package-level factory in `cli/meta_dispatch.go`
   lets tests inject `Binary` without monkey-patching `os.Args[0]`.
+  Follow-up (`779507b`, post review): `resolveBinary` now refuses
+  the fallback under `go test` via `testing.Testing()`, turning a
+  silent recurse-into-the-test-runner footgun into an explicit
+  error that forces tests to set `m.Binary` upfront.
+- **`metaProjectYAMLPath` uses `filepath.Join`.** Replaces the
+  string-concat-with-`os.PathSeparator` form so the path stays
+  correct on Windows under the ADR-030 CI gate (`d53755e`).
 
 ### Documentation
 
@@ -97,6 +109,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that `AWS_*` / `GITHUB_TOKEN` etc leak unfiltered, and
   recommends `env -i HOME=$HOME PATH=$PATH RAIOZ_HOME=$RAIOZ_HOME
   raioz up` for CI / untrusted yamls.
+- **`--audit-siblings` scope note.** SECURITY.md and the CLI flag
+  help spell out that the gate is one-hop only: it scans the
+  current run's direct sibling / router yamls but the flag does
+  not propagate to recursive child spawns, so a sibling's own
+  siblings get only H1/H2 (no H3 escalation). Transitive preflight
+  is tracked for a follow-up release (`206fffc`).
 - **`docs/RATCHETS.md` + `internal/app/flow.go`.** A
   `TODO(ADR-038)` at the top of `flow.go` marks the v1.0 cleanup
   site for the legacy JSON loader; the ratchets table cross-links
