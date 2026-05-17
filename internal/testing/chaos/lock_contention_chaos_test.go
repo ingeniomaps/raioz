@@ -17,7 +17,7 @@ import (
 // The file is never corrupted (PID + timestamp shape parses cleanly
 // after the storm).
 //
-// Issue 046 — stress complement to the per-package lock tests, which
+// stress complement to the per-package lock tests, which
 // only fire 2-3 concurrent acquirers.
 func TestLockContention_ManyAcquirersOneWinner(t *testing.T) {
 	tmpDir := t.TempDir()

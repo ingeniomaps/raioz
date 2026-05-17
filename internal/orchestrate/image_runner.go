@@ -193,7 +193,7 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 	}
 
 	// Add host.docker.internal mapping (Linux without Docker Desktop).
-	// Gated via runtime.Supports (issue 041 / ADR-046).
+	// Gated via runtime.Supports (ADR-046).
 	if runtime.Supports(runtime.HostGatewayAlias) {
 		service["extra_hosts"] = []string{"host.docker.internal:host-gateway"}
 	}

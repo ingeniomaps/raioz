@@ -13,8 +13,8 @@ import (
 // WriteFileAtomic writes data to path via a temp file in the same
 // directory followed by RenameWithRetry. Either the old file survives
 // intact or the new file replaces it — a SIGKILL mid-write never
-// leaves a zero-byte or partial file (the failure mode that issue 034
-// documented for direct os.WriteFile callers).
+// leaves a zero-byte or partial file (the failure mode of a direct
+// os.WriteFile, whose O_TRUNC fires before the bytes are flushed).
 //
 // The temp file is removed on any failure path so partial writes do
 // not leak temp files in the target directory.

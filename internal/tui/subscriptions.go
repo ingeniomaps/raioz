@@ -52,7 +52,7 @@ func (m Model) pollStats() tea.Cmd {
 }
 
 // pollStatsYAML queries stats for all services in two batched docker
-// calls (issue 040: pre-fix this forked N×2 subprocesses per 2s tick,
+// calls (pre-fix this forked N×2 subprocesses per 2s tick,
 // which throttled on Docker Desktop macOS once N > ~10). One `docker
 // inspect` covers status/health for all containers; one `docker stats
 // --no-stream` covers CPU/mem. Services whose containers don't exist

@@ -136,7 +136,7 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 		service.Source.ComposeFiles = []string(svc.Compose)
 	}
 
-	// User-declared runtime override (issue 036). Empty = honor
+	// User-declared runtime override. Empty = honor
 	// auto-detection. Validation happens in the yaml_loader pass.
 	if svc.Runtime != "" {
 		service.Source.Runtime = svc.Runtime

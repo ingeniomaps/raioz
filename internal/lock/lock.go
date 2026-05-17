@@ -18,7 +18,7 @@ import (
 const lockFileName = ".raioz.lock"
 
 // staleLockMaxAge defers to host.LockStaleAge() so the tunable
-// RAIOZ_LOCK_STALE_AGE env var is honored (issue 029). Default 24h
+// RAIOZ_LOCK_STALE_AGE env var is honored. Default 24h
 // from host.defaultLockStaleAge.
 func staleLockMaxAge() time.Duration { return host.LockStaleAge() }
 

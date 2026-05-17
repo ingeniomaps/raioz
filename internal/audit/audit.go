@@ -93,7 +93,7 @@ func Log(eventType EventType, details map[string]interface{}, message string) er
 //
 // Concurrent raioz processes (sibling-spawn, parallel workspaces)
 // share the rotation + append critical section via a sidecar flock
-// on `<path>.lock` (issue 035). Without the flock, two processes
+// on `<path>.lock`. Without the flock, two processes
 // crossing the size cap simultaneously each `os.Rename(path, .1)` —
 // the second wins and trashes the first's .1.
 func LogWithContext(

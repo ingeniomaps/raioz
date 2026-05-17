@@ -17,7 +17,7 @@ import (
 // `_HTTPS_URL=https://<name>.localhost` env var would point at
 // something raioz doesn't serve — the router project's templates
 // own that URL space. Caller responsibility to set / not set the
-// env var; suppress here to avoid misleading consumers (issue 023).
+// env var; suppress here to avoid misleading consumers.
 func routerActiveSuppressesURL() bool {
 	switch os.Getenv(protocol.RouterActive) {
 	case "1", "true", "TRUE", "True", "yes", "YES", "Yes":
@@ -83,7 +83,7 @@ func (m *Manager) GenerateEnvVars(
 		// (ADR-037, RAIOZ_ROUTER_ACTIVE=1 and --router-off not passed),
 		// the bundled Caddy is suppressed and *.localhost no longer
 		// resolves to anything raioz controls — emitting the URL would
-		// be misleading. Issue 023.
+		// be misleading.
 		if proxyEnabled && !routerActiveSuppressesURL() {
 			vars[envPrefix+"_HTTPS_URL"] = fmt.Sprintf("https://%s.localhost", name)
 		}

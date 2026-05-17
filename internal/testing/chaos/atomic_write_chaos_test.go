@@ -1,11 +1,8 @@
 // Package chaos hosts fault-injection / concurrency stress tests
 // that complement the per-package unit tests. They exercise the
 // concurrency-sensitive surfaces (state writes, audit rotation, lock
-// contention) under load that the regular suites don't cover.
-//
-// Issue 046 — these tests are the "did the v0.8.x concurrency
-// hardening actually hold under stress?" answer. Run via `go test
-// -race ./internal/testing/chaos/...` (~few seconds total).
+// contention) under load the regular suites don't cover. Run via
+// `go test -race ./internal/testing/chaos/...` (~few seconds total).
 package chaos
 
 import (
@@ -21,7 +18,7 @@ import (
 // 64 goroutines × 250 writes each = 16 000 atomic writes against the
 // same target. After the storm, the file must be parseable JSON
 // (i.e. the last write won cleanly with no torn output). Without
-// fsutil.WriteFileAtomic (issue 034 fix) this would intermittently
+// fsutil.WriteFileAtomic this would intermittently
 // leave a zero-byte or truncated file.
 func TestAtomicWrite_ConcurrentWritersAlwaysParseable(t *testing.T) {
 	dir := t.TempDir()

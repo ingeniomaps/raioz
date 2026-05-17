@@ -40,7 +40,7 @@ func sendLinux(title, message string) {
 	ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 	defer cancel()
 	// nolint:errcheck // desktop notifications are best-effort; we drop
-	// silently on any failure including timeout (issue 043).
+	// silently on any failure including timeout.
 	exec.CommandContext(ctx, path, title, message).Run()
 }
 

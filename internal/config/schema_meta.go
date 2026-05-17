@@ -38,13 +38,13 @@ type FieldMeta struct {
 	// field has no marker.
 	Since string
 	// Deprecated is the version at which the field started warning at
-	// load (e.g. "v0.9.0"), or empty when not yet deprecated. Issue 039.
+	// load (e.g. "v0.9.0"), or empty when not yet deprecated.
 	// Pairs with Replacement for the suggested migration target.
 	Deprecated string
 	// Removed is the version at which the field hard-errors at load
 	// (e.g. "v1.0.0"), or empty when still accepted. ValidateRemoval
 	// requires a prior Deprecated marker so the user always sees a
-	// warning window. Issue 039.
+	// warning window.
 	Removed string
 	// Replacement names the field/feature operators should migrate to.
 	// Optional but recommended for deprecated/removed entries.
@@ -58,7 +58,7 @@ type FieldMeta struct {
 
 // Recognized marker forms. All tolerant of leading whitespace and
 // trailing prose so the comment can carry both a marker AND a human
-// note: `// since: v0.3.0 — added by issue #N`. Issue 039 added
+// note: `// since: v0.3.0 — added by issue #N`. Earlier
 // `deprecated:`, `removed:`, and `replacement:`.
 var (
 	sinceRe       = regexp.MustCompile(`since:\s*(v\d+\.\d+\.\d+)`)
@@ -201,7 +201,7 @@ type fieldMarkers struct {
 // extractMarkers reads the trailing comment of a struct field and the
 // optional leading doc block, returning the four recognized markers.
 // All markers are independent — a field may declare any subset.
-// Issue 039 added the deprecation / removal / replacement markers on
+//
 // top of the original since: form.
 func extractMarkers(field *ast.Field) fieldMarkers {
 	var m fieldMarkers

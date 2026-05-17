@@ -48,7 +48,7 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 
 	// Add host.docker.internal mapping (Linux without Docker Desktop).
 	// Gated on runtime.Supports so nerdctl 1.x — which rejects the
-	// host-gateway alias — doesn't crash. Issue 041 / ADR-046.
+	// host-gateway alias — doesn't crash. ADR-046.
 	if runtime.Supports(runtime.HostGatewayAlias) {
 		args = append(args, "--add-host=host.docker.internal:host-gateway")
 	}

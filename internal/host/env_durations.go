@@ -45,18 +45,17 @@ func SiblingSpawnTimeout() time.Duration {
 	return durationFromEnv(siblingSpawnTimeoutEnv, 10*time.Minute)
 }
 
-// LockStaleAge — RAIOZ_LOCK_STALE_AGE knob from issue 029. Lock
+// LockStaleAge — RAIOZ_LOCK_STALE_AGE tunable. Lock
 // package consults this for the age-based eviction floor.
 func LockStaleAge() time.Duration {
 	return durationFromEnv(lockStaleAgeEnv, defaultLockStaleAge)
 }
 
-// MetaSubTimeout caps each sub-project invoked by MetaRunner.runSingle
-// (issue 042). A hung sub-up — registry unreachable, prompt waiting
-// for input, infinite loop in a launcher — would otherwise pin the
-// whole meta workspace until the operator Ctrl+Cs, which cancels
-// every sibling already healthy. 5 min default; override via
-// RAIOZ_META_SUB_TIMEOUT.
+// MetaSubTimeout caps each sub-project invoked by MetaRunner.runSingle.
+// A hung sub-up — registry unreachable, prompt waiting for input,
+// infinite loop in a launcher — would otherwise pin the whole meta
+// workspace until the operator Ctrl+Cs, which cancels every sibling
+// already healthy. 5 min default; override via RAIOZ_META_SUB_TIMEOUT.
 func MetaSubTimeout() time.Duration {
 	return durationFromEnv(metaSubTimeoutEnv, 5*time.Minute)
 }

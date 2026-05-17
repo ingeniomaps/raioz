@@ -1,7 +1,7 @@
 package runtime
 
 // Capability names a feature whose support differs across container
-// runtimes (docker, podman, nerdctl) or runtime versions. Issue 041 —
+// runtimes (docker, podman, nerdctl) or runtime versions.
 // raioz historically assumed flag parity; in practice nerdctl 1.x,
 // podman < 4.7, and rootless setups diverge.
 //
@@ -18,7 +18,7 @@ const (
 	// HostGatewayAlias is `--add-host=host.docker.internal:host-gateway`
 	// support. Docker 24+, podman 4.7+, nerdctl 2.x. nerdctl 1.x must
 	// use an explicit IP instead. Used by compose/dockerfile/image
-	// runners (issue 021).
+	// runners.
 	HostGatewayAlias Capability = iota
 	// ComposeProfiles is `docker compose --profile` support. Docker
 	// 24+, podman compose ≥ 4.6, nerdctl compose 1.7+.
@@ -30,7 +30,7 @@ const (
 
 // Supports reports whether the active runtime is known to support the
 // given capability. Conservative default (true) when detection can't
-// classify the runtime. Issue 041.
+// classify the runtime.
 func Supports(c Capability) bool {
 	// V1: minimum-viable lookup keyed on the binary name only. Version
 	// parsing is a follow-up (see ADR-046 § "What's deferred"). For

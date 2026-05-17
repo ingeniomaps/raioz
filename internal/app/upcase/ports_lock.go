@@ -13,7 +13,7 @@ import (
 // `naming.PortsLockFile()` so concurrent `raioz up` invocations don't
 // race on host-port allocation. Returns a release func the caller must
 // defer; release is safe to call when the lock wasn't taken (it
-// closes/unlocks nil-safely). Issue 037.
+// closes/unlocks nil-safely).
 //
 // Failure modes are non-fatal: if the lock dir is unwritable we log
 // nothing and return a no-op release so `raioz up` proceeds — port

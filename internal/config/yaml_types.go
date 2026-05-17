@@ -161,7 +161,7 @@ type YAMLService struct {
 	// overriding filesystem auto-detection. Useful when a service has
 	// multiple manifests (Go service with a prod Dockerfile, Python
 	// service with a docker-compose.yml). The value must be one of
-	// the runtimes raioz knows (`raioz doctor` lists them). Issue 036.
+	// the runtimes raioz knows (`raioz doctor` lists them).
 	Runtime string `yaml:"runtime,omitempty"` // since: v0.9.0
 
 	// Proxy overrides how the shared HTTPS proxy reaches this service.

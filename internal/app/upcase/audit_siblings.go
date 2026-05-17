@@ -50,7 +50,7 @@ func auditSiblingYAMLs(deps *models.Deps) error {
 		}
 		scanned = append(scanned, sib.Path)
 	}
-	// Discoverability (issue 024): print exactly what was audited
+	// Discoverability: print exactly what was audited
 	// so the operator can confirm the one-hop scope matches their
 	// expectation. Empty scanned list = no siblings to audit (also
 	// noteworthy — otherwise the flag looks like it did nothing).

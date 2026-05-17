@@ -151,7 +151,7 @@ func TestGenerateEnvVars_WithProxy(t *testing.T) {
 	}
 }
 
-// Issue 023 regression: when RAIOZ_ROUTER_ACTIVE=1, the bundled
+// Regression: when RAIOZ_ROUTER_ACTIVE=1, the bundled
 // Caddy is suppressed (ADR-037) and `*.localhost` resolves to
 // nothing raioz controls. _HTTPS_URL must NOT be emitted in that
 // case — emitting it would mislead consumers about who serves

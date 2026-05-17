@@ -34,5 +34,5 @@ const CorrelationID = "RAIOZ_CORRELATION_ID"
 // is responsible for consuming this env var (e.g. via a template or
 // the dep's image entrypoint that reads $RAIOZ_ROUTER_ASSIGNED_IP and
 // passes it to `--ip` / network.assignedIP). Empty when raioz cannot
-// derive the IP (no network.subnet declared). Issue 020.
+// derive the IP (no network.subnet declared).
 const RouterAssignedIP = "RAIOZ_ROUTER_ASSIGNED_IP"

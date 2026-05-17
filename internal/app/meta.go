@@ -113,7 +113,7 @@ func (m *MetaRunner) Up(
 		// edge routing (it IS the proxy), so its own Caddy/whatever
 		// must come up normally.
 		//
-		// Pass RAIOZ_ROUTER_ASSIGNED_IP (issue 020) so the router can
+		// Pass RAIOZ_ROUTER_ASSIGNED_IP so the router can
 		// bind the conventional bundled-Caddy IP and the operator's
 		// /etc/hosts / proxy.publish:false setup keeps working when
 		// swapping between bundled Caddy and the router project.
@@ -292,7 +292,7 @@ func (m *MetaRunner) runSingle(
 
 	printMetaBanner(stdout, subCmd, p)
 
-	// Per-sub timeout (issue 042): hung sub-ups would otherwise pin
+	// Per-sub timeout: hung sub-ups would otherwise pin
 	// the whole meta workspace. RAIOZ_META_SUB_TIMEOUT (default 5m)
 	// gives the operator a tunable cap. Timeout error distinguishes
 	// "hung past deadline" from regular sub-process exit-non-zero.

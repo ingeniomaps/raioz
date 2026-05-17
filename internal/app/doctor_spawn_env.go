@@ -12,7 +12,7 @@ import (
 // secretKeyPattern matches env-var keys that LOOK like they carry a
 // secret. False positives are fine — the goal is to redact aggressively
 // so an operator running PrintSpawnEnv in a shared session doesn't
-// paste their AWS_SECRET_ACCESS_KEY value into chat. Issue 028.
+// paste their AWS_SECRET_ACCESS_KEY value into chat.
 //
 // The patterns intentionally don't try to be exhaustive — a value
 // matching `*_TOKEN_HINT` or similar would also be redacted by the

@@ -34,7 +34,7 @@ func (uc *DownUseCase) downSelectiveServices(
 	// Workspace lock — selective down rewrites .raioz.state.json
 	// (removes the targeted services). Without the lock a concurrent
 	// `raioz up --watch` save-state can race and reintroduce the
-	// service raioz just removed. Issue 038.
+	// service raioz just removed.
 	release, err := acquireDownSelectiveLock(ctx, uc.deps, projectName)
 	if err != nil {
 		return err

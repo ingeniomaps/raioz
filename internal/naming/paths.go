@@ -26,7 +26,7 @@ func RaiozStateDir() string {
 // advisory lock. Held during `raioz up`'s port-allocation + spawn
 // phase so two concurrent `up` invocations in different workspaces
 // can't both probe-and-claim the same host port and then race on
-// `docker run -p`. Issue 037.
+// `docker run -p`.
 func PortsLockFile() string {
 	return filepath.Join(RaiozStateDir(), "ports.lock")
 }

@@ -213,7 +213,7 @@ func TestComposeRunner_CreateNetworkOverlay_AliasesCanonicalName(t *testing.T) {
 	}
 }
 
-// Issue 021 regression: ComposeRunner must inject host-gateway so
+// Regression: ComposeRunner must inject host-gateway so
 // containers spawned from the user's compose file can resolve
 // host.docker.internal on Linux without Docker Desktop. ImageRunner
 // and DockerfileRunner already do this; ComposeRunner used to omit it.

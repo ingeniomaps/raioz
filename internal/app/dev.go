@@ -69,7 +69,7 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 	// Acquire workspace lock before reading state — `raioz dev` is a
 	// state mutator (writes DevOverrides). Without the lock, a
 	// concurrent `raioz up --watch` save-state can race and lose the
-	// override. Issue 038. ADR-023 (state mirrors reality) implicitly
+	// override. ADR-023 (state mirrors reality) implicitly
 	// requires serialized writers; codified in CLAUDE.md invariants.
 	releaseLock, err := uc.acquireWorkspaceLock(ctx, cfgDeps.Project.Name)
 	if err != nil {
@@ -93,7 +93,7 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 
 // acquireWorkspaceLock takes the workspace lock for the given project.
 // Returns a release func the caller must defer. Implements the state-
-// writer invariant from issue 038. Mirrors upcase.acquireLock's
+// writer invariant from ADR-023 (state mirrors reality). Mirrors upcase.acquireLock's
 // behavior under recursive sibling spawn (no-op then).
 func (uc *DevUseCase) acquireWorkspaceLock(
 	ctx context.Context, projectName string,

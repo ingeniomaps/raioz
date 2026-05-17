@@ -14,7 +14,7 @@ import (
 // routerHandoffEnv computes the env vars the meta runner injects when
 // spawning the router project, so the swap between the bundled Caddy
 // and the router project preserves the operator's /etc/hosts setup
-// (ADR-037 + issue 020).
+// (ADR-037).
 //
 // Today only RAIOZ_ROUTER_ASSIGNED_IP is computed. Other handoff vars
 // (TLS mode, hostname domain) may join later — keep the helper so the

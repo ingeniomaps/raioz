@@ -295,7 +295,7 @@ func TestLogAppendsAfterRotation(t *testing.T) {
 	}
 }
 
-// Issue 035 regression: N concurrent goroutines × M events each must
+// Regression: N concurrent goroutines × M events each must
 // produce N×M valid JSONL lines across audit.log + any rotation
 // backups. Before the sidecar-flock fix, two writers crossing the
 // size cap simultaneously could both rename to `.1`, trashing one

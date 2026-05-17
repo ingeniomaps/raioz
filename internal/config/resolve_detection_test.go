@@ -99,7 +99,7 @@ func TestResolveServiceDetection_ComposeFilesAreCopied(t *testing.T) {
 	}
 }
 
-// Issue 036 — services.<n>.runtime: forces the runtime classification
+// services.<n>.runtime: forces the runtime classification
 // even when filesystem auto-detection would pick a different one. Verifies
 // the override path layered AFTER auto-detection.
 func TestResolveServiceDetection_RuntimeOverride(t *testing.T) {

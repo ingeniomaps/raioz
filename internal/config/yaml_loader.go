@@ -75,7 +75,7 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 		if svc.Path == "" && svc.Git == "" {
 			return fmt.Errorf("service '%s' must have either 'path' or 'git' field in %s", name, path)
 		}
-		// Issue 036 — reject unknown `runtime:` values at load time so
+		// reject unknown `runtime:` values at load time so
 		// the user sees the problem before runtime when the service
 		// would silently classify as Unknown.
 		shim := Service{Source: SourceConfig{Runtime: svc.Runtime}}

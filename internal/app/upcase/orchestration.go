@@ -43,7 +43,7 @@ func (uc *UseCase) processOrchestration(
 	output.PrintProgressDone(i18n.T("up.runtimes_detected"))
 
 	// Step 1b: Allocate host ports deterministically + run under a
-	// global flock (acquirePortsLock / issue 037) so concurrent
+	// global flock (acquirePortsLock) so concurrent
 	// `raioz up` in different workspaces can't probe-and-claim the
 	// same host port then race on `docker run -p`. Lock released
 	// when processOrchestration returns.

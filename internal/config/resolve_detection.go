@@ -16,7 +16,7 @@ import (
 //     host exec) with StartCommand/DevCommand set to the user command.
 //  3. Fallback: detect.Detect(path) — scan the directory for compose/
 //     Dockerfile/etc.
-//  4. `svc.Source.Runtime` (yaml: `runtime: <enum>`, issue 036) overrides
+//  4. `svc.Source.Runtime` (yaml: `runtime: <enum>`) overrides
 //     the Runtime classification AFTER auto-detection so the user gets
 //     correct StartCommand discovery from the dir scan but raioz routes
 //     the service through the runner they declared. Useful for repos
@@ -29,7 +29,7 @@ import (
 // so the runtime classification is consistent across commands.
 func ResolveServiceDetection(svc Service, path string) models.DetectResult {
 	result := resolveServiceDetectionBase(svc, path)
-	// User-declared runtime override (issue 036). Empty = no override.
+	// User-declared runtime override. Empty = no override.
 	if svc.Source.Runtime != "" {
 		result.Runtime = models.Runtime(svc.Source.Runtime)
 	}
@@ -68,7 +68,7 @@ func resolveServiceDetectionBase(svc Service, path string) models.DetectResult {
 
 // ValidateServiceRuntime checks that svc.Source.Runtime (if set)
 // names a known runtime. Returns nil for empty (no override) or
-// known runtimes. Issue 036 — invalid values surface as a load-time
+// known runtimes. invalid values surface as a load-time
 // error instead of silently classifying as `Unknown` at runtime.
 func ValidateServiceRuntime(svc Service) error {
 	if svc.Source.Runtime == "" {
