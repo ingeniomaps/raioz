@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"raioz/internal/logging"
+	"raioz/internal/protocol"
 )
 
 // acquireRestartLock acquires the workspace lock for `raioz restart`.
@@ -35,13 +36,20 @@ func acquireDownSelectiveLock(
 func acquireWorkspaceMutatorLock(
 	ctx context.Context, deps *Dependencies, projectName, label string,
 ) (func(), error) {
+	// Recursive sibling spawn: the parent already holds the workspace
+	// lock; re-acquiring deadlocks. Mirrors upcase.acquireLock — the
+	// two acquirer surfaces MUST agree, see protocol.IsRecursiveSiblingSpawn.
+	if protocol.IsRecursiveSiblingSpawn() {
+		logging.DebugWithContext(ctx,
+			label+": skipping workspace lock (recursive sibling spawn)")
+		return func() {}, nil
+	}
 	ws, err := deps.Workspace.Resolve(projectName)
 	if err != nil {
 		return func() {}, fmt.Errorf("%s: resolve workspace: %w", label, err)
 	}
 	if ws == nil {
-		// Test / no-workspace path — skip the lock. Mirrors the
-		// recursive-sibling-spawn behaviour in upcase.acquireLock.
+		// Test / no-workspace path — skip the lock.
 		return func() {}, nil
 	}
 	lock, err := deps.LockManager.Acquire(ws)

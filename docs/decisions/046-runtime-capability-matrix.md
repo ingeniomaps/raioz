@@ -73,7 +73,11 @@ runtime-aware along with the other three.
   false negative on 2.x.
 - **Operator override.** `RAIOZ_RUNTIME_CAPABILITY=
   HostGatewayAlias=true` env knob to opt nerdctl 2.x users back in
-  before version detection lands. Trivial to add when needed.
+  before version detection lands. **Shipped 2026-05-16** —
+  documented in `docs/CONFIG_REFERENCE.md` and parsed in
+  `internal/runtime/capability.go::overrideFor`. Comma-separated
+  multiple pairs supported; unknown names silently ignored. Cached
+  once per process via `sync.Once`.
 - **Publishing the matrix to users.** `docs/RUNTIMES.md` or a
   section in `docs/CI.md` enumerating per-feature support. Worth
   doing once two capabilities have non-trivial rules.

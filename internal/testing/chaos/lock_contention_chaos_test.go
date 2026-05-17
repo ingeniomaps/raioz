@@ -1,7 +1,6 @@
 package chaos
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -60,17 +59,16 @@ func TestLockContention_ManyAcquirersOneWinner(t *testing.T) {
 	// Final file state: either the lock was released (file may or may
 	// not exist depending on the last winner's Release timing) OR a
 	// recoverable lock file remains. Both states are valid. The
-	// invariant we care about: if a lock file is present, it parses.
-	lockPath := filepath.Join(tmpDir, ".raioz.lock")
-	if _, statErr := os.Stat(lockPath); statErr == nil {
-		// File exists — a follow-up Acquire should either succeed
-		// (if the lock was Released and the file was cleaned) or
-		// fail with the typed error. Anything else (panic, parse
-		// error) is a regression.
-		_, err := lock.Acquire(ws)
-		if err != nil && !errors.Is(err, errors.New("any")) {
-			// Accept any error — verifying it didn't panic is enough.
-			_ = err
+	// real invariant we care about is "follow-up Acquire doesn't
+	// panic, and if it errors, it errors cleanly" — wrap in a
+	// defer/recover so a panic surfaces as a test failure with a
+	// readable message instead of crashing the suite.
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("follow-up Acquire panicked: %v", r)
 		}
+	}()
+	if _, statErr := os.Stat(filepath.Join(tmpDir, ".raioz.lock")); statErr == nil {
+		_, _ = lock.Acquire(ws) // error is fine; panic is not.
 	}
 }

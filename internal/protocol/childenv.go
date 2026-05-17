@@ -4,6 +4,8 @@
 // consumer from drifting silently.
 package protocol
 
+import "os"
+
 // RouterActive is set by the meta runner on consumer sub-up invocations
 // when a router project is in charge of edge routing for the workspace
 // (ADR-037). The consumer-side upcase reads it to suppress the bundled
@@ -36,3 +38,15 @@ const CorrelationID = "RAIOZ_CORRELATION_ID"
 // passes it to `--ip` / network.assignedIP). Empty when raioz cannot
 // derive the IP (no network.subnet declared).
 const RouterAssignedIP = "RAIOZ_ROUTER_ASSIGNED_IP"
+
+// IsRecursiveSiblingSpawn reports whether the current process is a
+// mode-A recursive `raioz up` child (ADR-008). True when the parent
+// stamped SiblingStack in the child's env. Lock acquirers consult
+// this to skip workspace lock acquisition — the parent already
+// holds it and re-acquiring would deadlock. Centralised so every
+// lock site shares one truth (the upcase.acquireLock branch and
+// the app.acquireWorkspaceMutatorLock branch must agree; before
+// this helper they drifted).
+func IsRecursiveSiblingSpawn() bool {
+	return os.Getenv(SiblingStack) != ""
+}

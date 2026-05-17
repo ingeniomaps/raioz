@@ -198,11 +198,31 @@ type fieldMarkers struct {
 	since, deprecated, removed, replacement string
 }
 
+// ValidateRemoval enforces ADR-045's deprecation-before-removal
+// discipline: every field with a `removed: vX.Y.Z` marker must also
+// carry a prior `deprecated: vX.Y.Z` marker so users see a warning
+// window before the hard error. Returns one error per offender;
+// callers (test / lint) join them for a single failure message.
+func ValidateRemoval(metas []FieldMeta) []error {
+	var errs []error
+	for _, m := range metas {
+		if m.Removed != "" && m.Deprecated == "" {
+			errs = append(errs, fmt.Errorf(
+				"%s.%s (%s:%d): removed=%s without prior deprecated marker; "+
+					"add `// deprecated: vX.Y.Z` before bumping `// removed: %s`",
+				m.StructName, m.FieldName, m.File, m.Line,
+				m.Removed, m.Removed,
+			))
+		}
+	}
+	return errs
+}
+
 // extractMarkers reads the trailing comment of a struct field and the
 // optional leading doc block, returning the four recognized markers.
 // All markers are independent — a field may declare any subset.
-//
-// top of the original since: form.
+// Deprecation / removal / replacement live on top of the original
+// `since:` form (ADR-045).
 func extractMarkers(field *ast.Field) fieldMarkers {
 	var m fieldMarkers
 	candidates := []*ast.CommentGroup{field.Comment, field.Doc}
