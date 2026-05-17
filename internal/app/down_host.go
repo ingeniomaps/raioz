@@ -30,10 +30,16 @@ func (uc *DownUseCase) stopHostProcesses(
 		return hostProcesses
 	}
 
-	// Load current config to get stopCommand if not in state
-	var currentDeps *models.Deps
+	// Load current config to get stopCommand if not in state, and
+	// resolve projectDir so sweepLauncherOrphans can target the right
+	// cwd. Both nilable — sweep no-ops without them.
+	var (
+		currentDeps *models.Deps
+		projectDir  string
+	)
 	if opts.ConfigPath != "" {
 		currentDeps, _, _ = uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		projectDir, _ = filepath.Abs(filepath.Dir(opts.ConfigPath))
 	}
 
 	output.PrintInfo(i18n.T("output.stopping_host_services", len(hostProcesses)))
@@ -58,6 +64,11 @@ func (uc *DownUseCase) stopHostProcesses(
 				output.PrintSuccess(i18n.T("output.stopped_host_service", name, processInfo.PID))
 			}
 		}
+		// Mirror the orchestrated / selective / restart down paths:
+		// launchers that double-fork (next-server, vite, esbuild,
+		// nx daemon) re-parent to init and escape `kill -PGID`. Sweep
+		// by cwd as the safety net. Linux-only; no-op elsewhere.
+		sweepLauncherOrphans(ctx, currentDeps, projectDir, name)
 	}
 
 	// Remove host processes state file

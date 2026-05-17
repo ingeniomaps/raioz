@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
@@ -135,6 +136,93 @@ func TestStopServiceWithFailingStopCommand(t *testing.T) {
 	if running, _ := IsServiceRunning(pid); running {
 		t.Errorf("process still running after fallback stop")
 	}
+}
+
+// Reproduces issue 019: a shell launcher backgrounds a real worker
+// (`sleep 60 &; wait`) so the worker is a grandchild that shares the
+// shell's process group but is NOT killed when the shell receives
+// SIGTERM directly. Stop must reach the whole group so the worker
+// dies and frees its resources (port, etc.).
+func TestStopServiceWithCommandKillsProcessGroup(t *testing.T) {
+	skipIfNoBinary(t, "sh")
+	skipIfNoBinary(t, "sleep")
+
+	cmd := exec.Command("sh", "-c", "sleep 60 & wait")
+	SetNewProcessGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	leaderPID := cmd.Process.Pid
+	t.Cleanup(func() {
+		_ = ForceKillProcessTree(leaderPID)
+	})
+	time.Sleep(100 * time.Millisecond)
+
+	// Find the grandchild's PID so the assertion can target it
+	// independently of the shell leader.
+	workerPID := findChildSleepPID(t, leaderPID)
+	if workerPID == 0 {
+		t.Skip("could not locate grandchild sleep; /proc not available")
+	}
+
+	if err := StopServiceWithCommand(context.Background(), leaderPID, ""); err != nil {
+		t.Fatalf("StopServiceWithCommand: %v", err)
+	}
+
+	if IsProcessAlive(workerPID) {
+		t.Errorf("grandchild sleep pid=%d survived stop — issue 019 regression",
+			workerPID)
+	}
+}
+
+// findChildSleepPID walks /proc looking for a process whose PPID is in
+// the same group as leaderPID and whose comm contains "sleep". Returns
+// 0 on non-Linux or when no match is found.
+func findChildSleepPID(t *testing.T, leaderPID int) int {
+	t.Helper()
+	if runtime.GOOS != "linux" {
+		return 0
+	}
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return 0
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		comm, err := os.ReadFile("/proc/" + e.Name() + "/comm")
+		if err != nil || !strings.Contains(string(comm), "sleep") {
+			continue
+		}
+		stat, err := os.ReadFile("/proc/" + e.Name() + "/stat")
+		if err != nil {
+			continue
+		}
+		// /proc/<pid>/stat: pid (comm) state ppid ...
+		// Find the ')' that closes comm, then split.
+		raw := string(stat)
+		end := strings.LastIndex(raw, ")")
+		if end < 0 || end+1 >= len(raw) {
+			continue
+		}
+		fields := strings.Fields(raw[end+1:])
+		if len(fields) < 2 {
+			continue
+		}
+		// fields[0] = state, fields[1] = ppid.
+		var ppid int
+		if _, err := fmt.Sscanf(fields[1], "%d", &ppid); err != nil {
+			continue
+		}
+		if ppid == leaderPID {
+			var pid int
+			if _, err := fmt.Sscanf(e.Name(), "%d", &pid); err == nil {
+				return pid
+			}
+		}
+	}
+	return 0
 }
 
 func TestStopServiceWrapper(t *testing.T) {
