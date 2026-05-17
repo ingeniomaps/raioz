@@ -156,6 +156,11 @@ func (r *ComposeRunner) createNetworkOverlay(svc interfaces.ServiceContext) (str
 				"default": map[string]any{},
 			},
 			"labels": labels,
+			// host-gateway mapping so the user's compose containers can
+			// reach the host via host.docker.internal — required on Linux
+			// without Docker Desktop. ImageRunner / DockerfileRunner /
+			// proxy already inject this; the omission here was issue 021.
+			"extra_hosts": []string{"host.docker.internal:host-gateway"},
 		}
 	}
 	overlay["services"] = svcOverrides

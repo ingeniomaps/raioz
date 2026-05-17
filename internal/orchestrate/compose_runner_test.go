@@ -213,6 +213,45 @@ func TestComposeRunner_CreateNetworkOverlay_AliasesCanonicalName(t *testing.T) {
 	}
 }
 
+// Issue 021 regression: ComposeRunner must inject host-gateway so
+// containers spawned from the user's compose file can resolve
+// host.docker.internal on Linux without Docker Desktop. ImageRunner
+// and DockerfileRunner already do this; ComposeRunner used to omit it.
+func TestComposeRunner_CreateNetworkOverlay_InjectsHostGateway(t *testing.T) {
+	svc := makeComposeSvc(t)
+	mock := &mocks.MockDockerRunner{
+		GetAvailableServicesWithContextFunc: func(
+			_ context.Context, _ string,
+		) ([]string, error) {
+			return []string{"web"}, nil
+		},
+	}
+	r := &ComposeRunner{docker: mock}
+
+	path, err := r.createNetworkOverlay(svc)
+	if err != nil {
+		t.Fatalf("createNetworkOverlay: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("parse overlay: %v", err)
+	}
+	services := parsed["services"].(map[string]any)
+	web := services["web"].(map[string]any)
+	extra, ok := web["extra_hosts"].([]any)
+	if !ok {
+		t.Fatalf("service web missing extra_hosts; got %+v", web)
+	}
+	want := "host.docker.internal:host-gateway"
+	for _, e := range extra {
+		if e == want {
+			return
+		}
+	}
+	t.Errorf("extra_hosts %v missing %q", extra, want)
+}
+
 func TestComposeRunner_CreateNetworkOverlay_DockerError(t *testing.T) {
 	svc := makeComposeSvc(t)
 	mock := &mocks.MockDockerRunner{

@@ -10,17 +10,17 @@ import (
 	"sync"
 	"time"
 
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/workspace"
 )
 
 const lockFileName = ".raioz.lock"
 
-// staleLockMaxAge evicts a lock whose PID number is alive but was
-// reused by a non-raioz process (PID wraparound, common in containers
-// with low pid_max). 24h is generous — even `raioz dashboard` watch
-// mode rarely survives that long.
-const staleLockMaxAge = 24 * time.Hour
+// staleLockMaxAge defers to host.LockStaleAge() so the tunable
+// RAIOZ_LOCK_STALE_AGE env var is honored (issue 029). Default 24h
+// from host.defaultLockStaleAge.
+func staleLockMaxAge() time.Duration { return host.LockStaleAge() }
 
 type Lock struct {
 	ws   *workspace.Workspace
@@ -39,7 +39,7 @@ func isLockExpired(path string) bool {
 	if err != nil {
 		return false
 	}
-	return time.Since(info.ModTime()) > staleLockMaxAge
+	return time.Since(info.ModTime()) > staleLockMaxAge()
 }
 
 // readLockPID reads the PID from an existing lock file
