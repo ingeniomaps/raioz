@@ -70,7 +70,7 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 
 	runCmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	if output, err := runCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("docker run failed: %s\n%s", err, string(output))
+		return fmt.Errorf("docker run failed: %w\n%s", err, string(output))
 	}
 
 	return nil
