@@ -98,3 +98,61 @@ func TestResolveServiceDetection_ComposeFilesAreCopied(t *testing.T) {
 		t.Error("ComposeFiles should be a copy, not a reference to the original")
 	}
 }
+
+// Issue 036 — services.<n>.runtime: forces the runtime classification
+// even when filesystem auto-detection would pick a different one. Verifies
+// the override path layered AFTER auto-detection.
+func TestResolveServiceDetection_RuntimeOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Stage both a Dockerfile and a go.mod — auto-detect would normally
+	// pick Dockerfile (priority above go.mod).
+	if err := os.WriteFile(filepath.Join(tmpDir, "Dockerfile"), []byte("FROM alpine"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := Service{Source: SourceConfig{Runtime: "go"}}
+	result := ResolveServiceDetection(svc, tmpDir)
+	if result.Runtime != models.RuntimeGo {
+		t.Errorf("override should force RuntimeGo; got %q", result.Runtime)
+	}
+}
+
+// Without the override, auto-detection picks per ADR priority.
+func TestResolveServiceDetection_NoOverrideHonorsAutoDetect(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "Dockerfile"), []byte("FROM alpine"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := Service{Source: SourceConfig{}}
+	result := ResolveServiceDetection(svc, tmpDir)
+	if result.Runtime != models.RuntimeDockerfile {
+		t.Errorf("auto-detect should pick Dockerfile (priority); got %q", result.Runtime)
+	}
+}
+
+func TestValidateServiceRuntime_KnownValueOK(t *testing.T) {
+	svc := Service{Source: SourceConfig{Runtime: "go"}}
+	if err := ValidateServiceRuntime(svc); err != nil {
+		t.Errorf("known runtime should pass; got %v", err)
+	}
+}
+
+func TestValidateServiceRuntime_EmptyOK(t *testing.T) {
+	if err := ValidateServiceRuntime(Service{}); err != nil {
+		t.Errorf("empty runtime should pass; got %v", err)
+	}
+}
+
+func TestValidateServiceRuntime_UnknownRejected(t *testing.T) {
+	svc := Service{Source: SourceConfig{Runtime: "cobol"}}
+	if err := ValidateServiceRuntime(svc); err == nil {
+		t.Error("expected error for unknown runtime")
+	}
+}
