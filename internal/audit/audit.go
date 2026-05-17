@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"raioz/internal/fsutil"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 )
@@ -89,6 +90,12 @@ func Log(eventType EventType, details map[string]interface{}, message string) er
 // ID from the ctx (via logging.GetRequestID). Recursive raioz
 // invocations inherit the same ID from RAIOZ_CORRELATION_ID, so
 // grep on correlation_id reconstructs a parent+children spawn tree.
+//
+// Concurrent raioz processes (sibling-spawn, parallel workspaces)
+// share the rotation + append critical section via a sidecar flock
+// on `<path>.lock` (issue 035). Without the flock, two processes
+// crossing the size cap simultaneously each `os.Rename(path, .1)` —
+// the second wins and trashes the first's .1.
 func LogWithContext(
 	ctx context.Context,
 	eventType EventType,
@@ -105,11 +112,6 @@ func LogWithContext(
 		return fmt.Errorf("failed to create directory for audit log: %w", err)
 	}
 
-	// Rotate before append when the file has crossed the size cap.
-	// Best-effort: rotation failures fall through and the event is
-	// still appended (better to lose one rotation than one event).
-	rotateIfOverCap(path, maxAuditSize)
-
 	event := Event{
 		Timestamp:     time.Now().UTC(),
 		CorrelationID: logging.GetRequestID(ctx),
@@ -117,21 +119,34 @@ func LogWithContext(
 		Details:       details,
 		Message:       message,
 	}
-
-	// Marshal event to JSON
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to marshal audit event: %w", err)
 	}
 
-	// Append to file (create if not exists, append mode)
+	// Sidecar flock: rotation + append happen inside the critical
+	// section so concurrent writers can't race.
+	lockFile, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("failed to open audit log lock: %w", err)
+	}
+	defer lockFile.Close()
+	if err := fsutil.FileLockExclusive(lockFile); err != nil {
+		return fmt.Errorf("failed to acquire audit log lock: %w", err)
+	}
+	defer func() { _ = fsutil.FileUnlock(lockFile) }()
+
+	// Rotate inside the lock so two concurrent processes can't both
+	// observe ">cap" and both rename. Best-effort: rotation failure
+	// still falls through to the append.
+	rotateIfOverCap(path, maxAuditSize)
+
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to open audit log file: %w", err)
 	}
 	defer file.Close()
 
-	// Write JSON line (one event per line)
 	if _, err := file.WriteString(string(eventJSON) + "\n"); err != nil {
 		return fmt.Errorf("failed to write audit log: %w", err)
 	}

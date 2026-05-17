@@ -41,6 +41,14 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 
 	// Try YAML mode first
 	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
+		// Restart mutates `.raioz.state.json` (new PIDs after re-launch).
+		// Acquire the workspace lock so a concurrent `raioz up --watch`
+		// save-state can't race. Issue 038.
+		release, err := acquireRestartLock(ctx, uc.deps, proj.Deps.Project.Name)
+		if err != nil {
+			return err
+		}
+		defer release()
 		return uc.RestartYAML(ctx, proj, opts)
 	}
 

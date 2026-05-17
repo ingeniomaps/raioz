@@ -44,18 +44,16 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 		return fmt.Errorf("cannot resolve project directory: %w", err)
 	}
 
-	// Load project state
-	localState, err := state.LoadLocalState(projectDir)
-	if err != nil {
-		return fmt.Errorf("cannot load project state: %w", err)
-	}
-
-	// List mode
+	// List mode reads state but doesn't mutate; skip the lock for it.
 	if opts.List {
+		localState, err := state.LoadLocalState(projectDir)
+		if err != nil {
+			return fmt.Errorf("cannot load project state: %w", err)
+		}
 		return uc.listOverrides(localState)
 	}
 
-	// Load config to find the dependency
+	// Load config to find the dependency.
 	cfgDeps, warnings, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 	for _, w := range warnings {
 		output.PrintWarning(w)
@@ -68,6 +66,22 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 		return fmt.Errorf("dependency name is required")
 	}
 
+	// Acquire workspace lock before reading state — `raioz dev` is a
+	// state mutator (writes DevOverrides). Without the lock, a
+	// concurrent `raioz up --watch` save-state can race and lose the
+	// override. Issue 038. ADR-023 (state mirrors reality) implicitly
+	// requires serialized writers; codified in CLAUDE.md invariants.
+	releaseLock, err := uc.acquireWorkspaceLock(ctx, cfgDeps.Project.Name)
+	if err != nil {
+		return err
+	}
+	defer releaseLock()
+
+	localState, err := state.LoadLocalState(projectDir)
+	if err != nil {
+		return fmt.Errorf("cannot load project state: %w", err)
+	}
+
 	// Reset mode
 	if opts.Reset {
 		return uc.resetOverride(ctx, opts.Name, cfgDeps, projectDir, localState)
@@ -75,6 +89,36 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 
 	// Promote mode
 	return uc.promote(ctx, opts.Name, opts.LocalPath, cfgDeps, projectDir, localState)
+}
+
+// acquireWorkspaceLock takes the workspace lock for the given project.
+// Returns a release func the caller must defer. Implements the state-
+// writer invariant from issue 038. Mirrors upcase.acquireLock's
+// behavior under recursive sibling spawn (no-op then).
+func (uc *DevUseCase) acquireWorkspaceLock(
+	ctx context.Context, projectName string,
+) (func(), error) {
+	ws, err := uc.deps.Workspace.Resolve(projectName)
+	if err != nil {
+		return func() {}, fmt.Errorf("resolve workspace: %w", err)
+	}
+	if ws == nil {
+		// Test / no-workspace path — skip the lock. Mirrors the
+		// recursive-sibling-spawn behaviour in upcase.acquireLock.
+		return func() {}, nil
+	}
+	lock, err := uc.deps.LockManager.Acquire(ws)
+	if err != nil {
+		return func() {}, fmt.Errorf("acquire workspace lock: %w", err)
+	}
+	logging.DebugWithContext(ctx, "dev: workspace lock acquired",
+		"workspace", ws.Root)
+	return func() {
+		if err := lock.Release(); err != nil {
+			logging.WarnWithContext(ctx, "dev: failed to release workspace lock",
+				"error", err.Error())
+		}
+	}, nil
 }
 
 // listOverrides shows all active dev overrides.

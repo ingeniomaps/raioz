@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -291,5 +292,65 @@ func TestLogAppendsAfterRotation(t *testing.T) {
 	events := readEvents(t, path)
 	if len(events) != 1 || events[0].Type != EventTypeDependencyAdded {
 		t.Errorf("expected exactly one new event of type DependencyAdded, got %+v", events)
+	}
+}
+
+// Issue 035 regression: N concurrent goroutines × M events each must
+// produce N×M valid JSONL lines across audit.log + any rotation
+// backups. Before the sidecar-flock fix, two writers crossing the
+// size cap simultaneously could both rename to `.1`, trashing one
+// write's events; concurrent appends near the pipe-buffer threshold
+// could also interleave bytes. The flock around rotation+append
+// closes both windows.
+func TestLogWithContext_ConcurrentWritersNoLoss(t *testing.T) {
+	path := setupAuditHome(t)
+	ctx := context.Background()
+
+	const goroutines = 8
+	const eventsPerGoroutine = 200
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := 0; g < goroutines; g++ {
+		go func(gID int) {
+			defer wg.Done()
+			for i := 0; i < eventsPerGoroutine; i++ {
+				_ = LogWithContext(ctx, EventTypeLifecycle, map[string]any{
+					"goroutine": gID,
+					"seq":       i,
+				}, "concurrent write")
+			}
+		}(g)
+	}
+	wg.Wait()
+
+	// Sum events across the live log + any rotation backups.
+	total := 0
+	for _, suffix := range []string{"", ".1", ".2", ".3"} {
+		p := path + suffix
+		f, err := os.Open(p)
+		if err != nil {
+			continue
+		}
+		sc := bufio.NewScanner(f)
+		// Audit events with large details fields can exceed 64 KiB
+		// briefly during MarshalIndent; raise the scanner cap so the
+		// test counts correctly even under that pressure.
+		sc.Buffer(make([]byte, 64*1024), 16*1024*1024)
+		for sc.Scan() {
+			var ev map[string]any
+			if err := json.Unmarshal(sc.Bytes(), &ev); err != nil {
+				t.Errorf("malformed JSON line in %s: %v\nline=%q",
+					p, err, sc.Text())
+				continue
+			}
+			total++
+		}
+		f.Close()
+	}
+	want := goroutines * eventsPerGoroutine
+	if total != want {
+		t.Errorf("event count mismatch: got %d, want %d (concurrent writers lost events)",
+			total, want)
 	}
 }

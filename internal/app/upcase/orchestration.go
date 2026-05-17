@@ -42,12 +42,16 @@ func (uc *UseCase) processOrchestration(
 	detections := detectRuntimes(ctx, deps)
 	output.PrintProgressDone(i18n.T("up.runtimes_detected"))
 
-	// Step 1b: Allocate host ports deterministically. This validates explicit
-	// conflicts before we start anything, bumps implicit defaults when they
-	// would collide (two host frontends both wanting :3000), and resolves
-	// host-side bindings for dependencies the user asked to publish. The
-	// resolved port is written back into detections so downstream consumers
-	// (proxy routes, discovery env vars) see a single source of truth.
+	// Step 1b: Allocate host ports deterministically + run under a
+	// global flock (acquirePortsLock / issue 037) so concurrent
+	// `raioz up` in different workspaces can't probe-and-claim the
+	// same host port then race on `docker run -p`. Lock released
+	// when processOrchestration returns.
+	portsLockRelease, err := acquirePortsLock()
+	if err != nil {
+		return nil, err
+	}
+	defer portsLockRelease()
 	portAllocs, err := AllocateHostPorts(deps, detections)
 	if err != nil {
 		return nil, err
