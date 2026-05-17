@@ -138,7 +138,7 @@ func killTrackedProcess(ctx context.Context, pid int) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("stop pid %d cancelled: %w", pid, ctx.Err())
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
