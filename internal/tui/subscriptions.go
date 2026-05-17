@@ -51,52 +51,91 @@ func (m Model) pollStats() tea.Cmd {
 	}
 }
 
-// pollStatsYAML queries stats per-container using naming.Container().
+// pollStatsYAML queries stats for all services in two batched docker
+// calls (issue 040: pre-fix this forked N×2 subprocesses per 2s tick,
+// which throttled on Docker Desktop macOS once N > ~10). One `docker
+// inspect` covers status/health for all containers; one `docker stats
+// --no-stream` covers CPU/mem. Services whose containers don't exist
+// surface as "stopped" without spamming individual inspects.
 func (m Model) pollStatsYAML(ctx context.Context) StatsMsg {
 	stats := make(map[string]ServiceStats)
+	if len(m.services) == 0 {
+		return StatsMsg{Stats: stats}
+	}
 
+	// Map container name → service name so the batched output can be
+	// distributed back without re-parsing.
+	containers := make([]string, 0, len(m.services))
+	containerToSvc := make(map[string]string, len(m.services))
 	for _, svc := range m.services {
-		container := naming.Container(m.config.Project, svc.Name)
+		c := naming.Container(m.config.Project, svc.Name)
+		containers = append(containers, c)
+		containerToSvc[c] = svc.Name
+		stats[svc.Name] = ServiceStats{Status: "stopped"} // default if absent
+	}
 
-		// Get status
-		cmd := exec.CommandContext(
-			ctx, runtime.Binary(),
-			"inspect", "--format",
-			"{{.State.Status}}|{{.State.Health.Status}}",
-			container,
-		)
-		out, err := cmd.Output()
-		if err != nil {
-			stats[svc.Name] = ServiceStats{Status: "stopped"}
-			continue
-		}
-		parts := strings.SplitN(strings.TrimSpace(string(out)), "|", 2)
-		status := parts[0]
-		health := ""
-		if len(parts) > 1 && parts[1] != "" {
-			health = parts[1]
-		}
-
-		// Get CPU/mem
-		cmd2 := exec.CommandContext(
-			ctx, runtime.Binary(),
-			"stats", "--no-stream",
-			"--format", "{{.CPUPerc}}\t{{.MemUsage}}",
-			container,
-		)
-		cpu, mem := "-", "-"
-		if out2, err2 := cmd2.Output(); err2 == nil {
-			sp := strings.Split(strings.TrimSpace(string(out2)), "\t")
-			if len(sp) >= 2 {
-				cpu, mem = sp[0], sp[1]
+	// One batched inspect for status + health. Format includes the
+	// container name so the output is self-describing.
+	inspectArgs := append([]string{
+		"inspect", "--format",
+		"{{.Name}}|{{.State.Status}}|{{.State.Health.Status}}",
+	}, containers...)
+	if out, err := exec.CommandContext(
+		ctx, runtime.Binary(), inspectArgs...,
+	).Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			parts := strings.SplitN(line, "|", 3)
+			if len(parts) < 2 {
+				continue
 			}
+			// docker inspect prefixes the container name with "/".
+			name := strings.TrimPrefix(parts[0], "/")
+			svc, ok := containerToSvc[name]
+			if !ok {
+				continue
+			}
+			s := stats[svc]
+			s.Status = parts[1]
+			if len(parts) > 2 && parts[2] != "" {
+				s.Health = parts[2]
+			}
+			stats[svc] = s
 		}
+	}
 
-		stats[svc.Name] = ServiceStats{
-			Status: status,
-			Health: health,
-			CPU:    cpu,
-			Memory: mem,
+	// One batched `stats --no-stream` for CPU/mem. Skipped containers
+	// keep the default "-" values.
+	for svc := range stats {
+		s := stats[svc]
+		if s.CPU == "" {
+			s.CPU = "-"
+		}
+		if s.Memory == "" {
+			s.Memory = "-"
+		}
+		stats[svc] = s
+	}
+	statsArgs := append([]string{
+		"stats", "--no-stream",
+		"--format", "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}",
+	}, containers...)
+	if out, err := exec.CommandContext(
+		ctx, runtime.Binary(), statsArgs...,
+	).Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			sp := strings.Split(line, "\t")
+			if len(sp) < 3 {
+				continue
+			}
+			name := strings.TrimPrefix(sp[0], "/")
+			svc, ok := containerToSvc[name]
+			if !ok {
+				continue
+			}
+			s := stats[svc]
+			s.CPU = sp[1]
+			s.Memory = sp[2]
+			stats[svc] = s
 		}
 	}
 
