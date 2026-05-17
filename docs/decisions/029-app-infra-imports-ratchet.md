@@ -79,7 +79,9 @@ Landed in this commit:
 
 - Plan B becomes enforceable. The migration declared in ADR-012
   becomes a list that shrinks per release rather than a "we'll
-  get to it eventually".
+  get to it eventually". Drain plan added 2026-05-16 commits the
+  baseline to per-cluster release targets (see § "Drain plan"
+  below) — silent slip is now visible.
 - New code is forced through the ports. The segregated
   interfaces become the contract for net-new development.
 - Pattern matches three existing lints in the repo — uniform

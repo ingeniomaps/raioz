@@ -90,7 +90,7 @@ The five open questions in issue 066 resolve as follows for V1:
 
 | Q | Decision |
 |---|---|
-| Service-discovery contract | **None in V1** — router owns its templates. V2 may add labels. |
+| Service-discovery contract | **None in V1** — router owns its templates. V2 may add labels. Raioz **does** suppress its own `_HTTPS_URL=https://<name>.localhost` env var when `RAIOZ_ROUTER_ACTIVE=1` (issue 023) so consumers don't read a URL raioz no longer serves; the router project is responsible for any URL-style env vars its consumers need. |
 | Router healthcheck | **Via existing `health:` field.** Polled with same semantics as service health. |
 | Coexistence (Caddy + router) | **No.** One or the other. |
 | `proxy:` in sub-yamls when router declared | **Silently ignored.** Sub-yaml declares *what should be routed*, not *how*. V2 may use it as input to label-based discovery. |

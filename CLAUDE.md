@@ -215,7 +215,10 @@ Prints the `/etc/hosts` line for the current project's proxy, ready for
 `sudo tee -a /etc/hosts`. Only useful in practice with `proxy.publish:
 false`, but works in any mode.
 
-## CLI Commands (31 total)
+## CLI Commands
+
+Run `raioz --help` for the live list — hardcoded counts drift
+silently every release that adds a command (issue 025).
 
 ### Core
 `up`, `down`, `status`, `logs`, `restart`, `exec`, `check`, `clean`, `init`, `doctor`, `clone`

@@ -353,7 +353,7 @@ raioz ports                    # list port mappings across projects
 raioz dashboard                # interactive TUI
 ```
 
-See `raioz --help` for the full command list (30 total).
+See `raioz --help` for the full command list.
 
 ## Configuration
 

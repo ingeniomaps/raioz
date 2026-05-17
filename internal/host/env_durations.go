@@ -16,6 +16,7 @@ const (
 	launcherDrainTimeoutEnv = "RAIOZ_LAUNCHER_DRAIN_TIMEOUT"
 	siblingSpawnTimeoutEnv  = "RAIOZ_SIBLING_TIMEOUT"
 	lockStaleAgeEnv         = "RAIOZ_LOCK_STALE_AGE"
+	metaSubTimeoutEnv       = "RAIOZ_META_SUB_TIMEOUT"
 )
 
 // defaultLockStaleAge is the floor that evicts a lock whose PID is
@@ -48,6 +49,16 @@ func SiblingSpawnTimeout() time.Duration {
 // package consults this for the age-based eviction floor.
 func LockStaleAge() time.Duration {
 	return durationFromEnv(lockStaleAgeEnv, defaultLockStaleAge)
+}
+
+// MetaSubTimeout caps each sub-project invoked by MetaRunner.runSingle
+// (issue 042). A hung sub-up — registry unreachable, prompt waiting
+// for input, infinite loop in a launcher — would otherwise pin the
+// whole meta workspace until the operator Ctrl+Cs, which cancels
+// every sibling already healthy. 5 min default; override via
+// RAIOZ_META_SUB_TIMEOUT.
+func MetaSubTimeout() time.Duration {
+	return durationFromEnv(metaSubTimeoutEnv, 5*time.Minute)
 }
 
 // EnvDurationStatus snapshots how a duration-typed env var resolved.
@@ -90,6 +101,7 @@ func KnownDurationEnvs() []EnvDurationStatus {
 		InspectDurationEnv(launcherDrainTimeoutEnv, 30*time.Second),
 		InspectDurationEnv(siblingSpawnTimeoutEnv, 10*time.Minute),
 		InspectDurationEnv(lockStaleAgeEnv, defaultLockStaleAge),
+		InspectDurationEnv(metaSubTimeoutEnv, 5*time.Minute),
 	}
 }
 

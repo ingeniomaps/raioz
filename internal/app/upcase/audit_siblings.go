@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
+	"raioz/internal/output"
 )
 
 // auditSiblingYAMLs runs ADR-036 hygiene gates against every sibling
@@ -34,6 +35,7 @@ func auditSiblingYAMLs(deps *models.Deps) error {
 	sort.Slice(targets, func(i, j int) bool {
 		return targets[i].dep < targets[j].dep
 	})
+	scanned := make([]string, 0, len(targets))
 	for _, t := range targets {
 		sib, err := config.ResolveSibling(t.dir)
 		if err != nil {
@@ -46,6 +48,17 @@ func auditSiblingYAMLs(deps *models.Deps) error {
 		if err := config.AuditYAMLStrict(sib.Path); err != nil {
 			return fmt.Errorf("audit-siblings: dep %q: %w", t.dep, err)
 		}
+		scanned = append(scanned, sib.Path)
+	}
+	// Discoverability (issue 024): print exactly what was audited
+	// so the operator can confirm the one-hop scope matches their
+	// expectation. Empty scanned list = no siblings to audit (also
+	// noteworthy — otherwise the flag looks like it did nothing).
+	if len(scanned) == 0 {
+		output.PrintInfo("audit-siblings: no sibling deps to scan (one-hop scope)")
+	} else {
+		output.PrintInfo(fmt.Sprintf(
+			"audit-siblings: scanned %d yaml(s) — %v", len(scanned), scanned))
 	}
 	return nil
 }

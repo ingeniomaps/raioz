@@ -286,8 +286,20 @@ func (m *MetaRunner) runSingle(
 
 	printMetaBanner(stdout, subCmd, p)
 
-	cmd := m.buildSubCmd(ctx, binary, subCmd, p, extraArgs, extraEnv, stdout, stderr)
+	// Per-sub timeout (issue 042): hung sub-ups would otherwise pin
+	// the whole meta workspace. RAIOZ_META_SUB_TIMEOUT (default 5m)
+	// gives the operator a tunable cap. Timeout error distinguishes
+	// "hung past deadline" from regular sub-process exit-non-zero.
+	subCtx, cancel := context.WithTimeout(ctx, host.MetaSubTimeout())
+	defer cancel()
+
+	cmd := m.buildSubCmd(subCtx, binary, subCmd, p, extraArgs, extraEnv, stdout, stderr)
 	runErr := cmd.Run()
+	if subCtx.Err() == context.DeadlineExceeded {
+		runErr = fmt.Errorf(
+			"sub-project %q hung past RAIOZ_META_SUB_TIMEOUT=%s",
+			p.Name, host.MetaSubTimeout())
+	}
 	return MetaSummary{Project: p.Name, Path: p.Path, Err: runErr}
 }
 
