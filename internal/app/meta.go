@@ -112,7 +112,13 @@ func (m *MetaRunner) Up(
 		// RAIOZ_ROUTER_ACTIVE here: the router project itself owns the
 		// edge routing (it IS the proxy), so its own Caddy/whatever
 		// must come up normally.
-		entry := m.runSingle(ctx, "up", *cfg.Router, args, nil)
+		//
+		// Pass RAIOZ_ROUTER_ASSIGNED_IP (issue 020) so the router can
+		// bind the conventional bundled-Caddy IP and the operator's
+		// /etc/hosts / proxy.publish:false setup keeps working when
+		// swapping between bundled Caddy and the router project.
+		routerEnv := routerHandoffEnv(cfg)
+		entry := m.runSingle(ctx, "up", *cfg.Router, args, routerEnv)
 		results = append(results, entry)
 		if entry.Err != nil {
 			return results
