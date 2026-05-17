@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"raioz/internal/fsutil"
 	"raioz/internal/naming"
 )
 
@@ -73,7 +74,7 @@ func Save(config *IgnoreConfig) error {
 		return fmt.Errorf("failed to marshal ignore file: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write ignore file: %w", err)
 	}
 

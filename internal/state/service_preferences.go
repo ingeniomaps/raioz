@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
+	"raioz/internal/fsutil"
 	"raioz/internal/workspace"
 )
 
@@ -99,7 +100,7 @@ func SaveServicePreferences(ws *workspace.Workspace, prefs *ServicePreferences) 
 			)
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := fsutil.WriteFileAtomic(path, data, 0600); err != nil {
 		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to write service preferences file").
 			WithContext("path", path).
 			WithError(err).

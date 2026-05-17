@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"raioz/internal/fsutil"
 )
 
 const activeWorkspaceFileName = "active-workspace"
@@ -93,9 +95,10 @@ func SetActiveWorkspace(workspaceName string) error {
 		return fmt.Errorf("failed to create directory for active workspace: %w", err)
 	}
 
-	// Write workspace name (trimmed)
+	// Write workspace name (trimmed). Atomic so a crash mid-write
+	// can't leave the marker zero-byte.
 	workspaceName = strings.TrimSpace(workspaceName)
-	if err := os.WriteFile(path, []byte(workspaceName+"\n"), 0644); err != nil {
+	if err := fsutil.WriteFileAtomic(path, []byte(workspaceName+"\n"), 0644); err != nil {
 		return fmt.Errorf("failed to write active workspace: %w", err)
 	}
 

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/fsutil"
 )
 
 const projectStateFile = ".raioz.state.json"
@@ -55,7 +56,7 @@ func SaveLocalState(projectDir string, state *LocalState) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal project state: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := fsutil.WriteFileAtomic(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write project state: %w", err)
 	}
 	return nil
