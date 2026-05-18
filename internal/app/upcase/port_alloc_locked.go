@@ -7,11 +7,10 @@ import (
 )
 
 // allocatePortsLocked wraps port allocation + bind-conflict resolution
-// in the global ports flock and releases the lock immediately afterward.
-// Splitting this out of processOrchestration keeps the lock scope tight
-// — `defer release()` in processOrchestration would hold it across the
-// sibling dispatch phase, deadlocking a `project:`-spawned recursive
-// `raioz up` that tries to acquire the same flock (issue 020-meta).
+// in the global ports flock and releases it before returning. A wider
+// scope (`defer` at processOrchestration level) would deadlock a
+// `project:`-spawned recursive `raioz up`: flock is per-fd and the
+// child process inherits none of the parent's locks.
 func allocatePortsLocked(
 	ctx context.Context,
 	deps *models.Deps,

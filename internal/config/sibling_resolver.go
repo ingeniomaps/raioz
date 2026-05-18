@@ -30,14 +30,11 @@ type SiblingInfo struct {
 	// that override their hostname, plus any hostnameAliases. Used by
 	// the requiredHostname check in Phase 7.
 	Hostnames []string
-	// ProxyTargets collects every `services.<n>.proxy.target` declared
-	// in the sibling yaml. Launcher-pattern services (`command:` that
-	// shells out to make / docker compose) produce containers with
-	// labels that raioz did not stamp, so the label-based probe in
-	// docker.IsProjectActive misses them. The siblng-dispatch fallback
-	// probes by container name using this list to avoid a redundant
-	// recursive spawn. See docs/issues/020. Empty for siblings that
-	// don't use launcher pattern.
+	// ProxyTargets collects every `services.<n>.proxy.target` so the
+	// sibling-dispatch probe can fall back to container-name lookup
+	// when the label scan misses launcher-pattern containers (those
+	// don't carry raioz labels). Empty when the sibling has no
+	// launcher pattern.
 	ProxyTargets []string
 }
 
