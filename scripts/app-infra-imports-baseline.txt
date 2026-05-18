@@ -18,13 +18,11 @@
 #       internal/app internal/cli | grep -v _test.go | sort
 #
 internal/app/dev.go
-internal/app/doctor_orchestrator.go
 internal/app/down_compose.go
 internal/app/down_deps.go
 internal/app/down_orchestrated.go
 internal/app/down_others.go
 internal/app/down_proxy.go
-internal/app/down_selective.go
 internal/app/ports_conflicting.go
 internal/app/switch.go
 internal/app/upcase/compose.go

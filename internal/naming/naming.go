@@ -205,3 +205,12 @@ func stateBaseDir() string {
 func ContainerPrefix(project string) string {
 	return fmt.Sprintf("%s-%s-", prefix, project)
 }
+
+// DepComposeProjectName returns the docker compose project name used to scope
+// a dependency. Format: {prefix}-{project}-dep-{dep}. The "dep-" infix avoids
+// collisions with service compose project names produced by ComposeRunner.
+// Lives here (not in orchestrate) so app/cli callers don't need to import
+// the infra runner package (ADR-029 / issue 049).
+func DepComposeProjectName(projectName, depName string) string {
+	return GetPrefix() + "-" + projectName + "-dep-" + depName
+}

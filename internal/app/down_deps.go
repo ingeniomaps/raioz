@@ -9,7 +9,6 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
-	"raioz/internal/orchestrate"
 	"raioz/internal/runtime"
 )
 
@@ -65,7 +64,7 @@ func stopDependencyComposeProjects(
 			continue
 		}
 
-		projName := orchestrate.DepComposeProjectName(projectName, name)
+		projName := naming.DepComposeProjectName(projectName, name)
 		// Compose-based deps: user-supplied fragment(s) + raioz overlay,
 		// teardown needs the same list of -f files that Start used.
 		var composeArgs []string

@@ -22,7 +22,7 @@ ratchet must publish one.
 | Baseline | Lint | Make target | Target zero | Current size |
 | --- | --- | --- | --- | --- |
 | `scripts/i18n-source-baseline.txt` | `scripts/check-i18n-source.sh` | `check-i18n-source` | ADR-027 (every user-facing string through `i18n.T`) | 0 (drained 2026-05-18, v0.9.1) |
-| `scripts/app-infra-imports-baseline.txt` | `scripts/lint-app-infra-imports.sh` | `check-app-infra-imports` | ADR-029 (all app code routes through `internal/domain/interfaces/`) — explicit per-cluster drain plan in ADR-029 § "Drain plan" | 22 files |
+| `scripts/app-infra-imports-baseline.txt` | `scripts/lint-app-infra-imports.sh` | `check-app-infra-imports` | ADR-029 (all app code routes through `internal/domain/interfaces/`) — explicit per-cluster drain plan in ADR-029 § "Drain plan" | 20 files (was 22; 2 drained in v0.9.1) |
 | `scripts/dual-flow-baseline.txt` | `scripts/lint-dual-flow.sh` | `check-dual-flow` | ADR-038 (JSON loader hard-error in v0.9.1; ADR-039 `SchemaVersion` field deleted at v1.0) — cleanup marker lives at top of `internal/app/flow.go` | 0 (drained 2026-05-18, v0.9.1) |
 | `scripts/errorlint-baseline.txt` | `scripts/lint-errorlint.sh` | `check-errorlint` | every `fmt.Errorf` chained with `%w` / every error compared via `errors.Is` / every type-assertion through `errors.As` | 0 (drained 2026-05-18, v0.9.1) |
 
