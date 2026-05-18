@@ -6,6 +6,109 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-18
+
+Ratchet graduation + ADR-038 closure. Three baselines (errorlint,
+dual-flow, i18n-source) drained to zero in this cycle; the JSON
+hard-error finally lands two releases after target; release-please
+automation goes online. Theme: close out v0.9.0's deferred work
+plus the long-tail ratchet debt that survived the architecture
+review.
+
+### Added
+
+- **`release-please` automation.** Pushes to `main` open a release
+  PR with a CHANGELOG entry generated from conventional commits;
+  merging that PR creates the `v<X.Y.Z>` tag and fires the
+  existing goreleaser pipeline. Configuration in
+  `release-please-config.json` (release-type: go,
+  `bump-minor-pre-major: true`, curated changelog sections);
+  manifest in `.release-please-manifest.json`. The first release
+  it auto-cuts will be v0.10.1+.
+- **ADR-047 hygiene-rules catalog.** The two "Hygiene rule, no
+  ADR — paired with issue NNN" entries in CLAUDE.md (host-gateway
+  injection, atomic state writes) move into a discoverable ADR
+  with the rationale, enforcement mechanism, and a threshold
+  section for when a rule warrants a dedicated ADR vs the
+  catalog. CLAUDE.md keeps the one-paragraph entries but each now
+  links into `ADR-047 § H-N`.
+- **`internal/testing/chaos/doc.go`.** Names the per-package
+  vs cross-package test convention so a future contributor finds
+  the policy without re-deriving it from existing tests.
+- **Equivalence test for `defaultProxyIPLocal`.**
+  `internal/app/meta_router_handoff_equivalence_test.go` pins
+  `app.defaultProxyIPLocal` to agree with `proxy.DefaultProxyIP`
+  for every documented input — the drift guard the inline comment
+  in `meta_router_handoff.go` references. Test files are exempt
+  from the ADR-029 import ratchet, so importing `proxy` here does
+  not grow the baseline.
+- **`naming.DepComposeProjectName`.** Canonical home for the
+  docker compose project name used to scope dependencies (was
+  `orchestrate.DepComposeProjectName`); the orchestrate package
+  keeps a var-alias for backwards compat.
+
+### Changed
+
+- **BREAKING: `.raioz.json` is no longer loaded** (ADR-038, v0.9
+  graduation slipped to v0.9.0, finally landed here). `LoadDeps`
+  returns a typed `*RaiozError` with code `ErrCodeLegacyJSONFormat`
+  on any `.raioz.json` input. Message and suggestion both name
+  `raioz migrate yaml`. Parser logic moves to
+  `LoadDepsForMigration` — the only surface that still reads the
+  legacy format, consumed by `raioz migrate yaml` and the
+  read-only diagnostic scans in `config.dependency_assist` and
+  `root.drift`. The v0.7/v0.8 once-per-process warning banner is
+  gone; field-level deprecation warnings inside
+  `config.deprecated` are unaffected.
+- **`internal/proxy` lock + rename primitives migrated to
+  `internal/fsutil`.** `proxy/workspace_lock.go` now calls
+  `fsutil.FileLockExclusive` / `FileUnlock`;
+  `proxy/routes_persist.go` calls `fsutil.RenameWithRetry`. The
+  four per-OS files (`workspace_lock_{unix,windows}.go`,
+  `rename_{unix,windows}.go`) are deleted — one source of truth
+  per platform now lives in `fsutil`.
+- **Dual-flow drain.** Five production readers
+  (`down_orchestrated`, `upcase/docker`, `yaml_mode`, `validate`,
+  `production/migrate`) migrate from `SchemaVersion == "2.0"`
+  literal comparisons to `deps.SourceFormat == models.SourceFormatYAML`
+  (ADR-039). The redundant `!= "1.0"` validation in
+  `production/migrate.go` (provably dead given the writer) is
+  removed. Test fixtures across 9 files now also stamp
+  `SourceFormatYAML` alongside `SchemaVersion`.
+
+### Refactor
+
+- **`errorlint` baseline drained to zero.** 23 sites migrated to
+  `errors.Is` / `errors.As` / `%w`. The custom `errors.As` shim
+  in `internal/errors/format.go` is deleted — Go 1.13's stdlib
+  `errors.As` covers the same surface, with zero external
+  callers.
+- **i18n-source baseline drained to zero.** 45 raw English
+  literals in `output.Print*` calls across 19 files now route
+  through `i18n.T()`. ~42 new keys land in `en.json` + `es.json`.
+- **Two app-infra baseline entries drained** (ADR-029).
+  `DepComposeProjectName` relocated to `naming`; doctor's mkcert
+  check inlines `exec.LookPath` instead of importing `proxy` for
+  the one-line wrapper. Remaining 20 entries need port plumbing
+  beyond the opportunistic scope.
+
+### Fixed
+
+- **`local_commands.HandleLocalProjectDown` switches to
+  YAML-only.** Used `config.LoadDeps` directly; now uses
+  `config.IsYAMLConfig` + `LoadDepsFromYAML` so JSON projects
+  fail through to the caller's original error rather than the
+  always-true `loadErr != nil` branch the hard-error created.
+
+### Internal
+
+- `docs/RATCHETS.md` updated: three baselines marked
+  "drained 2026-05-18 (v0.10.0)", app-infra annotated 20/22.
+- ROADMAP.md "release automation" moves from Tentative-next to
+  Shipped.
+- Lint scripts (`lint-errorlint.sh`, `lint-dual-flow.sh`) patched
+  to handle empty baselines under bash strict mode.
+
 ## [0.9.0] - 2026-05-18
 
 Architecture-review batch: 27 issues closed across three review
