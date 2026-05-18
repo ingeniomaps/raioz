@@ -192,10 +192,11 @@ func TestFullFlow_BackwardCompat(t *testing.T) {
 	configPath := filepath.Join(dir, ".raioz.json")
 	os.WriteFile(configPath, []byte(jsonContent), 0644)
 
-	// Should load via the JSON loader
-	deps, _, err := config.LoadDeps(configPath)
+	// Should load via the migration-only JSON loader (LoadDeps itself
+	// hard-errors since ADR-038 v0.9).
+	deps, _, err := config.LoadDepsForMigration(configPath)
 	if err != nil {
-		t.Fatalf("LoadDeps failed for .raioz.json: %v", err)
+		t.Fatalf("LoadDepsForMigration failed for .raioz.json: %v", err)
 	}
 	if deps.Project.Name != "old-project" {
 		t.Errorf("project = %q, want 'old-project'", deps.Project.Name)

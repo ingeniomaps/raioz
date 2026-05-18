@@ -20,7 +20,6 @@
 #
 # Target: 0 entries. The baseline shrinks as touched files clean
 # up; new code never adds.
-internal/app/local_commands.go:160
 internal/config/path_safety_test.go:107
 internal/config/path_safety_test.go:314
 internal/config/path_safety_test.go:46

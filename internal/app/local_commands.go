@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	errs "errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -121,7 +122,14 @@ func CheckLocalProjectHealth(ctx context.Context, projectDir string, healthComma
 // HandleLocalProjectDown handles the local project down command logic.
 // Returns (handled bool, err error) — if handled is true, the caller should return err directly.
 func HandleLocalProjectDown(ctx context.Context, configPath string, baseDir string, downErr error) (bool, error) {
-	configDeps, _, loadErr := config.LoadDeps(configPath)
+	// YAML-only path. JSON configs hard-error at config.LoadDeps
+	// (ADR-038 v0.9), so the local-project hook only applies to
+	// YAML projects today. JSON projects fall through to the
+	// caller's original error.
+	if !config.IsYAMLConfig(configPath) {
+		return false, downErr
+	}
+	configDeps, _, loadErr := config.LoadDepsFromYAML(configPath)
 	if loadErr != nil || configDeps == nil {
 		return false, downErr
 	}
@@ -157,7 +165,8 @@ func HandleLocalProjectDown(ctx context.Context, configPath string, baseDir stri
 	}
 
 	if downErr != nil {
-		if raiozErr, ok := downErr.(*errors.RaiozError); ok && raiozErr.Code == errors.ErrCodeStateLoadError {
+		var raiozErr *errors.RaiozError
+		if errs.As(downErr, &raiozErr) && raiozErr.Code == errors.ErrCodeStateLoadError {
 			output.PrintInfo(i18n.T("output.no_raioz_state_exec_down"))
 		} else {
 			output.PrintInfo(i18n.T("output.executing_down_cmd"))

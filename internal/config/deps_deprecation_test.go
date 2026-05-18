@@ -1,40 +1,15 @@
 package config
 
 import (
-	"bytes"
-	"io"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	raiozerrors "raioz/internal/errors"
 	"raioz/internal/i18n"
 )
-
-// captureStdout intercepts os.Stdout for fn. PrintWarning writes to
-// stdout, so the only way to assert on the banner is to swap the fd.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-	old := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stdout = w
-	defer func() { os.Stdout = old }()
-
-	done := make(chan struct{})
-	var buf bytes.Buffer
-	go func() {
-		_, _ = io.Copy(&buf, r)
-		close(done)
-	}()
-
-	fn()
-	_ = w.Close()
-	<-done
-	return buf.String()
-}
 
 func writeMinimalJSON(t *testing.T, dir, name string) string {
 	t.Helper()
@@ -52,70 +27,54 @@ func writeMinimalJSON(t *testing.T, dir, name string) string {
 	return path
 }
 
-// ADR-038: the JSON banner fires once per process even across
-// multiple LoadDeps calls.
-func TestLoadDeps_DeprecationWarningFiresOnce(t *testing.T) {
+// ADR-038 v0.9: LoadDeps now hard-errors on any .raioz.json input. The
+// previous warning-then-load behaviour from v0.7 / v0.8 is gone.
+func TestLoadDeps_HardErrorsOnLegacyJSON(t *testing.T) {
 	i18n.Init("en")
-	ResetJSONDeprecationWarningForTest()
 
-	dir := t.TempDir()
-	first := writeMinimalJSON(t, dir, "first.json")
-	second := writeMinimalJSON(t, dir, "second.json")
-
-	out := captureStdout(t, func() {
-		if _, _, err := LoadDeps(first); err != nil {
-			t.Fatalf("first LoadDeps: %v", err)
-		}
-		if _, _, err := LoadDeps(second); err != nil {
-			t.Fatalf("second LoadDeps: %v", err)
-		}
-	})
-
-	count := strings.Count(out, ".raioz.json")
-	if count != 1 {
-		t.Fatalf("deprecation banner should fire exactly once, fired %d times. output:\n%s", count, out)
-	}
-	if !strings.Contains(out, "raioz migrate yaml") {
-		t.Errorf("banner missing migration hint: %q", out)
-	}
-	if !strings.Contains(out, "ADR-038") {
-		t.Errorf("banner missing ADR reference: %q", out)
-	}
-}
-
-// Verify the test seam: Reset between LoadDeps calls re-arms the
-// banner. Without it tests would depend on init ordering.
-func TestLoadDeps_DeprecationWarningResets(t *testing.T) {
-	i18n.Init("en")
-	ResetJSONDeprecationWarningForTest()
 	dir := t.TempDir()
 	path := writeMinimalJSON(t, dir, "cfg.json")
 
-	first := captureStdout(t, func() {
-		if _, _, err := LoadDeps(path); err != nil {
-			t.Fatalf("LoadDeps: %v", err)
-		}
-	})
-	if !strings.Contains(first, ".raioz.json") {
-		t.Fatalf("first call should fire banner, got %q", first)
+	deps, warnings, err := LoadDeps(path)
+	if err == nil {
+		t.Fatal("LoadDeps must hard-error on .raioz.json (ADR-038 v0.9)")
+	}
+	if deps != nil || warnings != nil {
+		t.Errorf("hard-error path must return nil deps/warnings; got %v, %v", deps, warnings)
 	}
 
-	second := captureStdout(t, func() {
-		if _, _, err := LoadDeps(path); err != nil {
-			t.Fatalf("LoadDeps: %v", err)
-		}
-	})
-	if second != "" {
-		t.Fatalf("second call should be silent, got %q", second)
+	var re *raiozerrors.RaiozError
+	if !errors.As(err, &re) {
+		t.Fatalf("error must be a *RaiozError so callers can inspect Code; got %T", err)
 	}
+	if re.Code != raiozerrors.ErrCodeLegacyJSONFormat {
+		t.Errorf("Code = %q, want %q", re.Code, raiozerrors.ErrCodeLegacyJSONFormat)
+	}
+	if !strings.Contains(re.Error(), "raioz migrate yaml") {
+		t.Errorf("error message must name the migration command; got %q", re.Error())
+	}
+	if !strings.Contains(re.Suggestion, "raioz migrate yaml") {
+		t.Errorf("suggestion must name the migration command; got %q", re.Suggestion)
+	}
+}
 
-	ResetJSONDeprecationWarningForTest()
-	third := captureStdout(t, func() {
-		if _, _, err := LoadDeps(path); err != nil {
-			t.Fatalf("LoadDeps: %v", err)
-		}
-	})
-	if !strings.Contains(third, ".raioz.json") {
-		t.Fatalf("post-reset call should fire banner, got %q", third)
+// The migration helper bypasses the gate so `raioz migrate yaml` can
+// still read the legacy file. Without this seam, migration would be
+// blocked by its own hard-error.
+func TestLoadDepsForMigration_ParsesLegacyJSON(t *testing.T) {
+	i18n.Init("en")
+
+	dir := t.TempDir()
+	path := writeMinimalJSON(t, dir, "cfg.json")
+
+	deps, _, err := LoadDepsForMigration(path)
+	if err != nil {
+		t.Fatalf("LoadDepsForMigration must succeed for migration use; got %v", err)
+	}
+	if deps == nil || deps.Project.Name != "p" {
+		t.Fatalf("parse should produce the deps; got %+v", deps)
+	}
+	if deps.SourceFormat != SourceFormatLegacyJSON {
+		t.Errorf("SourceFormat = %q, want %q", deps.SourceFormat, SourceFormatLegacyJSON)
 	}
 }

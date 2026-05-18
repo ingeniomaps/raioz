@@ -10,9 +10,11 @@ import (
 )
 
 // Every JSON load stamps SourceFormatLegacyJSON. ADR-039.
+// Uses LoadDepsForMigration because LoadDeps hard-errors on JSON
+// since v0.9 (ADR-038); the migration helper is the only surface
+// that still parses .raioz.json.
 func TestSourceFormat_StampedByJSONLoader(t *testing.T) {
 	i18n.Init("en")
-	ResetJSONDeprecationWarningForTest()
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cfg.json")
@@ -27,9 +29,9 @@ func TestSourceFormat_StampedByJSONLoader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	deps, _, err := LoadDeps(path)
+	deps, _, err := LoadDepsForMigration(path)
 	if err != nil {
-		t.Fatalf("LoadDeps: %v", err)
+		t.Fatalf("LoadDepsForMigration: %v", err)
 	}
 	if deps.SourceFormat != SourceFormatLegacyJSON {
 		t.Errorf("SourceFormat = %q, want %q",

@@ -1,7 +1,7 @@
 # ADR-038: `.raioz.json` deprecation timeline
 
-- **Status:** Accepted — implemented 2026-05-15
-- **Date:** 2026-05-15
+- **Status:** Accepted — hard-error implemented 2026-05-18 (v0.9.1)
+- **Date:** 2026-05-15 (v0.7 warning); updated 2026-05-18 (v0.9.1 hard-error)
 - **Drives:** issue 068
 
 ## Context
@@ -50,22 +50,33 @@ the warning itself so users see when the warning becomes an error.
   > convert. Support is removed in v0.8 (see ADR-038).
   Field-level warnings inside `internal/config/deprecated.go`
   continue to fire independently.
-- **v0.8 (slipped — actual state)** — `LoadDeps` still warns +
-  loads (no hard error). The v0.8 release cycle prioritised
-  ADR-037 (router project) and the audit-triage v0.8.1-v0.8.3
-  patches; the JSON hard-error was not implemented. Issue 027
-  flagged the gap during the architecture review pass on
-  v0.8.3. ADR-038 timeline updated 2026-05-16 to reflect
-  reality:
-  - **Hard-error target slipped to v0.9.** Bundle with the
-    `scripts/dual-flow-baseline.txt` drain (ADR-039) so the two
-    behaviours flip together — the dual-flow readers cannot
-    drop their YAML-mode branch until `LoadDeps` returns only
-    YAML-shaped results.
-- **v1.0** — the public JSON loader is deleted. `raioz migrate
-  yaml` becomes a stand-alone command with its own mini-loader;
-  no other code path can read `.raioz.json`. Unchanged from
-  the original plan.
+- **v0.8 (slipped)** — `LoadDeps` still warned + loaded (no hard
+  error). The v0.8 release cycle prioritised ADR-037 (router
+  project) and the audit-triage v0.8.1-v0.8.3 patches; the JSON
+  hard-error was not implemented. Issue 027 flagged the gap
+  during the architecture review pass on v0.8.3.
+- **v0.9 (slipped — second time)** — v0.9.0 shipped 2026-05-18
+  without the hard-error; the architecture-review batch crowded
+  it out again. Closed in v0.9.1.
+- **v0.9.1 (implemented 2026-05-18)** — `LoadDeps` returns
+  `*raiozerrors.RaiozError` with code `ErrCodeLegacyJSONFormat`
+  on any `.raioz.json` input. Message + suggestion both name
+  `raioz migrate yaml`. The parser logic moved to
+  `LoadDepsForMigration`, an explicit migration-only surface
+  consumed by `internal/cli/migrate_yaml.go`. Internal diagnostic
+  surfaces that scan sub-project `.raioz.json` files
+  (`config.dependency_assist`, `root.drift`) also switch to
+  `LoadDepsForMigration` — those are read-only diagnostics, not
+  service start-up paths, so the hard-error gate doesn't apply.
+  The dual-flow baseline (`scripts/dual-flow-baseline.txt`) is
+  NOT auto-drained by this change; readers still gate on
+  `SchemaVersion == "1.0"` but the branch is unreachable in the
+  up/down/status flows post-hard-error. The drain is a
+  follow-up cleanup pass.
+- **v1.0** — `LoadDepsForMigration` is privatised and folded
+  into `raioz migrate yaml`'s own command package. No public
+  surface reads `.raioz.json` after that. Unchanged from the
+  original plan.
 
 ### Why "loud one-shot" instead of "loud always"
 
