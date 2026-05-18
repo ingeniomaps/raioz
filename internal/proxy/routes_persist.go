@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/fsutil"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 )
@@ -114,7 +115,7 @@ func (m *Manager) SaveProjectRoutes() error {
 		cleanup()
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
-	if err := renameWithRetry(tmpPath, path); err != nil {
+	if err := fsutil.RenameWithRetry(tmpPath, path); err != nil {
 		cleanup()
 		return fmt.Errorf("failed to rename routes file: %w", err)
 	}
