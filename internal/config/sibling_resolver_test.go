@@ -241,6 +241,60 @@ func TestValidateSiblingWorkspace_NilSibling(t *testing.T) {
 	}
 }
 
+// --- ProxyTargets ---------------------------------------------------------
+
+// Issue 020 — launcher-pattern siblings expose their container name
+// via services.<n>.proxy.target. ResolveSibling now collects those so
+// the docker.IsProjectActive fallback can probe by name when the
+// label-based scan misses.
+func TestResolveSibling_CollectsProxyTargets(t *testing.T) {
+	dir := t.TempDir()
+	body := "" +
+		"workspace: hypixo\n" +
+		"project: keycloak\n" +
+		"services:\n" +
+		"  keycloak:\n" +
+		"    path: .\n" +
+		"    command: make start\n" +
+		"    proxy:\n" +
+		"      target: hypixo-keycloak\n" +
+		"      port: 8080\n" +
+		"  admin:\n" +
+		"    path: ./admin\n"
+	if err := os.WriteFile(filepath.Join(dir, "raioz.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	sib, err := ResolveSibling(dir)
+	if err != nil {
+		t.Fatalf("ResolveSibling: %v", err)
+	}
+	if len(sib.ProxyTargets) != 1 || sib.ProxyTargets[0] != "hypixo-keycloak" {
+		t.Errorf("ProxyTargets = %v, want [hypixo-keycloak]", sib.ProxyTargets)
+	}
+}
+
+func TestResolveSibling_NoProxyTargetWhenAbsent(t *testing.T) {
+	dir := t.TempDir()
+	body := "" +
+		"workspace: hypixo\n" +
+		"project: api\n" +
+		"services:\n" +
+		"  api:\n" +
+		"    path: .\n"
+	if err := os.WriteFile(filepath.Join(dir, "raioz.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	sib, err := ResolveSibling(dir)
+	if err != nil {
+		t.Fatalf("ResolveSibling: %v", err)
+	}
+	if len(sib.ProxyTargets) != 0 {
+		t.Errorf("ProxyTargets = %v, want empty", sib.ProxyTargets)
+	}
+}
+
 // --- SiblingHasHostname ---------------------------------------------------
 
 func TestSiblingHasHostname(t *testing.T) {

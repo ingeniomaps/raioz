@@ -30,6 +30,15 @@ type SiblingInfo struct {
 	// that override their hostname, plus any hostnameAliases. Used by
 	// the requiredHostname check in Phase 7.
 	Hostnames []string
+	// ProxyTargets collects every `services.<n>.proxy.target` declared
+	// in the sibling yaml. Launcher-pattern services (`command:` that
+	// shells out to make / docker compose) produce containers with
+	// labels that raioz did not stamp, so the label-based probe in
+	// docker.IsProjectActive misses them. The siblng-dispatch fallback
+	// probes by container name using this list to avoid a redundant
+	// recursive spawn. See docs/issues/020. Empty for siblings that
+	// don't use launcher pattern.
+	ProxyTargets []string
 }
 
 // ResolveSibling reads the raioz.yaml at dir and extracts the metadata
@@ -80,12 +89,34 @@ func ResolveSibling(dir string) (*SiblingInfo, error) {
 	}
 
 	return &SiblingInfo{
-		Path:      cfgPath,
-		Dir:       dir,
-		Project:   cfg.Project,
-		Workspace: cfg.Workspace,
-		Hostnames: collectSiblingHostnames(cfg),
+		Path:         cfgPath,
+		Dir:          dir,
+		Project:      cfg.Project,
+		Workspace:    cfg.Workspace,
+		Hostnames:    collectSiblingHostnames(cfg),
+		ProxyTargets: collectSiblingProxyTargets(cfg),
 	}, nil
+}
+
+// collectSiblingProxyTargets returns every service-level proxy.target
+// declared in the sibling yaml. The launcher pattern uses this field
+// to name a container raioz did not create directly; the sibling
+// probe (issue 020) falls back to those names when its label-based
+// scan returns empty.
+func collectSiblingProxyTargets(cfg *RaiozConfig) []string {
+	var out []string
+	seen := make(map[string]struct{})
+	for _, svc := range cfg.Services {
+		if svc.Proxy == nil || svc.Proxy.Target == "" {
+			continue
+		}
+		if _, dup := seen[svc.Proxy.Target]; dup {
+			continue
+		}
+		seen[svc.Proxy.Target] = struct{}{}
+		out = append(out, svc.Proxy.Target)
+	}
+	return out
 }
 
 // collectSiblingHostnames gathers every hostname the sibling exposes.

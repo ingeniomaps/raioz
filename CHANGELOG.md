@@ -99,6 +99,18 @@ review.
   `config.IsYAMLConfig` + `LoadDepsFromYAML` so JSON projects
   fail through to the caller's original error rather than the
   always-true `loadErr != nil` branch the hard-error created.
+- **Sibling-probe no longer misses launcher-pattern containers.**
+  Services whose `command:` shells out to make / docker compose
+  create containers without raioz labels, so the label-based
+  `docker.IsProjectActive` returned false even when the sibling
+  was up. In meta-orchestrator mode the consumer then triggered a
+  redundant recursive spawn that deadlocked against the existing
+  container and timed out via `RAIOZ_META_SUB_TIMEOUT`. The probe
+  now accepts variadic `fallbackContainerNames`; sibling-dispatch
+  passes the `services.<n>.proxy.target` values harvested by the
+  new `SiblingInfo.ProxyTargets` collector. Label probe stays the
+  fast path; the name-based fallback only fires when labels return
+  empty.
 
 ### Internal
 

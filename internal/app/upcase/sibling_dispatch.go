@@ -107,7 +107,7 @@ func decideModeA(
 		return siblingDecision{}, err
 	}
 
-	active, err := docker.IsProjectActive(ctx, sib.Workspace, sib.Project)
+	active, err := docker.IsProjectActive(ctx, sib.Workspace, sib.Project, sib.ProxyTargets...)
 	if err != nil {
 		return siblingDecision{}, fmt.Errorf(
 			"probe sibling for dep %q: %w", depName, err)
@@ -156,7 +156,7 @@ func decideModeB(
 		return siblingDecision{}, fmt.Errorf("dep %q: %w", depName, err)
 	}
 
-	active, err := docker.IsProjectActive(ctx, sib.Workspace, sib.Project)
+	active, err := docker.IsProjectActive(ctx, sib.Workspace, sib.Project, sib.ProxyTargets...)
 	if err != nil {
 		return siblingDecision{}, fmt.Errorf(
 			"probe sibling for dep %q: %w", depName, err)
@@ -208,7 +208,8 @@ func verifySiblingsStillUp(
 			continue
 		}
 		active, err := docker.IsProjectActive(ctx,
-			v.SiblingInfo.Workspace, v.SiblingInfo.Project)
+			v.SiblingInfo.Workspace, v.SiblingInfo.Project,
+			v.SiblingInfo.ProxyTargets...)
 		if err != nil {
 			return fmt.Errorf(
 				"re-probe sibling for dep %q: %w", depName, err)
