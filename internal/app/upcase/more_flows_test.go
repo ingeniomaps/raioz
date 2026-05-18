@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
@@ -362,6 +363,40 @@ func TestCleanStaleHostProcessesPreservesOutOfScopePIDs(t *testing.T) {
 	}
 	if _, ok := loaded.HostPIDs["web"]; !ok {
 		t.Errorf("out-of-scope PID must survive, state=%v", loaded.HostPIDs)
+	}
+}
+
+// Recent LastUp == in-flight launcher: the sweep MUST NOT kill the PID.
+// Issue 020-meta — a sibling-spawn that re-enters keycloak's project dir
+// otherwise reaps the `make` launcher mid-deploy because its PID is
+// alive and lives in state.HostPIDs.
+//
+// The "alive" branch is hard to exercise in a unit test (we'd need a
+// real running process). Instead use a PID that's clearly not ours
+// (zero) and assert the early-return path was taken by checking that
+// the state still has the PID afterward — the normal sweep would have
+// deleted in-scope entries.
+func TestCleanStaleHostProcessesSkipsRecentLastUp(t *testing.T) {
+	dir := t.TempDir()
+	ls := &models.LocalState{
+		Project:  "p",
+		LastUp:   time.Now().Add(-time.Second), // very recent
+		HostPIDs: map[string]int{"api": 999999993},
+	}
+	if err := state.SaveLocalState(dir, ls); err != nil {
+		t.Fatal(err)
+	}
+	scope := map[string]struct{}{"api": {}}
+	cleanStaleHostProcesses(context.Background(), dir, "p", scope)
+
+	loaded, err := state.LoadLocalState(dir)
+	if err != nil {
+		t.Fatalf("reload state: %v", err)
+	}
+	if _, ok := loaded.HostPIDs["api"]; !ok {
+		t.Errorf("recent LastUp must short-circuit before the sweep, "+
+			"PID should still be present; got HostPIDs=%v",
+			loaded.HostPIDs)
 	}
 }
 

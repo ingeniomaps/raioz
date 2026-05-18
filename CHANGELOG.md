@@ -142,15 +142,30 @@ review.
   advancing.** `exec.CommandContext` defaults `cmd.Cancel` to
   `Process.Kill`, which fires whenever the bound ctx is canceled
   — including the normal-path `subCancel` deferred at the end of
-  `runSingle`. After a clean sub-up returned, that cancel raced
-  against the launcher grandchildren the sub had detached, and
-  the runtime's cancel teardown killed in-flight `make` /
-  `docker compose up -d` mid-deploy. The meta runner now
-  overrides `cmd.Cancel` to invoke `Process.Kill` ONLY when
+  `runSingle`. The meta runner now overrides `cmd.Cancel` to
+  invoke `Process.Kill` ONLY when
   `ctx.Err() == context.DeadlineExceeded`. The genuine
   `RAIOZ_META_SUB_TIMEOUT` case still kills hung sub-projects;
-  normal `subCancel` becomes a no-op. Two regression tests in
-  `meta_cancel_test.go` pin both branches.
+  normal `subCancel` becomes a no-op.
+- **`cleanStaleHostProcesses` honours an in-flight launcher
+  window.** When sub-project B's `raioz up` did a mode-A sibling
+  spawn back into sub-project A (already up by the meta), the
+  spawn's stale-host sweep read A's `.raioz.state.json` and
+  killed the `make` PID — provoking the "Terminado" mid-deploy
+  symptom the previous bullet was supposed to cover. The sweep
+  now short-circuits when `state.LastUp` is within
+  `host.LauncherWaitTimeout()` (default 60s) — that PID is
+  in-flight, not stale. Regression test in
+  `more_flows_test.go::TestCleanStaleHostProcessesSkipsRecentLastUp`.
+- **Ports flock released before sibling dispatch.** The global
+  ports flock used to wrap the entire `processOrchestration`
+  body via `defer`. A `project:` dep that triggered a mode-A
+  recursive `raioz up` (sibling spawn) would deadlock: the child
+  process is a separate fd and flock is per-fd, so it waited on
+  its parent forever. The lock is now scoped to a new helper
+  `allocatePortsLocked` that releases as soon as port allocation
+  + bind-conflict resolution finish — before any sibling dispatch
+  can reach into the project graph.
 
 ### Internal
 
