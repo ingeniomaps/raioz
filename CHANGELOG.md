@@ -4,6 +4,19 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.1](https://github.com/ingeniomaps/raioz/compare/v0.10.0...v0.10.1) (2026-05-18)
+
+
+### Performance
+
+* **meta:** skip redundant sibling spawn for meta-completed projects ([3ee05b4](https://github.com/ingeniomaps/raioz/commit/3ee05b44c48901eca8fe42abc4faa3cf1336f6ae))
+
+
+### Build
+
+* **ci:** allow manual trigger of release-please ([3dae51d](https://github.com/ingeniomaps/raioz/commit/3dae51d144b84b7a84f132e449eac9477ef07f6d))
+* **ci:** use RELEASE_PLEASE_TOKEN PAT ([25fae10](https://github.com/ingeniomaps/raioz/commit/25fae10bccf829ef799d4bc021c319ee8902a4e8))
+
 ## [Unreleased]
 
 ### Performance
