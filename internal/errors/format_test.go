@@ -71,7 +71,7 @@ func TestFormatMultipleErrors_Multiple(t *testing.T) {
 
 func TestAs_Nil(t *testing.T) {
 	var target *RaiozError
-	if As(nil, &target) {
+	if stderrors.As(nil, &target) {
 		t.Error("expected false for nil")
 	}
 }
@@ -79,7 +79,7 @@ func TestAs_Nil(t *testing.T) {
 func TestAs_Direct(t *testing.T) {
 	orig := New(ErrCodeInvalidConfig, "msg")
 	var target *RaiozError
-	if !As(orig, &target) {
+	if !stderrors.As(orig, &target) {
 		t.Error("expected true")
 	}
 	if target.Code != ErrCodeInvalidConfig {
@@ -92,7 +92,7 @@ func TestAs_Wrapped(t *testing.T) {
 	wrapped := fmt.Errorf("context: %w", inner)
 
 	var target *RaiozError
-	if !As(wrapped, &target) {
+	if !stderrors.As(wrapped, &target) {
 		t.Error("expected true for wrapped error")
 	}
 	if target.Code != ErrCodePortConflict {
@@ -102,7 +102,7 @@ func TestAs_Wrapped(t *testing.T) {
 
 func TestAs_NoMatch(t *testing.T) {
 	var target *RaiozError
-	if As(stderrors.New("plain"), &target) {
+	if stderrors.As(stderrors.New("plain"), &target) {
 		t.Error("expected false for non-raioz error")
 	}
 }
@@ -111,7 +111,7 @@ func TestRaiozError_Unwrap(t *testing.T) {
 	orig := stderrors.New("original")
 	err := New(ErrCodeInternalError, "wrapper").WithError(orig)
 
-	if err.Unwrap() != orig {
+	if !stderrors.Is(err.Unwrap(), orig) {
 		t.Error("Unwrap should return original error")
 	}
 }

@@ -1,24 +1,19 @@
 package errors
 
 import (
+	stderrs "errors"
 	"fmt"
 	"strings"
 )
 
-// FormatError formats an error for display with context and suggestions
+// FormatError formats an error for display with context and suggestions.
+// Returns the structured RaiozError view when err is (or wraps) one;
+// falls back to the default red-prefix display otherwise.
 func FormatError(err error) string {
-	// Check if it's a RaiozError
-	if raiozErr, ok := err.(*RaiozError); ok {
-		return raiozErr.Format()
-	}
-
-	// Check if it wraps a RaiozError
 	var raiozErr *RaiozError
-	if As(err, &raiozErr) {
+	if stderrs.As(err, &raiozErr) {
 		return raiozErr.Format()
 	}
-
-	// Default formatting for regular errors
 	return fmt.Sprintf("\033[31m[error]\033[0m %v\n", err)
 }
 
@@ -39,27 +34,4 @@ func FormatMultipleErrors(errs []error) string {
 	}
 
 	return result.String()
-}
-
-// As checks if an error matches the target type (similar to errors.As)
-func As(err error, target **RaiozError) bool {
-	if err == nil {
-		return false
-	}
-
-	if raiozErr, ok := err.(*RaiozError); ok {
-		*target = raiozErr
-		return true
-	}
-
-	// Check if error has Unwrap method (for wrapped errors)
-	type unwrapper interface {
-		Unwrap() error
-	}
-
-	if u, ok := err.(unwrapper); ok {
-		return As(u.Unwrap(), target)
-	}
-
-	return false
 }

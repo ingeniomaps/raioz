@@ -18,28 +18,8 @@
 #     | sed -E 's/^([^:]+:[0-9]+):.*$/\1/' \
 #     | sort
 #
-# Target: 0 entries. The baseline shrinks as touched files clean
-# up; new code never adds.
-internal/config/path_safety_test.go:107
-internal/config/path_safety_test.go:314
-internal/config/path_safety_test.go:46
-internal/config/path_safety_test.go:86
-internal/config/secret_scan_test.go:104
-internal/config/secret_scan_test.go:116
-internal/config/secret_scan_test.go:182
-internal/config/secret_scan_test.go:197
-internal/config/secret_scan_test.go:44
-internal/config/secret_scan_test.go:84
-internal/docker/images.go:36
-internal/docker/images_exposed_test.go:123
-internal/docker/network.go:116
-internal/docker/network.go:249
-internal/docker/volumes.go:249
-internal/errors/format.go:11
-internal/errors/format.go:50
-internal/errors/format_test.go:114
-internal/errors/recovery_test.go:39
-internal/errors/types_test.go:46
-internal/errors/types_test.go:49
-internal/orchestrate/dockerfile_runner.go:39
-internal/proxy/state_validate_test.go:68
+# Target: 0 entries. ACHIEVED 2026-05-18 (v0.9.1 errorlint drain).
+# New entries are not allowed — keep this list empty. If a real
+# need arises (e.g. a third-party type assertion that genuinely
+# can't be wrapped), re-introduce the offending line here AND
+# update this header to explain the exception.

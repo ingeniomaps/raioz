@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,8 +66,8 @@ func TestAssertProxyDirWritable_CaddyfileIsDirectory(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	rerr, ok := err.(*rerrors.RaiozError)
-	if !ok {
+	var rerr *rerrors.RaiozError
+	if !errors.As(err, &rerr) {
 		t.Fatalf("expected *RaiozError, got %T", err)
 	}
 	if rerr.Code != rerrors.ErrCodePermissionDenied {

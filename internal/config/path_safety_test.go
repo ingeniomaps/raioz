@@ -1,6 +1,7 @@
 package config
 
 import (
+	stderrors "errors"
 	"path/filepath"
 	"testing"
 
@@ -43,8 +44,8 @@ func TestCheckInsidePath_RejectsEscapes(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error for %q, got nil", p)
 			}
-			rerr, ok := err.(*errors.RaiozError)
-			if !ok {
+			var rerr *errors.RaiozError
+			if !stderrors.As(err, &rerr) {
 				t.Fatalf("expected *RaiozError, got %T", err)
 			}
 			if rerr.Code != errors.ErrCodeUnsafePath {
@@ -83,7 +84,10 @@ func TestCheckInsidePath_RejectsSystemDirs(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error for %q, got nil", tc.path)
 			}
-			rerr := err.(*errors.RaiozError)
+			var rerr *errors.RaiozError
+			if !stderrors.As(err, &rerr) {
+				t.Fatalf("expected *RaiozError, got %T", err)
+			}
 			if rerr.Code != errors.ErrCodeUnsafePath {
 				t.Errorf("expected UNSAFE_PATH, got %s", rerr.Code)
 			}
@@ -104,7 +108,10 @@ func TestCheckInsidePath_AbsoluteOutsideButNotSystem(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for absolute path outside project")
 	}
-	rerr := err.(*errors.RaiozError)
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) {
+		t.Fatalf("expected *RaiozError, got %T", err)
+	}
 	if rerr.Context["system_dir"] != nil {
 		t.Errorf("/tmp is not a system dir; expected nil, got %v", rerr.Context["system_dir"])
 	}
@@ -311,8 +318,8 @@ func TestValidatePathSafety_RejectsByField(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error, got nil")
 			}
-			rerr, ok := err.(*errors.RaiozError)
-			if !ok {
+			var rerr *errors.RaiozError
+			if !stderrors.As(err, &rerr) {
 				t.Fatalf("expected *RaiozError, got %T", err)
 			}
 			if rerr.Code != errors.ErrCodeUnsafePath {

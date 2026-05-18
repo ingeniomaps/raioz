@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -246,11 +247,10 @@ func VolumeExistsWithContext(ctx context.Context, name string) (bool, error) {
 	err := cmd.Run()
 
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if exitError.ExitCode() == 1 {
-				// Volume not found
-				return false, nil
-			}
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) && exitError.ExitCode() == 1 {
+			// Volume not found
+			return false, nil
 		}
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
 			return false, fmt.Errorf("volume inspect timed out after %v", exectimeout.DockerVolumeTimeout)

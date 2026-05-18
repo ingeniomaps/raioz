@@ -17,7 +17,7 @@ if [ ! -f "$baseline" ]; then
     exit 1
 fi
 
-declare -A allowed
+declare -A allowed=()
 while IFS= read -r line; do
     case "$line" in
         ''|'#'*) continue ;;
@@ -65,4 +65,5 @@ if [ -n "$stale" ]; then
     exit 1
 fi
 
-echo "✅ errorlint held to baseline (${#allowed[@]} entries)"
+count=${#allowed[@]}
+echo "✅ errorlint held to baseline (${count} entries)"

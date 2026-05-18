@@ -36,7 +36,7 @@ func TestSafeExecute_NoError(t *testing.T) {
 func TestSafeExecute_ReturnsError(t *testing.T) {
 	orig := stderrors.New("returned")
 	err := SafeExecute("test", func() error { return orig })
-	if err != orig {
+	if !stderrors.Is(err, orig) {
 		t.Errorf("expected returned error, got %v", err)
 	}
 }
@@ -70,7 +70,7 @@ func TestSafeExecute_PanicReturnsRaiozError(t *testing.T) {
 		panic("kaboom")
 	})
 	var target *RaiozError
-	if !As(err, &target) {
+	if !stderrors.As(err, &target) {
 		t.Fatal("expected RaiozError from panic")
 	}
 	if target.Code != ErrCodeInternalError {
