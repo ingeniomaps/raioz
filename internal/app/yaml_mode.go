@@ -45,7 +45,7 @@ func ResolveYAMLProject(deps *Dependencies, configPath string) *YAMLProject {
 		return nil
 	}
 
-	if cfgDeps.SchemaVersion != "2.0" {
+	if cfgDeps.SourceFormat != models.SourceFormatYAML {
 		return nil
 	}
 

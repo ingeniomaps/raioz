@@ -105,10 +105,8 @@ func MigrateComposeToDeps(
 func ValidateMigratedDeps(deps *models.Deps) []string {
 	var warnings []string
 
-	// Check for required fields
-	if deps.SchemaVersion != "1.0" {
-		warnings = append(warnings, fmt.Sprintf("Schema version should be '1.0', got '%s'", deps.SchemaVersion))
-	}
+	// SchemaVersion check removed: MigrateComposeToDeps unconditionally
+	// stamps "1.0", so the previous != "1.0" branch was dead code.
 
 	if deps.Project.Name == "" {
 		warnings = append(warnings, "Project name is required")

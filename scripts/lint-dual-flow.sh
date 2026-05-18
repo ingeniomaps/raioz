@@ -15,7 +15,7 @@ if [ ! -f "$baseline" ]; then
     exit 1
 fi
 
-declare -A allowed
+declare -A allowed=()
 while IFS= read -r line; do
     case "$line" in
         ''|'#'*) continue ;;
@@ -23,7 +23,7 @@ while IFS= read -r line; do
     allowed["$line"]=1
 done < "$baseline"
 
-declare -a current
+declare -a current=()
 while IFS= read -r f; do
     current+=("${f#./}")
 done < <(
@@ -53,7 +53,7 @@ for f in "${current[@]}"; do
     fi
 done
 
-declare -A currentSet
+declare -A currentSet=()
 for f in "${current[@]}"; do
     currentSet["$f"]=1
 done
@@ -70,6 +70,8 @@ fi
 if [ -n "$stale" ]; then
     echo "ℹ Baseline entries no longer detected — please prune:"
     echo "$stale"
+    exit 1
 fi
 
-echo "✅ dual-flow readers held to baseline (${#current[@]} entries)"
+count=${#current[@]}
+echo "✅ dual-flow readers held to baseline (${count} entries)"

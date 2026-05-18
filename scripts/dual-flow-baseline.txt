@@ -27,11 +27,8 @@
 #     | grep -v 'internal/domain/models/' \
 #     | grep -v 'internal/app/flow.go' | sort
 #
-# Target: all entries gone by v0.8 when ADR-038 retires the JSON
-# loader entirely. Until then, every PR that migrates a reader
-# shrinks this list by one.
-internal/app/down_orchestrated.go
-internal/app/upcase/docker.go
-internal/app/yaml_mode.go
-internal/production/migrate.go
-internal/validate/validate.go
+# Target: all entries gone. ACHIEVED 2026-05-18 (v0.9.1 dual-flow
+# drain). Five readers (down_orchestrated, upcase/docker, yaml_mode,
+# production/migrate, validate) all migrated to deps.SourceFormat
+# checks. Now that ADR-038 hard-errors on .raioz.json, every
+# SchemaVersion literal comparison in production code is gone.

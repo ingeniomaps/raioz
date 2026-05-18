@@ -10,6 +10,7 @@ import (
 
 	"raioz/internal/audit"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
@@ -35,7 +36,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		return nil // Cannot load config — fall through to legacy down
 	}
 
-	if deps.SchemaVersion != "2.0" {
+	if deps.SourceFormat != models.SourceFormatYAML {
 		return nil // Not a YAML project — fall through to legacy down
 	}
 

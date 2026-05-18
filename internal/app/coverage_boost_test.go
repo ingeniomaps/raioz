@@ -1015,6 +1015,7 @@ func TestCIUseCase_executeYAML_ServicePathNotFound(t *testing.T) {
 	proj := &YAMLProject{
 		Deps: &models.Deps{
 			SchemaVersion: "2.0",
+			SourceFormat:  models.SourceFormatYAML,
 			Project:       models.Project{Name: "proj"},
 			Network:       models.NetworkConfig{Name: "net"},
 			Services: map[string]models.Service{
@@ -1049,6 +1050,7 @@ func TestCIUseCase_executeYAML_PullSuccess(t *testing.T) {
 	proj := &YAMLProject{
 		Deps: &models.Deps{
 			SchemaVersion: "2.0",
+			SourceFormat:  models.SourceFormatYAML,
 			Project:       models.Project{Name: "proj"},
 			Network:       models.NetworkConfig{Name: "net"},
 			Services:      map[string]models.Service{},
@@ -1085,6 +1087,7 @@ func TestCIUseCase_executeYAML_PullFailure(t *testing.T) {
 	proj := &YAMLProject{
 		Deps: &models.Deps{
 			SchemaVersion: "2.0",
+			SourceFormat:  models.SourceFormatYAML,
 			Project:       models.Project{Name: "proj"},
 			Network:       models.NetworkConfig{Name: "net"},
 			Services:      map[string]models.Service{},
@@ -1116,6 +1119,7 @@ func TestCIUseCase_executeYAML_SkipPull(t *testing.T) {
 	proj := &YAMLProject{
 		Deps: &models.Deps{
 			SchemaVersion: "2.0",
+			SourceFormat:  models.SourceFormatYAML,
 			Project:       models.Project{Name: "proj"},
 			Network:       models.NetworkConfig{Name: "net"},
 			Services:      map[string]models.Service{},

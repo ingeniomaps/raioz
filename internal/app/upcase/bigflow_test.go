@@ -333,6 +333,7 @@ func TestPrepareDockerResourcesSuccess(t *testing.T) {
 	})
 	deps := &models.Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "test-net"},
 	}

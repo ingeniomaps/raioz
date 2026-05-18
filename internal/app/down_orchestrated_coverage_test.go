@@ -36,6 +36,7 @@ func TestDownUseCase_downOrchestrated_DeletesRootConfig(t *testing.T) {
 		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
 			return &models.Deps{
 				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
 				Project:       models.Project{Name: "test"},
 				Network:       models.NetworkConfig{Name: "testnet"},
 				Services:      map[string]models.Service{},
@@ -109,6 +110,7 @@ func TestDownUseCase_downOrchestrated_YAMLProject(t *testing.T) {
 		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
 			return &models.Deps{
 				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
 				Project:       models.Project{Name: "test"},
 				Network:       models.NetworkConfig{Name: "testnet"},
 				Services: map[string]models.Service{
@@ -149,6 +151,7 @@ func TestDownUseCase_downOrchestrated_NetworkNotInUse(t *testing.T) {
 		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
 			return &models.Deps{
 				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
 				Project:       models.Project{Name: "test"},
 				Network:       models.NetworkConfig{Name: "testnet"},
 				Services:      map[string]models.Service{},
@@ -186,6 +189,7 @@ func TestDownUseCase_downOrchestrated_ServiceWithStopCommand(t *testing.T) {
 		LoadDepsFunc: func(cp string) (*models.Deps, []string, error) {
 			return &models.Deps{
 				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
 				Project:       models.Project{Name: "test"},
 				Network:       models.NetworkConfig{},
 				Services: map[string]models.Service{
