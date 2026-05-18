@@ -84,6 +84,7 @@ func TestResolveYAMLProject_YAMLMode(t *testing.T) {
 				Project:       models.Project{Name: "yamlproj"},
 				Network:       models.NetworkConfig{Name: "yamlproj-net"},
 				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
 			}, nil, nil
 		},
 	}

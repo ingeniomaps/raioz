@@ -53,6 +53,7 @@ func TestInvalidConfigMissingRequiredFields(t *testing.T) {
 			name: "invalid schema version",
 			deps: &models.Deps{
 				SchemaVersion: "2.0", // Invalid, must be 1.0
+				SourceFormat:  models.SourceFormatYAML,
 				Project: models.Project{
 					Name: "test-project",
 				},

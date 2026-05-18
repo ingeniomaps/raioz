@@ -8,7 +8,7 @@ import (
 	"raioz/internal/app"
 	"raioz/internal/domain/models"
 	"raioz/internal/naming"
-	"raioz/internal/proxy"
+	"raioz/internal/netutil"
 
 	"github.com/spf13/cobra"
 )
@@ -90,12 +90,12 @@ Typical usage:
 // this command is producing a stable IP.
 func resolveProxyIPForHosts(deps *models.Deps) (string, error) {
 	if deps.ProxyConfig != nil && deps.ProxyConfig.IP != "" {
-		if err := proxy.ValidateProxyIP(deps.ProxyConfig.IP, deps.Network.GetSubnet()); err != nil {
+		if err := netutil.ValidateProxyIP(deps.ProxyConfig.IP, deps.Network.GetSubnet()); err != nil {
 			return "", err
 		}
 		return deps.ProxyConfig.IP, nil
 	}
-	if ip := proxy.DefaultProxyIP(deps.Network.GetSubnet()); ip != "" {
+	if ip := netutil.DefaultProxyIP(deps.Network.GetSubnet()); ip != "" {
 		return ip, nil
 	}
 	return "", fmt.Errorf(
@@ -125,7 +125,7 @@ func proxiedHostnamesFromConfig(deps *models.Deps) []string {
 		if entry.Inline == nil {
 			continue
 		}
-		if entry.Inline.Routing == nil && proxy.IsNonHTTPImage(entry.Inline.Image) {
+		if entry.Inline.Routing == nil && netutil.IsNonHTTPImage(entry.Inline.Image) {
 			continue
 		}
 		hosts = append(hosts, name+"."+domain)

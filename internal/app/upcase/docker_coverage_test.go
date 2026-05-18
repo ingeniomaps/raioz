@@ -55,6 +55,7 @@ func TestPrepareDockerResourcesWithVolumes(t *testing.T) {
 
 	deps := &models.Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
 		Infra: map[string]models.InfraEntry{
@@ -97,6 +98,7 @@ func TestPrepareDockerResourcesVolumeExtractError(t *testing.T) {
 
 	deps := &models.Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
 		Infra: map[string]models.InfraEntry{
@@ -136,6 +138,7 @@ func TestPrepareDockerResourcesVolumeNormalizeError(t *testing.T) {
 
 	deps := &models.Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
 		Infra: map[string]models.InfraEntry{
@@ -178,6 +181,7 @@ func TestPrepareDockerResourcesVolumeEnsureError(t *testing.T) {
 
 	deps := &models.Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
 		Infra: map[string]models.InfraEntry{
@@ -221,6 +225,7 @@ func TestPrepareDockerResourcesServiceVolumeExtractError(t *testing.T) {
 
 	deps := &models.Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
 		Services: map[string]models.Service{
@@ -295,6 +300,7 @@ func TestPrepareDockerResourcesYAMLSchemaNoAsk(t *testing.T) {
 
 	deps := &models.Deps{
 		SchemaVersion: "2.0", // YAML
+		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
 	}

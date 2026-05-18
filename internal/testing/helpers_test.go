@@ -108,7 +108,7 @@ func TestCreateTestDepsJSON(t *testing.T) {
 	}
 
 	// Try to load it back
-	loaded, _, err := config.LoadDeps(depsPath)
+	loaded, _, err := config.LoadDepsForMigration(depsPath)
 	if err != nil {
 		t.Fatalf("Failed to load created .raioz.json: %v", err)
 	}

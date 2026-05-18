@@ -46,8 +46,11 @@ func DetectAssistedServiceDrift(rootConfig *RootConfig, ws *workspace.Workspace)
 			continue // Service doesn't have .raioz.json, skip
 		}
 
-		// Load service .raioz.json
-		serviceDeps, _, err := config.LoadDeps(serviceConfigPath)
+		// Load service .raioz.json via the migration-only loader.
+		// Drift detection is read-only diagnostics; the hard-error
+		// gate at config.LoadDeps protects start-up flows, not these
+		// scans (ADR-038).
+		serviceDeps, _, err := config.LoadDepsForMigration(serviceConfigPath)
 		if err != nil {
 			// Failed to load service config, skip (non-fatal)
 			continue

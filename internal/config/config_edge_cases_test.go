@@ -18,7 +18,7 @@ func TestLoadDeps_InvalidJSON(t *testing.T) {
 		path := filepath.Join(tmpDir, "malformed.json")
 		os.WriteFile(path, []byte("{ invalid json }"), 0644)
 
-		_, _, err := config.LoadDeps(path)
+		_, _, err := config.LoadDepsForMigration(path)
 		if err == nil {
 			t.Error("Expected error for malformed JSON, got nil")
 		}
@@ -28,7 +28,7 @@ func TestLoadDeps_InvalidJSON(t *testing.T) {
 		path := filepath.Join(tmpDir, "syntax-error.json")
 		os.WriteFile(path, []byte(`{"schemaVersion": "1.0", "project": {`), 0644)
 
-		_, _, err := config.LoadDeps(path)
+		_, _, err := config.LoadDepsForMigration(path)
 		if err == nil {
 			t.Error("Expected error for JSON syntax error, got nil")
 		}
@@ -38,14 +38,14 @@ func TestLoadDeps_InvalidJSON(t *testing.T) {
 		path := filepath.Join(tmpDir, "empty.json")
 		os.WriteFile(path, []byte(""), 0644)
 
-		_, _, err := config.LoadDeps(path)
+		_, _, err := config.LoadDepsForMigration(path)
 		if err == nil {
 			t.Error("Expected error for empty file, got nil")
 		}
 	})
 
 	t.Run("non-existent file", func(t *testing.T) {
-		_, _, err := config.LoadDeps("/tmp/non-existent-deps-12345.json")
+		_, _, err := config.LoadDepsForMigration("/tmp/non-existent-deps-12345.json")
 		if err == nil {
 			t.Error("Expected error when loading non-existent file, got nil")
 		}
@@ -61,7 +61,7 @@ func TestLoadDeps_MissingRequiredFields(t *testing.T) {
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
 		// Loading may succeed; validation catches missing name
-		_, _, _ = config.LoadDeps(depsPath)
+		_, _, _ = config.LoadDepsForMigration(depsPath)
 	})
 
 	t.Run("missing network", func(t *testing.T) {
@@ -69,7 +69,7 @@ func TestLoadDeps_MissingRequiredFields(t *testing.T) {
 		deps.Network = models.NetworkConfig{Name: "", IsObject: false}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-		_, _, _ = config.LoadDeps(depsPath)
+		_, _, _ = config.LoadDepsForMigration(depsPath)
 	})
 }
 
@@ -83,7 +83,7 @@ func TestLoadDeps_InvalidServiceConfig(t *testing.T) {
 		}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-		loaded, _, err := config.LoadDeps(depsPath)
+		loaded, _, err := config.LoadDepsForMigration(depsPath)
 		if err != nil {
 			t.Fatalf("Load should succeed even with invalid config: %v", err)
 		}
@@ -97,7 +97,7 @@ func TestLoadDeps_InvalidServiceConfig(t *testing.T) {
 		}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-		loaded, _, err := config.LoadDeps(depsPath)
+		loaded, _, err := config.LoadDepsForMigration(depsPath)
 		if err != nil {
 			t.Fatalf("Load should succeed: %v", err)
 		}
@@ -113,7 +113,7 @@ func TestLoadDeps_EmptyValues(t *testing.T) {
 		deps.Services = map[string]models.Service{}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-		loaded, _, err := config.LoadDeps(depsPath)
+		loaded, _, err := config.LoadDepsForMigration(depsPath)
 		if err != nil {
 			t.Fatalf("Failed to load deps: %v", err)
 		}
@@ -127,7 +127,7 @@ func TestLoadDeps_EmptyValues(t *testing.T) {
 		deps.Infra = map[string]models.InfraEntry{}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-		loaded, _, err := config.LoadDeps(depsPath)
+		loaded, _, err := config.LoadDepsForMigration(depsPath)
 		if err != nil {
 			t.Fatalf("Failed to load deps: %v", err)
 		}
@@ -141,7 +141,7 @@ func TestLoadDeps_EmptyValues(t *testing.T) {
 		deps.Env.Files = []string{}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-		loaded, _, err := config.LoadDeps(depsPath)
+		loaded, _, err := config.LoadDepsForMigration(depsPath)
 		if err != nil {
 			t.Fatalf("Failed to load deps: %v", err)
 		}
@@ -165,7 +165,7 @@ func TestLoadDeps_SpecialCharacters(t *testing.T) {
 		}
 		depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-		loaded, _, err := config.LoadDeps(depsPath)
+		loaded, _, err := config.LoadDepsForMigration(depsPath)
 		if err != nil {
 			t.Fatalf("Load failed: %v", err)
 		}
@@ -189,7 +189,7 @@ func TestLoadDeps_VeryLongServiceName(t *testing.T) {
 	}
 	depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-	loaded, _, err := config.LoadDeps(depsPath)
+	loaded, _, err := config.LoadDepsForMigration(depsPath)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestLoadDeps_UnicodeCharacters(t *testing.T) {
 	deps.Network = models.NetworkConfig{Name: "test-network-网络", IsObject: false}
 	depsPath, _ := testhelpers.CreateTestDepsJSON(tmpDir, deps)
 
-	loaded, _, err := config.LoadDeps(depsPath)
+	loaded, _, err := config.LoadDepsForMigration(depsPath)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -240,7 +240,7 @@ func TestLoadDeps_PortConflicts(t *testing.T) {
 		t.Fatalf("Failed to create test .raioz.json: %v", err)
 	}
 
-	loaded, _, err := config.LoadDeps(depsPath)
+	loaded, _, err := config.LoadDepsForMigration(depsPath)
 	if err != nil {
 		t.Fatalf("Failed to load deps: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestLoadDeps_WithInvalidSchema(t *testing.T) {
 		t.Fatalf("Failed to create malformed .raioz.json: %v", err)
 	}
 
-	_, _, err = config.LoadDeps(malformedPath)
+	_, _, err = config.LoadDepsForMigration(malformedPath)
 	if err == nil {
 		t.Error("Expected error when loading malformed JSON, got nil")
 	}
@@ -268,5 +268,5 @@ func TestLoadDeps_WithInvalidSchema(t *testing.T) {
 	}
 
 	// Loading should succeed; validation catches schema errors
-	_, _, _ = config.LoadDeps(invalidPath)
+	_, _, _ = config.LoadDepsForMigration(invalidPath)
 }

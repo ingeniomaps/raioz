@@ -148,15 +148,20 @@ Path forward is integration tests under a real Docker daemon, not
 more unit tests — most pure-function gaps already closed. Bump
 `COVERAGE_THRESHOLD` to 80 once the integration suite lands.
 
-### Release automation
+### Release automation (shipped, v0.9.1)
 
-The release flow today is manual: PR develop → main, merge, tag,
-goreleaser fires. A `release-please` integration would automate the
-version bump + CHANGELOG promotion + tag creation by opening a PR on
-every merge to `main`, with conventional-commits driving the version
-bump decision. Sized as a single PR; biggest open question is whether
-to keep the `[Unreleased]` block hand-edited or let release-please
-own it end-to-end.
+`release-please` watches pushes to `main` and opens a "release PR"
+that bumps the version in `.release-please-manifest.json`, prepends
+a CHANGELOG entry generated from conventional commits, and on merge
+creates the `v<X.Y.Z>` tag — which fires `release.yml` → goreleaser
+as before. Configuration lives in `release-please-config.json`
+(`release-type: go`, `bump-minor-pre-major: true`, curated
+changelog sections). The existing `[Unreleased]` block stays as
+the hand-written cut for releases prepared before release-please
+landed; release-please prepends new versioned entries above it.
+
+Manual fallback path still works — the workflow only opens PRs, it
+doesn't replace `git tag` if a release must ship out-of-band.
 
 ## Future (unscheduled)
 

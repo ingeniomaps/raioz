@@ -16,21 +16,7 @@
 #       --include="*.go" | grep -v _test.go | cut -d: -f1 \
 #       | sort | uniq -c | sort -rn
 #
-internal/app/yaml_commands.go:5
-internal/app/list.go:5
-internal/app/status_orchestrated.go:4
-internal/app/init_scan.go:4
-internal/app/dev.go:4
-internal/app/upcase/watch_setup.go:3
-internal/app/down_proxy.go:3
-internal/cli/tunnel.go:2
-internal/cli/snapshot.go:2
-internal/app/yaml_check.go:2
-internal/app/upcase/log_stream.go:2
-internal/app/status_output.go:2
-internal/app/down_orchestrated.go:2
-internal/config/auto_detect.go:1
-internal/cli/migrate_yaml.go:1
-internal/cli/migrate.go:1
-internal/app/upcase/infra_health.go:1
-internal/app/down_compose.go:1
+# Target: 0 entries. ACHIEVED 2026-05-18 (v0.9.1 i18n-source drain).
+# All raw English literals in output.Print* calls migrated to i18n.T().
+# New entries are not allowed — every user-facing string must go through
+# the catalogs (ADR-027).

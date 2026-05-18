@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -120,7 +121,7 @@ func TestGetImageExposedPort_CachesErrors(t *testing.T) {
 	exposedPortCache.Store("bogus:latest", exposedPortEntry{port: 0, err: sentinel})
 
 	_, err := GetImageExposedPort(context.Background(), "bogus:latest")
-	if err != sentinel {
+	if !errors.Is(err, sentinel) {
 		t.Errorf("expected cached sentinel error, got %v", err)
 	}
 }

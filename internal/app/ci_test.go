@@ -108,6 +108,7 @@ func TestCIUseCase_Execute_YAMLValidateOnly(t *testing.T) {
 				Project:       models.Project{Name: "yaml-proj"},
 				Network:       models.NetworkConfig{Name: "net"},
 				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
 				Services:      map[string]models.Service{},
 				Infra: map[string]models.InfraEntry{
 					"redis": {Inline: &models.Infra{Image: "redis:7"}},
@@ -138,6 +139,7 @@ func TestCIUseCase_Execute_YAMLMissingImage(t *testing.T) {
 				Project:       models.Project{Name: "yaml-proj"},
 				Network:       models.NetworkConfig{Name: "net"},
 				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
 				Services:      map[string]models.Service{},
 				Infra: map[string]models.InfraEntry{
 					"redis": {Inline: &models.Infra{Image: ""}},

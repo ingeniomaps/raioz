@@ -10,6 +10,7 @@ import (
 
 	"raioz/internal/audit"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
@@ -35,7 +36,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		return nil // Cannot load config — fall through to legacy down
 	}
 
-	if deps.SchemaVersion != "2.0" {
+	if deps.SourceFormat != models.SourceFormatYAML {
 		return nil // Not a YAML project — fall through to legacy down
 	}
 
@@ -75,7 +76,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		}
 	}()
 
-	output.PrintProgress("Stopping project " + projectName + "...")
+	output.PrintProgress(i18n.T("output.stopping_project", projectName))
 
 	// Custom `stop:` runs first — only it knows how to tear down whatever
 	// `command:` launched (e.g. `make start` → its own compose project).
@@ -228,7 +229,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		}
 	}
 
-	output.PrintSuccess("Project '" + projectName + "' stopped")
+	output.PrintSuccess(i18n.T("output.project_stopped_basic", projectName))
 	return nil
 }
 

@@ -392,6 +392,7 @@ func TestBootstrapOverridesError(t *testing.T) {
 	initI18nUp(t)
 	deps := &models.Deps{
 		SchemaVersion: "2.0",
+		SourceFormat:  models.SourceFormatYAML,
 		Workspace:     "myws",
 		Project:       models.Project{Name: "p"},
 		Services:      map[string]models.Service{},

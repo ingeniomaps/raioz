@@ -13,6 +13,7 @@ const (
 	ErrCodeInvalidField     ErrorCode = "INVALID_FIELD"
 	ErrCodeSecretInYAML     ErrorCode = "SECRET_IN_YAML" // #nosec G101 -- error code name, not a credential
 	ErrCodeUnsafePath       ErrorCode = "UNSAFE_PATH"
+	ErrCodeLegacyJSONFormat ErrorCode = "LEGACY_JSON_FORMAT"
 
 	// Docker errors
 	ErrCodeDockerNotInstalled ErrorCode = "DOCKER_NOT_INSTALLED"

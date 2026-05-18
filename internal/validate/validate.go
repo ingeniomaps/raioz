@@ -18,9 +18,9 @@ import (
 var profileNameRegex = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 func All(deps *models.Deps) error {
-	// JSON Schema validation — only for legacy .raioz.json (schemaVersion "1.0")
-	// YAML configs (schemaVersion "2.0") are validated at load time by yaml_loader.go
-	if deps.SchemaVersion != "2.0" {
+	// JSON Schema validation — only for legacy .raioz.json.
+	// YAML configs are validated at load time by yaml_loader.go.
+	if deps.SourceFormat != models.SourceFormatYAML {
 		if err := validateSchema(deps); err != nil {
 			return err
 		}

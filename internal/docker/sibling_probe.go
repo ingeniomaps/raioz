@@ -22,10 +22,20 @@ import (
 // share docker networks anyway, so a name collision between a worskpace
 // and a workspace-less project would never occur in practice.
 //
+// `fallbackContainerNames` covers the launcher-pattern gap: services
+// whose `command:` shells out to make / docker compose produce
+// containers without raioz labels, so the label probe misses them. The
+// caller (sibling_dispatch) passes `proxy.target` values declared in
+// the sibling yaml — if the label probe is empty AND any of those
+// names resolves to a running container, the sibling counts as
+// active. See docs/issues/020.
+//
 // Errors are propagated unchanged; callers (the orchestrator) decide
 // fail-policy. We do NOT fail-open here — a docker outage is its own bug
 // to surface, not a reason to silently spawn the sibling unnecessarily.
-func IsProjectActive(ctx context.Context, workspace, project string) (bool, error) {
+func IsProjectActive(ctx context.Context, workspace, project string,
+	fallbackContainerNames ...string,
+) (bool, error) {
 	if project == "" {
 		return false, fmt.Errorf("project name is required")
 	}
@@ -55,5 +65,45 @@ func IsProjectActive(ctx context.Context, workspace, project string) (bool, erro
 		return false, wrapDaemonError("docker ps", out, err)
 	}
 
-	return strings.TrimSpace(string(out)) != "", nil
+	if strings.TrimSpace(string(out)) != "" {
+		return true, nil
+	}
+
+	return probeByContainerNames(ctx, fallbackContainerNames)
+}
+
+// probeByContainerNames queries `docker ps` by exact name match for
+// each candidate. Returns true on the first running hit; absent or
+// stopped containers don't count. Empty input returns (false, nil) —
+// a sibling without proxy.target hints in its yaml just relies on the
+// label probe.
+func probeByContainerNames(ctx context.Context, names []string) (bool, error) {
+	if len(names) == 0 {
+		return false, nil
+	}
+	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(
+		ctx, exectimeout.DockerInspectTimeout)
+	defer cancel()
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(),
+			"ps", "--filter", "name=^"+name+"$",
+			"--filter", "status=running",
+			"--format", "{{.Names}}")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			if exectimeout.IsTimeoutError(timeoutCtx, err) {
+				return false, fmt.Errorf(
+					"docker ps (launcher fallback) timed out after %v",
+					exectimeout.DockerInspectTimeout)
+			}
+			return false, wrapDaemonError("docker ps", out, err)
+		}
+		if strings.TrimSpace(string(out)) != "" {
+			return true, nil
+		}
+	}
+	return false, nil
 }

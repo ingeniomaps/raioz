@@ -27,7 +27,7 @@ func loadDepsForMigration(project string) (*models.Deps, []string, error) {
 		filepath.Join(".", "deps.json"),
 	}
 	for _, p := range candidates {
-		if deps, warnings, err := config.LoadDeps(p); err == nil {
+		if deps, warnings, err := config.LoadDepsForMigration(p); err == nil {
 			return deps, warnings, nil
 		}
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"os/exec"
 
-	"raioz/internal/proxy"
 	"raioz/internal/runtime"
 )
 
@@ -26,8 +25,11 @@ func (uc *DoctorUseCase) checkCaddy(_ context.Context) DoctorCheck {
 }
 
 // checkMkcert verifies that mkcert is installed for local HTTPS.
+// Inlines the binary lookup so this file does not import the proxy
+// package (ADR-029) — proxy.HasMkcert remains as the canonical helper
+// for callers already inside the proxy package.
 func (uc *DoctorUseCase) checkMkcert(_ context.Context) DoctorCheck {
-	if !proxy.HasMkcert() {
+	if _, err := exec.LookPath("mkcert"); err != nil {
 		return DoctorCheck{
 			Name:    "mkcert",
 			Status:  "warning",

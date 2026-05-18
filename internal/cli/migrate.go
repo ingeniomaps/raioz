@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/production"
 
@@ -98,7 +99,7 @@ var migrateCmd = &cobra.Command{
 		if len(warnings) > 0 {
 			output.PrintWarning(fmt.Sprintf("Generated with %d warnings. Please review and adjust.", len(warnings)))
 		} else {
-			output.PrintSuccess("Migration completed successfully!")
+			output.PrintSuccess(i18n.T("output.migrate_success"))
 		}
 
 		return nil

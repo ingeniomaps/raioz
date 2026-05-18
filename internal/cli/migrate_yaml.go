@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 
 	"gopkg.in/yaml.v3"
@@ -26,8 +27,11 @@ var migrateYAMLCmd = &cobra.Command{
 			from = ".raioz.json"
 		}
 
-		// Load old config
-		deps, _, err := config.LoadDeps(from)
+		// Load old config via the migration-only loader. config.LoadDeps
+		// itself hard-errors on .raioz.json since v0.9 (ADR-038); the
+		// migration command keeps a dedicated parsing path because it
+		// IS the way users get off the legacy format.
+		deps, _, err := config.LoadDepsForMigration(from)
 		if err != nil {
 			return fmt.Errorf("failed to load %s: %w", from, err)
 		}
@@ -51,7 +55,7 @@ var migrateYAMLCmd = &cobra.Command{
 		}
 
 		output.PrintSuccess(fmt.Sprintf("Generated %s from %s", out, from))
-		output.PrintInfo("You can now delete " + from + " when ready")
+		output.PrintInfo(i18n.T("output.migrate_yaml_delete_hint", from))
 		return nil
 	},
 }

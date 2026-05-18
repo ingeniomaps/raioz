@@ -346,13 +346,22 @@ func (m *MetaRunner) resolveBinary() (string, error) {
 
 // buildSubCmd constructs the *exec.Cmd for a sub-project invocation.
 // Split out from runSingle so tests can inspect SysProcAttr without
-// running the binary.
+// running the binary. cmd.Cancel is overridden to fire Kill ONLY on
+// context.DeadlineExceeded — the manual subCancel deferred at the
+// end of runSingle would otherwise race against launcher grandchildren
+// the sub already detached (issue 020-meta).
 func (m *MetaRunner) buildSubCmd(
 	ctx context.Context, binary, subCmd string, p config.MetaProject,
 	extraArgs, extraEnv []string, stdout, stderr *os.File,
 ) *exec.Cmd {
 	args := append([]string{subCmd}, extraArgs...)
 	cmd := exec.CommandContext(ctx, binary, args...)
+	cmd.Cancel = func() error {
+		if ctx.Err() == context.DeadlineExceeded {
+			return cmd.Process.Kill()
+		}
+		return nil
+	}
 	cmd.Dir = p.Path
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr

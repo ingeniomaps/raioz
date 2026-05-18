@@ -28,14 +28,10 @@ type ImageRunner struct {
 	docker interfaces.DockerRunner
 }
 
-// DepComposeProjectName returns the docker compose project name used to scope
-// a dependency. Format: raioz-<project>-dep-<name>. The "dep-" infix avoids
-// collisions with service compose project names produced by ComposeRunner.
-// Exported because downOrchestrated needs the same value to tear down what the
-// runner created.
-func DepComposeProjectName(projectName, depName string) string {
-	return naming.GetPrefix() + "-" + projectName + "-dep-" + depName
-}
+// DepComposeProjectName re-exported for backwards compatibility with callers
+// that already import this package. Canonical home is naming.DepComposeProjectName
+// (moved per ADR-029 to keep app/cli off this package).
+var DepComposeProjectName = naming.DepComposeProjectName
 
 // Start pulls the image and runs it via a generated compose file. When the
 // target container already exists in a running state (typical for shared

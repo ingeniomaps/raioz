@@ -1,6 +1,7 @@
 package config
 
 import (
+	stderrors "errors"
 	"strings"
 	"testing"
 
@@ -41,8 +42,8 @@ func TestScanForSecrets_PositiveMatches(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected match for %s but got nil", tc.name)
 			}
-			rerr, ok := err.(*errors.RaiozError)
-			if !ok {
+			var rerr *errors.RaiozError
+			if !stderrors.As(err, &rerr) {
 				t.Fatalf("expected *RaiozError, got %T", err)
 			}
 			if rerr.Code != errors.ErrCodeSecretInYAML {
@@ -81,7 +82,8 @@ func TestScanForSecrets_NeverLeaksSecret(t *testing.T) {
 				t.Errorf("error message leaks the secret literal: %q", msg)
 			}
 			// Also check that the context map values don't contain it.
-			if rerr, ok := err.(*errors.RaiozError); ok {
+			var rerr *errors.RaiozError
+			if stderrors.As(err, &rerr) {
 				for k, v := range rerr.Context {
 					if s, ok := v.(string); ok && strings.Contains(s, secret) {
 						t.Errorf("context[%q] leaks the secret: %q", k, s)
@@ -101,7 +103,10 @@ func TestScanForSecrets_LineNumber(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected match")
 	}
-	rerr := err.(*errors.RaiozError)
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) {
+		t.Fatalf("expected *RaiozError, got %T", err)
+	}
 	if got := rerr.Context["line"]; got != 3 {
 		t.Errorf("expected line 3, got %v", got)
 	}
@@ -113,7 +118,10 @@ func TestScanForSecrets_LineNumberFirstLine(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected match")
 	}
-	rerr := err.(*errors.RaiozError)
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) {
+		t.Fatalf("expected *RaiozError, got %T", err)
+	}
 	if got := rerr.Context["line"]; got != 1 {
 		t.Errorf("expected line 1, got %v", got)
 	}
@@ -179,7 +187,10 @@ func TestScanForSecrets_PEMInCommentStillMatches(t *testing.T) {
 	if err == nil {
 		t.Fatal("PEM marker in comment must still trigger detection")
 	}
-	rerr := err.(*errors.RaiozError)
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) {
+		t.Fatalf("expected *RaiozError, got %T", err)
+	}
 	if rerr.Context["pattern"] != "PEM private key" {
 		t.Errorf("expected PEM private key, got %v", rerr.Context["pattern"])
 	}
@@ -194,7 +205,10 @@ func TestScanForSecrets_ReturnsFirstMatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected match")
 	}
-	rerr := err.(*errors.RaiozError)
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) {
+		t.Fatalf("expected *RaiozError, got %T", err)
+	}
 	if rerr.Code != errors.ErrCodeSecretInYAML {
 		t.Errorf("expected SECRET_IN_YAML, got %s", rerr.Code)
 	}

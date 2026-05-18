@@ -48,7 +48,7 @@ func TestLoadDeps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	deps, _, err := LoadDeps(tmpfile.Name())
+	deps, _, err := LoadDepsForMigration(tmpfile.Name())
 	if err != nil {
 		t.Fatalf("LoadDeps failed: %v", err)
 	}

@@ -6,6 +6,176 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-18
+
+Ratchet graduation + ADR-038 closure. Three baselines (errorlint,
+dual-flow, i18n-source) drained to zero in this cycle; the JSON
+hard-error finally lands two releases after target; release-please
+automation goes online. Theme: close out v0.9.0's deferred work
+plus the long-tail ratchet debt that survived the architecture
+review.
+
+### Added
+
+- **`release-please` automation.** Pushes to `main` open a release
+  PR with a CHANGELOG entry generated from conventional commits;
+  merging that PR creates the `v<X.Y.Z>` tag and fires the
+  existing goreleaser pipeline. Configuration in
+  `release-please-config.json` (release-type: go,
+  `bump-minor-pre-major: true`, curated changelog sections);
+  manifest in `.release-please-manifest.json`. The first release
+  it auto-cuts will be v0.10.1+.
+- **ADR-047 hygiene-rules catalog.** The two "Hygiene rule, no
+  ADR — paired with issue NNN" entries in CLAUDE.md (host-gateway
+  injection, atomic state writes) move into a discoverable ADR
+  with the rationale, enforcement mechanism, and a threshold
+  section for when a rule warrants a dedicated ADR vs the
+  catalog. CLAUDE.md keeps the one-paragraph entries but each now
+  links into `ADR-047 § H-N`.
+- **`internal/testing/chaos/doc.go`.** Names the per-package
+  vs cross-package test convention so a future contributor finds
+  the policy without re-deriving it from existing tests.
+- **Equivalence test for `defaultProxyIPLocal`.**
+  `internal/app/meta_router_handoff_equivalence_test.go` pins
+  `app.defaultProxyIPLocal` to agree with `proxy.DefaultProxyIP`
+  for every documented input — the drift guard the inline comment
+  in `meta_router_handoff.go` references. Test files are exempt
+  from the ADR-029 import ratchet, so importing `proxy` here does
+  not grow the baseline.
+- **`naming.DepComposeProjectName`.** Canonical home for the
+  docker compose project name used to scope dependencies (was
+  `orchestrate.DepComposeProjectName`); the orchestrate package
+  keeps a var-alias for backwards compat.
+
+### Changed
+
+- **`raioz up --audit-siblings` is now transitive.** Was direct-
+  only (v0.8.2): the preflight scanned the consumer's immediate
+  sibling deps and the meta router/sub-projects. Now a
+  breadth-first walk keyed by absolute yaml path follows
+  `project:` / `siblingProject:` recursively, so every sibling
+  reachable from the run gets H1 secret scan + H2 path safety +
+  H3 strict image pinning before any spawn. Cycles terminate via
+  the visited set. Implementation: rewritten
+  `internal/app/upcase/audit_siblings.go`. ADR-040 updated.
+- **BREAKING: `.raioz.json` is no longer loaded** (ADR-038, v0.9
+  graduation slipped to v0.9.0, finally landed here). `LoadDeps`
+  returns a typed `*RaiozError` with code `ErrCodeLegacyJSONFormat`
+  on any `.raioz.json` input. Message and suggestion both name
+  `raioz migrate yaml`. Parser logic moves to
+  `LoadDepsForMigration` — the only surface that still reads the
+  legacy format, consumed by `raioz migrate yaml` and the
+  read-only diagnostic scans in `config.dependency_assist` and
+  `root.drift`. The v0.7/v0.8 once-per-process warning banner is
+  gone; field-level deprecation warnings inside
+  `config.deprecated` are unaffected.
+- **`internal/proxy` lock + rename primitives migrated to
+  `internal/fsutil`.** `proxy/workspace_lock.go` now calls
+  `fsutil.FileLockExclusive` / `FileUnlock`;
+  `proxy/routes_persist.go` calls `fsutil.RenameWithRetry`. The
+  four per-OS files (`workspace_lock_{unix,windows}.go`,
+  `rename_{unix,windows}.go`) are deleted — one source of truth
+  per platform now lives in `fsutil`.
+- **Dual-flow drain.** Five production readers
+  (`down_orchestrated`, `upcase/docker`, `yaml_mode`, `validate`,
+  `production/migrate`) migrate from `SchemaVersion == "2.0"`
+  literal comparisons to `deps.SourceFormat == models.SourceFormatYAML`
+  (ADR-039). The redundant `!= "1.0"` validation in
+  `production/migrate.go` (provably dead given the writer) is
+  removed. Test fixtures across 9 files now also stamp
+  `SourceFormatYAML` alongside `SchemaVersion`.
+
+### Refactor
+
+- **Resolve Unix-shell skips in `internal/infra/exec` tests.**
+  Nine tests guarded by `runtime.GOOS == "windows"` t.Skip() now
+  live in `os_impl_unix_test.go` behind `//go:build !windows`;
+  a new `os_impl_windows_test.go` covers the same surface with
+  cmd.exe equivalents (`cmd /c exit`, `findstr "x*"` as the
+  cat-substitute, `timeout` instead of sleep). ADR-030 Windows
+  CI now exercises the wrapper on real Windows; Linux CI loses
+  no coverage.
+- **Strengthen `CheckWorkspacePermissions_Unwritable` test.**
+  Was a no-assertion smoke that just called the function with
+  `/root/...` and discarded the result. Now uses a `t.TempDir`
+  + `chmod 0o500` to create a verifiable unwritable parent and
+  asserts an error. Root-skip kept (POSIX chmod doesn't restrict
+  root) with the rationale spelled out in the skip message.
+- **`errorlint` baseline drained to zero.** 23 sites migrated to
+  `errors.Is` / `errors.As` / `%w`. The custom `errors.As` shim
+  in `internal/errors/format.go` is deleted — Go 1.13's stdlib
+  `errors.As` covers the same surface, with zero external
+  callers.
+- **i18n-source baseline drained to zero.** 45 raw English
+  literals in `output.Print*` calls across 19 files now route
+  through `i18n.T()`. ~42 new keys land in `en.json` + `es.json`.
+- **Five app-infra baseline entries drained** (ADR-029) via the
+  new `internal/netutil` package. `CheckPortInUse`,
+  `DefaultProxyIP`, `ValidateProxyIP`, and `IsNonHTTPImage` move
+  to netutil; `DepComposeProjectName` relocates to `naming`;
+  doctor's mkcert check inlines `exec.LookPath`. The duplicated
+  `defaultProxyIPLocal` in `meta_router_handoff.go` (with its
+  cross-package equivalence test) collapses now that the app
+  layer can import netutil directly. Remaining 17 entries need
+  port plumbing beyond the opportunistic scope.
+
+### Fixed
+
+- **`local_commands.HandleLocalProjectDown` switches to
+  YAML-only.** Used `config.LoadDeps` directly; now uses
+  `config.IsYAMLConfig` + `LoadDepsFromYAML` so JSON projects
+  fail through to the caller's original error rather than the
+  always-true `loadErr != nil` branch the hard-error created.
+- **Sibling-probe no longer misses launcher-pattern containers.**
+  Services whose `command:` shells out to make / docker compose
+  create containers without raioz labels, so the label-based
+  `docker.IsProjectActive` returned false even when the sibling
+  was up. In meta-orchestrator mode the consumer then triggered a
+  redundant recursive spawn that deadlocked against the existing
+  container and timed out via `RAIOZ_META_SUB_TIMEOUT`. The probe
+  now accepts variadic `fallbackContainerNames`; sibling-dispatch
+  passes the `services.<n>.proxy.target` values harvested by the
+  new `SiblingInfo.ProxyTargets` collector. Label probe stays the
+  fast path; the name-based fallback only fires when labels return
+  empty.
+- **Meta runner no longer kills the previous sub's launcher when
+  advancing.** `exec.CommandContext` defaults `cmd.Cancel` to
+  `Process.Kill`, which fires whenever the bound ctx is canceled
+  — including the normal-path `subCancel` deferred at the end of
+  `runSingle`. The meta runner now overrides `cmd.Cancel` to
+  invoke `Process.Kill` ONLY when
+  `ctx.Err() == context.DeadlineExceeded`. The genuine
+  `RAIOZ_META_SUB_TIMEOUT` case still kills hung sub-projects;
+  normal `subCancel` becomes a no-op.
+- **`cleanStaleHostProcesses` honours an in-flight launcher
+  window.** When sub-project B's `raioz up` did a mode-A sibling
+  spawn back into sub-project A (already up by the meta), the
+  spawn's stale-host sweep read A's `.raioz.state.json` and
+  killed the `make` PID — provoking the "Terminado" mid-deploy
+  symptom the previous bullet was supposed to cover. The sweep
+  now short-circuits when `state.LastUp` is within
+  `host.LauncherWaitTimeout()` (default 60s) — that PID is
+  in-flight, not stale. Regression test in
+  `more_flows_test.go::TestCleanStaleHostProcessesSkipsRecentLastUp`.
+- **Ports flock released before sibling dispatch.** The global
+  ports flock used to wrap the entire `processOrchestration`
+  body via `defer`. A `project:` dep that triggered a mode-A
+  recursive `raioz up` (sibling spawn) would deadlock: the child
+  process is a separate fd and flock is per-fd, so it waited on
+  its parent forever. The lock is now scoped to a new helper
+  `allocatePortsLocked` that releases as soon as port allocation
+  + bind-conflict resolution finish — before any sibling dispatch
+  can reach into the project graph.
+
+### Internal
+
+- `docs/RATCHETS.md` updated: three baselines marked
+  "drained 2026-05-18 (v0.10.0)", app-infra annotated 20/22.
+- ROADMAP.md "release automation" moves from Tentative-next to
+  Shipped.
+- Lint scripts (`lint-errorlint.sh`, `lint-dual-flow.sh`) patched
+  to handle empty baselines under bash strict mode.
+
 ## [0.9.0] - 2026-05-18
 
 Architecture-review batch: 27 issues closed across three review

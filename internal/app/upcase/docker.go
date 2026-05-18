@@ -56,9 +56,9 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *models.Deps
 	networkSubnet := deps.Network.GetSubnet()
 
 	// Determine if we should ask for confirmation
-	// YAML projects (2.0) auto-generate network names — never prompt
+	// YAML projects auto-generate network names — never prompt
 	// Legacy projects: ask confirmation if network is configured as simple string
-	askConfirmation := deps.SchemaVersion != "2.0" && (!deps.Network.IsObject || networkSubnet == "")
+	askConfirmation := deps.SourceFormat != models.SourceFormatYAML && (!deps.Network.IsObject || networkSubnet == "")
 
 	output.PrintProgress(i18n.T("up.ensuring_network", networkName))
 	if networkSubnet != "" {

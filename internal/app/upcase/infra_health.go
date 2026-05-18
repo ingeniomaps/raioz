@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -212,7 +213,7 @@ func checkHostServiceHealth(ctx context.Context, serviceName, logPath string) {
 	// Check for common host service errors
 	if strings.Contains(lower, "address already in use") {
 		output.PrintWarning(fmt.Sprintf("%s: port already in use", serviceName))
-		output.PrintInfo("A previous instance may still be running. Try: raioz down && raioz up")
+		output.PrintInfo(i18n.T("output.previous_instance_hint"))
 	} else if strings.Contains(lower, "error") || strings.Contains(lower, "fatal") ||
 		strings.Contains(lower, "panic") {
 		logging.Warn("Host service may have errors", "service", serviceName)

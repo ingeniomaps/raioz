@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"raioz/internal/fsutil"
 	"raioz/internal/naming"
 )
 
@@ -14,7 +15,7 @@ import (
 // goroutines in the same process can both grab LOCK_EX on the same
 // file without blocking — this mutex closes that gap. Cross-process
 // serialization (the actual concurrency story documented in ADR-010)
-// comes from the OS lock acquired via lockFileExclusive.
+// comes from the OS lock acquired via fsutil.FileLockExclusive.
 var processProxyMu sync.Mutex
 
 func noopRelease() {}
@@ -42,7 +43,7 @@ func (m *Manager) acquireWorkspaceLock() (release func(), err error) {
 		processProxyMu.Unlock()
 		return nil, fmt.Errorf("open proxy lock %q: %w", path, err)
 	}
-	if err := lockFileExclusive(f); err != nil {
+	if err := fsutil.FileLockExclusive(f); err != nil {
 		_ = f.Close()
 		processProxyMu.Unlock()
 		return nil, fmt.Errorf("acquire proxy lock %q: %w", path, err)
@@ -51,7 +52,7 @@ func (m *Manager) acquireWorkspaceLock() (release func(), err error) {
 	var released sync.Once
 	return func() {
 		released.Do(func() {
-			_ = unlockFile(f)
+			_ = fsutil.FileUnlock(f)
 			_ = f.Close()
 			processProxyMu.Unlock()
 		})

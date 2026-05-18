@@ -4,22 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sync"
 
 	"raioz/internal/domain/models"
+	raiozerrors "raioz/internal/errors"
 	"raioz/internal/i18n"
-	"raioz/internal/output"
 )
-
-// warnedJSONDeprecation fires the .raioz.json banner once per process;
-// dependency_assist scans sub-projects via LoadDeps so multiple loads
-// per `raioz up` are normal. ADR-038.
-var warnedJSONDeprecation sync.Once
-
-// ResetJSONDeprecationWarningForTest clears the dedup for tests.
-func ResetJSONDeprecationWarningForTest() {
-	warnedJSONDeprecation = sync.Once{}
-}
 
 // Type aliases keep `config.Foo` callers compiling while the canonical
 // definitions live in internal/domain/models (see ADR-009).
@@ -43,7 +32,8 @@ const (
 )
 
 // LegacyProject mirrors the old config shape where network lived inside
-// project. Used solely by LoadDeps to migrate to the current layout.
+// project. Used solely by the JSON-for-migration loader to translate to
+// the current layout.
 type LegacyProject struct {
 	Name     string           `json:"name"`
 	Network  NetworkConfig    `json:"network,omitempty"`
@@ -51,15 +41,29 @@ type LegacyProject struct {
 	Env      *EnvValue        `json:"env,omitempty"`
 }
 
+// LoadDeps hard-errors on `.raioz.json` (ADR-038, v0.9). The legacy
+// loader is no longer wired into the up/down/status flows. The only
+// supported path to read a JSON config is LoadDepsForMigration, called
+// by `raioz migrate yaml`.
 func LoadDeps(path string) (*Deps, []string, error) {
+	return nil, nil, raiozerrors.New(
+		raiozerrors.ErrCodeLegacyJSONFormat,
+		i18n.T("error.json_format_removed"),
+	).
+		WithContext("path", path).
+		WithSuggestion(i18n.T("error.json_format_removed.suggestion"))
+}
+
+// LoadDepsForMigration parses a `.raioz.json` file. The only supported
+// caller is `raioz migrate yaml`. Per ADR-038, every other code path
+// loads YAML via LoadDepsFromYAML; the gate at LoadDeps ensures that.
+// At v1.0 this helper is privatised and migrate gets its own bespoke
+// mini-loader (see ADR-038 § v1.0).
+func LoadDepsForMigration(path string) (*Deps, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read config %q: %w", path, err)
+		return nil, nil, fmt.Errorf("read legacy config %q: %w", path, err)
 	}
-
-	warnedJSONDeprecation.Do(func() {
-		output.PrintWarning(i18n.T("warning.json_format_deprecated"))
-	})
 
 	warnings, err := CheckDeprecatedFields(data)
 	if err != nil {
@@ -107,13 +111,6 @@ func LoadDeps(path string) (*Deps, []string, error) {
 	}
 
 	return &deps, warnings, nil
-}
-
-// LoadDepsLegacy is a compatibility wrapper that ignores warnings.
-// Deprecated: Use LoadDeps instead to get deprecation warnings.
-func LoadDepsLegacy(path string) (*Deps, error) {
-	deps, _, err := LoadDeps(path)
-	return deps, err
 }
 
 // FilterByProfile filters services and infra by the given profile.

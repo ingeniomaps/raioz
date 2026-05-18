@@ -58,8 +58,13 @@ func DetectMissingDependencies(
 			continue // No .raioz.json in service directory
 		}
 
-		// Try to load service's .raioz.json
-		serviceDeps, _, err := LoadDeps(serviceConfigPath)
+		// Try to load service's .raioz.json via the migration-only
+		// loader. dependency_assist is a read-only diagnostic surface
+		// (drives `raioz check` hints, not service startup) so it can
+		// keep parsing legacy JSON through v0.9. LoadDeps itself
+		// hard-errors per ADR-038 — that gate protects the up/down
+		// flows, not these scans.
+		serviceDeps, _, err := LoadDepsForMigration(serviceConfigPath)
 		if err != nil {
 			// Failed to load, skip (non-fatal)
 			continue
@@ -92,7 +97,7 @@ func FindServiceConfig(servicePath string) (*Deps, string, error) {
 		return nil, "", fmt.Errorf(".raioz.json not found in service directory")
 	}
 
-	deps, _, err := LoadDeps(configPath)
+	deps, _, err := LoadDepsForMigration(configPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to load service config: %w", err)
 	}

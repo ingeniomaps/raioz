@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
@@ -19,7 +20,7 @@ import (
 
 // streamForeground streams logs from all services until Ctrl+C (no file watching).
 func streamForeground(ctx context.Context, deps *models.Deps, detections DetectionMap) {
-	output.PrintInfo("Streaming logs (Ctrl+C to stop)")
+	output.PrintInfo(i18n.T("output.logs_streaming"))
 	fmt.Println()
 
 	sigCh := make(chan os.Signal, 1)
@@ -30,7 +31,7 @@ func streamForeground(ctx context.Context, deps *models.Deps, detections Detecti
 
 	<-sigCh
 	fmt.Println()
-	output.PrintInfo("Stopping...")
+	output.PrintInfo(i18n.T("output.stopping"))
 	cancel()
 }
 

@@ -12,7 +12,6 @@ import (
 	"raioz/internal/host"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
-	"raioz/internal/orchestrate"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
 	"raioz/internal/state"
@@ -199,7 +198,7 @@ func stopSelectiveDep(
 		return
 	}
 
-	projName := orchestrate.DepComposeProjectName(projectName, name)
+	projName := naming.DepComposeProjectName(projectName, name)
 	var composeArgs, envFileArgs []string
 	if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
 		overlay := filepath.Join(

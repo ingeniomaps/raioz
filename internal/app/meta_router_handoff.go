@@ -1,13 +1,13 @@
 package app
 
 import (
-	"net"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 
 	"raioz/internal/config"
+	"raioz/internal/netutil"
 	"raioz/internal/protocol"
 )
 
@@ -31,35 +31,11 @@ func routerHandoffEnv(cfg *config.MetaConfig) []string {
 	if subnet == "" {
 		return nil
 	}
-	ip := defaultProxyIPLocal(subnet)
+	ip := netutil.DefaultProxyIP(subnet)
 	if ip == "" {
 		return nil
 	}
 	return []string{protocol.RouterAssignedIP + "=" + ip}
-}
-
-// defaultProxyIPLocal mirrors proxy.DefaultProxyIP without importing
-// the proxy package (the app→proxy import would land on the ADR-029
-// baseline that the drain plan is shrinking, not growing). Keep this
-// in sync with internal/proxy/ip.go — if the convention changes,
-// update both.
-func defaultProxyIPLocal(subnet string) string {
-	if subnet == "" {
-		return ""
-	}
-	_, ipnet, err := net.ParseCIDR(subnet)
-	if err != nil {
-		return ""
-	}
-	base := ipnet.IP.To4()
-	if base == nil {
-		return ""
-	}
-	candidate := net.IPv4(base[0], base[1], 1, 1)
-	if !ipnet.Contains(candidate) {
-		return ""
-	}
-	return candidate.String()
 }
 
 // firstConsumerSubnet returns the network.subnet declared by the

@@ -43,29 +43,16 @@ func (uc *UseCase) processOrchestration(
 	output.PrintProgressDone(i18n.T("up.runtimes_detected"))
 
 	// Step 1b: Allocate host ports deterministically + run under a
-	// global flock (acquirePortsLock) so concurrent
-	// `raioz up` in different workspaces can't probe-and-claim the
-	// same host port then race on `docker run -p`. Lock released
-	// when processOrchestration returns.
-	portsLockRelease, err := acquirePortsLock()
+	// global flock (acquirePortsLock) so concurrent `raioz up` in
+	// different workspaces can't probe-and-claim the same host port
+	// then race on `docker run -p`. Released as soon as allocation +
+	// conflict resolution finish — holding it across the sibling
+	// dispatch phase would deadlock a recursive `raioz up` spawned
+	// for a `project:` dep (the recursive process is a separate fd
+	// and flock is per-fd, so it would wait on its parent forever).
+	portAllocs, err := allocatePortsLocked(ctx, deps, detections, configPath)
 	if err != nil {
 		return nil, err
-	}
-	defer portsLockRelease()
-	portAllocs, err := AllocateHostPorts(deps, detections)
-	if err != nil {
-		return nil, err
-	}
-
-	// Step 1c: Check for host-port bind conflicts. When an external process
-	// or a container from another project occupies a port raioz needs, we
-	// prompt the user instead of failing or killing the occupant.
-	if conflicts := checkPortBindConflicts(portAllocs); len(conflicts) > 0 {
-		if err := resolvePortBindConflicts(
-			ctx, conflicts, portAllocs, configPath, deps.Project.Name,
-		); err != nil {
-			return nil, err
-		}
 	}
 
 	for name, alloc := range portAllocs.Services {

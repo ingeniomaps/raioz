@@ -45,7 +45,7 @@ func TestHasExplicitWorkspace(t *testing.T) {
 	}
 }
 
-func TestLoadDepsLegacy(t *testing.T) {
+func TestLoadDepsForMigration(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := map[string]interface{}{
 		"project":  map[string]interface{}{"name": "legacy-project"},
@@ -57,17 +57,17 @@ func TestLoadDepsLegacy(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	deps, err := LoadDepsLegacy(path)
+	deps, _, err := LoadDepsForMigration(path)
 	if err != nil {
-		t.Fatalf("LoadDepsLegacy() error = %v", err)
+		t.Fatalf("LoadDepsForMigration() error = %v", err)
 	}
 	if deps.Project.Name != "legacy-project" {
 		t.Errorf("project name = %q, want %q", deps.Project.Name, "legacy-project")
 	}
 }
 
-func TestLoadDepsLegacy_FileNotFound(t *testing.T) {
-	_, err := LoadDepsLegacy("/nonexistent/file.json")
+func TestLoadDepsForMigration_FileNotFound(t *testing.T) {
+	_, _, err := LoadDepsForMigration("/nonexistent/file.json")
 	if err == nil {
 		t.Error("expected error for nonexistent file")
 	}
@@ -342,7 +342,7 @@ func TestLoadDeps_WithWorkspace(t *testing.T) {
 	path := filepath.Join(tmpDir, ".raioz.json")
 	os.WriteFile(path, data, 0o644)
 
-	deps, _, err := LoadDeps(path)
+	deps, _, err := LoadDepsForMigration(path)
 	if err != nil {
 		t.Fatalf("LoadDeps: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestLoadDeps_LegacyNetworkInProject(t *testing.T) {
 	path := filepath.Join(tmpDir, ".raioz.json")
 	os.WriteFile(path, []byte(cfg), 0o644)
 
-	deps, _, err := LoadDeps(path)
+	deps, _, err := LoadDepsForMigration(path)
 	if err != nil {
 		t.Fatalf("LoadDeps: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestLoadDeps_RootNetworkTakesPrecedence(t *testing.T) {
 	path := filepath.Join(tmpDir, ".raioz.json")
 	os.WriteFile(path, []byte(cfg), 0o644)
 
-	deps, _, err := LoadDeps(path)
+	deps, _, err := LoadDepsForMigration(path)
 	if err != nil {
 		t.Fatalf("LoadDeps: %v", err)
 	}

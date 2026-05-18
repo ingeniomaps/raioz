@@ -43,10 +43,10 @@ func TestRaiozError(t *testing.T) {
 		err := New(ErrCodeInvalidConfig, "test error").
 			WithError(originalErr)
 
-		if err.OriginalErr != originalErr {
+		if !errors.Is(err.OriginalErr, originalErr) {
 			t.Errorf("Expected original error, got %v", err.OriginalErr)
 		}
-		if err.Unwrap() != originalErr {
+		if !errors.Is(err.Unwrap(), originalErr) {
 			t.Errorf("Expected Unwrap to return original error")
 		}
 	})
@@ -89,7 +89,7 @@ func TestAs(t *testing.T) {
 	t.Run("raioz error", func(t *testing.T) {
 		err := New(ErrCodeInvalidConfig, "test error")
 		var target *RaiozError
-		if !As(err, &target) {
+		if !errors.As(err, &target) {
 			t.Error("Expected As to return true for RaiozError")
 		}
 		if target == nil {
@@ -101,7 +101,7 @@ func TestAs(t *testing.T) {
 		original := New(ErrCodeInvalidConfig, "test error")
 		wrapped := &wrappedError{err: original}
 		var target *RaiozError
-		if !As(wrapped, &target) {
+		if !errors.As(wrapped, &target) {
 			t.Error("Expected As to return true for wrapped RaiozError")
 		}
 	})
@@ -109,7 +109,7 @@ func TestAs(t *testing.T) {
 	t.Run("regular error", func(t *testing.T) {
 		err := errors.New("regular error")
 		var target *RaiozError
-		if As(err, &target) {
+		if errors.As(err, &target) {
 			t.Error("Expected As to return false for regular error")
 		}
 	})

@@ -202,19 +202,19 @@ func TestLoadDepsWithDeprecatedFields(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	deps, warnings, err := LoadDeps(tmpfile.Name())
+	deps, warnings, err := LoadDepsForMigration(tmpfile.Name())
 	if err != nil {
-		t.Fatalf("LoadDeps() error = %v", err)
+		t.Fatalf("LoadDepsForMigration() error = %v", err)
 	}
 
 	if deps == nil {
-		t.Fatal("LoadDeps() returned nil deps")
+		t.Fatal("LoadDepsForMigration() returned nil deps")
 	}
 
 	// Should have warnings for deprecated fields
 	if len(warnings) < 3 {
 		t.Errorf(
-			"LoadDeps() warnings = %d, want at least 3. Warnings: %v",
+			"LoadDepsForMigration() warnings = %d, want at least 3. Warnings: %v",
 			len(warnings), warnings,
 		)
 	}

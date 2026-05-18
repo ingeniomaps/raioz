@@ -9,6 +9,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 
 	"gopkg.in/yaml.v3"
@@ -56,7 +57,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	}
 
 	// Phase 1: Detect services from subdirectories
-	output.PrintSubsection("Services detected")
+	output.PrintSubsection(i18n.T("output.scan_services_detected"))
 	uc.scanServices(dir, &cfg)
 
 	// Check root directory if no subdirectory services found
@@ -70,7 +71,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	}
 
 	// Phase 2: Infer dependencies from .env files
-	output.PrintSubsection("Dependencies inferred")
+	output.PrintSubsection(i18n.T("output.scan_deps_inferred"))
 	inferredDeps, inferredLinks := detect.InferDepsFromEnv(dir)
 
 	for _, dep := range inferredDeps {
@@ -106,7 +107,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	// Show dependency links
 	if len(inferredLinks) > 0 {
 		fmt.Println()
-		output.PrintSubsection("Dependency links")
+		output.PrintSubsection(i18n.T("output.scan_dep_links"))
 		seen := make(map[string]bool)
 		for _, link := range inferredLinks {
 			key := link.From + "→" + link.To
@@ -118,7 +119,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	}
 
 	if len(cfg.Services) == 0 && len(cfg.Deps) == 0 {
-		output.PrintWarning("No services or dependencies detected. Create raioz.yaml manually.")
+		output.PrintWarning(i18n.T("warning.scan_nothing_found"))
 		return nil
 	}
 

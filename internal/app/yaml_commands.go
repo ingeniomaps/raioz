@@ -13,6 +13,7 @@ import (
 
 	"raioz/internal/audit"
 	"raioz/internal/config"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -114,7 +115,7 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filt
 	if proj.Deps.Proxy && uc.deps.ProxyManager != nil {
 		running, _ := uc.deps.ProxyManager.Status(ctx)
 		if running {
-			output.PrintInfo("Proxy: running")
+			output.PrintInfo(i18n.T("output.proxy_running"))
 		}
 	}
 
@@ -136,7 +137,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 	}
 
 	if len(services) == 0 {
-		output.PrintInfo("No services found")
+		output.PrintInfo(i18n.T("output.no_services_found"))
 		return nil
 	}
 
@@ -234,7 +235,7 @@ func (uc *RestartUseCase) RestartYAML(
 			services = append(services, collectYAMLDepNames(proj)...)
 		}
 		if len(services) == 0 {
-			output.PrintWarning("Project has no services to restart")
+			output.PrintWarning(i18n.T("warning.no_services_to_restart"))
 			return nil
 		}
 	}
@@ -274,7 +275,7 @@ func (uc *RestartUseCase) RestartYAML(
 		}
 
 		containerName := naming.Container(proj.ProjectName, name)
-		output.PrintProgress("Restarting " + name + "...")
+		output.PrintProgress(i18n.T("output.restarting_service", name))
 		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			output.PrintProgressError(name + ": " + strings.TrimSpace(string(out)))
@@ -338,7 +339,7 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 	if status == "stopped" {
 		// Might be a host service — exec in the directory
 		if svc, ok := proj.Deps.Services[serviceName]; ok && svc.Source.Path != "" {
-			output.PrintInfo("Executing in service directory: " + svc.Source.Path)
+			output.PrintInfo(i18n.T("output.exec_in_dir", svc.Source.Path))
 			args := command
 			if len(args) == 0 {
 				args = []string{"sh"}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -113,11 +114,10 @@ func NetworkExistsWithContext(ctx context.Context, name string) (bool, *NetworkI
 
 	if err != nil {
 		// Network doesn't exist
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if exitError.ExitCode() == 1 {
-				// Network not found
-				return false, nil, nil
-			}
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) && exitError.ExitCode() == 1 {
+			// Network not found
+			return false, nil, nil
 		}
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
 			return false, nil, fmt.Errorf("network inspect timed out after %v", exectimeout.DockerNetworkTimeout)
@@ -246,10 +246,9 @@ func IsNetworkInUseWithContext(ctx context.Context, name string) (bool, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		// If network doesn't exist, it's not in use
-		if exitError, ok := err.(*exec.ExitError); ok {
-			if exitError.ExitCode() == 1 {
-				return false, nil
-			}
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) && exitError.ExitCode() == 1 {
+			return false, nil
 		}
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
 			return false, fmt.Errorf("network inspect timed out after %v", exectimeout.DockerNetworkTimeout)

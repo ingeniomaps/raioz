@@ -308,15 +308,13 @@ most real workflows; ADR-040 documents this explicitly as
 adding a filter. For the opt-in preflight scanner over sibling
 yamls, see `raioz up --audit-siblings` (issue 031).
 
-> **Scope note.** `--audit-siblings` is **one-hop only** — it
-> scans the current project's direct sibling deps + the meta
-> router/sub-projects with strict H3, but the flag does **not**
-> propagate to the child spawn. A sibling that itself depends on
-> another sibling will only get the default H1/H2 gates (no H3
-> escalation) when its own `raioz up` runs. Transitive preflight
-> is tracked for a follow-up release; until then, `--audit-siblings`
-> protects the trust boundary of the run you started, not the
-> whole recursive spawn tree.
+> **Scope note.** `--audit-siblings` walks the dep graph
+> transitively from v0.10.0: every yaml reachable through
+> `project:` / `siblingProject:` gets the strict H1/H2/H3 gate,
+> not just the consumer's direct deps. A breadth-first walk
+> keyed by absolute yaml path bounds the work and breaks cycles
+> silently. The meta router/sub-projects are audited at the
+> meta layer (see `internal/app/meta_audit.go`).
 
 ### Audit log
 

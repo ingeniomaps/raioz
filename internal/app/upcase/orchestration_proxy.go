@@ -14,8 +14,8 @@ import (
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/netutil"
 	"raioz/internal/output"
-	"raioz/internal/proxy"
 )
 
 // startProxy wires Caddy routes for every service/dependency and starts the
@@ -239,7 +239,7 @@ func shouldProxy(deps *models.Deps, name string) bool {
 // isNonHTTPImage delegates to the shared classifier in proxy/filter.go.
 // Local alias kept for readability of nearby call sites.
 func isNonHTTPImage(image string) bool {
-	return proxy.IsNonHTTPImage(image)
+	return netutil.IsNonHTTPImage(image)
 }
 
 // enrichDetectionsWithExposedPorts backfills detection.Port for image-based

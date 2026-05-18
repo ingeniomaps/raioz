@@ -36,7 +36,7 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		svc.Path)
 	buildCmd.Dir = svc.Path
 	if output, err := buildCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("docker build failed: %s\n%s", err, string(output))
+		return fmt.Errorf("docker build failed: %w\n%s", err, string(output))
 	}
 
 	// Prepare run args

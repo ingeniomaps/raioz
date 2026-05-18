@@ -21,6 +21,14 @@ import (
 // subset, so a healthy `web` running from a previous up survives the
 // invocation. nil/empty scope is a safety check that disables the sweep
 // rather than silently nuking everything.
+//
+// Freshness guard (issue 020-meta): when state.LastUp is within
+// host.LauncherWaitTimeout() of now, the recorded PIDs belong to an
+// in-flight launcher from the current meta-orchestrated bring-up.
+// Reaping them kills the deploy mid-flight (a `make start` doing
+// `docker compose up -d` against a still-pulling image, for example).
+// Skip the sweep in that window — the launcher's still doing its job
+// and the state entries are not stale.
 func cleanStaleHostProcesses(
 	ctx context.Context,
 	projectDir, projectName string,
@@ -35,6 +43,16 @@ func cleanStaleHostProcesses(
 	}
 
 	if len(localState.HostPIDs) == 0 {
+		return
+	}
+
+	if recentlyUpped(localState.LastUp) {
+		logging.InfoWithContext(ctx,
+			"Skipping stale-host sweep: project was upped within the "+
+				"launcher window — PIDs belong to an in-flight launcher",
+			"project", projectName,
+			"lastUp", localState.LastUp,
+		)
 		return
 	}
 
@@ -61,6 +79,17 @@ func cleanStaleHostProcesses(
 		delete(localState.HostPIDs, name)
 	}
 	_ = state.SaveLocalState(projectDir, localState)
+}
+
+// recentlyUpped reports whether lastUp is recent enough that any
+// host PIDs recorded under it must be treated as in-flight, not
+// stale. Window = host.LauncherWaitTimeout(), the same upper bound
+// the host runner gives a launcher's container to materialize.
+func recentlyUpped(lastUp time.Time) bool {
+	if lastUp.IsZero() {
+		return false
+	}
+	return time.Since(lastUp) < host.LauncherWaitTimeout()
 }
 
 // saveHostPIDs persists project state to .raioz.state.json. Always writes,
