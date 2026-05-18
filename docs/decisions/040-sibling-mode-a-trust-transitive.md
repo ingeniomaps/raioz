@@ -104,14 +104,15 @@ The "won't do" list mirrors ADR-036's:
   the orchestrator value proposition; reviewers and CI gates
   catch the cases where it matters.
 
-### Optional escape hatch (not in v0.7)
+### Optional escape hatch
 
-A future opt-in flag `raioz up --audit-siblings` could run
-H1/H2/H3 against every sibling yaml before spawning. ~50 LoC,
-reuses the existing scanners against `sib.Dir + "/raioz.yaml"`.
-**Not implemented in v0.7** — current scope is documentation
-only. Reconsider when a concrete user need surfaces (most
-likely a CI-only flag, off by default).
+`raioz up --audit-siblings` ships from v0.8.2 (direct siblings)
+and walks the dep graph **transitively** from v0.10.0: every
+yaml reachable through `project:` / `siblingProject:` gets H1
+secret scan + H2 path safety + H3 strict image pinning before
+any spawn. A breadth-first walk keyed by absolute yaml path
+keeps each file audited once and breaks cycles. Implementation:
+`internal/app/upcase/audit_siblings.go`.
 
 ## Consequences
 
@@ -134,10 +135,10 @@ likely a CI-only flag, off by default).
   terms of `make` / `npm` / `cargo` parallels. None of those
   tools audit invoked subprojects either; raioz is no more
   permissive.
-- Until `--audit-siblings` lands, teams that *want* a preflight
-  on siblings must implement it externally (CI step that runs
-  the H1/H2/H3 logic against expected sibling paths). Listed
-  as deferred work in this ADR's "won't do" section.
+- Teams that want a transitive preflight have the opt-in flag
+  `--audit-siblings` (v0.8.2 direct, v0.10.0 transitive). Teams
+  that do not opt in fall back to the documented operator-trust
+  policy.
 
 ### Neutral
 
@@ -149,7 +150,9 @@ likely a CI-only flag, off by default).
 
 - **Implement `--audit-siblings` in this ADR.** Rejected as
   scope creep: the doc change alone is the load-bearing part.
-  A flag with no published user need is speculative.
+  A flag with no published user need is speculative. (Shipped
+  later in v0.8.2 for direct siblings; expanded transitively
+  in v0.10.0.)
 - **Run H1/H2/H3 against siblings by default (not opt-in).**
   Rejected: same arguments as ADR-036 against silent
   inspection of "code-equivalent" inputs. A sibling yaml could

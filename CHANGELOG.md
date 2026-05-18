@@ -49,6 +49,15 @@ review.
 
 ### Changed
 
+- **`raioz up --audit-siblings` is now transitive.** Was direct-
+  only (v0.8.2): the preflight scanned the consumer's immediate
+  sibling deps and the meta router/sub-projects. Now a
+  breadth-first walk keyed by absolute yaml path follows
+  `project:` / `siblingProject:` recursively, so every sibling
+  reachable from the run gets H1 secret scan + H2 path safety +
+  H3 strict image pinning before any spawn. Cycles terminate via
+  the visited set. Implementation: rewritten
+  `internal/app/upcase/audit_siblings.go`. ADR-040 updated.
 - **BREAKING: `.raioz.json` is no longer loaded** (ADR-038, v0.9
   graduation slipped to v0.9.0, finally landed here). `LoadDeps`
   returns a typed `*RaiozError` with code `ErrCodeLegacyJSONFormat`
