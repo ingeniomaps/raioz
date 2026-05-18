@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Performance
+
+- **Meta runner skips redundant sibling spawns.** When sub-project
+  B's `dependencies.X.project:` points at sub-project A and the meta
+  runner just brought A up, B's mode-A dispatch used to re-spawn
+  `raioz up` in A's directory because A's launcher container hadn't
+  appeared in `docker ps` yet (`make start` racing with `docker
+  compose up -d` in the background). New env var
+  `RAIOZ_META_COMPLETED_PROJECTS` carries the names of meta-completed
+  subs to each subsequent sub-up; `decideModeA` and
+  `verifySiblingsStillUp` both short-circuit on a hit. End-to-end
+  validation on `hypixo` umbrella: wall time 25.4s → 16.5s (~35%).
+  Internal protocol; no user-facing surface change.
+
 ## [0.10.0] - 2026-05-18
 
 Ratchet graduation + ADR-038 closure. Three baselines (errorlint,

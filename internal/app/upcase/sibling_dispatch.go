@@ -107,6 +107,23 @@ func decideModeA(
 		return siblingDecision{}, err
 	}
 
+	// Short-circuit: when the meta runner has already brought this
+	// sibling up in the current run, skip the spawn without probing.
+	// The launcher container may still be initialising (its `make
+	// start` is racing with `docker compose up -d` in the background),
+	// so the probe would miss it and trigger a redundant recursive
+	// `raioz up`. See internal/protocol/childenv.go for the contract.
+	if metaAlreadyCompleted(sib.Project) {
+		return siblingDecision{
+			Kind:        siblingSkipModeA,
+			SiblingName: sib.Project,
+			SiblingInfo: sib,
+			Reason: fmt.Sprintf(
+				"sibling project %q already brought up by meta runner — no spawn needed",
+				sib.Project),
+		}, nil
+	}
+
 	active, err := docker.IsProjectActive(ctx, sib.Workspace, sib.Project, sib.ProxyTargets...)
 	if err != nil {
 		return siblingDecision{}, fmt.Errorf(
@@ -205,6 +222,17 @@ func verifySiblingsStillUp(
 			continue
 		}
 		if v.SiblingInfo == nil {
+			continue
+		}
+		// Meta-completed siblings cannot fail this re-probe even when
+		// they pass it: the meta runner just brought them up but the
+		// launcher container may still be coming up. The first probe
+		// inside decideModeA short-circuited via metaAlreadyCompleted
+		// for the same reason. Trust the meta-runner hint and skip
+		// the re-probe — if the meta lied, the consumer will discover
+		// the missing endpoint at runtime with a clearer error than
+		// "sibling no longer active".
+		if metaAlreadyCompleted(v.SiblingInfo.Project) {
 			continue
 		}
 		active, err := docker.IsProjectActive(ctx,

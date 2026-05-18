@@ -61,25 +61,19 @@ func (s MetaSummaryList) HasFailures() bool {
 	return false
 }
 
-// MetaUpOptions tunes a meta up run. RouterOff bypasses the ADR-037 router
-// phase even when the config declares `router:`, restoring pre-v0.8
-// behavior for debugging. Future per-run knobs land here without
-// breaking callers.
+// MetaUpOptions tunes a meta up run. RouterOff bypasses the ADR-037
+// router phase for debugging. AuditSiblings opts into the ADR-036
+// preflight (H1/H2/H3 gates against every router / sub-project yaml).
 type MetaUpOptions struct {
-	RouterOff bool
-	// AuditSiblings enables the opt-in preflight that runs ADR-036
-	// hygiene gates against every router / sub-project yaml before
-	// spawn. Off by default (transitive trust is the documented v0.7+
-	// policy). See ADR-040 § Optional escape hatch.
+	RouterOff     bool
 	AuditSiblings bool
 }
 
-// Up runs `raioz up` in each sub-project, in order. Optional subs that fail
-// are reported but don't abort the meta run. activeProfiles narrows the
-// iteration to projects that have no Profiles declared (always-on) or
-// whose Profiles intersect the list. When cfg.Router is non-nil and
-// opts.RouterOff is false, the router project comes up first; consumers
-// then run with RAIOZ_ROUTER_ACTIVE=1 so they skip their bundled Caddy.
+// Up runs `raioz up` in each sub-project, in order. Optional subs
+// that fail are reported but don't abort. activeProfiles filters to
+// always-on projects + ones with a matching profile. When cfg.Router
+// is set and opts.RouterOff is false, the router project comes up
+// first; consumers then run with RAIOZ_ROUTER_ACTIVE=1.
 func (m *MetaRunner) Up(
 	ctx context.Context, cfg *config.MetaConfig,
 	args, activeProfiles []string, opts MetaUpOptions,
@@ -104,6 +98,7 @@ func (m *MetaRunner) Up(
 	}
 
 	var consumerEnv []string
+	var initialCompleted []string
 	skipPath := ""
 
 	if cfg.Router != nil && !opts.RouterOff {
@@ -124,11 +119,17 @@ func (m *MetaRunner) Up(
 			return results
 		}
 		consumerEnv = []string{protocol.RouterActive + "=1"}
+		if cfg.Router.Name != "" {
+			// Seed the meta-completed list so consumers that declare
+			// the router as a sibling dep skip the redundant spawn.
+			initialCompleted = append(initialCompleted, cfg.Router.Name)
+		}
 		skipPath = cfg.Router.Path
 	}
 
 	consumers := m.run(
-		ctx, cfg, "up", args, activeProfiles, false, consumerEnv, skipPath,
+		ctx, cfg, "up", args, activeProfiles, false,
+		consumerEnv, skipPath, initialCompleted,
 	)
 	results = append(results, consumers...)
 	return results
@@ -153,7 +154,7 @@ func (m *MetaRunner) Down(
 	if cfg.Router != nil {
 		skipPath = cfg.Router.Path
 	}
-	results = m.run(ctx, cfg, "down", args, nil, true, nil, skipPath)
+	results = m.run(ctx, cfg, "down", args, nil, true, nil, skipPath, nil)
 	if cfg.Router != nil {
 		results = append(results, m.runSingle(ctx, "down", *cfg.Router, args, nil))
 	}
@@ -180,7 +181,7 @@ func (m *MetaRunner) Status(
 		results = append(results, m.runSingle(ctx, "status", *cfg.Router, args, nil))
 		skipPath = cfg.Router.Path
 	}
-	rest := m.run(ctx, cfg, "status", args, activeProfiles, false, nil, skipPath)
+	rest := m.run(ctx, cfg, "status", args, activeProfiles, false, nil, skipPath, nil)
 	results = append(results, rest...)
 	return results
 }
@@ -207,7 +208,7 @@ func shouldIncludeMetaProject(p config.MetaProject, active []string) bool {
 func (m *MetaRunner) run(
 	ctx context.Context, cfg *config.MetaConfig,
 	subCmd string, extraArgs, activeProfiles []string, reverse bool,
-	extraEnv []string, skipPath string,
+	extraEnv []string, skipPath string, initialCompleted []string,
 ) MetaSummaryList {
 	projects := cfg.Projects
 	if len(activeProfiles) > 0 || !reverse {
@@ -226,17 +227,20 @@ func (m *MetaRunner) run(
 	}
 
 	results := make(MetaSummaryList, 0, len(projects))
+	// completed grows as each `up` sub returns ok; stamped into the
+	// env of subsequent sub-ups (issue 020-meta).
+	completed := append([]string(nil), initialCompleted...)
 	for _, p := range projects {
 		if skipPath != "" && p.Path == skipPath {
-			// Router project already handled in the dedicated phase
-			// (Up phase 1 / Down phase 2). Skipping here prevents a
-			// double-up that would race with the dedicated phase.
 			continue
 		}
-		entry := m.runSingle(ctx, subCmd, p, extraArgs, extraEnv)
+		subEnv := withMetaCompleted(extraEnv, completed, subCmd)
+		entry := m.runSingle(ctx, subCmd, p, extraArgs, subEnv)
 		switch {
 		case entry.Err == nil:
-			// success
+			if subCmd == "up" && p.Name != "" {
+				completed = append(completed, p.Name)
+			}
 		case p.Optional && subCmd == "up":
 			entry.Skipped = true
 			output.PrintWarning(
@@ -345,11 +349,9 @@ func (m *MetaRunner) resolveBinary() (string, error) {
 }
 
 // buildSubCmd constructs the *exec.Cmd for a sub-project invocation.
-// Split out from runSingle so tests can inspect SysProcAttr without
-// running the binary. cmd.Cancel is overridden to fire Kill ONLY on
-// context.DeadlineExceeded — the manual subCancel deferred at the
-// end of runSingle would otherwise race against launcher grandchildren
-// the sub already detached (issue 020-meta).
+// cmd.Cancel fires Kill only on DeadlineExceeded so the deferred
+// subCancel in runSingle does not race against launcher grandchildren
+// (issue 020-meta).
 func (m *MetaRunner) buildSubCmd(
 	ctx context.Context, binary, subCmd string, p config.MetaProject,
 	extraArgs, extraEnv []string, stdout, stderr *os.File,
