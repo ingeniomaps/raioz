@@ -164,16 +164,25 @@ project lock is per-project. They don't collide.
 
 ### Meta runner sits outside both locks
 
-The meta runner (ADR-037) shells out to N sub-`raioz up` processes
-serially. It does **not** take the project lock (each child takes
-its own, scoped to its sub-project) nor the workspace lock (only
+The meta runner (ADR-037 / ADR-041) shells out to N sub-`raioz up`
+processes serially. It does **not** take the project lock (each child
+takes its own, scoped to its sub-project) nor the workspace lock (only
 the proxy code paths take that). A SIGKILL on `raioz up` against a
 meta config leaves N children each holding their own project lock;
-each waits out the 24h `staleLockMaxAge` cap below before another
+each waits out the `staleLockMaxAge` cap below before another
 `raioz up` can re-acquire. Pdeathsig (ADR-026, plumbed through
 `host.AttachPdeathsig`) is what actually keeps the children from
-surviving SIGKILL on Linux; the age cap is the cross-platform
-floor.
+surviving SIGKILL on Linux; the age cap is the cross-platform floor.
+
+**Windows / macOS meta-SIGKILL recovery** (issue 030): Pdeathsig
+is Linux-only — JobObject (Windows) / equivalent (macOS) are
+candidates for a future ADR but not implemented today. The
+practical mitigation for CI runners that SIGKILL meta workflows
+on timeout is `RAIOZ_LOCK_STALE_AGE` (issue 029, ADR-035) — set
+it to a value shorter than your run cadence (e.g. `30m` for
+CI runs that recycle every hour) so children are evicted before
+the next run starts. Without that knob, the 24h default means
+the next meta run blocks for up to a day.
 
 ### Failure mode — parent SIGKILL and stale project lock
 

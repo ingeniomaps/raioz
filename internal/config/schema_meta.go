@@ -37,6 +37,18 @@ type FieldMeta struct {
 	// Since is the introducing version (e.g. "v0.3.0"), or empty if the
 	// field has no marker.
 	Since string
+	// Deprecated is the version at which the field started warning at
+	// load (e.g. "v0.9.0"), or empty when not yet deprecated.
+	// Pairs with Replacement for the suggested migration target.
+	Deprecated string
+	// Removed is the version at which the field hard-errors at load
+	// (e.g. "v1.0.0"), or empty when still accepted. ValidateRemoval
+	// requires a prior Deprecated marker so the user always sees a
+	// warning window.
+	Removed string
+	// Replacement names the field/feature operators should migrate to.
+	// Optional but recommended for deprecated/removed entries.
+	Replacement string
 	// File is the source file containing the declaration. Useful for
 	// "missing marker" error messages.
 	File string
@@ -44,10 +56,16 @@ type FieldMeta struct {
 	Line int
 }
 
-// sinceRe is the recognized form of the marker. Tolerant of leading
-// whitespace and arbitrary trailing content so the comment can carry both
-// a marker AND a human note: `// since: v0.3.0 — added by issue #N`.
-var sinceRe = regexp.MustCompile(`since:\s*(v\d+\.\d+\.\d+)`)
+// Recognized marker forms. All tolerant of leading whitespace and
+// trailing prose so the comment can carry both a marker AND a human
+// note: `// since: v0.3.0 — added by issue #N`. Earlier
+// `deprecated:`, `removed:`, and `replacement:`.
+var (
+	sinceRe       = regexp.MustCompile(`since:\s*(v\d+\.\d+\.\d+)`)
+	deprecatedRe  = regexp.MustCompile(`deprecated:\s*(v\d+\.\d+\.\d+)`)
+	removedRe     = regexp.MustCompile(`removed:\s*(v\d+\.\d+\.\d+)`)
+	replacementRe = regexp.MustCompile(`replacement:\s*(\S+)`)
+)
 
 // SchemaFiles is the curated list of source files that declare the public
 // `raioz.yaml` schema. The parser only inspects these files — adding a new
@@ -153,7 +171,7 @@ func metasForField(
 		return nil
 	}
 
-	since := extractSince(field)
+	markers := extractMarkers(field)
 	line := fset.Position(field.Pos()).Line
 
 	out := make([]FieldMeta, 0, len(field.Names))
@@ -162,23 +180,51 @@ func metasForField(
 			continue
 		}
 		out = append(out, FieldMeta{
-			StructName: structName,
-			FieldName:  name.Name,
-			YAMLName:   yamlName,
-			Since:      since,
-			File:       file,
-			Line:       line,
+			StructName:  structName,
+			FieldName:   name.Name,
+			YAMLName:    yamlName,
+			Since:       markers.since,
+			Deprecated:  markers.deprecated,
+			Removed:     markers.removed,
+			Replacement: markers.replacement,
+			File:        file,
+			Line:        line,
 		})
 	}
 	return out
 }
 
-// extractSince reads the trailing comment of a struct field and returns
-// the captured version, or empty string when no marker is present. Both
-// `field.Comment` (line comment after the tag) and `field.Doc` (leading
-// block) are consulted so callers can put the marker on either side; the
-// trailing form is preferred and documented.
-func extractSince(field *ast.Field) string {
+type fieldMarkers struct {
+	since, deprecated, removed, replacement string
+}
+
+// ValidateRemoval enforces ADR-045's deprecation-before-removal
+// discipline: every field with a `removed: vX.Y.Z` marker must also
+// carry a prior `deprecated: vX.Y.Z` marker so users see a warning
+// window before the hard error. Returns one error per offender;
+// callers (test / lint) join them for a single failure message.
+func ValidateRemoval(metas []FieldMeta) []error {
+	var errs []error
+	for _, m := range metas {
+		if m.Removed != "" && m.Deprecated == "" {
+			errs = append(errs, fmt.Errorf(
+				"%s.%s (%s:%d): removed=%s without prior deprecated marker; "+
+					"add `// deprecated: vX.Y.Z` before bumping `// removed: %s`",
+				m.StructName, m.FieldName, m.File, m.Line,
+				m.Removed, m.Removed,
+			))
+		}
+	}
+	return errs
+}
+
+// extractMarkers reads the trailing comment of a struct field and the
+// optional leading doc block, returning the four recognized markers.
+// All markers are independent — a field may declare any subset.
+// Deprecation / removal / replacement live on top of the original
+// `since:` form (ADR-045).
+func extractMarkers(field *ast.Field) fieldMarkers {
+	var m fieldMarkers
 	candidates := []*ast.CommentGroup{field.Comment, field.Doc}
 	for _, cg := range candidates {
 		if cg == nil {
@@ -188,10 +234,19 @@ func extractSince(field *ast.Field) string {
 			text := strings.TrimPrefix(c.Text, "//")
 			text = strings.TrimPrefix(text, "/*")
 			text = strings.TrimSuffix(text, "*/")
-			if m := sinceRe.FindStringSubmatch(text); len(m) == 2 {
-				return m[1]
+			if mt := sinceRe.FindStringSubmatch(text); len(mt) == 2 && m.since == "" {
+				m.since = mt[1]
+			}
+			if mt := deprecatedRe.FindStringSubmatch(text); len(mt) == 2 && m.deprecated == "" {
+				m.deprecated = mt[1]
+			}
+			if mt := removedRe.FindStringSubmatch(text); len(mt) == 2 && m.removed == "" {
+				m.removed = mt[1]
+			}
+			if mt := replacementRe.FindStringSubmatch(text); len(mt) == 2 && m.replacement == "" {
+				m.replacement = mt[1]
 			}
 		}
 	}
-	return ""
+	return m
 }

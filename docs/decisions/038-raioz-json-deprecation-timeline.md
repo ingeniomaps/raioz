@@ -50,20 +50,22 @@ the warning itself so users see when the warning becomes an error.
   > convert. Support is removed in v0.8 (see ADR-038).
   Field-level warnings inside `internal/config/deprecated.go`
   continue to fire independently.
-- **v0.8** — `LoadDeps` returns a hard error when called on a
-  `.raioz.json` path through the public loader. `raioz migrate
-  yaml` retains JSON-reading capability through a private,
-  unexported migration loader so the escape hatch survives.
-  In the same release, `Deps.SchemaVersion` is removed and the
-  six entries in `scripts/dual-flow-baseline.txt` migrate to
-  `SelectFlow` (ADR-039). The two changes ship together: once
-  the JSON loader hard-errors, every `LoadDeps` returns
-  `SourceFormatYAML`, so the legacy literal readers would
-  silently delete their YAML-mode branch if migrated
-  independently.
+- **v0.8 (slipped — actual state)** — `LoadDeps` still warns +
+  loads (no hard error). The v0.8 release cycle prioritised
+  ADR-037 (router project) and the audit-triage v0.8.1-v0.8.3
+  patches; the JSON hard-error was not implemented. Issue 027
+  flagged the gap during the architecture review pass on
+  v0.8.3. ADR-038 timeline updated 2026-05-16 to reflect
+  reality:
+  - **Hard-error target slipped to v0.9.** Bundle with the
+    `scripts/dual-flow-baseline.txt` drain (ADR-039) so the two
+    behaviours flip together — the dual-flow readers cannot
+    drop their YAML-mode branch until `LoadDeps` returns only
+    YAML-shaped results.
 - **v1.0** — the public JSON loader is deleted. `raioz migrate
   yaml` becomes a stand-alone command with its own mini-loader;
-  no other code path can read `.raioz.json`.
+  no other code path can read `.raioz.json`. Unchanged from
+  the original plan.
 
 ### Why "loud one-shot" instead of "loud always"
 

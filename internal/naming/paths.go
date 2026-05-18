@@ -22,6 +22,15 @@ func RaiozStateDir() string {
 	return filepath.Join(os.TempDir(), "raioz")
 }
 
+// PortsLockFile returns the path to the global host-port allocation
+// advisory lock. Held during `raioz up`'s port-allocation + spawn
+// phase so two concurrent `up` invocations in different workspaces
+// can't both probe-and-claim the same host port and then race on
+// `docker run -p`.
+func PortsLockFile() string {
+	return filepath.Join(RaiozStateDir(), "ports.lock")
+}
+
 // RaiozConfigDir returns the directory for user-authored preferences.
 // XDG separates "state" (rebuildable) from "config" (user-authored);
 // callers that store the latter use this instead of RaiozStateDir.

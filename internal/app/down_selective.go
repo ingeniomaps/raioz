@@ -31,6 +31,16 @@ func (uc *DownUseCase) downSelectiveServices(
 	projectDir, projectName string,
 	requested []string,
 ) error {
+	// Workspace lock — selective down rewrites .raioz.state.json
+	// (removes the targeted services). Without the lock a concurrent
+	// `raioz up --watch` save-state can race and reintroduce the
+	// service raioz just removed.
+	release, err := acquireDownSelectiveLock(ctx, uc.deps, projectName)
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	// Resolve each requested name to a kind ("service" or "dep") and bail
 	// loudly if anything is unknown — silent ignore would mask typos in
 	// the requested list, which is exactly the bug the selective path

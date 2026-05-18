@@ -11,6 +11,7 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/runtime"
 
 	"gopkg.in/yaml.v3"
 )
@@ -156,6 +157,15 @@ func (r *ComposeRunner) createNetworkOverlay(svc interfaces.ServiceContext) (str
 				"default": map[string]any{},
 			},
 			"labels": labels,
+		}
+		// host-gateway mapping so the user's compose containers can
+		// reach the host via host.docker.internal — required on Linux
+		// without Docker Desktop. Gated via runtime.Supports so nerdctl
+		// 1.x (no host-gateway support) doesn't crash. Issues 021/041.
+		if runtime.Supports(runtime.HostGatewayAlias) {
+			svcOverrides[name].(map[string]any)["extra_hosts"] = []string{
+				"host.docker.internal:host-gateway",
+			}
 		}
 	}
 	overlay["services"] = svcOverrides

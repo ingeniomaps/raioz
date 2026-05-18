@@ -12,6 +12,7 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/runtime"
 
 	"gopkg.in/yaml.v3"
 )
@@ -191,8 +192,11 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 		},
 	}
 
-	// Add host.docker.internal for Linux
-	service["extra_hosts"] = []string{"host.docker.internal:host-gateway"}
+	// Add host.docker.internal mapping (Linux without Docker Desktop).
+	// Gated via runtime.Supports (ADR-046).
+	if runtime.Supports(runtime.HostGatewayAlias) {
+		service["extra_hosts"] = []string{"host.docker.internal:host-gateway"}
+	}
 
 	// Add ports
 	if len(svc.Ports) > 0 {

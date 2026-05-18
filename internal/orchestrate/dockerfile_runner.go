@@ -46,8 +46,12 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		"--network-alias", svc.Name,
 	}
 
-	// Add host.docker.internal for Linux
-	args = append(args, "--add-host=host.docker.internal:host-gateway")
+	// Add host.docker.internal mapping (Linux without Docker Desktop).
+	// Gated on runtime.Supports so nerdctl 1.x — which rejects the
+	// host-gateway alias — doesn't crash. ADR-046.
+	if runtime.Supports(runtime.HostGatewayAlias) {
+		args = append(args, "--add-host=host.docker.internal:host-gateway")
+	}
 
 	// Add port mappings
 	for _, port := range svc.Ports {
@@ -66,7 +70,7 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 
 	runCmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	if output, err := runCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("docker run failed: %s\n%s", err, string(output))
+		return fmt.Errorf("docker run failed: %w\n%s", err, string(output))
 	}
 
 	return nil

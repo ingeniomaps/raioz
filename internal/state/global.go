@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
+	"raioz/internal/fsutil"
 	"raioz/internal/workspace"
 )
 
@@ -103,8 +104,9 @@ func SaveGlobalState(state *GlobalState) error {
 			WithSuggestion("The state data may be corrupted. Try running 'raioz down' and then 'raioz up' again")
 	}
 
-	// Use 0600 permissions (read/write for owner only) for security
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	// Use 0600 permissions (read/write for owner only) for security.
+	// Atomic write via fsutil so SIGKILL mid-write can't trash the file.
+	if err := fsutil.WriteFileAtomic(path, data, 0600); err != nil {
 		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to write global state file").
 			WithContext("path", path).
 			WithError(err).

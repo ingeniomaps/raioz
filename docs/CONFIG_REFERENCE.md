@@ -795,6 +795,9 @@ values warn once and fall back to the default — surfaced by
 | `RAIOZ_LAUNCHER_TIMEOUT` | `60s` | Up-time wait for the launcher's container to appear. |
 | `RAIOZ_LAUNCHER_DRAIN_TIMEOUT` | `30s` | Down-time wait for an in-progress build to produce the container before invoking `stop:`. |
 | `RAIOZ_SIBLING_TIMEOUT` | `10m` | Upper bound on each mode-A sibling spawn (ADR-008). Hung sibling deadlines out with a "set RAIOZ_SIBLING_TIMEOUT higher" hint instead of blocking forever. Issue 072. |
+| `RAIOZ_LOCK_STALE_AGE` | `24h` | Age floor before the lock package evicts a held lock as stale. Useful in CI: runners that timeout in 30m and SIGKILL a raioz mid-`up` leave a lock alive until this floor. Reduce to e.g. `30m` in CI to recover faster. |
+| `RAIOZ_META_SUB_TIMEOUT` | `5m` | Per-sub-project timeout for `MetaRunner.runSingle` (`kind: meta` orchestrator). A hung sub-up — registry unreachable, prompt for input, infinite-loop launcher — surfaces as a distinct "hung past deadline" error instead of pinning the whole meta workspace until Ctrl+C. Bump for projects with slow builds. Issue 042. |
+| `RAIOZ_ROUTER_ASSIGNED_IP` | (computed) | Set BY the meta runner on the router project's sub-up (ADR-037 § Edge IP coordination). Value is `proxy.DefaultProxyIP(workspace_subnet)` — the IP the bundled Caddy would have bound. The router yaml is responsible for consuming this env var so swapping bundled Caddy ↔ router preserves the operator's /etc/hosts. Never set by users. Issue 020. |
 
 Adding a new duration env var? Append it to
 `host.KnownDurationEnvs()` so `raioz doctor` picks it up — same

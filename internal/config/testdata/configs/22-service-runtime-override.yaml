@@ -1,0 +1,18 @@
+# Issue 036 — services.<n>.runtime: forces the runtime classification
+# even when filesystem auto-detection would pick a different one. Used
+# for repos with multiple manifests (Go service + prod Dockerfile,
+# Python + docker-compose.yml). Validation runs at load — unknown
+# values fail fast.
+project: runtime-override-fixture
+
+services:
+  api:
+    path: ./api
+    # Forces 'go' even if api/ contains a Dockerfile that would
+    # otherwise be picked first per detection priority.
+    runtime: go
+
+  worker:
+    path: ./worker
+    runtime: python
+    command: python -m worker

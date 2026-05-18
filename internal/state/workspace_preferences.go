@@ -8,6 +8,7 @@ import (
 
 	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
+	"raioz/internal/fsutil"
 	"raioz/internal/workspace"
 )
 
@@ -97,7 +98,7 @@ func saveWorkspacePreferences(prefs *WorkspacePreferences) error {
 					"setting preferences again",
 			)
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := fsutil.WriteFileAtomic(path, data, 0600); err != nil {
 		return raiozErrors.New(raiozErrors.ErrCodeStateSaveError, "failed to write workspace preferences file").
 			WithContext("path", path).
 			WithError(err).

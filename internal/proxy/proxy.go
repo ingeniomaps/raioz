@@ -210,7 +210,9 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		"--restart", "unless-stopped",
 		"-v", caddyfilePath + ":/etc/caddy/Caddyfile:ro",
 		"-v", m.caddyVolume() + ":/data",
-		"--add-host=host.docker.internal:host-gateway",
+	}
+	if runtime.Supports(runtime.HostGatewayAlias) {
+		args = append(args, "--add-host=host.docker.internal:host-gateway")
 	}
 	if m.publish {
 		httpBind := "80:80"

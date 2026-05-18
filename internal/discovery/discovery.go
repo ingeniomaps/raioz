@@ -4,11 +4,27 @@ package discovery
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/protocol"
 )
+
+// routerActiveSuppressesURL reports whether the bundled Caddy is
+// suppressed by an active router project (ADR-037). When true, the
+// `_HTTPS_URL=https://<name>.localhost` env var would point at
+// something raioz doesn't serve — the router project's templates
+// own that URL space. Caller responsibility to set / not set the
+// env var; suppress here to avoid misleading consumers.
+func routerActiveSuppressesURL() bool {
+	switch os.Getenv(protocol.RouterActive) {
+	case "1", "true", "TRUE", "True", "yes", "YES", "Yes":
+		return true
+	}
+	return false
+}
 
 // Manager implements interfaces.DiscoveryManager.
 type Manager struct{}
@@ -62,8 +78,13 @@ func (m *Manager) GenerateEnvVars(
 			vars[envPrefix+"_URL"] = fmt.Sprintf("http://%s:%d", host, port)
 		}
 
-		// With proxy, also provide HTTPS URL
-		if proxyEnabled {
+		// With the bundled proxy actually active, provide the *.localhost
+		// HTTPS URL. When an external router project owns edge routing
+		// (ADR-037, RAIOZ_ROUTER_ACTIVE=1 and --router-off not passed),
+		// the bundled Caddy is suppressed and *.localhost no longer
+		// resolves to anything raioz controls — emitting the URL would
+		// be misleading.
+		if proxyEnabled && !routerActiveSuppressesURL() {
 			vars[envPrefix+"_HTTPS_URL"] = fmt.Sprintf("https://%s.localhost", name)
 		}
 	}

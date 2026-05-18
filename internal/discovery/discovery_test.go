@@ -151,6 +151,32 @@ func TestGenerateEnvVars_WithProxy(t *testing.T) {
 	}
 }
 
+// Regression: when RAIOZ_ROUTER_ACTIVE=1, the bundled
+// Caddy is suppressed (ADR-037) and `*.localhost` resolves to
+// nothing raioz controls. _HTTPS_URL must NOT be emitted in that
+// case — emitting it would mislead consumers about who serves
+// the URL.
+func TestGenerateEnvVars_RouterActiveSuppressesHTTPSURL(t *testing.T) {
+	t.Setenv("RAIOZ_ROUTER_ACTIVE", "1")
+	m := NewManager()
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"api":      {Name: "api", Runtime: models.RuntimeDockerfile, Host: "api", Port: 3000},
+		"postgres": {Name: "postgres", Runtime: models.RuntimeImage, Host: "postgres", Port: 5432},
+	}
+
+	vars := m.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, true)
+
+	if _, present := vars["POSTGRES_HTTPS_URL"]; present {
+		t.Errorf("POSTGRES_HTTPS_URL must NOT be set under RAIOZ_ROUTER_ACTIVE; got %q",
+			vars["POSTGRES_HTTPS_URL"])
+	}
+	// Sanity: the URL/HOST/PORT trio that points at real endpoints
+	// is still emitted.
+	if vars["POSTGRES_HOST"] == "" {
+		t.Errorf("POSTGRES_HOST should still be emitted; got empty")
+	}
+}
+
 func TestGenerateEnvVars_SkipsSelf(t *testing.T) {
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{

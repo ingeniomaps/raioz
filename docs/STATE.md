@@ -119,25 +119,16 @@ post-resolution snapshot of `raioz.yaml`, it's `raioz.root.json`.
 6. If concurrent processes can write to it, see
    [LOCKS.md](LOCKS.md) for the lock-hierarchy rules.
 
-## Open question: certs under `~/.raioz/` outside `RaiozStateDir()`
+## Cert location: `~/.raioz/certs/` (intentional exception)
 
 `internal/proxy/certs.go::CertsDir()` returns
-`<home>/.raioz/certs/` — hardcoded, predating ADR-022. The
-migrator at startup lifts `~/.raioz` content into `RaiozStateDir`,
-but certs are explicitly excluded by being read straight from
-`~/.raioz/certs/` whether or not the migration ran. The result is
-benign — both old and new installs find their certs in the same
-place — but the inconsistency is worth noting:
-
-- Pros of keeping certs at `~/.raioz/certs/`: stable across
-  raioz versions; mkcert's `CAROOT` env var stays consistent;
-  trust-store entries the user already approved don't need
-  re-installation.
-- Pros of moving to `RaiozStateDir`: single tree to back up,
-  single tree to wipe with `rm -rf $(raioz hosts ...)` — same
-  story as state.
-
-No decision required for v0.5.x; flag for v0.6 review.
+`<home>/.raioz/certs/`. The migrator (`MigrateLegacyStateDirs`)
+intentionally does NOT lift this directory into `RaiozStateDir()`.
+Decided in [ADR-042](decisions/042-certs-stay-at-home-raioz.md):
+TLS certs are tool-managed (mkcert) artifacts co-located with
+their CA root in `$HOME`, not raioz-owned runtime state. ADR-022's
+"single source of truth" applies to raioz-owned state; certs are
+out of scope by design.
 
 ## References
 

@@ -16,10 +16,27 @@ import (
 //     host exec) with StartCommand/DevCommand set to the user command.
 //  3. Fallback: detect.Detect(path) — scan the directory for compose/
 //     Dockerfile/etc.
+//  4. `svc.Source.Runtime` (yaml: `runtime: <enum>`) overrides
+//     the Runtime classification AFTER auto-detection so the user gets
+//     correct StartCommand discovery from the dir scan but raioz routes
+//     the service through the runner they declared. Useful for repos
+//     with multiple manifests (Go service + prod Dockerfile, Python
+//     service + docker-compose.yml). Validated against
+//     models.AllRuntimes() at config load — invalid values fail before
+//     reaching this helper.
 //
 // Shared between `raioz up`, `raioz check`, `raioz status`, and `raioz down`
 // so the runtime classification is consistent across commands.
 func ResolveServiceDetection(svc Service, path string) models.DetectResult {
+	result := resolveServiceDetectionBase(svc, path)
+	// User-declared runtime override. Empty = no override.
+	if svc.Source.Runtime != "" {
+		result.Runtime = models.Runtime(svc.Source.Runtime)
+	}
+	return result
+}
+
+func resolveServiceDetectionBase(svc Service, path string) models.DetectResult {
 	// Compose override wins first — user is asking for a specific docker compose setup.
 	if len(svc.Source.ComposeFiles) > 0 {
 		files := make([]string, len(svc.Source.ComposeFiles))
@@ -47,4 +64,31 @@ func ResolveServiceDetection(svc Service, path string) models.DetectResult {
 		return models.DetectResult{Runtime: models.RuntimeUnknown}
 	}
 	return detect.Detect(path)
+}
+
+// ValidateServiceRuntime checks that svc.Source.Runtime (if set)
+// names a known runtime. Returns nil for empty (no override) or
+// known runtimes. invalid values surface as a load-time
+// error instead of silently classifying as `Unknown` at runtime.
+func ValidateServiceRuntime(svc Service) error {
+	if svc.Source.Runtime == "" {
+		return nil
+	}
+	for _, rt := range models.AllRuntimes() {
+		if string(rt) == svc.Source.Runtime {
+			return nil
+		}
+	}
+	return &InvalidRuntimeError{Value: svc.Source.Runtime}
+}
+
+// InvalidRuntimeError is returned by ValidateServiceRuntime when a
+// service declares `runtime: <value>` and the value isn't recognized.
+type InvalidRuntimeError struct{ Value string }
+
+func (e *InvalidRuntimeError) Error() string {
+	return "unknown runtime '" + e.Value +
+		"'; expected one of compose, dockerfile, npm, go, make, python, rust, " +
+		"just, task, php, java, dotnet, ruby, elixir, dart, swift, scala, " +
+		"clojure, zig, gleam, haskell, deno, bun, image"
 }

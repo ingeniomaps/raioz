@@ -39,6 +39,15 @@ Invariants:
 2. **Workspace coherence is mandatory.** Both sides must declare
    the same `workspace:`. Cross-workspace siblings fail at
    `decideSibling` time before any spawn or probe.
+   - **Transitive note (issue 031)**: the check is pair-wise.
+     In a 3-project chain A→B→C, coherence is only enforced
+     between A↔B and B↔C separately. If B declares no
+     `workspace:` and inherits a default, A and C may end up
+     on different Docker networks even when both declare the
+     same workspace. The operator is responsible for declaring
+     `workspace:` explicitly on every project in a spawn chain
+     longer than 2. Transitive enforcement is out of scope for
+     v1.0; tracked as a v2 candidate.
 3. **Cycle detection via `RAIOZ_SIBLING_STACK`** env var
    (`os.PathListSeparator`-joined directories). Parent appends
    its own dir before exec; child reads it in

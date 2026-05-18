@@ -136,6 +136,12 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 		service.Source.ComposeFiles = []string(svc.Compose)
 	}
 
+	// User-declared runtime override. Empty = honor
+	// auto-detection. Validation happens in the yaml_loader pass.
+	if svc.Runtime != "" {
+		service.Source.Runtime = svc.Runtime
+	}
+
 	// Custom stop command — stored in Service.Commands.Down so the orchestrator
 	// can route `raioz down` to it instead of SIGTERMing the host PID.
 	if svc.Stop != "" {

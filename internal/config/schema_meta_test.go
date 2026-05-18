@@ -44,6 +44,32 @@ func TestSchemaSinceMarkers(t *testing.T) {
 	}
 }
 
+// TestSchemaRemovalRequiresPriorDeprecation enforces ADR-045's
+// "deprecation window before removal" discipline. A field that
+// gets a `// removed: vX.Y.Z` marker without first carrying a
+// `// deprecated: vX.Y.Z` would hard-error at load without ever
+// warning the user — exactly the silent breakage the ADR exists
+// to prevent.
+func TestSchemaRemovalRequiresPriorDeprecation(t *testing.T) {
+	metas, err := ExtractFieldMeta("../..")
+	if err != nil {
+		t.Fatalf("ExtractFieldMeta: %v", err)
+	}
+	violations := ValidateRemoval(metas)
+	if len(violations) == 0 {
+		return
+	}
+	msgs := make([]string, 0, len(violations))
+	for _, v := range violations {
+		msgs = append(msgs, "  "+v.Error())
+	}
+	t.Errorf(
+		"%d schema field(s) declare `// removed:` without a prior "+
+			"`// deprecated:` marker (ADR-045 deprecation-window rule):\n%s",
+		len(violations), strings.Join(msgs, "\n"),
+	)
+}
+
 // TestSchemaSinceFormat catches markers that parsed but use a shape the
 // rest of the tooling can't compare semantically (e.g., "0.3.0" without
 // the leading v, or "v1" without minor/patch).

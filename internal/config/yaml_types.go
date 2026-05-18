@@ -157,6 +157,13 @@ type YAMLService struct {
 	// list (merged in order, matching `docker compose -f a -f b`).
 	Compose YAMLStringSlice `yaml:"compose,omitempty"` // since: v0.1.0
 
+	// Runtime forces the runtime classification for this service,
+	// overriding filesystem auto-detection. Useful when a service has
+	// multiple manifests (Go service with a prod Dockerfile, Python
+	// service with a docker-compose.yml). The value must be one of
+	// the runtimes raioz knows (`raioz doctor` lists them).
+	Runtime string `yaml:"runtime,omitempty"` // since: v0.9.0
+
 	// Proxy overrides how the shared HTTPS proxy reaches this service.
 	// Normally raioz picks a target from detection (container DNS for Docker
 	// services, host.docker.internal for host processes) and a port from
