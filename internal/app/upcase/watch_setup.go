@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
@@ -81,12 +82,12 @@ func startWatcher(
 	})
 	if err != nil {
 		logging.Warn("Failed to start file watcher", "error", err)
-		output.PrintWarning("File watcher failed to start: " + err.Error())
+		output.PrintWarning(i18n.T("warning.watcher_failed", err.Error()))
 		return
 	}
 
 	output.PrintProgressDone(fmt.Sprintf("Watching %d service(s): %v", watchCount, names))
-	output.PrintInfo("Press Ctrl+C to stop")
+	output.PrintInfo(i18n.T("output.press_ctrlc"))
 	fmt.Println()
 
 	// Handle Ctrl+C gracefully
@@ -102,7 +103,7 @@ func startWatcher(
 	// Block until signal
 	<-sigCh
 	fmt.Println()
-	output.PrintInfo("Stopping...")
+	output.PrintInfo(i18n.T("output.stopping"))
 
 	// Tear down services BEFORE cancelling the watch context. Two reasons:
 	//   1. We call dispatcher.Stop with the parent `ctx` (still alive) so

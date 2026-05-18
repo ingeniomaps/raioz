@@ -11,6 +11,7 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
@@ -124,11 +125,11 @@ func (uc *DevUseCase) acquireWorkspaceLock(
 // listOverrides shows all active dev overrides.
 func (uc *DevUseCase) listOverrides(localState *models.LocalState) error {
 	if len(localState.DevOverrides) == 0 {
-		output.PrintInfo("No active dev overrides")
+		output.PrintInfo(i18n.T("output.dev_no_overrides"))
 		return nil
 	}
 
-	output.PrintSectionHeader("Dev overrides")
+	output.PrintSectionHeader(i18n.T("output.dev_overrides_header"))
 	for name, override := range localState.DevOverrides {
 		output.PrintKeyValue(name, fmt.Sprintf(
 			"%s → %s (was: %s)",
@@ -219,7 +220,7 @@ func (uc *DevUseCase) promote(
 	// Save override in state
 	localState.AddDevOverride(name, originalImage, absPath)
 	if err := state.SaveLocalState(projectDir, localState); err != nil {
-		output.PrintWarning("Failed to save state: " + err.Error())
+		output.PrintWarning(i18n.T("warning.dev_save_state_failed", err.Error()))
 	}
 
 	// Audit the promotion. Failure is logged at debug only —
@@ -287,7 +288,7 @@ func (uc *DevUseCase) resetOverride(
 	// Remove override from state
 	localState.RemoveDevOverride(name)
 	if err := state.SaveLocalState(projectDir, localState); err != nil {
-		output.PrintWarning("Failed to save state: " + err.Error())
+		output.PrintWarning(i18n.T("warning.dev_save_state_failed", err.Error()))
 	}
 
 	// Audit the revert. Best-effort; same rationale as promote.

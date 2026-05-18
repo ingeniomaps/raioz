@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"raioz/internal/app/snapshotcase"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 
 	"github.com/spf13/cobra"
@@ -36,7 +37,7 @@ var snapshotCreateCmd = &cobra.Command{
 			return err
 		}
 		if res.NoVolumes {
-			output.PrintInfo("No volumes found to snapshot")
+			output.PrintInfo(i18n.T("output.snapshot_no_volumes"))
 			return nil
 		}
 		output.PrintSuccess(fmt.Sprintf(
@@ -85,7 +86,7 @@ var snapshotListCmd = &cobra.Command{
 			return err
 		}
 		if len(snaps) == 0 {
-			output.PrintInfo("No snapshots found")
+			output.PrintInfo(i18n.T("output.snapshot_none"))
 			return nil
 		}
 		for _, snap := range snaps {

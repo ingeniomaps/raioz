@@ -6,12 +6,13 @@ import (
 	"raioz/internal/app/upcase"
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
 
 func CheckYAML(proj *YAMLProject) error {
 	fmt.Println()
-	output.PrintSectionHeader("Config check: " + proj.ProjectName)
+	output.PrintSectionHeader(i18n.T("output.check_section_header", proj.ProjectName))
 
 	issues := 0
 
@@ -78,7 +79,7 @@ func CheckYAML(proj *YAMLProject) error {
 
 	fmt.Println()
 	if issues == 0 {
-		output.PrintSuccess("All checks passed")
+		output.PrintSuccess(i18n.T("output.checks_passed"))
 		return nil
 	}
 	// Issues found: return a sentinel error so the CLI wrapper (cli/check.go)

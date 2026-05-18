@@ -13,6 +13,7 @@ import (
 	"raioz/internal/detect"
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
@@ -77,7 +78,7 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 		stopCmd := svc.Commands.Down
 		logging.InfoWithContext(ctx, "Running custom stop command",
 			"service", name, "command", stopCmd)
-		output.PrintInfo("Stopping " + name + " via: " + stopCmd)
+		output.PrintInfo(i18n.T("output.stopping_via", name, stopCmd))
 
 		parts := strings.Fields(stopCmd)
 		if len(parts) == 0 {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"raioz/internal/app/tunnelcase"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 
 	"github.com/spf13/cobra"
@@ -49,7 +50,7 @@ var tunnelListCmd = &cobra.Command{
 		uc := tunnelcase.ListUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
 		tunnels := uc.Execute(cmd.Context())
 		if len(tunnels) == 0 {
-			output.PrintInfo("No active tunnels")
+			output.PrintInfo(i18n.T("output.tunnel_no_active"))
 			return nil
 		}
 		for _, t := range tunnels {
@@ -86,7 +87,7 @@ var tunnelStopAllCmd = &cobra.Command{
 		if err := uc.Execute(cmd.Context()); err != nil {
 			return err
 		}
-		output.PrintSuccess("All tunnels stopped")
+		output.PrintSuccess(i18n.T("output.tunnel_all_stopped"))
 		return nil
 	},
 }

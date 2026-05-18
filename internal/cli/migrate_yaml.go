@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 
 	"gopkg.in/yaml.v3"
@@ -54,7 +55,7 @@ var migrateYAMLCmd = &cobra.Command{
 		}
 
 		output.PrintSuccess(fmt.Sprintf("Generated %s from %s", out, from))
-		output.PrintInfo("You can now delete " + from + " when ready")
+		output.PrintInfo(i18n.T("output.migrate_yaml_delete_hint", from))
 		return nil
 	},
 }

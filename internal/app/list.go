@@ -74,9 +74,9 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 		}
 
 		output.PrintSubsection(projectState.Name)
-		output.PrintKeyValue("Workspace", projectState.Workspace)
-		output.PrintKeyValue("Last Execution", formatTime(projectState.LastExecution))
-		output.PrintKeyValue("Active Services", fmt.Sprintf("%d", len(projectState.Services)))
+		output.PrintKeyValue(i18n.T("output.label_workspace"), projectState.Workspace)
+		output.PrintKeyValue(i18n.T("output.label_last_execution"), formatTime(projectState.LastExecution))
+		output.PrintKeyValue(i18n.T("output.label_active_services"), fmt.Sprintf("%d", len(projectState.Services)))
 
 		// Enrich with live host PID checks
 		hostPIDs := uc.loadHostPIDs(projectState.Workspace)
@@ -100,7 +100,7 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 					runningCount++
 				}
 			}
-			output.PrintKeyValue("Running", fmt.Sprintf("%d/%d", runningCount, len(projectState.Services)))
+			output.PrintKeyValue(i18n.T("output.label_running"), fmt.Sprintf("%d/%d", runningCount, len(projectState.Services)))
 
 			if len(projectState.Services) <= 5 {
 				serviceNames := make([]string, 0, len(projectState.Services))
@@ -111,7 +111,7 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 					}
 					serviceNames = append(serviceNames, fmt.Sprintf("%s %s", statusIndicator, svc.Name))
 				}
-				output.PrintKeyValue("Services", strings.Join(serviceNames, ", "))
+				output.PrintKeyValue(i18n.T("output.label_services"), strings.Join(serviceNames, ", "))
 			}
 		}
 	}

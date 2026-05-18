@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/detect"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -32,7 +33,7 @@ func (uc *StatusUseCase) showOrchestratedStatus(ctx context.Context, opts Status
 
 	// Services
 	if len(cfgDeps.Services) > 0 {
-		output.PrintSectionHeader("SERVICES")
+		output.PrintSectionHeader(i18n.T("output.section_services"))
 		for name, svc := range cfgDeps.Services {
 			detection := detect.Detect(svc.Source.Path)
 			statusStr := uc.queryServiceStatus(ctx, name, cfgDeps)
@@ -54,7 +55,7 @@ func (uc *StatusUseCase) showOrchestratedStatus(ctx context.Context, opts Status
 
 	// Dependencies
 	if len(cfgDeps.Infra) > 0 {
-		output.PrintSectionHeader("DEPENDENCIES")
+		output.PrintSectionHeader(i18n.T("output.section_dependencies"))
 		for name, entry := range cfgDeps.Infra {
 			imageRef := infraImageRef(entry)
 			statusStr := uc.queryDepStatus(ctx, name, entry, cfgDeps)
@@ -76,9 +77,9 @@ func (uc *StatusUseCase) showOrchestratedStatus(ctx context.Context, opts Status
 	if cfgDeps.Proxy && uc.deps.ProxyManager != nil {
 		running, _ := uc.deps.ProxyManager.Status(ctx)
 		if running {
-			output.PrintInfo("Proxy: running (Caddy)")
+			output.PrintInfo(i18n.T("output.proxy_running_caddy"))
 		} else {
-			output.PrintWarning("Proxy: stopped")
+			output.PrintWarning(i18n.T("output.proxy_state_stopped"))
 		}
 	}
 

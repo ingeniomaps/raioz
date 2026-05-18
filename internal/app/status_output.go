@@ -48,12 +48,12 @@ func (uc *StatusUseCase) outputHumanReadable(
 ) error {
 	// Table output - these are user-facing output, not logs
 	output.PrintSectionHeader(i18n.T("output.project_status_header"))
-	output.PrintKeyValue("Project", stateDeps.Project.Name)
+	output.PrintKeyValue(i18n.T("output.label_project"), stateDeps.Project.Name)
 	networkName := stateDeps.Network.GetName()
 	if stateDeps.Network.HasSubnet() {
 		networkName = fmt.Sprintf("%s (%s)", networkName, stateDeps.Network.GetSubnet())
 	}
-	output.PrintKeyValue("Network", networkName)
+	output.PrintKeyValue(i18n.T("output.label_network"), networkName)
 
 	// Show active workspace if set
 	if activeWorkspace != "" {

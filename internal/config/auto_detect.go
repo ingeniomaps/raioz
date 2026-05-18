@@ -8,6 +8,7 @@ import (
 
 	"raioz/internal/detect"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
 
@@ -21,7 +22,7 @@ func AutoDetect(dir string) (*Deps, error) {
 
 	projectName := filepath.Base(absDir)
 
-	output.PrintInfo("No config file found — auto-detecting project structure...")
+	output.PrintInfo(i18n.T("output.auto_detect_start"))
 	fmt.Println()
 
 	services := make(map[string]Service)

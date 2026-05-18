@@ -8,6 +8,7 @@ import (
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -93,12 +94,12 @@ func (uc *DownUseCase) handlePerProjectProxyDown(ctx context.Context) {
 	if err != nil || !running {
 		return
 	}
-	output.PrintInfo("Stopping proxy...")
+	output.PrintInfo(i18n.T("output.stopping_proxy"))
 	if err := uc.deps.ProxyManager.Stop(ctx); err != nil {
 		logging.WarnWithContext(ctx, "Failed to stop proxy", "error", err.Error())
-		output.PrintWarning("Failed to stop proxy: " + err.Error())
+		output.PrintWarning(i18n.T("warning.proxy_stop_failed", err.Error()))
 	} else {
-		output.PrintSuccess("Proxy stopped")
+		output.PrintSuccess(i18n.T("output.proxy_stopped"))
 	}
 }
 
