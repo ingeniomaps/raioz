@@ -6,6 +6,187 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-18
+
+Architecture-review batch: 27 issues closed across three review
+passes, 6 new ADRs (041-046), 2 new internal packages
+(`internal/fsutil`, `internal/testing/chaos`). No user-facing
+BREAKING; one internal port (`ProxyManager`) already collapsed in
+v0.6.0. Theme: pay down the concurrency, lifecycle and trust-boundary
+debt that piled up between v0.5 and v0.8 while the headline features
+shipped.
+
+### Added
+
+- **ADR-041 meta orchestrator** (`docs/decisions/041-meta-orchestrator.md`)
+  — codifies what `MetaRunner` already does in v0.8: out-of-process,
+  sequential, fixed per-sub failure matrix (`up` hard-fails on first
+  non-optional failure; `down`/`status` are best-effort). The meta
+  runner takes no workspace/project lock — each child takes its own.
+  Env propagation is the public contract for sub-spawns:
+  `RAIOZ_ROUTER_ACTIVE`, `RAIOZ_SIBLING_STACK`,
+  `RAIOZ_CORRELATION_ID` are added; everything else inherits from
+  `os.Environ()`.
+- **ADR-042 certs stay at `~/.raioz/`** — TLS certs (ADR-003 layout)
+  are intentionally NOT migrated to `RaiozStateDir()` (ADR-022).
+  Co-located with mkcert's CAROOT in `$HOME`. ADR-022's "single
+  source of truth" applies to raioz-owned runtime state; certs are
+  tool-managed (mkcert) artifacts, out of scope.
+- **ADR-043 multi-machine non-goal** — explicitly documents that
+  multi-machine workspaces are out of scope for v1.0. raioz is
+  single-host by construction (Docker network local,
+  `host.docker.internal` discovery, per-machine state / locks /
+  audit / certs). v2 candidate, no scheduled work.
+- **ADR-044 TUI dashboard is observer-only** — `raioz dashboard`
+  reads Docker + local state; never mutates, never spawns, never
+  IPCs with other raioz processes. Interactive features
+  (Stop/Restart/Promote buttons) require a separate ADR that
+  addresses lock acquisition + concurrent-process coordination.
+- **ADR-045 schema deprecation + removal markers** — config schema
+  gains `deprecated:`, `removed:` and `replacement:` markers on
+  `FieldMeta`. `ValidateRemoval` ratchet wired into
+  `make check-since` so a field can't be removed without first
+  passing through a deprecated release. Closes the gap where v0.6
+  promoted `version:` to a warning gate (ADR-031) without a
+  machine-checkable removal path.
+- **ADR-046 runtime capability matrix** — Docker / Podman / nerdctl
+  capability flags (`HostGatewayAlias`, `ComposeNetworkAlias`,
+  `BuildkitDefault`, …) consolidated into one matrix in
+  `internal/runtime/capability.go`; four call sites gated on
+  `HostGatewayAlias` so nerdctl 1.x users no longer crash on the
+  `host-gateway` magic value. New `RAIOZ_RUNTIME_CAPABILITY` env
+  knob (parses `Name=bool` pairs, cached via `sync.Once`) lets
+  nerdctl 2.x users opt back in without waiting for a version
+  bump in raioz.
+- **`internal/fsutil` package** — `WriteFileAtomic`,
+  `RenameWithRetry` and `FileLockExclusive` cross-platform helpers.
+  Six state writers (`project_state`, `global`,
+  `workspace_preferences`, `service_preferences`, `ignore`,
+  `workspace.SetActive`) migrated. Hygiene rule pinned in CLAUDE.md:
+  every write under `RaiozStateDir()` or
+  `<projectDir>/.raioz.state.json` MUST go through
+  `fsutil.WriteFileAtomic` — a SIGKILL mid-write otherwise leaves a
+  zero-byte or partial JSON that `LoadLocalState` cannot parse.
+- **`internal/testing/chaos` package** — chaos tests for the new
+  atomic-write contract (`atomic_write_storm_test.go`) and the lock
+  helpers (`lock_contention_chaos_test.go`). N goroutines racing on
+  the same key never produce a partial file or a torn lock.
+- **`raioz doctor --print-spawn-env`** — prints the env subset that
+  raioz forwards to sibling / meta sub-spawns. Pairs with the
+  protocol-package centralization of `RAIOZ_ROUTER_ACTIVE` /
+  `RAIOZ_SIBLING_STACK` / `RAIOZ_CORRELATION_ID` so contributors
+  can audit the contract without grepping for env reads.
+- **`services.<n>.runtime:` schema field** — explicit per-service
+  runtime override. Strict-validated against the detector's runtime
+  set; failed values surface with the candidate list in the error.
+  Pairs with corpus fixture `036-runtime-override.yaml`.
+- **`RAIOZ_LOCK_STALE_AGE` env knob** — overrides the 30-minute
+  stale-lock threshold. Needed for CI runners with slow disks or
+  for developers who run `raioz up` then leave for lunch with the
+  workspace lock held during a long-running watch.
+- **`RAIOZ_ROUTER_ASSIGNED_IP` meta→router env handoff** — meta
+  runner computes the first consumer's subnet, derives the
+  workspace-default proxy IP, and injects it into the router
+  sub-up's env. Router projects that need a deterministic edge IP
+  (multi-workspace parallel runs with `proxy.publish: false`) now
+  get it for free without each project re-deriving the math.
+
+### Changed
+
+- **TUI dashboard polls batched** — `internal/tui/subscriptions.go`
+  rewrote the per-service docker fork into two batched forks per
+  tick (one `docker ps` + one `docker stats`). Dashboards with
+  ≥10 services no longer thrash the daemon.
+- **Audit log rotation is now flock-protected.** Concurrent raioz
+  processes that hit the 10 MiB rotation threshold at the same
+  moment used to clobber each other's rotated file; rotation now
+  takes `naming.AuditLockFile()` via `fsutil.FileLockExclusive`.
+  Regression covered by `TestLogWithContext_ConcurrentWritersNoLoss`.
+- **Port allocator takes a global flock.** Previously two raioz
+  processes racing on `raioz up` could pick the same free port
+  between scan and bind; allocator now takes
+  `naming.PortsLockFile()` for the scan+reserve critical section.
+- **`dev` / `restart` / selective-`down` now acquire the workspace
+  mutator lock** to match the up/down/clean paths. New
+  `lock_helpers.go` shares the acquisition surface with `upcase`
+  via `protocol.IsRecursiveSiblingSpawn` so mode-A sibling spawns
+  (ADR-008) don't self-deadlock when their pre/preUp hooks shell
+  back into raioz.
+- **Sibling-lock guard extracted to `protocol`.**
+  `acquireWorkspaceMutatorLock` (upcase) and the new
+  `lock_helpers.go` (app) both read the `RAIOZ_SIBLING_STACK` env
+  var through one source of truth — `protocol.IsRecursiveSiblingSpawn`.
+  Fixes a deadlock when a `pre:` or `preUp:` hook (ADR-024) called
+  `raioz restart`/`raioz down` from within a mode-A spawn.
+- **Schema validation surfaces deprecation + removal warnings.**
+  YAML fields tagged `deprecated:` print a warning with the
+  replacement key; `removed:` hard-errors with a pointer to the
+  release that dropped them. Wired into the load pipeline; no
+  config-file changes required.
+- **`errorlint` baseline drained by 1.** `b7c97a7` migrated the
+  last error site in `internal/orchestrate/dockerfile_runner.go`
+  to `errors.Is` + wrapping; `scripts/errorlint-baseline.txt`
+  loses its first entry. The remaining 24 entries drain as call
+  sites get touched.
+- **Comment hygiene sweep.** 49 issue refs scrubbed from code
+  comments across 33 files. Memory rule pinned: ADR refs stay in
+  code, issue refs go to PR / changelog scope only.
+
+### Fixed
+
+- **State writes are atomic.** All six raioz-owned state files
+  (`project_state.json`, `global.json`,
+  `workspace_preferences.json`, `service_preferences.json`,
+  `ignore.json`, `workspace/active.json`) now write through
+  `fsutil.WriteFileAtomic` — temp file in the same directory, fsync,
+  rename. A SIGKILL mid-write no longer leaves a zero-byte JSON
+  that wedges the project until manual `rm`. Closes issue 034.
+- **Compose runner injects `host.docker.internal:host-gateway`.**
+  The compose overlay matched the dockerfile / image / proxy
+  runners' invariant (CLAUDE.md "every runner that owns a container
+  injects host-gateway") but had silently drifted; closes the gap
+  where compose services on Linux without Docker Desktop couldn't
+  reach the host bridge.
+- **`dockerfile_runner` host-gateway is now capability-gated.**
+  Pairs with ADR-046: nerdctl 1.x rejects the `host-gateway` literal
+  as an unknown special value and refuses to start the container;
+  the runner now skips the injection when the active runtime lacks
+  `HostGatewayAlias` and falls back to the bridge default.
+- **Notify-send / osascript timeout.** Desktop-notification helpers
+  used to block forever on a hung notification daemon, freezing
+  `raioz up` past the visible "ready" line; both calls now run
+  under `exec.CommandContext` with a 2-second deadline.
+- **Doctor's environment check surfaces typos.** Duration env vars
+  (`RAIOZ_LAUNCHER_TIMEOUT=60` without the `s` suffix) used to fall
+  back silently; `durationFromEnv` now warns once per (process,
+  var) via `sync.Map` dedup, and `raioz doctor::checkEnvironment`
+  enumerates the known duration env vars + flags any that parse to
+  a fallback. Per ADR-035, new duration env vars MUST appear in
+  `host.KnownDurationEnvs()` or they inherit the silent-fallback
+  bug.
+- **Chaos-test assertion fixed.** A copy-paste
+  `errors.Is(err, errors.New("any"))` (always false — `errors.New`
+  returns a fresh pointer) replaced with proper `defer / recover`
+  for the panic path.
+
+### Internal
+
+- **6 new ADRs** land alongside the implementation they describe
+  (041, 042, 043, 044, 045, 046). Cross-references added to the
+  invariants section of `CLAUDE.md` so each rule is one click from
+  its rationale.
+- **Three review passes recorded.** First pass surfaced 11 findings
+  → all closed → second pass surfaced 7 → all closed → third pass
+  surfaced 4 (including the sibling-lock deadlock above) → all
+  closed. Reviewer transcripts archived locally; not committed.
+- **Deferred to v0.9.1** (third-pass `Notable`, NOT blocking):
+  migrate `internal/proxy/{workspace_lock_*,rename_*}.go` to
+  `internal/fsutil`; move `defaultProxyIPLocal` to
+  `internal/protocol/` (or add cross-package equivalence test);
+  ADR-047 "hygiene rules without dedicated ADRs" catalog;
+  `doc.go` for `internal/testing/chaos` naming the per-package vs
+  cross-package test convention.
+
 ## [0.8.3] - 2026-05-16
 
 ### Fixed
