@@ -40,9 +40,10 @@ func routerHandoffEnv(cfg *config.MetaConfig) []string {
 
 // defaultProxyIPLocal mirrors proxy.DefaultProxyIP without importing
 // the proxy package (the app→proxy import would land on the ADR-029
-// baseline that the drain plan is shrinking, not growing). Keep this
-// in sync with internal/proxy/ip.go — if the convention changes,
-// update both.
+// baseline that the drain plan is shrinking, not growing).
+// TestDefaultProxyIPLocal_MatchesProxyPackage pins the two copies to
+// agree — if the convention changes, the equivalence test fails and
+// forces both to move together.
 func defaultProxyIPLocal(subnet string) string {
 	if subnet == "" {
 		return ""
