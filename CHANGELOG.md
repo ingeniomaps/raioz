@@ -4,6 +4,47 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0](https://github.com/ingeniomaps/raioz/compare/v0.9.0...v0.10.0) (2026-05-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **config:** `.raioz.json` configs no longer load. Users on the legacy format must run `raioz migrate yaml` to convert. The warning that fired in v0.7/v0.8 is replaced by a typed error; field-level deprecation warnings inside deprecated.go are unaffected.
+
+### Features
+
+* **audit:** transitive --audit-siblings walk ([0cbfff8](https://github.com/ingeniomaps/raioz/commit/0cbfff8791c8fbc805626617aed269d296fe59d5))
+* **config:** hard-error .raioz.json (ADR-038) ([d157b85](https://github.com/ingeniomaps/raioz/commit/d157b8511fe303534b5fed84679e45c4aabe358f))
+
+
+### Bug Fixes
+
+* **docker:** probe launcher siblings by name ([44470f1](https://github.com/ingeniomaps/raioz/commit/44470f1366f2d81537b9ecd040d2a27ebb1cf4f6))
+* **meta:** no-op cancel on clean sub-up exit ([9326e0b](https://github.com/ingeniomaps/raioz/commit/9326e0bc3d306b57dcbeb736c26c1aa822e5e079))
+* **upcase:** meta launcher survives sibling-spawn reentry ([76adf52](https://github.com/ingeniomaps/raioz/commit/76adf5242bee8e787b660e7b80e0e0b2c5ff92ba))
+
+
+### Refactor
+
+* drain 2 app-infra baseline entries ([3f12b83](https://github.com/ingeniomaps/raioz/commit/3f12b8334b946b9bbbc1ebca8b54e32b865936c4))
+* drain 3 app-infra entries via netutil ([5a682c1](https://github.com/ingeniomaps/raioz/commit/5a682c12b8acf85ca114791ca73286a89c914fdd))
+* drain dual-flow baseline to zero ([e3c2572](https://github.com/ingeniomaps/raioz/commit/e3c2572341651314af4e27cfefc10e03d0f4c846))
+* drain errorlint baseline to zero ([b218083](https://github.com/ingeniomaps/raioz/commit/b21808366c3a6056f9febc02fa14bb4be5669574))
+* drain i18n-source baseline to zero ([b4900e8](https://github.com/ingeniomaps/raioz/commit/b4900e877b71dfd81d74e8e6cbfa66f17b5605de))
+* **proxy:** migrate lock+rename to fsutil ([408a5cb](https://github.com/ingeniomaps/raioz/commit/408a5cbb76dd6e2055b06f2c3ae20bba7f44a809))
+
+
+### Documentation
+
+* **adr:** catalog hygiene rules as ADR-047 ([cb33cda](https://github.com/ingeniomaps/raioz/commit/cb33cdac4a3c37042b40a804d086f6e8537dfa51))
+* **changelog:** cut v0.10.0 ([09ed73b](https://github.com/ingeniomaps/raioz/commit/09ed73b6ec93ab44a957212a91b3b429ddab628d))
+* **testing:** document chaos package convention ([4e8a43a](https://github.com/ingeniomaps/raioz/commit/4e8a43a8a866ebda8760f2c68eabc85ede8d4c7f))
+
+
+### Build
+
+* **ci:** add release-please automation ([a75e9d2](https://github.com/ingeniomaps/raioz/commit/a75e9d23eabf55423832240e074b9c92a32b2d7b))
+
 ## [Unreleased]
 
 ## [0.10.0] - 2026-05-18
