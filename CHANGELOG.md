@@ -138,6 +138,19 @@ review.
   new `SiblingInfo.ProxyTargets` collector. Label probe stays the
   fast path; the name-based fallback only fires when labels return
   empty.
+- **Meta runner no longer kills the previous sub's launcher when
+  advancing.** `exec.CommandContext` defaults `cmd.Cancel` to
+  `Process.Kill`, which fires whenever the bound ctx is canceled
+  — including the normal-path `subCancel` deferred at the end of
+  `runSingle`. After a clean sub-up returned, that cancel raced
+  against the launcher grandchildren the sub had detached, and
+  the runtime's cancel teardown killed in-flight `make` /
+  `docker compose up -d` mid-deploy. The meta runner now
+  overrides `cmd.Cancel` to invoke `Process.Kill` ONLY when
+  `ctx.Err() == context.DeadlineExceeded`. The genuine
+  `RAIOZ_META_SUB_TIMEOUT` case still kills hung sub-projects;
+  normal `subCancel` becomes a no-op. Two regression tests in
+  `meta_cancel_test.go` pin both branches.
 
 ### Internal
 
