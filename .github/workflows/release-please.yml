@@ -1,10 +1,39 @@
 name: Release Please
 
+# Why a PAT instead of the default GITHUB_TOKEN:
+#
+#  1. GITHUB_TOKEN cannot create pull requests unless the repo enables
+#     Settings → Actions → General → "Allow GitHub Actions to create
+#     and approve pull requests". Toggling that opens the door for
+#     ANY workflow to open PRs, not just this one — coarser than the
+#     PAT path.
+#  2. Commits and tags signed by GITHUB_TOKEN do NOT trigger other
+#     workflows (GitHub anti-loop protection). When release-please's
+#     PR is merged, the tag push must trigger release.yml so
+#     goreleaser publishes. Only a PAT-signed push chains correctly.
+#
+# RELEASE_PLEASE_TOKEN expectations:
+#  - Fine-grained PAT scoped to THIS REPO ONLY (not classic — classic
+#    PATs grant access to every repo the owner can reach).
+#  - Permissions: Contents (read & write) + Pull requests (read & write).
+#    Nothing else. Anything broader exceeds the principle of least
+#    privilege for what release-please does.
+#  - Owner: the repo maintainer. Rotate or replace if the owner
+#    leaves or the PAT expires; the workflow will fail loud rather
+#    than fall back silently.
+#  - Storage: GitHub Actions secret named `RELEASE_PLEASE_TOKEN` at
+#    the repo level. Never commit the literal value.
+
 on:
   push:
     branches:
       - main
 
+# Documentation only — the PAT brings its own permissions and
+# overrides the workflow-level GITHUB_TOKEN scopes. Keep these here
+# so a reader instantly sees the access surface release-please
+# requires; if the PAT is replaced with GITHUB_TOKEN later, these
+# remain accurate.
 permissions:
   contents: write
   pull-requests: write
@@ -15,6 +44,6 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

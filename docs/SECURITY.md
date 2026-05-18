@@ -367,6 +367,42 @@ hosts` command prints the line ready for you to pipe through
 `sudo tee -a /etc/hosts`. The decision to modify a privileged
 system file is always explicit.
 
+## CI / release tokens
+
+Two GitHub Actions workflows take credentials. Both follow
+least-privilege:
+
+### `release.yml` — goreleaser
+
+- Token: `GITHUB_TOKEN` (auto-issued per run, scoped to this
+  repo, expires when the workflow finishes).
+- Permissions: `contents: write` (upload release assets).
+- Blast radius if leaked: limited to this repo for ≤6 hours
+  (token lifetime).
+- Rotation: automatic.
+
+### `release-please.yml` — automated release PRs
+
+- Token: `RELEASE_PLEASE_TOKEN` (fine-grained PAT, repo-scoped).
+- Permissions: Contents (read/write) + Pull requests (read/write).
+  Nothing else.
+- Why a PAT instead of `GITHUB_TOKEN`:
+  - `GITHUB_TOKEN` cannot create PRs unless the repo enables
+    "Allow GitHub Actions to create and approve pull requests",
+    which would also grant that capability to every other
+    workflow on the repo. The PAT keeps the capability scoped
+    to this one workflow.
+  - Commits/tags signed by `GITHUB_TOKEN` do not trigger
+    downstream workflows (GitHub anti-loop). The tag push from
+    release-please must trigger `release.yml`, so PAT signing
+    is required.
+- Blast radius if leaked: write access to this repo's contents
+  and PRs. Cannot read other secrets; cannot reach other repos
+  (fine-grained).
+- Rotation: PAT owner is responsible. Set an expiry on the PAT
+  and recreate before expiry. The workflow fails loud (no
+  silent fallback) if the secret is missing or invalid.
+
 ## What raioz does NOT protect against
 
 - **Hostile `raioz.yaml` from third parties.** As above —
