@@ -50,3 +50,19 @@ const RouterAssignedIP = "RAIOZ_ROUTER_ASSIGNED_IP"
 func IsRecursiveSiblingSpawn() bool {
 	return os.Getenv(SiblingStack) != ""
 }
+
+// MetaCompletedProjects carries the names of sub-projects the meta
+// runner has already brought up successfully in the current run.
+// Comma-separated. The meta runner appends to it after each
+// successful sub-up and stamps the result into the env of every
+// subsequent sub-up. Sub-up's mode-A sibling dispatch reads it as a
+// short-circuit: when a dep's sibling project is on the list, skip
+// the IsProjectActive probe and the sibling spawn entirely. The
+// container the meta already kicked off may still be initialising
+// (launcher pattern: `make start` spawning `docker compose up -d` in
+// the background) when the next sub-up runs — without this hint the
+// probe sees no container and triggers a redundant recursive `raioz
+// up`. Disjoint from SiblingStack: that one's about cycle detection
+// in the recursive call chain; this one's about "the meta already
+// owns this".
+const MetaCompletedProjects = "RAIOZ_META_COMPLETED_PROJECTS"
