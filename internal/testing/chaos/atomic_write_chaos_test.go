@@ -1,8 +1,3 @@
-// Package chaos hosts fault-injection / concurrency stress tests
-// that complement the per-package unit tests. They exercise the
-// concurrency-sensitive surfaces (state writes, audit rotation, lock
-// contention) under load the regular suites don't cover. Run via
-// `go test -race ./internal/testing/chaos/...` (~few seconds total).
 package chaos
 
 import (
