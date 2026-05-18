@@ -3,9 +3,9 @@ package upcase
 import (
 	"fmt"
 
-	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
+	"raioz/internal/netutil"
 )
 
 // privilegedPortCeiling is the first unprivileged port on POSIX. Binding below
@@ -19,7 +19,7 @@ const privilegedPortCeiling = 1024
 // as a package variable so tests can stub it — the production flow always
 // wants to see real host state, but a unit test asserting deterministic port
 // numbers shouldn't fail just because the CI host happens to have 3000 bound.
-var portInUseProbe = docker.CheckPortInUse
+var portInUseProbe = netutil.CheckPortInUse
 
 // PortAllocation is the resolved port for a single service together with the
 // metadata the orchestrator needs to wire it up.

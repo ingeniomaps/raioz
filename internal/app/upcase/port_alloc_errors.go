@@ -3,9 +3,9 @@ package upcase
 import (
 	"fmt"
 
-	"raioz/internal/docker"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
+	"raioz/internal/netutil"
 )
 
 // The error builders for port allocation live here — extracted from
@@ -42,7 +42,7 @@ type PortBindConflict struct {
 func checkPortBindConflicts(result *PortAllocResult) []PortBindConflict {
 	var conflicts []PortBindConflict
 	for _, alloc := range result.Services {
-		inUse, err := docker.CheckPortInUse(fmt.Sprintf("%d", alloc.Port))
+		inUse, err := netutil.CheckPortInUse(fmt.Sprintf("%d", alloc.Port))
 		if err != nil || !inUse {
 			continue
 		}
@@ -55,7 +55,7 @@ func checkPortBindConflicts(result *PortAllocResult) []PortBindConflict {
 	}
 	for _, alloc := range result.Deps {
 		for _, m := range alloc.Mappings {
-			inUse, err := docker.CheckPortInUse(fmt.Sprintf("%d", m.HostPort))
+			inUse, err := netutil.CheckPortInUse(fmt.Sprintf("%d", m.HostPort))
 			if err != nil || !inUse {
 				continue
 			}

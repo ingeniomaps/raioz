@@ -29,11 +29,8 @@ internal/app/upcase/compose.go
 internal/app/upcase/host_lifecycle.go
 internal/app/upcase/orchestration.go
 internal/app/upcase/orchestration_proxy.go
-internal/app/upcase/port_alloc.go
-internal/app/upcase/port_alloc_errors.go
 internal/app/upcase/port_resolve.go
 internal/app/upcase/sibling_dispatch.go
 internal/app/upcase/validation.go
 internal/app/upcase/watch_setup.go
 internal/app/yaml_mode.go
-internal/cli/hosts.go

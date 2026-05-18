@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 
 	"raioz/internal/domain/models"
 	"raioz/internal/naming"
+	"raioz/internal/netutil"
 	"raioz/internal/runtime"
 )
 
@@ -25,31 +25,10 @@ type PortInfo struct {
 	ContainerPort int
 }
 
-// CheckPortInUse checks if a host port is in use by trying to bind to it
-func CheckPortInUse(port string) (bool, error) {
-	// Parse port (format: "host:container" or just "host")
-	parts := strings.Split(port, ":")
-	if len(parts) == 0 || parts[0] == "" {
-		return false, fmt.Errorf("invalid port format: %s", port)
-	}
-
-	hostPortStr := parts[0]
-	hostPort, err := strconv.Atoi(hostPortStr)
-	if err != nil {
-		return false, fmt.Errorf("invalid port number: %s", hostPortStr)
-	}
-
-	// Try to bind to the port
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", hostPort))
-	if err != nil {
-		// Port is in use
-		return true, nil
-	}
-
-	// Port is available, close the listener
-	ln.Close()
-	return false, nil
-}
+// CheckPortInUse is re-exported for backwards compatibility. Canonical
+// home is netutil.CheckPortInUse — moved per ADR-029 so app/cli callers
+// don't need to import the docker package for a pure stdlib probe.
+var CheckPortInUse = netutil.CheckPortInUse
 
 // ParsePort extracts host port from port string (format: "host:container")
 func ParsePort(port string) (int, error) {

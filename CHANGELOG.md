@@ -86,11 +86,15 @@ review.
 - **i18n-source baseline drained to zero.** 45 raw English
   literals in `output.Print*` calls across 19 files now route
   through `i18n.T()`. ~42 new keys land in `en.json` + `es.json`.
-- **Two app-infra baseline entries drained** (ADR-029).
-  `DepComposeProjectName` relocated to `naming`; doctor's mkcert
-  check inlines `exec.LookPath` instead of importing `proxy` for
-  the one-line wrapper. Remaining 20 entries need port plumbing
-  beyond the opportunistic scope.
+- **Five app-infra baseline entries drained** (ADR-029) via the
+  new `internal/netutil` package. `CheckPortInUse`,
+  `DefaultProxyIP`, `ValidateProxyIP`, and `IsNonHTTPImage` move
+  to netutil; `DepComposeProjectName` relocates to `naming`;
+  doctor's mkcert check inlines `exec.LookPath`. The duplicated
+  `defaultProxyIPLocal` in `meta_router_handoff.go` (with its
+  cross-package equivalence test) collapses now that the app
+  layer can import netutil directly. Remaining 17 entries need
+  port plumbing beyond the opportunistic scope.
 
 ### Fixed
 
