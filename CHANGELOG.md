@@ -87,6 +87,20 @@ review.
 
 ### Refactor
 
+- **Resolve Unix-shell skips in `internal/infra/exec` tests.**
+  Nine tests guarded by `runtime.GOOS == "windows"` t.Skip() now
+  live in `os_impl_unix_test.go` behind `//go:build !windows`;
+  a new `os_impl_windows_test.go` covers the same surface with
+  cmd.exe equivalents (`cmd /c exit`, `findstr "x*"` as the
+  cat-substitute, `timeout` instead of sleep). ADR-030 Windows
+  CI now exercises the wrapper on real Windows; Linux CI loses
+  no coverage.
+- **Strengthen `CheckWorkspacePermissions_Unwritable` test.**
+  Was a no-assertion smoke that just called the function with
+  `/root/...` and discarded the result. Now uses a `t.TempDir`
+  + `chmod 0o500` to create a verifiable unwritable parent and
+  asserts an error. Root-skip kept (POSIX chmod doesn't restrict
+  root) with the rationale spelled out in the skip message.
 - **`errorlint` baseline drained to zero.** 23 sites migrated to
   `errors.Is` / `errors.As` / `%w`. The custom `errors.As` shim
   in `internal/errors/format.go` is deleted — Go 1.13's stdlib

@@ -137,9 +137,20 @@ func TestValidatorImpl_ValidateBeforeDown_WithContext(t *testing.T) {
 
 func TestValidatorImpl_CheckWorkspacePermissions_Unwritable(t *testing.T) {
 	if os.Geteuid() == 0 {
-		t.Skip("running as root — unwritable check won't work")
+		t.Skip("running as root — POSIX chmod can't restrict root, so the " +
+			"unwritable branch is unreachable for this user. ACL-based " +
+			"enforcement (chattr +i / setfacl) is out of scope for a unit test.")
 	}
+	parent := t.TempDir()
+	if err := os.Chmod(parent, 0o500); err != nil { // read+exec, no write
+		t.Fatal(err)
+	}
+	// Restore perms before TempDir cleanup or it can't remove the dir.
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o700) })
+
 	v := NewValidator()
-	// Root usually isn't writable
-	_ = v.CheckWorkspacePermissions("/root/raioz-test-should-fail")
+	target := filepath.Join(parent, "raioz-test-should-fail")
+	if err := v.CheckWorkspacePermissions(target); err == nil {
+		t.Error("expected error when the parent dir is unwritable")
+	}
 }

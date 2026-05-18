@@ -1,18 +1,16 @@
+//go:build !windows
+
 package exec
 
 import (
 	"bytes"
 	"context"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestOSCommandExecutor_Command_Run(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	cmd := exec.Command("true")
 	if err := cmd.Run(); err != nil {
@@ -21,9 +19,6 @@ func TestOSCommandExecutor_Command_Run(t *testing.T) {
 }
 
 func TestOSCommandExecutor_Command_RunFailure(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	cmd := exec.Command("false")
 	if err := cmd.Run(); err == nil {
@@ -32,9 +27,6 @@ func TestOSCommandExecutor_Command_RunFailure(t *testing.T) {
 }
 
 func TestOSCommandExecutor_Output(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	cmd := exec.Command("echo", "hello")
 	out, err := cmd.Output()
@@ -47,9 +39,6 @@ func TestOSCommandExecutor_Output(t *testing.T) {
 }
 
 func TestOSCommandExecutor_CombinedOutput(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	cmd := exec.Command("sh", "-c", "echo stdout; echo stderr >&2")
 	out, err := cmd.CombinedOutput()
@@ -63,9 +52,6 @@ func TestOSCommandExecutor_CombinedOutput(t *testing.T) {
 }
 
 func TestOSCommandExecutor_CommandContext(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -78,9 +64,6 @@ func TestOSCommandExecutor_CommandContext(t *testing.T) {
 }
 
 func TestOSCommandExecutor_StartAndWait(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	cmd := exec.Command("true")
 	if err := cmd.Start(); err != nil {
@@ -92,9 +75,6 @@ func TestOSCommandExecutor_StartAndWait(t *testing.T) {
 }
 
 func TestOSCommandExecutor_SetDir(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	dir := t.TempDir()
 	cmd := exec.Command("pwd")
@@ -111,9 +91,6 @@ func TestOSCommandExecutor_SetDir(t *testing.T) {
 }
 
 func TestOSCommandExecutor_SetStdoutStderr(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	var stdout, stderr bytes.Buffer
 
@@ -132,9 +109,6 @@ func TestOSCommandExecutor_SetStdoutStderr(t *testing.T) {
 }
 
 func TestOSCommandExecutor_SetStdin(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("skipping on Windows")
-	}
 	exec := NewOSCommandExecutor()
 	cmd := exec.Command("cat")
 	cmd.SetStdin(strings.NewReader("stdin-content"))
