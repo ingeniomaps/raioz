@@ -28,6 +28,12 @@ on:
   push:
     branches:
       - main
+  # Manual trigger from the Actions UI — useful to:
+  #   - validate the RELEASE_PLEASE_TOKEN setup without pushing,
+  #   - retry after fixing a permissions issue,
+  #   - force a re-computation if a commit was added directly to
+  #     main without going through the develop → main flow.
+  workflow_dispatch:
 
 # Documentation only — the PAT brings its own permissions and
 # overrides the workflow-level GITHUB_TOKEN scopes. Keep these here
