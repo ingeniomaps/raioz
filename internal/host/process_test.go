@@ -169,6 +169,15 @@ func TestStopServiceWithCommandKillsProcessGroup(t *testing.T) {
 		t.Fatalf("StopServiceWithCommand: %v", err)
 	}
 
+	// Poll for the grandchild to die. Signal delivery + kernel reap of
+	// the dying process aren't instantaneous; on slow CI runners
+	// IsProcessAlive can briefly return true after StopServiceWithCommand
+	// returns. The reap deadline is generous because the test only fails
+	// when the grandchild SURVIVES — a passing case returns in <50ms.
+	deadline := time.Now().Add(2 * time.Second)
+	for IsProcessAlive(workerPID) && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
 	if IsProcessAlive(workerPID) {
 		t.Errorf("grandchild sleep pid=%d survived stop — issue 019 regression",
 			workerPID)
