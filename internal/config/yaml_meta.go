@@ -180,18 +180,18 @@ func resolveMetaProject(
 ) (MetaProject, error) {
 	if p.Path == "" {
 		return MetaProject{}, fmt.Errorf(
-			"%q: projects[%d] missing required `path:`", configPath, idx,
+			"%q: projects[%d] missing required `path`", configPath, idx,
 		)
 	}
 	if p.Git == "" && (p.Branch != "" || p.Auth != "") {
 		return MetaProject{}, fmt.Errorf(
-			"%q: projects[%d] (%q) declares branch/auth without git:",
+			"%q: projects[%d] (%q) declares branch/auth without git",
 			configPath, idx, p.Path,
 		)
 	}
 	if p.RemoteHostname != "" && p.Remote == "" {
 		return MetaProject{}, fmt.Errorf(
-			"%q: projects[%d] (%q) declares remoteHostname without remote:",
+			"%q: projects[%d] (%q) declares remoteHostname without remote",
 			configPath, idx, p.Path,
 		)
 	}
