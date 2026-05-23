@@ -240,7 +240,13 @@ type YAMLDependency struct {
 	//   publish: [5432, 9090]
 	Publish YAMLPublish `yaml:"publish,omitempty"` // since: v0.1.0
 
-	Env             YAMLStringSlice `yaml:"env,omitempty"`             // since: v0.1.0
+	Env YAMLStringSlice `yaml:"env,omitempty"` // since: v0.1.0
+	// Volumes lists bind mounts and named volumes for this dependency,
+	// using docker-compose syntax: `./host/path:/container/path[:ro]`
+	// (bind) or `myvol:/data` (named). Bind paths starting with `.` are
+	// resolved against the project's raioz.yaml dir, not the raioz process
+	// cwd. Named volume names get a project prefix so they don't collide
+	// across projects in the same workspace.
 	Volumes         YAMLStringSlice `yaml:"volumes,omitempty"`         // since: v0.1.0
 	Hostname        string          `yaml:"hostname,omitempty"`        // since: v0.1.0
 	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"` // since: v0.3.0

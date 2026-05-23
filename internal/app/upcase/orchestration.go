@@ -160,6 +160,13 @@ func (uc *UseCase) processOrchestration(
 				deps.Project.Name,
 			)
 
+			// ProjectDir anchors relative bind-mount sources against the
+			// project's raioz.yaml dir rather than the raioz process cwd.
+			if entry.Inline != nil && len(entry.Inline.Volumes) > 0 {
+				svcCtx.Volumes = append([]string(nil), entry.Inline.Volumes...)
+				svcCtx.ProjectDir = projectDir
+			}
+
 			// When the dep declares `compose:`, hand its files + env files
 			// straight to ImageRunner. ImageRunner branches on these: if
 			// set it uses the user's compose with a network/labels overlay
