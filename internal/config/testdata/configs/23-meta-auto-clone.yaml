@@ -1,0 +1,21 @@
+# 23-meta-auto-clone — `kind: meta` with auto-clone bootstrap fields
+# from ADR-048: per-project `git:`, `branch:`, `auth:` declarations the
+# meta runner uses to clone sub-projects when their path is missing on
+# disk. Validates that branch/auth round-trip alongside the legacy
+# Optional / Profiles fields without conflict.
+
+version: "1"
+kind: meta
+workspace: oim
+
+projects:
+  - path: ./api
+    git: git@github.com:cubiko/oim-api.git
+    branch: develop
+    auth: gh
+  - path: ./bff
+    git: https://github.com/cubiko/oim-bff.git
+    auth: inherit
+  - path: ./optional-tool
+    optional: true
+    git: file:///tmp/bare/optional-tool.git

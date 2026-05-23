@@ -7,6 +7,7 @@ import (
 	"raioz/internal/app"
 	"raioz/internal/config"
 	"raioz/internal/i18n"
+	infraproxy "raioz/internal/infra/proxy"
 	"raioz/internal/output"
 )
 
@@ -17,6 +18,12 @@ import (
 // `go test` returns the test runner and recursively re-enters the
 // suite. Package-level var to keep the override surface tiny.
 var newMetaRunner = func() *app.MetaRunner { return &app.MetaRunner{} }
+
+// defaultRemoteRouteWriter is the production binding the meta bootstrap
+// uses to publish workspace Caddy routes for remote-mode sub-projects.
+// Lives in the cli layer (not in app/) so app/ stays free of an
+// internal/proxy import per ADR-029.
+var defaultRemoteRouteWriter = app.RemoteRouteWriter(infraproxy.WriteRemoteRoutes)
 
 // tryHandleMeta detects whether configPath points at a meta-orchestrator
 // raioz.yaml (`kind: meta`). If yes, it dispatches to MetaRunner with the
@@ -53,6 +60,9 @@ func tryHandleMeta(
 	output.PrintInfo(i18n.T("meta.dispatch.header", len(cfg.Projects)))
 
 	runner := newMetaRunner()
+	if opts.RemoteRouteWriter == nil {
+		opts.RemoteRouteWriter = defaultRemoteRouteWriter
+	}
 	var summary app.MetaSummaryList
 	switch subCmd {
 	case "up":

@@ -214,3 +214,213 @@ projects:
 		t.Errorf("Router = %+v on config without router:, want nil", cfg.Router)
 	}
 }
+
+// ADR-048: when path exists on disk, mode resolves to Local — the
+// bootstrap will skip clone for this entry.
+func TestLoadMetaConfig_PathExists_ModeLocal(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	if cfg.Projects[0].Mode != MetaModeLocal {
+		t.Errorf("Mode = %q, want %q", cfg.Projects[0].Mode, MetaModeLocal)
+	}
+}
+
+// ADR-048: missing path + git declared → mode Clone. Branch and auth
+// must propagate to MetaProject.
+func TestLoadMetaConfig_MissingPathWithGit_ModeClone(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    git: git@github.com:cubiko/oim-api.git
+    branch: develop
+    auth: gh
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	p := cfg.Projects[0]
+	if p.Mode != MetaModeClone {
+		t.Errorf("Mode = %q, want %q", p.Mode, MetaModeClone)
+	}
+	if p.Git != "git@github.com:cubiko/oim-api.git" {
+		t.Errorf("Git = %q, want full URL", p.Git)
+	}
+	if p.Branch != "develop" {
+		t.Errorf("Branch = %q, want %q", p.Branch, "develop")
+	}
+	if p.Auth != "gh" {
+		t.Errorf("Auth = %q, want %q", p.Auth, "gh")
+	}
+	if p.RelPath != "api" {
+		t.Errorf("RelPath = %q, want %q (bootstrap needs the relative form)", p.RelPath, "api")
+	}
+}
+
+// ADR-048: missing path + optional + no git → mode Skip.
+func TestLoadMetaConfig_MissingPathOptionalNoGit_ModeSkip(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    optional: true
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	if cfg.Projects[0].Mode != MetaModeSkip {
+		t.Errorf("Mode = %q, want %q", cfg.Projects[0].Mode, MetaModeSkip)
+	}
+}
+
+// ADR-048: missing path, no git, not optional → mode Local, deferred to
+// runSingle for "no such file" surfacing. Backward compatible with v0.8.
+func TestLoadMetaConfig_MissingPathNotOptionalNoGit_ModeLocalDeferred(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	if cfg.Projects[0].Mode != MetaModeLocal {
+		t.Errorf("Mode = %q, want %q (legacy deferred error path)",
+			cfg.Projects[0].Mode, MetaModeLocal)
+	}
+}
+
+// ADR-048: branch / auth without git: are pure config noise and almost
+// certainly a typo. Reject at load time.
+func TestLoadMetaConfig_BranchWithoutGit_Rejected(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    branch: develop
+`)
+	_, _, err := LoadMetaConfig(path)
+	if err == nil || !strings.Contains(err.Error(), "branch/auth without git") {
+		t.Errorf("expected branch/auth-without-git error, got %v", err)
+	}
+}
+
+func TestLoadMetaConfig_AuthWithoutGit_Rejected(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    auth: gh
+`)
+	_, _, err := LoadMetaConfig(path)
+	if err == nil || !strings.Contains(err.Error(), "branch/auth without git") {
+		t.Errorf("expected branch/auth-without-git error, got %v", err)
+	}
+}
+
+// ADR-049: missing path + remote declared with no git → mode Remote.
+func TestLoadMetaConfig_RemoteWithoutGit_ModeRemote(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    remote: https://api.staging.acme.dev
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	p := cfg.Projects[0]
+	if p.Mode != MetaModeRemote {
+		t.Errorf("Mode = %q, want %q", p.Mode, MetaModeRemote)
+	}
+	if p.Remote != "https://api.staging.acme.dev" {
+		t.Errorf("Remote = %q", p.Remote)
+	}
+}
+
+// ADR-049: when git AND remote are both declared and path is missing,
+// load picks Clone optimistically. Bootstrap downgrades to Remote on
+// clone failure.
+func TestLoadMetaConfig_GitAndRemoteBoth_ModeClone(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    git: git@x:y/api.git
+    remote: https://api.staging.acme.dev
+`)
+	cfg, _, err := LoadMetaConfig(path)
+	if err != nil {
+		t.Fatalf("LoadMetaConfig: %v", err)
+	}
+	if cfg.Projects[0].Mode != MetaModeClone {
+		t.Errorf("Mode = %q, want %q (bootstrap can fall back to Remote)",
+			cfg.Projects[0].Mode, MetaModeClone)
+	}
+}
+
+// ADR-049: remoteHostname requires remote.
+func TestLoadMetaConfig_RemoteHostnameWithoutRemote_Rejected(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    remoteHostname: api
+`)
+	_, _, err := LoadMetaConfig(path)
+	if err == nil || !strings.Contains(err.Error(), "remoteHostname without remote") {
+		t.Errorf("expected remoteHostname-without-remote error, got %v", err)
+	}
+}
+
+// ADR-049 validates the remote URL at load time.
+func TestLoadMetaConfig_MalformedRemoteRejected(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    remote: ":::not a url"
+`)
+	_, _, err := LoadMetaConfig(path)
+	if err == nil {
+		t.Fatal("expected error for malformed remote URL")
+	}
+}
+
+func TestLoadMetaConfig_NonHTTPRemoteRejected(t *testing.T) {
+	dir := t.TempDir()
+	path := writeMeta(t, dir, `
+kind: meta
+projects:
+  - path: api
+    remote: ftp://api.acme.dev
+`)
+	_, _, err := LoadMetaConfig(path)
+	if err == nil || !strings.Contains(err.Error(), "http or https") {
+		t.Errorf("expected http/https-only error, got %v", err)
+	}
+}

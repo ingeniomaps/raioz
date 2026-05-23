@@ -107,12 +107,8 @@ func decideModeA(
 		return siblingDecision{}, err
 	}
 
-	// Short-circuit: when the meta runner has already brought this
-	// sibling up in the current run, skip the spawn without probing.
-	// The launcher container may still be initialising (its `make
-	// start` is racing with `docker compose up -d` in the background),
-	// so the probe would miss it and trigger a redundant recursive
-	// `raioz up`. See internal/protocol/childenv.go for the contract.
+	// Trust the meta-runner hint before probing: the launcher
+	// container the meta kicked off may not exist yet in `docker ps`.
 	if metaAlreadyCompleted(sib.Project) {
 		return siblingDecision{
 			Kind:        siblingSkipModeA,
@@ -224,14 +220,9 @@ func verifySiblingsStillUp(
 		if v.SiblingInfo == nil {
 			continue
 		}
-		// Meta-completed siblings cannot fail this re-probe even when
-		// they pass it: the meta runner just brought them up but the
-		// launcher container may still be coming up. The first probe
-		// inside decideModeA short-circuited via metaAlreadyCompleted
-		// for the same reason. Trust the meta-runner hint and skip
-		// the re-probe — if the meta lied, the consumer will discover
-		// the missing endpoint at runtime with a clearer error than
-		// "sibling no longer active".
+		// Same trust as in decideModeA: the meta hint wins; re-probing
+		// here would flag launchers still inside the materialisation
+		// window as "no longer active".
 		if metaAlreadyCompleted(v.SiblingInfo.Project) {
 			continue
 		}

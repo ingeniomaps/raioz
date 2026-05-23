@@ -148,7 +148,7 @@ Path forward is integration tests under a real Docker daemon, not
 more unit tests — most pure-function gaps already closed. Bump
 `COVERAGE_THRESHOLD` to 80 once the integration suite lands.
 
-### Release automation (shipped, v0.9.1)
+### Release automation (shipped, v0.10.0 setup + v0.10.1 first auto-release)
 
 `release-please` watches pushes to `main` and opens a "release PR"
 that bumps the version in `.release-please-manifest.json`, prepends
@@ -156,9 +156,15 @@ a CHANGELOG entry generated from conventional commits, and on merge
 creates the `v<X.Y.Z>` tag — which fires `release.yml` → goreleaser
 as before. Configuration lives in `release-please-config.json`
 (`release-type: go`, `bump-minor-pre-major: true`, curated
-changelog sections). The existing `[Unreleased]` block stays as
-the hand-written cut for releases prepared before release-please
-landed; release-please prepends new versioned entries above it.
+changelog sections). Authenticated via repo-scoped fine-grained PAT
+in `RELEASE_PLEASE_TOKEN` secret (see `docs/SECURITY.md § CI /
+release tokens`).
+
+**CHANGELOG.md is now release-please-owned.** Contributors do NOT
+write to a `[Unreleased]` block. Versioned entries are appended
+automatically above the historical hand-written entries on each
+release. Rich commit bodies (and BREAKING CHANGE footers when
+applicable) are the input — release-please reads them.
 
 Manual fallback path still works — the workflow only opens PRs, it
 doesn't replace `git tag` if a release must ship out-of-band.

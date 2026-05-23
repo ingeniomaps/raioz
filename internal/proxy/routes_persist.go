@@ -192,3 +192,88 @@ func (m *Manager) loadAllProjectRoutes() []persistedProject {
 func (m *Manager) RemainingProjects() int {
 	return len(m.loadAllProjectRoutes())
 }
+
+// WriteRemoteProjectRoutes writes a persistedProject file for a meta
+// sub-project that runs in remote mode (ADR-049). The meta runner has no
+// Manager bound to it — sub-projects don't spawn locally — so this helper
+// takes the workspace name explicitly and computes the routes directory
+// the same way Manager.routesDir does for a workspace-shared manager.
+//
+// Pre-conditions:
+//   - workspace MUST be non-empty (per-project mode has no shared dir).
+//   - project MUST be safe-ish — the helper applies the same path-traversal
+//     guard projectRoutesPath uses.
+//   - tlsMode SHOULD be "mkcert" or "letsencrypt" — anything else falls
+//     through to plain HTTP in the Caddyfile renderer.
+//
+// The on-disk shape matches what SaveProjectRoutes produces so the
+// workspace Caddy reads remote and local routes through the same code
+// path. Write is atomic (temp file + rename), matching ADR-005 invariant.
+func WriteRemoteProjectRoutes(
+	workspace, project, domain, tlsMode string,
+	routes []interfaces.ProxyRoute,
+) error {
+	if workspace == "" {
+		return fmt.Errorf("WriteRemoteProjectRoutes: workspace required")
+	}
+	if project == "" {
+		return fmt.Errorf("WriteRemoteProjectRoutes: project required")
+	}
+
+	dir := workspaceRoutesDirFor(workspace)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("failed to create routes dir: %w", err)
+	}
+	path := filepath.Join(dir, safeRoutesFilename(project))
+
+	pp := persistedProject{
+		Project: project,
+		Domain:  domain,
+		TLSMode: tlsMode,
+		Routes:  append([]interfaces.ProxyRoute(nil), routes...),
+	}
+	data, err := json.MarshalIndent(pp, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal remote routes: %w", err)
+	}
+
+	tmp, err := os.CreateTemp(dir, ".routes-*.json.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	cleanup := func() { _ = os.Remove(tmpPath) }
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+	if err := fsutil.RenameWithRetry(tmpPath, path); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to rename routes file: %w", err)
+	}
+	return nil
+}
+
+// workspaceRoutesDirFor is the standalone equivalent of Manager.routesDir,
+// taking the workspace name as input rather than reading it off Manager
+// state. Necessary because WriteRemoteProjectRoutes runs from contexts
+// (the meta runner) that don't instantiate a Manager.
+func workspaceRoutesDirFor(workspace string) string {
+	return filepath.Join(naming.WorkspaceProxyDirFor(workspace), "routes")
+}
+
+// safeRoutesFilename mirrors the projectRoutesPath guard against path
+// separators / parent traversal. Both `/` and `\` are stripped regardless
+// of the host OS — a project name containing a foreign separator must
+// not let the file escape the workspace routes dir.
+func safeRoutesFilename(project string) string {
+	safe := strings.ReplaceAll(project, "/", "_")
+	safe = strings.ReplaceAll(safe, "\\", "_")
+	safe = strings.ReplaceAll(safe, "..", "_")
+	return safe + ".json"
+}

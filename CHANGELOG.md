@@ -17,21 +17,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 * **ci:** allow manual trigger of release-please ([3dae51d](https://github.com/ingeniomaps/raioz/commit/3dae51d144b84b7a84f132e449eac9477ef07f6d))
 * **ci:** use RELEASE_PLEASE_TOKEN PAT ([25fae10](https://github.com/ingeniomaps/raioz/commit/25fae10bccf829ef799d4bc021c319ee8902a4e8))
 
-## [Unreleased]
-
-### Performance
-
-- **Meta runner skips redundant sibling spawns.** When sub-project
-  B's `dependencies.X.project:` points at sub-project A and the meta
-  runner just brought A up, B's mode-A dispatch used to re-spawn
-  `raioz up` in A's directory because A's launcher container hadn't
-  appeared in `docker ps` yet (`make start` racing with `docker
-  compose up -d` in the background). New env var
-  `RAIOZ_META_COMPLETED_PROJECTS` carries the names of meta-completed
-  subs to each subsequent sub-up; `decideModeA` and
-  `verifySiblingsStillUp` both short-circuit on a hit. End-to-end
-  validation on `hypixo` umbrella: wall time 25.4s → 16.5s (~35%).
-  Internal protocol; no user-facing surface change.
+<!--
+  Releases below v0.10.1 were cut manually with hand-written entries.
+  From v0.10.1 onward `release-please` owns this file end-to-end:
+  - The Unreleased block is gone — release-please generates each
+    versioned entry from conventional-commit subjects when a release
+    PR opens. Contributors should NOT add prose here; instead use
+    rich commit bodies (release-please reads the body for the
+    BREAKING CHANGE footer and falls back to the subject for the
+    bullet).
+  - Past versioned entries below are preserved verbatim. Future
+    versioned entries are appended automatically above them by
+    release-please.
+-->
 
 ## [0.10.0] - 2026-05-18
 

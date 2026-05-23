@@ -199,6 +199,11 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 		service["ports"] = svc.Ports
 	}
 
+	namedVolumeMap, err := applyDepVolumes(svc, service)
+	if err != nil {
+		return "", err
+	}
+
 	// Add env vars (excluding internal Raioz vars)
 	envList := []string{}
 	for k, v := range svc.EnvVars {
@@ -230,6 +235,7 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 		},
 	}
 
+	declareTopLevelVolumes(compose, namedVolumeMap)
 	return r.writeCompose(svc, compose)
 }
 

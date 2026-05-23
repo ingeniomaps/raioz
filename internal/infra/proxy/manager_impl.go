@@ -22,3 +22,15 @@ func NewManager() interfaces.ProxyManager {
 func NewManagerWithCertsDir(certsDir string) interfaces.ProxyManager {
 	return proxy.NewManager(certsDir)
 }
+
+// WriteRemoteRoutes is the wiring-layer hook that the meta runner uses
+// to materialize a workspace Caddy route for a remote-mode sub-project
+// (ADR-049). Lives here so the app layer can stay free of an
+// internal/proxy import (ADR-029) — call sites under internal/cli
+// import this adapter instead.
+func WriteRemoteRoutes(
+	workspace, project, domain, tlsMode string,
+	routes []interfaces.ProxyRoute,
+) error {
+	return proxy.WriteRemoteProjectRoutes(workspace, project, domain, tlsMode, routes)
+}

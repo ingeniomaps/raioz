@@ -39,6 +39,21 @@ type ServiceContext struct {
 	// ProxyTarget forwards `proxy.target:` to runners. HostRunner uses
 	// it for the launcher-pattern container wait/drain (ADR-025).
 	ProxyTarget string
+
+	// Volumes carries the user-declared `volumes:` list for image-mode
+	// dependencies. Strings follow docker-compose syntax (bind:
+	// `./host/path:/container/path[:ro]`, named: `myvol:/data`). ImageRunner
+	// resolves relative bind paths against ProjectDir and registers any
+	// named volumes top-level. Empty for services (their compose/Dockerfile
+	// drives volumes natively) and for deps that didn't declare any.
+	Volumes []string
+
+	// ProjectDir is the absolute directory of the project's raioz.yaml.
+	// Used to resolve relative bind paths in Volumes — without it,
+	// `./foo.yml:/etc/foo.yml` would land relative to the raioz process
+	// cwd, not the project root. Empty when the runner doesn't need
+	// path resolution (services already track their own path).
+	ProjectDir string
 }
 
 // Orchestrator defines operations for starting and stopping services

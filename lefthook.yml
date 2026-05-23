@@ -1,0 +1,68 @@
+# lefthook.yml — local git hooks that mirror the CI gates that have bitten
+# us in the past (lint error-strings, line caps, i18n drift, test failures).
+# Install with: `lefthook install`.
+#
+# Layering:
+#   pre-commit → fast checks only (~10s budget). Catches the most common
+#       CI failures (gofmt, golangci-lint, line/length caps, i18n drift).
+#   pre-push   → the full Linux test suite + the same lint set. Catches
+#       behavioural regressions and the rare lint that depends on whole-
+#       package context.
+#
+# Out of scope: the Windows-only runtime fork. CI runs an extra Windows job
+# (ADR-030) that catches OS-sensitive code paths (os.Rename semantics,
+# LockFileEx, taskkill, XDG fallbacks). No local hook reproduces it.
+
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: |
+        bad=$(gofmt -l {staged_files})
+        if [ -n "$bad" ]; then
+          echo "gofmt would rewrite:"
+          echo "$bad"
+          echo
+          echo "fix with: gofmt -w {staged_files}"
+          exit 1
+        fi
+
+    lint:
+      glob: "*.go"
+      # --new=false runs against the full package context; the staged-only
+      # mode is faster but misses cross-file findings like error-strings
+      # vetted against revive/staticcheck.
+      run: golangci-lint run --timeout 5m
+
+    check-lines:
+      glob: "*.go"
+      run: make check-lines
+
+    check-length:
+      glob: "*.go"
+      run: make check-length
+
+    check-i18n:
+      # Catches catalog drift the moment a new i18n.T() key lands without
+      # both en/es entries — same gate CI enforces.
+      glob:
+        - "internal/i18n/locales/*.json"
+        - "**/*.go"
+      run: make check-i18n
+
+pre-push:
+  parallel: false
+  commands:
+    test:
+      run: go test ./...
+      # Fail fast: if pre-push test fails, the user gets feedback before
+      # the network round-trip to origin completes. Push is aborted.
+
+    ci-checks:
+      # The non-test half of `make ci` — labels, configs, since markers,
+      # CLI layering, ratchets. Cheap once the build cache is warm.
+      run: |
+        make check-labels check-configs check-since \
+             check-cli-layering check-app-infra-imports \
+             check-dual-flow check-install check-errorlint

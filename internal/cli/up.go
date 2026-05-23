@@ -25,6 +25,8 @@ var (
 	notifyDone    bool
 	routerOff     bool
 	auditSiblings bool
+	noClone       bool
+	forceRemote   []string
 )
 
 var upCmd = &cobra.Command{
@@ -57,7 +59,12 @@ var upCmd = &cobra.Command{
 		// MetaRunner before initializing project-mode dependencies.
 		if handled, metaErr := tryHandleMeta(
 			ctx, configPath, "up", nil, metaProfiles,
-			app.MetaUpOptions{RouterOff: routerOff, AuditSiblings: auditSiblings},
+			app.MetaUpOptions{
+				RouterOff:     routerOff,
+				AuditSiblings: auditSiblings,
+				NoClone:       noClone,
+				ForceRemote:   forceRemote,
+			},
 		); handled {
 			if notifyDone {
 				if metaErr == nil {
@@ -157,4 +164,14 @@ func init() {
 			"from setting RAIOZ_ROUTER_ACTIVE=1 on consumers; in project "+
 			"mode, overrides an inherited RAIOZ_ROUTER_ACTIVE=1 so the "+
 			"bundled Caddy still starts. No-op when no router is in play.")
+	upCmd.Flags().BoolVar(&noClone, "no-clone", false,
+		"Skip the meta auto-clone bootstrap (ADR-048). Sub-projects "+
+			"declared with `git:` whose path is missing on disk will fail "+
+			"(or skip if optional) instead of being cloned. Useful for "+
+			"offline reproductions. No-op outside meta mode.")
+	upCmd.Flags().StringSliceVar(&forceRemote, "force-remote", nil,
+		"Force the named meta sub-projects to MetaModeRemote (ADR-049), "+
+			"regardless of filesystem presence. Each name must match a "+
+			"projects[].path basename AND have a `remote:` URL declared. "+
+			"Comma-separated or repeatable. No-op outside meta mode.")
 }

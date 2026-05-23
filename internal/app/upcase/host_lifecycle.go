@@ -12,23 +12,11 @@ import (
 )
 
 // cleanStaleHostProcesses kills host processes left over from a previous
-// run. Reads PIDs from .raioz.state.json, checks if they're alive, and
-// kills them.
-//
-// `inScope` restricts the sweep to services the current `up` actually
-// touches. Pass deps.Services keys: for a full up that's every service;
-// for a selective `up --only api` (or `up api`) it's just the chosen
-// subset, so a healthy `web` running from a previous up survives the
-// invocation. nil/empty scope is a safety check that disables the sweep
-// rather than silently nuking everything.
-//
-// Freshness guard (issue 020-meta): when state.LastUp is within
-// host.LauncherWaitTimeout() of now, the recorded PIDs belong to an
-// in-flight launcher from the current meta-orchestrated bring-up.
-// Reaping them kills the deploy mid-flight (a `make start` doing
-// `docker compose up -d` against a still-pulling image, for example).
-// Skip the sweep in that window — the launcher's still doing its job
-// and the state entries are not stale.
+// run. `inScope` is the service-name subset the current `up` touches;
+// nil/empty disables the sweep (selective ups must not stomp unrelated
+// services). Within host.LauncherWaitTimeout() of state.LastUp the
+// recorded PIDs are treated as in-flight launchers, not stale — reaping
+// them would kill a still-running deploy started moments earlier.
 func cleanStaleHostProcesses(
 	ctx context.Context,
 	projectDir, projectName string,
@@ -81,10 +69,9 @@ func cleanStaleHostProcesses(
 	_ = state.SaveLocalState(projectDir, localState)
 }
 
-// recentlyUpped reports whether lastUp is recent enough that any
-// host PIDs recorded under it must be treated as in-flight, not
-// stale. Window = host.LauncherWaitTimeout(), the same upper bound
-// the host runner gives a launcher's container to materialize.
+// recentlyUpped is the freshness window used by cleanStaleHostProcesses
+// to skip reaping in-flight launcher PIDs. Bounds match the launcher's
+// container-appearance deadline so both windows expire together.
 func recentlyUpped(lastUp time.Time) bool {
 	if lastUp.IsZero() {
 		return false

@@ -31,9 +31,31 @@ func ResolveServiceDetection(svc Service, path string) models.DetectResult {
 	result := resolveServiceDetectionBase(svc, path)
 	// User-declared runtime override. Empty = no override.
 	if svc.Source.Runtime != "" {
-		result.Runtime = models.Runtime(svc.Source.Runtime)
+		declared := models.Runtime(svc.Source.Runtime)
+		// When the override switches the runtime AND we fell through to
+		// auto-detect (no compose/command override above), StartCommand /
+		// DevCommand were inferred for the ORIGINAL runtime — e.g. a
+		// `docker build && docker run` from a Dockerfile when the user
+		// really meant `runtime: npm`. Clear and re-infer so the override
+		// actually honors the user's intent. The compose- and
+		// command-override paths already set commands explicitly and stay
+		// untouched.
+		if declared != result.Runtime && !overrideSuppliedCommands(svc) {
+			result.StartCommand = ""
+			result.DevCommand = ""
+			result.HasHotReload = false
+			detect.InferCommandsForRuntime(&result, path, declared)
+		}
+		result.Runtime = declared
 	}
 	return result
+}
+
+// overrideSuppliedCommands reports whether the user explicitly fixed the
+// launch commands via yaml. When true, ResolveServiceDetection must not
+// rewrite them on a runtime override.
+func overrideSuppliedCommands(svc Service) bool {
+	return len(svc.Source.ComposeFiles) > 0 || svc.Source.Command != ""
 }
 
 func resolveServiceDetectionBase(svc Service, path string) models.DetectResult {

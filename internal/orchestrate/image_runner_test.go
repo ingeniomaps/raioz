@@ -224,6 +224,151 @@ func TestImageRunner_GenerateCompose_NoPorts(t *testing.T) {
 	}
 }
 
+// `volumes:` on image-mode deps must be emitted in the generated compose.
+// Bind sources resolve against ProjectDir (not the raioz process cwd);
+// named volumes get a project-prefixed name and a top-level declaration
+// so docker compose accepts them.
+func TestImageRunner_GenerateCompose_BindVolume(t *testing.T) {
+	svc := makeImageSvc()
+	svc.ProjectName = "volbind-" + t.Name()
+	svc.ProjectDir = "/srv/projects/observability"
+	svc.Volumes = []string{"./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro"}
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+
+	r := &ImageRunner{}
+	path, err := r.generateCompose(svc)
+	if err != nil {
+		t.Fatalf("generateCompose: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("parse compose: %v", err)
+	}
+
+	services := parsed["services"].(map[string]any)
+	pg := services["postgres"].(map[string]any)
+
+	vols, ok := pg["volumes"].([]any)
+	if !ok || len(vols) != 1 {
+		t.Fatalf("expected single volume entry, got %T %v", pg["volumes"], pg["volumes"])
+	}
+	got, _ := vols[0].(string)
+	want := "/srv/projects/observability/infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+	if got != want {
+		t.Errorf("bind volume = %q, want %q", got, want)
+	}
+
+	// No named volumes were declared, so the top-level `volumes:` block
+	// must NOT appear (would confuse docker compose with an empty map).
+	if _, present := parsed["volumes"]; present {
+		t.Error("top-level volumes block should be absent when only bind mounts declared")
+	}
+}
+
+func TestImageRunner_GenerateCompose_NamedVolume(t *testing.T) {
+	svc := makeImageSvc()
+	svc.ProjectName = "volnamed-" + t.Name()
+	svc.ProjectDir = "/srv/projects/db"
+	svc.Volumes = []string{"pgdata:/var/lib/postgresql/data"}
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+
+	r := &ImageRunner{}
+	path, err := r.generateCompose(svc)
+	if err != nil {
+		t.Fatalf("generateCompose: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("parse compose: %v", err)
+	}
+
+	services := parsed["services"].(map[string]any)
+	pg := services["postgres"].(map[string]any)
+
+	vols, ok := pg["volumes"].([]any)
+	if !ok || len(vols) != 1 {
+		t.Fatalf("expected single volume entry, got %v", pg["volumes"])
+	}
+	// Named volume must be prefixed with the project so it doesn't collide
+	// with other projects' volumes (per-project scoping; workspace-shared
+	// named volumes are tracked as a follow-up).
+	got, _ := vols[0].(string)
+	if !strings.Contains(got, "_pgdata:/var/lib/postgresql/data") {
+		t.Errorf("named volume = %q, expected project-prefixed pgdata", got)
+	}
+
+	topLevel, ok := parsed["volumes"].(map[string]any)
+	if !ok || len(topLevel) != 1 {
+		t.Fatalf("expected top-level volumes map with one entry, got %v", parsed["volumes"])
+	}
+	// The top-level key MUST match the service-level reference exactly,
+	// or docker compose rejects the file.
+	serviceRefName := strings.SplitN(got, ":", 2)[0]
+	if _, ok := topLevel[serviceRefName]; !ok {
+		t.Errorf("top-level volumes missing key %q; got keys %v",
+			serviceRefName, topLevel)
+	}
+}
+
+func TestImageRunner_GenerateCompose_AbsoluteBindUnchanged(t *testing.T) {
+	svc := makeImageSvc()
+	svc.ProjectName = "volabs-" + t.Name()
+	svc.ProjectDir = "/anywhere"
+	svc.Volumes = []string{"/etc/host/conf.yml:/etc/conf.yml:ro"}
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+
+	r := &ImageRunner{}
+	path, err := r.generateCompose(svc)
+	if err != nil {
+		t.Fatalf("generateCompose: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	_ = yaml.Unmarshal(data, &parsed)
+
+	services := parsed["services"].(map[string]any)
+	pg := services["postgres"].(map[string]any)
+	vols, _ := pg["volumes"].([]any)
+	got, _ := vols[0].(string)
+	want := "/etc/host/conf.yml:/etc/conf.yml:ro"
+	if got != want {
+		t.Errorf("absolute bind = %q, want %q (must not be rewritten)", got, want)
+	}
+}
+
+func TestImageRunner_GenerateCompose_NoVolumesNoBlock(t *testing.T) {
+	// Regression guard: empty Volumes must not emit a volumes key at all
+	// (docker compose tolerates it, but the diff churn is annoying and
+	// `raioz status` checks compose hash for change detection).
+	svc := makeImageSvc()
+	svc.ProjectName = "novol-" + t.Name()
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+
+	r := &ImageRunner{}
+	path, err := r.generateCompose(svc)
+	if err != nil {
+		t.Fatalf("generateCompose: %v", err)
+	}
+
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	_ = yaml.Unmarshal(data, &parsed)
+
+	services := parsed["services"].(map[string]any)
+	pg := services["postgres"].(map[string]any)
+	if _, ok := pg["volumes"]; ok {
+		t.Error("service-level volumes block must be absent when Volumes is empty")
+	}
+	if _, ok := parsed["volumes"]; ok {
+		t.Error("top-level volumes block must be absent when Volumes is empty")
+	}
+}
+
 func TestImageRunner_Start(t *testing.T) {
 	svc := makeImageSvc()
 	svc.ProjectName = "start-" + t.Name()

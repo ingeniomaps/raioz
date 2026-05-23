@@ -42,14 +42,10 @@ func (uc *UseCase) processOrchestration(
 	detections := detectRuntimes(ctx, deps)
 	output.PrintProgressDone(i18n.T("up.runtimes_detected"))
 
-	// Step 1b: Allocate host ports deterministically + run under a
-	// global flock (acquirePortsLock) so concurrent `raioz up` in
-	// different workspaces can't probe-and-claim the same host port
-	// then race on `docker run -p`. Released as soon as allocation +
-	// conflict resolution finish — holding it across the sibling
-	// dispatch phase would deadlock a recursive `raioz up` spawned
-	// for a `project:` dep (the recursive process is a separate fd
-	// and flock is per-fd, so it would wait on its parent forever).
+	// Step 1b: allocate host ports under the global ports flock so
+	// concurrent `raioz up` in different workspaces can't race on the
+	// same host port. allocatePortsLocked drops the lock before the
+	// sibling dispatch phase (see its doc for the deadlock it avoids).
 	portAllocs, err := allocatePortsLocked(ctx, deps, detections, configPath)
 	if err != nil {
 		return nil, err
@@ -163,6 +159,13 @@ func (uc *UseCase) processOrchestration(
 				"", // no path for images
 				deps.Project.Name,
 			)
+
+			// ProjectDir anchors relative bind-mount sources against the
+			// project's raioz.yaml dir rather than the raioz process cwd.
+			if entry.Inline != nil && len(entry.Inline.Volumes) > 0 {
+				svcCtx.Volumes = append([]string(nil), entry.Inline.Volumes...)
+				svcCtx.ProjectDir = projectDir
+			}
 
 			// When the dep declares `compose:`, hand its files + env files
 			// straight to ImageRunner. ImageRunner branches on these: if
