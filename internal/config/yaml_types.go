@@ -65,6 +65,36 @@ type YAMLMetaProject struct {
 	// declared so the user can't strand a sub-project that was started
 	// with a different profile set.
 	Profiles YAMLStringSlice `yaml:"profiles,omitempty"` // since: v0.6.0
+	// Git is the repository URL raioz clones into Path when the directory
+	// is missing on `raioz up` (meta mode). Accepts the same URL forms as
+	// `raioz clone`: SSH (`git@github.com:org/repo.git`) and HTTPS. Empty
+	// keeps the legacy behavior (missing path aborts unless Optional).
+	// See ADR-048 for the bootstrap contract.
+	Git string `yaml:"git,omitempty"` // since: v0.9.0
+	// Branch is the git ref to checkout after clone. Empty means the
+	// remote's default branch. Only meaningful when Git is set; rejected
+	// at load time otherwise.
+	Branch string `yaml:"branch,omitempty"` // since: v0.9.0
+	// Auth selects the git auth provider for the clone. Values: ""
+	// (strict, public-only hardening — default), "inherit" (delegate to
+	// the dev's global git config), "gh", "ssh". Only meaningful when
+	// Git is set; rejected at load time otherwise. See
+	// internal/git/auth/ for provider semantics.
+	Auth string `yaml:"auth,omitempty"` // since: v0.9.0
+	// Remote activates the [ADR-049] fallback mode: when set, raioz
+	// generates a workspace Caddy route mapping RemoteHostname (default
+	// = filepath.Base(Path)) to this URL instead of spawning the
+	// sub-project locally. Triggered when (a) the path is missing AND
+	// clone is impossible/fails, (b) `--force-remote=<name>` names this
+	// project, or (c) Remote is set with no Git. The URL must be
+	// parseable; the upstream's TLS certificate must validate (no
+	// skip-verify in v1). See ADR-049.
+	Remote string `yaml:"remote,omitempty"` // since: v0.9.0
+	// RemoteHostname overrides the hostname raioz routes to Remote.
+	// Empty = filepath.Base(Path). Useful when two sub-projects share a
+	// basename (e.g. ./client/api and ./server/api) and would collide
+	// on the default hostname.
+	RemoteHostname string `yaml:"remoteHostname,omitempty"` // since: v0.9.0
 }
 
 // YAMLRouter replaces the bundled Caddy with a sibling raioz project. V1

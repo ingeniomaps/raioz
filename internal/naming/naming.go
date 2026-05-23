@@ -154,7 +154,18 @@ func ProxyDir(project string) string {
 // teardowns and is the single source of truth for the shared Caddyfile.
 // See ProxyDir for why this is no longer under /tmp.
 func WorkspaceProxyDir() string {
-	return filepath.Join(stateBaseDir(), prefix, "proxy")
+	return WorkspaceProxyDirFor(prefix)
+}
+
+// WorkspaceProxyDirFor is the workspace-explicit variant of
+// WorkspaceProxyDir for callers that aren't tied to the process-global
+// prefix — e.g. writers that target a workspace they never SetPrefix'd.
+// Falls back to DefaultPrefix when workspace is empty.
+func WorkspaceProxyDirFor(workspace string) string {
+	if workspace == "" {
+		workspace = DefaultPrefix
+	}
+	return filepath.Join(stateBaseDir(), workspace, "proxy")
 }
 
 // WorkspaceCaddyfilePath returns the path to the shared Caddyfile for the
