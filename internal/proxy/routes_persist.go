@@ -268,10 +268,12 @@ func workspaceRoutesDirFor(workspace string) string {
 }
 
 // safeRoutesFilename mirrors the projectRoutesPath guard against path
-// separators / parent traversal. Kept symmetrical so both Manager-bound
-// and standalone writers produce filenames the workspace loader can find.
+// separators / parent traversal. Both `/` and `\` are stripped regardless
+// of the host OS — a project name containing a foreign separator must
+// not let the file escape the workspace routes dir.
 func safeRoutesFilename(project string) string {
-	safe := strings.ReplaceAll(project, string(filepath.Separator), "_")
+	safe := strings.ReplaceAll(project, "/", "_")
+	safe = strings.ReplaceAll(safe, "\\", "_")
 	safe = strings.ReplaceAll(safe, "..", "_")
 	return safe + ".json"
 }
