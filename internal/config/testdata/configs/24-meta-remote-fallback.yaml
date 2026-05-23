@@ -1,0 +1,27 @@
+# 24-meta-remote-fallback — `kind: meta` with remote-mode fallback
+# fields from ADR-049: per-project `remote:` URL and optional
+# `remoteHostname:` override. Validates that remote-only, git+remote
+# combined (clone fallback), and remoteHostname round-trip cleanly.
+
+version: "1"
+kind: meta
+workspace: oim
+
+projects:
+  # Remote-only: dev has no access to this repo, traffic gets proxied
+  # to staging.
+  - path: ./api
+    remote: https://api.staging.acme.dev
+
+  # Git + remote: clone is attempted first; if it fails (auth, network)
+  # the bootstrap falls back to the remote URL.
+  - path: ./bff
+    git: git@github.com:cubiko/oim-bff.git
+    remote: https://bff.staging.acme.dev
+    auth: gh
+
+  # remoteHostname overrides the default (filepath.Base(path)) when
+  # two projects would collide on the inferred hostname.
+  - path: ./client/api
+    remote: https://api.client.staging.acme.dev
+    remoteHostname: client-api
