@@ -15,7 +15,6 @@ import (
 	"raioz/internal/git"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
-	"raioz/internal/proxy"
 )
 
 // RemoteRouteWriter abstracts proxy.WriteRemoteProjectRoutes for tests.
@@ -61,9 +60,10 @@ func (m *MetaRunner) bootstrapMeta(
 	if cloner == nil {
 		cloner = gitEnsureRepoAdapter
 	}
-	if remoteWriter == nil {
-		remoteWriter = proxy.WriteRemoteProjectRoutes
-	}
+	// remoteWriter has no in-package default to keep app/ free of an
+	// internal/proxy import (ADR-029). Callers route the default through
+	// the cli wiring layer; tests inject a fake. publishRemote surfaces
+	// a clear error if it's nil when a remote project is encountered.
 
 	var results MetaSummaryList
 	for i := range cfg.Projects {
@@ -127,6 +127,13 @@ func (m *MetaRunner) publishRemote(
 		stdout = os.Stdout
 	}
 	fmt.Fprintln(stdout, "\n"+i18n.T("meta.banner_remote", p.Name, p.Remote))
+
+	if writer == nil {
+		return MetaSummary{
+			Project: p.Name, Path: p.Path,
+			Err: errors.New("meta: no remote route writer configured"),
+		}
+	}
 
 	hostname := p.RemoteHostname
 	if hostname == "" {
