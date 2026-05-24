@@ -4,6 +4,15 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.1](https://github.com/ingeniomaps/raioz/compare/v0.11.0...v0.11.1) (2026-05-24)
+
+
+### Bug Fixes
+
+* **app:** show logs for compose-backed services ([3340193](https://github.com/ingeniomaps/raioz/commit/33401930d2ec7882f259200bf58e4c133be864f2))
+* **proxy:** keep HTTP redirect in mkcert mode ([7636498](https://github.com/ingeniomaps/raioz/commit/7636498453d5ab991a513160dc40d66ec05702bc))
+* **proxy:** mint route FQDNs as mkcert SANs ([246273a](https://github.com/ingeniomaps/raioz/commit/246273a2a84ffc7092c92a88f6375a5f92cb30a2))
+
 ## [0.11.0](https://github.com/ingeniomaps/raioz/compare/v0.10.1...v0.11.0) (2026-05-23)
 
 
