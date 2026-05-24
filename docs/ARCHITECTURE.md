@@ -318,10 +318,14 @@ project already started `{workspace}-postgres`, `raioz up` in the
 current project sees it and returns without re-creating.
 
 ### 3. Certs are per-domain with SAN validation
-Certificates live in `~/.raioz/certs/<domain>/`. `EnsureCerts(domain)`
-validates the existing SAN includes BOTH `<domain>` AND `*.<domain>`
-before reusing. Without this, a cert issued for `acme.localhost`
-could be reused for `hypixo.dev` — broken HTTPS with no obvious cause.
+Certificates live in `~/.raioz/certs/<domain>/`.
+`EnsureCerts(domain, extraSANs...)` validates the existing SAN includes
+`<domain>`, `*.<domain>`, AND every route FQDN before reusing — else it
+regenerates. Without the per-domain namespace, a cert issued for
+`acme.localhost` could be reused for `hypixo.dev`. Without the exact
+route FQDNs, an apex hostname like `conorbi.localhost` would rely on the
+`*.localhost` wildcard, which browsers reject (single-label parent) even
+though `curl` accepts it. See ADR-003.
 
 ### 4. `auto_https disable_certs` for mkcert
 The Caddyfile global block uses `auto_https disable_certs` when
