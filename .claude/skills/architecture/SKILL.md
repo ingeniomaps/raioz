@@ -169,7 +169,7 @@ preserved across any change. They are documented in detail in
 1. Container identity is labels, not names — every new runner stamps the raioz label set.
 2. Shared deps omit `com.raioz.project` (signals "outlives any single project").
 3. Certs are per-domain with SAN validation.
-4. Caddyfile uses `auto_https off` in mkcert mode.
+4. Caddyfile uses `auto_https disable_certs` in mkcert mode (stops ACME, keeps the HTTP→HTTPS redirect).
 5. Workspace-shared proxy routes are per-project (persist under `/tmp/<ws>/proxy/routes/`).
 6. `cloneService` / `cloneInfraEntry` must mirror every orchestration-relevant field of `config.Service` / `config.Infra`.
 7. `proxy.IsNonHTTPImage` is the single source of truth, bare-name matched.

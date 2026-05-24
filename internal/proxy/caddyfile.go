@@ -30,9 +30,9 @@ func (m *Manager) generateCaddyfile() (string, error) {
 
 	// Pick the global TLS mode. In shared mode the union of projects may
 	// contain mixed TLS modes; we err on the safe side and emit
-	// `auto_https off` if ANY contributor is using mkcert (otherwise Caddy
-	// would try ACME for those routes and hang on custom domains without
-	// public DNS — see BUG-12).
+	// `auto_https disable_certs` if ANY contributor is using mkcert
+	// (otherwise Caddy would try ACME for those routes and hang on custom
+	// domains without public DNS — see BUG-12).
 	globalTLS := m.tlsMode
 	if m.isWorkspaceShared() {
 		for _, pp := range m.loadAllProjectRoutes() {
@@ -46,7 +46,14 @@ func (m *Manager) generateCaddyfile() (string, error) {
 	b.WriteString("{\n")
 	switch globalTLS {
 	case "mkcert":
-		b.WriteString("\tauto_https off\n")
+		// disable_certs (not off): stops ACME so Caddy never hangs on
+		// custom domains without public DNS (the BUG-12 / ADR-004
+		// protection), while KEEPING the HTTP→HTTPS redirect. `off`
+		// killed the redirect too, so http://<svc> just dead-ended. The
+		// mkcert cert is still loaded via the per-site `tls /certs/...`
+		// directive — loaded certs aren't "automatic", so disable_certs
+		// leaves them alone.
+		b.WriteString("\tauto_https disable_certs\n")
 	case "letsencrypt":
 		// Real TLS: let Caddy handle ACME as usual.
 	}
