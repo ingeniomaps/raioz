@@ -19,6 +19,85 @@ import (
 	"raioz/internal/output"
 )
 
+// composeInvocation describes how to drive `docker compose` for a yaml service
+// that runs as its own compose stack, from outside the up flow: the `-f` file
+// spec (overlay appended when present) and the COMPOSE_PROJECT_NAME scope used
+// at up time.
+//
+// Shared by `down` (stopComposeServices) and `logs` (showComposeServiceLogs):
+// docker compose names its containers `<scope>-<svc>-N` (and the user can
+// override with `container_name:`), never `raioz-<project>-<svc>`, so the only
+// reliable way to reach the stack is `docker compose -f <files>` under the
+// same scope.
+type composeInvocation struct {
+	spec        string // colon-joined compose-file paths for docker.ComposeFileArgs
+	projectName string // COMPOSE_PROJECT_NAME scope
+}
+
+// resolveComposeInvocation works out how to address a yaml service's compose
+// stack. Returns ok=false for host-command services and for services with no
+// resolvable compose files (Dockerfile / image services, which raioz names
+// itself and addresses by container name). The file-resolution logic mirrors
+// ResolveServiceDetection's compose precedence: explicit `compose:` files
+// first, else a directory scan that must come back RuntimeCompose.
+func resolveComposeInvocation(svc models.Service, project, name string) (composeInvocation, bool) {
+	if svc.Source.Command != "" {
+		return composeInvocation{}, false
+	}
+
+	files := svc.Source.ComposeFiles
+	if len(files) == 0 {
+		if svc.Source.Path == "" {
+			return composeInvocation{}, false
+		}
+		dr := detect.Detect(svc.Source.Path)
+		if dr.Runtime != models.RuntimeCompose || len(dr.ComposeFiles) == 0 {
+			return composeInvocation{}, false
+		}
+		files = dr.ComposeFiles
+	}
+
+	// Append raioz's overlay when up wrote one — keeps the invocation scoped
+	// to the same merged config (extra_hosts, network, etc.) that up applied.
+	overlay := filepath.Join(filepath.Dir(files[0]), ".raioz-overlay.yml")
+	callFiles := append([]string{}, files...)
+	if _, err := os.Stat(overlay); err == nil {
+		callFiles = append(callFiles, overlay)
+	}
+
+	return composeInvocation{
+		spec:        docker.JoinComposePaths(callFiles),
+		projectName: orchestrate.ComposeProjectName(project, name),
+	}, true
+}
+
+// showComposeServiceLogs streams logs for a service that runs as its own
+// compose stack, reusing the `-f <files>` spec + COMPOSE_PROJECT_NAME scope
+// that up and down apply. Without the scope, docker compose would default to
+// the compose-file directory basename and miss raioz's per-service project.
+// Lives here (next to stopComposeServices, the other consumer of the shared
+// resolver) so the app-layer docker import stays on one ADR-029 baseline file.
+func showComposeServiceLogs(
+	ctx context.Context, proj *YAMLProject, name string, follow bool, tail int,
+) error {
+	svc, ok := proj.Deps.Services[name]
+	if !ok {
+		return fmt.Errorf("unknown service %q", name)
+	}
+	inv, ok := resolveComposeInvocation(svc, proj.ProjectName, name)
+	if !ok {
+		return fmt.Errorf("service %q is not a resolvable compose stack", name)
+	}
+	scopedCtx := docker.WithComposeProjectName(ctx, inv.projectName)
+	if err := docker.ViewLogsWithContext(scopedCtx, inv.spec, docker.LogsOptions{
+		Follow: follow,
+		Tail:   tail,
+	}); err != nil {
+		return fmt.Errorf("docker compose logs %s: %w", name, err)
+	}
+	return nil
+}
+
 // stopComposeServices tears down compose-based yaml services by invoking
 // `docker compose -f <files> down` under the same COMPOSE_PROJECT_NAME scope
 // used at `up` time. Required because the default prefix-based cleanup only
@@ -26,38 +105,17 @@ import (
 // its own containers `<dir>-<svc>-N` instead.
 func stopComposeServices(ctx context.Context, deps *models.Deps) {
 	for name, svc := range deps.Services {
-		if svc.Source.Command != "" {
+		inv, ok := resolveComposeInvocation(svc, deps.Project.Name, name)
+		if !ok {
 			continue
 		}
 
-		files := svc.Source.ComposeFiles
-		if len(files) == 0 {
-			if svc.Source.Path == "" {
-				continue
-			}
-			dr := detect.Detect(svc.Source.Path)
-			if dr.Runtime != models.RuntimeCompose || len(dr.ComposeFiles) == 0 {
-				continue
-			}
-			files = dr.ComposeFiles
-		}
-
-		overlay := filepath.Join(filepath.Dir(files[0]), ".raioz-overlay.yml")
-		callFiles := append([]string{}, files...)
-		if _, err := os.Stat(overlay); err == nil {
-			callFiles = append(callFiles, overlay)
-		}
-
-		spec := docker.JoinComposePaths(callFiles)
-		scopedCtx := docker.WithComposeProjectName(
-			ctx, orchestrate.ComposeProjectName(deps.Project.Name, name),
-		)
+		scopedCtx := docker.WithComposeProjectName(ctx, inv.projectName)
 
 		logging.InfoWithContext(ctx, "Stopping compose service",
-			"service", name, "files", files,
-			"project", orchestrate.ComposeProjectName(deps.Project.Name, name))
+			"service", name, "spec", inv.spec, "project", inv.projectName)
 
-		if err := docker.DownWithContext(scopedCtx, spec); err != nil {
+		if err := docker.DownWithContext(scopedCtx, inv.spec); err != nil {
 			logging.WarnWithContext(ctx, "Compose service down failed",
 				"service", name, "error", err.Error())
 			output.PrintWarning(fmt.Sprintf("Failed to stop compose service %s: %v", name, err))
