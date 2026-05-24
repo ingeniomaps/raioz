@@ -1,7 +1,8 @@
-# ADR-004: `auto_https off` in Caddyfile when TLS mode is mkcert
+# ADR-004: `auto_https disable_certs` in Caddyfile when TLS mode is mkcert
 
 - **Status:** Accepted
 - **Date:** 2026-05-12 (retroactively documented)
+- **Amended:** 2026-05-24 — narrowed `off` to `disable_certs` (see Update below)
 
 ## Context
 
@@ -53,6 +54,36 @@ isn't backed by a publicly resolvable domain.
   mkcert trust integration with system stores; rejected.
 - **Run two Caddy instances** (one for mkcert, one for ACME) —
   complexity > value.
+
+## Update (2026-05-24): narrowed to `disable_certs`
+
+`off` disables **both** subsystems, but only the ACME half was ever
+the problem. The redirect half was collateral: `http://<svc>.localhost`
+dead-ended instead of redirecting to `https://`, so the dev had to type
+the scheme by hand (discovered in `conorbi/landing`).
+
+Caddy has a narrower knob. The four `auto_https` values
+([documented here](https://caddyserver.com/docs/caddyfile/options)):
+
+| Mode                  | Cert automation | HTTP→HTTPS redirect |
+| --------------------- | --------------- | ------------------- |
+| `off`                 | off             | off                 |
+| `disable_redirects`   | on              | off                 |
+| **`disable_certs`**   | **off**         | **on**              |
+| `ignore_loaded_certs` | on              | on                  |
+
+`disable_certs` gives exactly what the mkcert path wants: ACME stays
+off (no hang on domains without public DNS — the original protection
+is fully preserved), and the redirect comes back. The mkcert cert is
+loaded per-site via `tls /certs/...`; loaded certs are not "automatic",
+so `disable_certs` leaves them in place. The `proxy.publish: true`
+default already binds host port 80 (`internal/proxy/proxy.go`), so the
+redirect is reachable — the "we only bind 443" note above is stale,
+superseded by the 2026-04-14 workspace-shared proxy refactor.
+
+`disable_redirects` is still wrong (it leaves ACME on — the original
+trap). The "do not revert to `disable_redirects`" warning stands; the
+correct knob is `disable_certs`, not `off`.
 
 ## References
 

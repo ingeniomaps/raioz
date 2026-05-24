@@ -147,8 +147,8 @@ func TestGenerateCaddyfile_SharedMergesAcrossProjects(t *testing.T) {
 	if !strings.Contains(content, "beta-web:8080") {
 		t.Errorf("beta's route missing from shared Caddyfile:\n%s", content)
 	}
-	if !strings.Contains(content, "auto_https off") {
-		t.Errorf("expected auto_https off (mkcert mode):\n%s", content)
+	if !strings.Contains(content, "auto_https disable_certs") {
+		t.Errorf("expected auto_https disable_certs (mkcert mode):\n%s", content)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -55,16 +56,24 @@ func sanitizeDomainForPath(domain string) string {
 // For custom domains like "acme.localhost", covers *.acme.localhost.
 // Returns the certs directory path, or empty string if mkcert is not available.
 //
+// extraSANs are exact route FQDNs (e.g. "conorbi.localhost") that get minted
+// as their own SANs in addition to <domain> + *.<domain>. Browsers reject a
+// wildcard match when the parent is a single-label name (mkcert itself warns
+// "many browsers don't support second-level wildcards like *.localhost"), so
+// an apex hostname under `domain: localhost` is only trusted if its exact
+// FQDN is present. curl/OpenSSL accept the wildcard, which makes the symptom
+// look CLI-fine but browser-insecure.
+//
 // Certificates are stored under ~/.raioz/certs/<domain>/ so switching
 // projects (e.g. acme.localhost → hypixo.dev) never silently reuses a cert
 // minted for a different SAN. On top of the directory namespacing, the
-// existing cert is parsed and its SAN list is verified to cover both
-// <domain> and *.<domain> before we accept it — defends against partial or
-// corrupted files surviving a previous crash.
+// existing cert is parsed and its SAN list is verified to cover <domain>,
+// *.<domain>, AND every extraSAN before we accept it — so adding a new route
+// regenerates the cert rather than serving one missing the new FQDN.
 //
 // ctx cancels in-flight mkcert subprocesses — protects against
 // unattended macOS keychain prompts that would otherwise hang.
-func EnsureCerts(ctx context.Context, domain string) (string, error) {
+func EnsureCerts(ctx context.Context, domain string, extraSANs ...string) (string, error) {
 	if domain == "" {
 		domain = "localhost"
 	}
@@ -77,7 +86,8 @@ func EnsureCerts(ctx context.Context, domain string) (string, error) {
 	certPath := filepath.Join(dir, certFileName)
 	keyPath := filepath.Join(dir, keyFileName)
 
-	if fileExists(certPath) && fileExists(keyPath) && certMatchesDomain(certPath, domain) {
+	if fileExists(certPath) && fileExists(keyPath) &&
+		certMatchesDomain(certPath, domain, extraSANs) {
 		return dir, nil
 	}
 
@@ -96,12 +106,10 @@ func EnsureCerts(ctx context.Context, domain string) (string, error) {
 	install := exec.CommandContext(ctx, "mkcert", "-install")
 	_ = install.Run()
 
-	// Generate wildcard cert for the domain
-	gen := exec.CommandContext(ctx, "mkcert",
-		"-cert-file", certPath,
-		"-key-file", keyPath,
-		domain, "*."+domain,
-	)
+	// Generate the cert: domain + wildcard, plus any exact route FQDNs.
+	names := certSANs(domain, extraSANs)
+	args := append([]string{"-cert-file", certPath, "-key-file", keyPath}, names...)
+	gen := exec.CommandContext(ctx, "mkcert", args...)
 	if output, err := gen.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("mkcert failed: %w\n%s", err, string(output))
 	}
@@ -109,11 +117,27 @@ func EnsureCerts(ctx context.Context, domain string) (string, error) {
 	return dir, nil
 }
 
+// certSANs returns the full SAN list to mint: <domain>, *.<domain>, then any
+// extras not already covered by those two, de-duplicated and order-stable.
+func certSANs(domain string, extraSANs []string) []string {
+	names := []string{domain, "*." + domain}
+	seen := map[string]bool{domain: true, "*." + domain: true}
+	for _, san := range extraSANs {
+		if san == "" || seen[san] {
+			continue
+		}
+		seen[san] = true
+		names = append(names, san)
+	}
+	return names
+}
+
 // certMatchesDomain returns true when the PEM certificate at certPath carries
-// both `domain` and `*.domain` in its Subject Alternative Names. Anything
-// else (unreadable file, corrupted PEM, cert minted for a different project,
-// stale CN-only cert) returns false so the caller triggers regeneration.
-func certMatchesDomain(certPath, domain string) bool {
+// `domain`, `*.domain`, AND every entry in extraSANs in its Subject Alternative
+// Names. Anything else (unreadable file, corrupted PEM, cert minted for a
+// different project, stale CN-only cert, or a cert missing a route's exact
+// FQDN) returns false so the caller triggers regeneration.
+func certMatchesDomain(certPath, domain string, extraSANs []string) bool {
 	data, err := os.ReadFile(certPath)
 	if err != nil {
 		return false
@@ -137,7 +161,20 @@ func certMatchesDomain(certPath, domain string) bool {
 			hasWild = true
 		}
 	}
-	return hasExact && hasWild
+	if !hasExact || !hasWild {
+		return false
+	}
+	// Every requested route FQDN must be present too — a wildcard the
+	// browser won't honor (single-label parent) doesn't count as coverage.
+	for _, san := range extraSANs {
+		if san == "" || san == wantExact || san == wantWild {
+			continue
+		}
+		if !slices.Contains(cert.DNSNames, san) {
+			return false
+		}
+	}
+	return true
 }
 
 // HasMkcert returns true if mkcert is installed.

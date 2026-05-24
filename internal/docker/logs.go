@@ -26,8 +26,11 @@ func ViewLogs(composePath string, opts LogsOptions) error {
 
 // ViewLogsWithContext displays logs for services using docker compose logs with context support
 func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptions) error {
-	// Check if compose file exists
-	if _, err := os.Stat(composePath); os.IsNotExist(err) {
+	// Check if compose file exists (probe the first file — composePath may be
+	// a colon-joined multi-file spec, e.g. base.yml + .raioz-overlay.yml, and
+	// os.Stat on the joined string would always miss). Mirrors DownWithContext
+	// / GetServicesStatusWithContext.
+	if _, err := os.Stat(PrimaryComposeFile(composePath)); os.IsNotExist(err) {
 		return fmt.Errorf("compose file not found: %s (project may not be running)", composePath)
 	}
 
@@ -71,6 +74,11 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 
 	// Execute command
 	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
+	// Export COMPOSE_PROJECT_NAME (carried in ctx) so logs target the same
+	// per-service project that up/down use; without it compose falls back to
+	// the compose-file `name:` and finds no containers. Same env wiring as
+	// runner.go's UpServicesWithContext / DownWithContext.
+	cmd.Env = composeCommandEnv(timeoutCtx)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

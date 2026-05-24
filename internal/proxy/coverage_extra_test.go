@@ -123,8 +123,8 @@ func TestGenerateCaddyfile_GlobalOptions_MkcertWithCerts(t *testing.T) {
 	data, _ := os.ReadFile(path)
 	content := string(data)
 
-	if !strings.Contains(content, "auto_https off") {
-		t.Error("expected auto_https off for mkcert (prevents ACME fallback — BUG-12)")
+	if !strings.Contains(content, "auto_https disable_certs") {
+		t.Error("expected auto_https disable_certs for mkcert (stops ACME — BUG-12 — but keeps redirect)")
 	}
 	if !strings.Contains(content, "https://api.localhost") {
 		t.Error("expected https scheme for mkcert with certs")

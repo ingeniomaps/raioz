@@ -353,13 +353,15 @@ func TestStart_MkcertMode_WithPreExistingCerts(t *testing.T) {
 	home := withHome(t)
 	withFreePortsForProxy(t)
 	// Pre-create a SAN-matching cert under the default-domain folder so
-	// EnsureCerts returns the per-domain dir without invoking mkcert.
+	// EnsureCerts returns the per-domain dir without invoking mkcert. Must
+	// include the route's exact FQDN (api.localhost): EnsureCerts now requires
+	// every route SAN, not just the domain + wildcard.
 	certsDir := filepath.Join(home, ".raioz", "certs", "localhost")
 	if err := os.MkdirAll(certsDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	writeSelfSignedCert(t, filepath.Join(certsDir, certFileName),
-		[]string{"localhost", "*.localhost"})
+		[]string{"localhost", "*.localhost", "api.localhost"})
 	if err := os.WriteFile(filepath.Join(certsDir, keyFileName),
 		[]byte("k"), 0o644); err != nil {
 		t.Fatalf("key: %v", err)

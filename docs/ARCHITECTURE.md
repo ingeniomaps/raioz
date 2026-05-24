@@ -318,17 +318,24 @@ project already started `{workspace}-postgres`, `raioz up` in the
 current project sees it and returns without re-creating.
 
 ### 3. Certs are per-domain with SAN validation
-Certificates live in `~/.raioz/certs/<domain>/`. `EnsureCerts(domain)`
-validates the existing SAN includes BOTH `<domain>` AND `*.<domain>`
-before reusing. Without this, a cert issued for `acme.localhost`
-could be reused for `hypixo.dev` — broken HTTPS with no obvious cause.
+Certificates live in `~/.raioz/certs/<domain>/`.
+`EnsureCerts(domain, extraSANs...)` validates the existing SAN includes
+`<domain>`, `*.<domain>`, AND every route FQDN before reusing — else it
+regenerates. Without the per-domain namespace, a cert issued for
+`acme.localhost` could be reused for `hypixo.dev`. Without the exact
+route FQDNs, an apex hostname like `conorbi.localhost` would rely on the
+`*.localhost` wildcard, which browsers reject (single-label parent) even
+though `curl` accepts it. See ADR-003.
 
-### 4. `auto_https off` for mkcert
-The Caddyfile global block uses `auto_https off` when `tls: mkcert`
-is active. Caddy's default behavior falls back to ACME for custom
-domains without public DNS — which hangs forever. Do not replace this
-with `disable_redirects` alone; that only silences the HTTP→HTTPS
-redirect, not the ACME fallback.
+### 4. `auto_https disable_certs` for mkcert
+The Caddyfile global block uses `auto_https disable_certs` when
+`tls: mkcert` is active. Caddy's default behavior falls back to ACME
+for custom domains without public DNS — which hangs forever — so cert
+automation must stay off; the mkcert cert is loaded per-site via
+`tls /certs/...`. `disable_certs` (not `off`) keeps the HTTP→HTTPS
+redirect alive so `http://<svc>` redirects instead of dead-ending. Do
+not use `off` (kills the redirect too) or `disable_redirects` alone
+(leaves the ACME fallback running). See ADR-004.
 
 ### 5. Workspace-shared proxy routes are per-project
 When `workspace:` is set, a single `{workspace}-proxy` Caddy fronts

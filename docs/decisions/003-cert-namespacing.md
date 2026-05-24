@@ -54,7 +54,30 @@ in `internal/proxy/`.
 - **Trust-on-first-use without SAN check** — what we had; the
   bug above.
 
+## Update (2026-05-24): route FQDNs are minted as explicit SANs
+
+`EnsureCerts(domain)` minted exactly `<domain>` + `*.<domain>` and the
+validation only checked for those two. That breaks an apex hostname
+under a single-label domain — e.g. `conorbi.localhost` (from
+`proxy.domain: localhost` + `hostname: conorbi`). Its only possible
+match is `*.localhost`, a wildcard browsers refuse to honor because the
+parent is a single label (mkcert itself warns: "many browsers don't
+support second-level wildcards like *.localhost"). `curl`/OpenSSL accept
+it, so the cert looked CLI-valid but browser-insecure — a confusing
+split diagnosis.
+
+`EnsureCerts(ctx, domain, extraSANs...)` now also takes the exact route
+FQDNs and (a) mints them as their own SANs alongside the domain +
+wildcard, and (b) requires them in the reuse check, so a cert missing a
+new route's FQDN is regenerated instead of silently served. The proxy
+gathers the FQDNs via `Manager.routeSANs()` at `Start` (routes are
+persisted before `Start`, so they're in scope). In workspace-shared
+mode the per-domain cert folds in every sibling project sharing the
+domain. SANs are de-duplicated (`certSANs`) to stay under mkcert's
+practical SAN ceiling.
+
 ## References
 
-- Code: `internal/proxy/certs.go` (`EnsureCerts`)
+- Code: `internal/proxy/certs.go` (`EnsureCerts`, `certSANs`,
+  `certMatchesDomain`), `internal/proxy/proxy.go` (`routeSANs`)
 - Related: ADR-004 (Caddyfile global options for mkcert mode)

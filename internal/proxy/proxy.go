@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"sort"
 	"strings"
 	"sync"
 
@@ -97,24 +96,6 @@ func (m *Manager) ContainerIP() string {
 	return ip
 }
 
-// HostsLine renders an /etc/hosts entry that maps every route the manager
-// knows about to the proxy's container IP. Returns "" when no IP is
-// resolvable or when there are no routes — both signal "nothing useful to
-// print" rather than an error condition.
-func (m *Manager) HostsLine() string {
-	ip := m.ContainerIP()
-	routes := m.snapshotRoutes()
-	if ip == "" || len(routes) == 0 {
-		return ""
-	}
-	hosts := make([]string, 0, len(routes))
-	for _, route := range routes {
-		hosts = append(hosts, route.Hostname+"."+m.domain)
-	}
-	sort.Strings(hosts) // stable output for diffs / docs
-	return ip + "  " + strings.Join(hosts, " ")
-}
-
 // resolveContainerIP picks the IP the proxy should bind to, applying the
 // precedence rules: explicit > derived-from-subnet > none (auto-assign).
 // An invalid user IP is rejected with a descriptive error so the problem
@@ -139,9 +120,13 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 	m.networkName = networkName
 	containerName := m.containerName()
 
-	// Ensure mkcert certificates exist before starting
+	// Ensure mkcert certificates exist before starting. Routes are added +
+	// persisted before Start (orchestration_proxy.go), so their FQDNs are in
+	// scope here and get minted as explicit SANs — without them an apex
+	// hostname under a single-label domain (conorbi.localhost) is browser-
+	// insecure despite a valid chain.
 	if m.tlsMode == "mkcert" {
-		certsDir, err := EnsureCerts(ctx, m.domain)
+		certsDir, err := EnsureCerts(ctx, m.domain, m.routeSANs()...)
 		if err != nil {
 			logging.WarnWithContext(ctx, "Failed to generate mkcert certificates", "error", err.Error())
 		} else if certsDir != "" {
