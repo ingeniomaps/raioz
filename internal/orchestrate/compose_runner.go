@@ -51,8 +51,18 @@ func ComposeProjectName(projectName, serviceName string) string {
 // scopedContext attaches an explicit COMPOSE_PROJECT_NAME to the context so
 // `docker compose --remove-orphans` does not sweep containers from unrelated
 // projects that happen to share the compose file directory basename.
+//
+// It also mirrors ImageRunner's context enrichment so services declared with
+// `compose:` get the same interpolation contract as dependencies: the
+// service's env: files are spliced in as --env-file flags, and the computed
+// vars (NETWORK_NAME, PROJECT_PREFIX) are exported. This lets a service-owned
+// docker-compose.yml interpolate ${NETWORK_NAME}/${PROJECT_PREFIX} to the
+// values raioz already derived instead of hardcoding the network/prefix.
 func scopedContext(ctx context.Context, svc interfaces.ServiceContext) context.Context {
-	return docker.WithComposeProjectName(ctx, ComposeProjectName(svc.ProjectName, svc.Name))
+	ctx = docker.WithComposeProjectName(ctx, ComposeProjectName(svc.ProjectName, svc.Name))
+	ctx = docker.WithComposeEnvFiles(ctx, svc.EnvFilePaths)
+	ctx = docker.WithComposeExtraEnv(ctx, composeInterpolationEnv(svc))
+	return ctx
 }
 
 // Start runs `docker compose -f <a> -f <b> ... -f <overlay> up -d`.
