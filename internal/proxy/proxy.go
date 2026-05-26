@@ -125,8 +125,10 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 	// scope here and get minted as explicit SANs — without them an apex
 	// hostname under a single-label domain (conorbi.localhost) is browser-
 	// insecure despite a valid chain.
+	var wantSANs []string
 	if m.tlsMode == "mkcert" {
-		certsDir, err := EnsureCerts(ctx, m.domain, m.routeSANs()...)
+		wantSANs = m.routeSANs()
+		certsDir, err := EnsureCerts(ctx, m.domain, wantSANs...)
 		if err != nil {
 			logging.WarnWithContext(ctx, "Failed to generate mkcert certificates", "error", err.Error())
 		} else if certsDir != "" {
@@ -134,11 +136,26 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		}
 	}
 
-	// Check if already running
+	// Check if already running. A running proxy normally needs only a cheap
+	// Caddyfile reload — but the cert is bind-mounted read-only at create time
+	// (ADR-003), so a reload can't swap it. When the cert that must be served
+	// changed (e.g. a sibling on a new proxy.domain minted a broader cert under
+	// a different per-domain dir), recreate the container so the new /certs
+	// mount takes effect. Otherwise reload.
 	running, _ := m.isRunning(ctx, containerName)
 	if running {
-		logging.InfoWithContext(ctx, "Proxy already running", "container", containerName)
-		return m.Reload(ctx)
+		if m.tlsMode == "mkcert" && m.certsDir != "" &&
+			!m.mountedCertCovers(ctx, containerName, wantSANs) {
+			logging.InfoWithContext(ctx, "Proxy cert outdated; recreating",
+				"container", containerName)
+			if err := m.forceRemoveContainer(ctx, containerName); err != nil {
+				return err
+			}
+			// fall through to the create path below
+		} else {
+			logging.InfoWithContext(ctx, "Proxy already running", "container", containerName)
+			return m.Reload(ctx)
+		}
 	}
 
 	// Sweep stale container — otherwise `docker run --name <same>`
