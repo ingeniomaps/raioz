@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/naming"
 )
 
 // Dependencies is the narrow port set the proxy use cases need.
@@ -80,6 +81,11 @@ func applyScope(deps *Dependencies, configPath string) {
 	if err != nil || cfg == nil {
 		return
 	}
+	// Activate the workspace prefix so the manager's container-name helpers
+	// (WorkspaceProxyContainer / ProxyContainer) resolve to the same name the
+	// `up` flow created. Without it, stop/status target a default-prefixed
+	// name and silently no-op on the real workspace-shared proxy.
+	naming.SetPrefix(cfg.Workspace)
 	scope := interfaces.ProxyConfig{
 		ProjectName: cfg.Project.Name,
 		Workspace:   cfg.Workspace,

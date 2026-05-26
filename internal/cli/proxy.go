@@ -26,7 +26,9 @@ var proxyStatusCmd = &cobra.Command{
 			ConfigLoader: deps.ConfigLoader,
 			ProxyManager: deps.ProxyManager,
 		}}
-		running, err := uc.Execute(cmd.Context(), proxycase.StatusOptions{})
+		running, err := uc.Execute(cmd.Context(), proxycase.StatusOptions{
+			ConfigPath: ResolveConfigPath(""),
+		})
 		if errors.Is(err, proxycase.ErrProxyNotConfigured) {
 			output.PrintInfo(i18n.T("proxy.not_configured"))
 			return nil
@@ -53,7 +55,9 @@ var proxyStopCmd = &cobra.Command{
 			ConfigLoader: deps.ConfigLoader,
 			ProxyManager: deps.ProxyManager,
 		}}
-		err := uc.Execute(cmd.Context(), proxycase.StopOptions{})
+		err := uc.Execute(cmd.Context(), proxycase.StopOptions{
+			ConfigPath: ResolveConfigPath(""),
+		})
 		if errors.Is(err, proxycase.ErrProxyNotConfigured) {
 			output.PrintInfo(i18n.T("proxy.not_configured"))
 			return nil
