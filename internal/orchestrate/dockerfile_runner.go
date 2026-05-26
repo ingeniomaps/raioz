@@ -58,6 +58,13 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		args = append(args, "-p", port)
 	}
 
+	// Env files declared via `env:` in raioz.yaml. Emitted before the -e
+	// flags so the discovery vars (which raioz computes) take precedence over
+	// the file — the calculated host wins over a stale value in the file.
+	for _, f := range svc.EnvFilePaths {
+		args = append(args, "--env-file", f)
+	}
+
 	// Add env vars
 	for k, v := range svc.EnvVars {
 		args = append(args, "-e", k+"="+v)

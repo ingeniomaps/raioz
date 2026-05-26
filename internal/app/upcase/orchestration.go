@@ -269,6 +269,10 @@ func (uc *UseCase) processOrchestration(
 				svcCtx.ProxyTarget = svc.ProxyOverride.Target
 			}
 
+			// Pass the service's own `env:` (inline vars + --env-file) to
+			// the runner; mirrors the deps path above.
+			applyServiceEnv(&svcCtx, svc.Env, projectDir)
+
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
 				return nil, errors.ServiceStartFailed(name, string(detection.Runtime), err)
 			}
