@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.2](https://github.com/ingeniomaps/raioz/compare/v0.11.1...v0.11.2) (2026-05-29)
+
+
+### Bug Fixes
+
+* **orchestrate:** align compose env with deps ([dc0c4b4](https://github.com/ingeniomaps/raioz/commit/dc0c4b46d6382db21b1beb8e1c749b01e1527a82))
+* **orchestrate:** apply service env to container ([7ed00ad](https://github.com/ingeniomaps/raioz/commit/7ed00ad41d64e4f43d8ecf7ef13ebf5592f4782b))
+* **proxy:** cover sibling domains in shared cert ([6270222](https://github.com/ingeniomaps/raioz/commit/62702222f4e094021732995c5724e0a0fcf6ed77))
+* **proxy:** recreate on stale cert mount ([1fa7076](https://github.com/ingeniomaps/raioz/commit/1fa70762bedbbb3cd4e6e1f3da7a4c604a34fa95))
+* **proxy:** scope stop and status to workspace ([922abc2](https://github.com/ingeniomaps/raioz/commit/922abc22b4722449c7cfb5aa1337de7438a9d221))
+
 ## [0.11.1](https://github.com/ingeniomaps/raioz/compare/v0.11.0...v0.11.1) (2026-05-24)
 
 
