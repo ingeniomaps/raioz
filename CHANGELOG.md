@@ -4,6 +4,52 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.2](https://github.com/ingeniomaps/raioz/compare/v0.11.1...v0.11.2) (2026-05-29)
+
+
+### Bug Fixes
+
+* **orchestrate:** align compose env with deps ([dc0c4b4](https://github.com/ingeniomaps/raioz/commit/dc0c4b46d6382db21b1beb8e1c749b01e1527a82))
+* **orchestrate:** apply service env to container ([7ed00ad](https://github.com/ingeniomaps/raioz/commit/7ed00ad41d64e4f43d8ecf7ef13ebf5592f4782b))
+* **proxy:** cover sibling domains in shared cert ([6270222](https://github.com/ingeniomaps/raioz/commit/62702222f4e094021732995c5724e0a0fcf6ed77))
+* **proxy:** recreate on stale cert mount ([1fa7076](https://github.com/ingeniomaps/raioz/commit/1fa70762bedbbb3cd4e6e1f3da7a4c604a34fa95))
+* **proxy:** scope stop and status to workspace ([922abc2](https://github.com/ingeniomaps/raioz/commit/922abc22b4722449c7cfb5aa1337de7438a9d221))
+
+## [0.11.1](https://github.com/ingeniomaps/raioz/compare/v0.11.0...v0.11.1) (2026-05-24)
+
+
+### Bug Fixes
+
+* **app:** show logs for compose-backed services ([3340193](https://github.com/ingeniomaps/raioz/commit/33401930d2ec7882f259200bf58e4c133be864f2))
+* **proxy:** keep HTTP redirect in mkcert mode ([7636498](https://github.com/ingeniomaps/raioz/commit/7636498453d5ab991a513160dc40d66ec05702bc))
+* **proxy:** mint route FQDNs as mkcert SANs ([246273a](https://github.com/ingeniomaps/raioz/commit/246273a2a84ffc7092c92a88f6375a5f92cb30a2))
+
+## [0.11.0](https://github.com/ingeniomaps/raioz/compare/v0.10.1...v0.11.0) (2026-05-23)
+
+
+### Features
+
+* **meta:** auto-clone bootstrap and remote-mode fallback ([45ad114](https://github.com/ingeniomaps/raioz/commit/45ad114d2845b94b205cb35f8b25a94456411592))
+
+
+### Bug Fixes
+
+* **config:** drop trailing colons from meta validation errors ([c9ff497](https://github.com/ingeniomaps/raioz/commit/c9ff497ff6667886f99b43aaab463a65304e1275))
+* **config:** re-infer commands when runtime override changes runtime ([551d420](https://github.com/ingeniomaps/raioz/commit/551d420a0dd305916413601edf4589ba252052bd))
+* **orchestrate:** emit volumes for image-mode dependencies ([dfc8256](https://github.com/ingeniomaps/raioz/commit/dfc82565f69a85575d73a4ccd1ef045d928b2ac4))
+* **proxy:** sanitize both path separators in remote routes filename ([11417be](https://github.com/ingeniomaps/raioz/commit/11417be5e4ca44aa394f2ad78c0709210762c9fb))
+
+
+### Refactor
+
+* **meta:** route remote writer through infra/proxy adapter ([07ad0dd](https://github.com/ingeniomaps/raioz/commit/07ad0ddf58d00f0e0213133dd853aea172723d30))
+
+
+### Documentation
+
+* **changelog:** cede ownership of CHANGELOG.md to release-please ([b0c1c49](https://github.com/ingeniomaps/raioz/commit/b0c1c496ca2372a188c412fd3fb98cfad069f472))
+* trim over-explaining comments ([33b2290](https://github.com/ingeniomaps/raioz/commit/33b2290865533cf07bfb46e88b5072639337addb))
+
 ## [0.10.1](https://github.com/ingeniomaps/raioz/compare/v0.10.0...v0.10.1) (2026-05-18)
 
 
