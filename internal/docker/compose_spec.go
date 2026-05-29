@@ -53,6 +53,17 @@ func WithComposeExtraEnv(ctx context.Context, env map[string]string) context.Con
 	return context.WithValue(ctx, composeExtraEnvKey{}, env)
 }
 
+// ComposeExtraEnvFromContext returns the interpolation env map stashed in ctx
+// by WithComposeExtraEnv, or nil. It is the read-side mirror of the exported
+// writer, letting a caller outside this package inspect which KEY=value pairs
+// a runner attached for docker compose interpolation.
+func ComposeExtraEnvFromContext(ctx context.Context) map[string]string {
+	if v, ok := ctx.Value(composeExtraEnvKey{}).(map[string]string); ok {
+		return v
+	}
+	return nil
+}
+
 // composeExtraEnvFromContext returns a flat `KEY=value` slice for appending
 // to cmd.Env. Stable-sorted so order is deterministic (helps tests).
 func composeExtraEnvFromContext(ctx context.Context) []string {

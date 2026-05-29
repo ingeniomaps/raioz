@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
+	"raioz/internal/naming"
 )
 
 func TestStatus_NotConfigured(t *testing.T) {
@@ -37,6 +38,9 @@ func TestStatus_DelegatesToManager(t *testing.T) {
 }
 
 func TestStatus_AppliesProjectScopeFromConfig(t *testing.T) {
+	prev := naming.GetPrefix()
+	t.Cleanup(func() { naming.SetPrefix(prev) })
+
 	mgr := &mocks.MockProxyManager{}
 	loader := &mocks.MockConfigLoader{
 		LoadDepsFunc: func(_ string) (*models.Deps, []string, error) {
@@ -58,6 +62,35 @@ func TestStatus_AppliesProjectScopeFromConfig(t *testing.T) {
 	}
 	if mgr.Workspace != "ws" {
 		t.Errorf("expected Workspace=ws, got %q", mgr.Workspace)
+	}
+}
+
+// applyScope must activate the workspace naming prefix so the manager's
+// container-name helpers target <workspace>-proxy, not a default-prefixed
+// name. Without it, stop/status silently no-op on the real shared proxy.
+func TestStop_ActivatesWorkspacePrefix(t *testing.T) {
+	prev := naming.GetPrefix()
+	t.Cleanup(func() { naming.SetPrefix(prev) })
+	naming.SetPrefix("") // ensure we start from the default prefix
+
+	mgr := &mocks.MockProxyManager{}
+	loader := &mocks.MockConfigLoader{
+		LoadDepsFunc: func(_ string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:   models.Project{Name: "proj"},
+				Workspace: "acme",
+			}, nil, nil
+		},
+	}
+	uc := StopUseCase{Deps: &Dependencies{ConfigLoader: loader, ProxyManager: mgr}}
+	if err := uc.Execute(context.Background(), StopOptions{ConfigPath: "/x/raioz.yaml"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := naming.GetPrefix(); got != "acme" {
+		t.Errorf("naming prefix = %q, want acme", got)
+	}
+	if mgr.Workspace != "acme" {
+		t.Errorf("Workspace = %q, want acme", mgr.Workspace)
 	}
 }
 

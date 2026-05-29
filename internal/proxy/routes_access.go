@@ -57,13 +57,20 @@ func (m *Manager) HostsLine() string {
 	return ip + "  " + strings.Join(hosts, " ")
 }
 
-// routeSANs returns the exact FQDNs of every route the manager knows about
-// under its own domain, deduplicated, for use as additional mkcert SANs. An
-// apex hostname like conorbi.localhost is only matched by the *.localhost
-// wildcard, which browsers reject because the parent is a single label — so
-// the FQDN must be minted explicitly. In workspace-shared mode the cert is
-// per-domain, so we fold in every sibling project sharing this domain.
-// See ADR-003.
+// routeSANs returns the exact FQDNs of every route the manager knows about,
+// deduplicated, for use as additional mkcert SANs. An apex hostname like
+// conorbi.localhost is only matched by the *.localhost wildcard, which
+// browsers reject because the parent is a single label — so the FQDN must be
+// minted explicitly.
+//
+// In workspace-shared mode the proxy mounts ONE cert that fronts every site
+// block (caddyfile.go), so that single cert must carry the SANs of EVERY
+// domain the workspace serves — not just m.domain. A sibling project on a
+// different proxy.domain routes fine (Caddy matches by Host) but its FQDN must
+// still be in the cert or the browser rejects TLS. So we fold in every sibling
+// project's route FQDNs regardless of domain, plus each distinct sibling
+// domain's <domain> + *.<domain> to cover future subdomains without a re-mint.
+// See ADR-003 / ADR-005.
 func (m *Manager) routeSANs() []string {
 	seen := make(map[string]bool)
 	var sans []string
@@ -76,8 +83,12 @@ func (m *Manager) routeSANs() []string {
 	}
 	if m.isWorkspaceShared() {
 		for _, pp := range m.loadAllProjectRoutes() {
-			if pp.Domain != m.domain {
-				continue
+			// A sibling on a different domain than the proxy's own still
+			// needs its apex + wildcard in the shared cert; m.domain +
+			// *.m.domain are already added by certSANs.
+			if pp.Domain != "" && pp.Domain != m.domain {
+				add(pp.Domain)
+				add("*." + pp.Domain)
 			}
 			for _, r := range pp.Routes {
 				for _, h := range routeHostnames(r, pp.Domain) {

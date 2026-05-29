@@ -152,6 +152,99 @@ func TestCertSANs_Dedup(t *testing.T) {
 	}
 }
 
+// TestRouteSANs_MixedDomains_CoversSiblingDomain is the regression test for
+// the shared-proxy mixed-domain TLS gap: the workspace mounts a SINGLE cert,
+// minted for the domain of whichever project owns the proxy (here landing on
+// "localhost"). A sibling on a different proxy.domain (identity on
+// "conorbi.localhost") routes fine — Caddy matches by Host — but before the
+// fix its FQDN never entered the cert, so the browser rejected TLS. routeSANs
+// must fold in sibling-domain FQDNs (and that domain's apex + wildcard).
+func TestRouteSANs_MixedDomains_CoversSiblingDomain(t *testing.T) {
+	// landing fixes the shared proxy's own domain at "localhost".
+	m := makeSharedManager(t, "conorbi", "landing")
+	m.domain = "localhost"
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "landing", Hostname: "conorbi", Target: "landing:3000",
+	})
+	if err := m.SaveProjectRoutes(); err != nil {
+		t.Fatalf("save landing routes: %v", err)
+	}
+
+	// identity runs in the SAME workspace but on a different domain.
+	identity := NewManager("")
+	identity.workspaceName = "conorbi"
+	identity.projectName = "identity"
+	identity.domain = "conorbi.localhost"
+	identity.tlsMode = "mkcert"
+	identity.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "identity", Hostname: "identity", Target: "identity:8080",
+	})
+	if err := identity.SaveProjectRoutes(); err != nil {
+		t.Fatalf("save identity routes: %v", err)
+	}
+
+	// The cert is minted from the proxy-owning manager (landing). Its SAN set
+	// must cover identity's FQDN on the other domain.
+	got := m.routeSANs()
+	sanSet := make(map[string]bool, len(got))
+	for _, s := range got {
+		sanSet[s] = true
+	}
+
+	for _, want := range []string{
+		"identity.conorbi.localhost", // the sibling-domain route FQDN (the bug)
+		"conorbi.localhost",          // sibling apex (also landing's own route)
+		"*.conorbi.localhost",        // wildcard for future sibling subdomains
+	} {
+		if !sanSet[want] {
+			t.Errorf("routeSANs missing %q; got %v", want, got)
+		}
+	}
+}
+
+// TestRouteSANs_MixedDomains_CertAcceptsSiblingFQDN ties the whole chain
+// together: routeSANs → certSANs → a minted cert → certMatchesDomain. A cert
+// built from the mixed-domain SAN set must validate as covering the sibling's
+// exact FQDN, which is precisely what the browser checks.
+func TestRouteSANs_MixedDomains_CertAcceptsSiblingFQDN(t *testing.T) {
+	m := makeSharedManager(t, "conorbi", "landing")
+	m.domain = "localhost"
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "landing", Hostname: "conorbi", Target: "landing:3000",
+	})
+	if err := m.SaveProjectRoutes(); err != nil {
+		t.Fatalf("save landing routes: %v", err)
+	}
+
+	identity := NewManager("")
+	identity.workspaceName = "conorbi"
+	identity.projectName = "identity"
+	identity.domain = "conorbi.localhost"
+	identity.tlsMode = "mkcert"
+	identity.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "identity", Hostname: "identity", Target: "identity:8080",
+	})
+	if err := identity.SaveProjectRoutes(); err != nil {
+		t.Fatalf("save identity routes: %v", err)
+	}
+
+	extras := m.routeSANs()
+	dnsNames := certSANs(m.domain, extras)
+
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "cert.pem")
+	writeSelfSignedCert(t, certPath, dnsNames)
+
+	// The exact sibling FQDN must be present as a SAN — the wildcard
+	// *.localhost would NOT cover identity.conorbi.localhost (two labels deep).
+	if !certMatchesDomain(certPath, "localhost", extras) {
+		t.Fatalf("cert minted from mixed-domain SANs must validate; SANs=%v", dnsNames)
+	}
+	if !certMatchesDomain(certPath, "localhost", []string{"identity.conorbi.localhost"}) {
+		t.Errorf("cert must explicitly cover identity.conorbi.localhost; SANs=%v", dnsNames)
+	}
+}
+
 func TestRouteSANs_ApexAndSubdomain(t *testing.T) {
 	m := NewManager("")
 	m.domain = "localhost"

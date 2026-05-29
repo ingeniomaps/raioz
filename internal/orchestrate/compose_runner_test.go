@@ -7,9 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
+	"raioz/internal/naming"
 
 	"gopkg.in/yaml.v3"
 )
@@ -297,6 +299,108 @@ func TestComposeRunner_Start(t *testing.T) {
 	}
 	if !called {
 		t.Error("UpWithContext was not called")
+	}
+}
+
+// TestComposeRunner_Start_InjectsInterpolationAndEnvFiles is the regression
+// test for the runner asymmetry where a service declared with `compose:` could
+// not interpolate ${NETWORK_NAME}/${PROJECT_PREFIX} nor read its env: files,
+// while an identical dependency could. ComposeRunner.Start must enrich the
+// docker compose context exactly like ImageRunner: env: files become
+// --env-file flags and the computed vars are exported for interpolation.
+func TestComposeRunner_Start_InjectsInterpolationAndEnvFiles(t *testing.T) {
+	naming.SetPrefix("acme")
+	t.Cleanup(func() { naming.SetPrefix("") })
+
+	svc := makeComposeSvc(t)
+	svc.NetworkName = "acme-net"
+	envFile := filepath.Join(svc.Path, ".env.app")
+	if err := os.WriteFile(envFile, []byte("FOO=bar\n"), 0644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+	svc.EnvFilePaths = []string{envFile}
+
+	var captured context.Context
+	mock := &mocks.MockDockerRunner{
+		GetAvailableServicesWithContextFunc: func(
+			_ context.Context, _ string,
+		) ([]string, error) {
+			return []string{"web"}, nil
+		},
+		UpWithContextFunc: func(ctx context.Context, _ string) error {
+			captured = ctx
+			return nil
+		},
+	}
+	r := &ComposeRunner{docker: mock}
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if captured == nil {
+		t.Fatal("UpWithContext was not called")
+	}
+
+	// env: files must reach docker compose as --env-file sources.
+	gotFiles := docker.ComposeEnvFilesFromContext(captured)
+	if len(gotFiles) != 1 || gotFiles[0] != envFile {
+		t.Errorf("env files = %v, want [%s]", gotFiles, envFile)
+	}
+
+	// Interpolation vars must match what ImageRunner exports for the same svc.
+	gotEnv := docker.ComposeExtraEnvFromContext(captured)
+	if gotEnv["NETWORK_NAME"] != "acme-net" {
+		t.Errorf("NETWORK_NAME = %q, want %q", gotEnv["NETWORK_NAME"], "acme-net")
+	}
+	if gotEnv["PROJECT_PREFIX"] != "acme" {
+		t.Errorf("PROJECT_PREFIX = %q, want %q", gotEnv["PROJECT_PREFIX"], "acme")
+	}
+
+	// Parity check: the exported interpolation env is exactly what the
+	// dependency path (composeInterpolationEnv) would produce.
+	want := composeInterpolationEnv(svc)
+	if len(gotEnv) != len(want) {
+		t.Fatalf("extra env = %v, want %v", gotEnv, want)
+	}
+	for k, v := range want {
+		if gotEnv[k] != v {
+			t.Errorf("extra env[%q] = %q, want %q", k, gotEnv[k], v)
+		}
+	}
+}
+
+// TestComposeRunner_Start_NoWorkspaceStripsPrefix mirrors the dependency
+// behavior where, without a workspace, PROJECT_PREFIX is omitted so a
+// compose's `:-default` fallback kicks in instead of resolving to the literal
+// "raioz" prefix.
+func TestComposeRunner_Start_NoWorkspaceStripsPrefix(t *testing.T) {
+	naming.SetPrefix("") // default prefix → no workspace
+	svc := makeComposeSvc(t)
+	svc.NetworkName = "proj-net"
+
+	var captured context.Context
+	mock := &mocks.MockDockerRunner{
+		GetAvailableServicesWithContextFunc: func(
+			_ context.Context, _ string,
+		) ([]string, error) {
+			return []string{"web"}, nil
+		},
+		UpWithContextFunc: func(ctx context.Context, _ string) error {
+			captured = ctx
+			return nil
+		},
+	}
+	r := &ComposeRunner{docker: mock}
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	gotEnv := docker.ComposeExtraEnvFromContext(captured)
+	if _, ok := gotEnv["PROJECT_PREFIX"]; ok {
+		t.Errorf("PROJECT_PREFIX must be absent without a workspace, got %v", gotEnv)
+	}
+	if gotEnv["NETWORK_NAME"] != "proj-net" {
+		t.Errorf("NETWORK_NAME = %q, want %q", gotEnv["NETWORK_NAME"], "proj-net")
 	}
 }
 

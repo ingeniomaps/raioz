@@ -73,6 +73,44 @@ func TestDockerfileRunner_Start_NoPortsNoEnv(t *testing.T) {
 	}
 }
 
+// A service with `env:` must reach the container as --env-file, and the file
+// flag must precede the -e flags so the discovery vars raioz computes win over
+// a stale value in the file.
+func TestDockerfileRunner_Start_EnvFile(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+
+	dir := t.TempDir()
+	argsFile := dir + "/args.txt"
+	script := dir + "/fake-docker.sh"
+	if err := writeExecutable(script, "#!/bin/sh\necho \"$@\" >> "+argsFile+"\n"); err != nil {
+		t.Fatalf("writeExecutable: %v", err)
+	}
+	withRuntimeBinary(t, script)
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+	svc.EnvVars = map[string]string{"FOO": "bar"}
+	svc.EnvFilePaths = []string{"/abs/path/.env"}
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	out, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("read args file: %v", err)
+	}
+	got := string(out)
+	if !strings.Contains(got, "--env-file /abs/path/.env") {
+		t.Errorf("expected --env-file flag in docker run args; got: %q", got)
+	}
+	if ef, ev := strings.Index(got, "--env-file"), strings.Index(got, "-e FOO=bar"); ef < 0 || ev < 0 || ef > ev {
+		t.Errorf("--env-file must precede -e; env-file=%d -e=%d in %q", ef, ev, got)
+	}
+}
+
 func TestDockerfileRunner_Start_BuildFails(t *testing.T) {
 	if _, err := exec.LookPath("false"); err != nil {
 		t.Skip("false not available")
