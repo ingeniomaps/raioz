@@ -42,10 +42,13 @@ func composePaths(svc interfaces.ServiceContext) []string {
 }
 
 // ComposeProjectName returns the docker compose project name used to scope
-// a service. Format: raioz-<project>-<service>. Exported because downOrchestrated
-// needs the same value to tear down what the runner created.
+// a service. Format: <prefix>-<project>-<service>, where <prefix> is the
+// active workspace name (or "raioz" when none is set). Exported because
+// downOrchestrated needs the same value to tear down what the runner created.
+// Uses naming.GetPrefix() rather than a literal "raioz-" so the scope matches
+// the rest of raioz's naming when a workspace is active.
 func ComposeProjectName(projectName, serviceName string) string {
-	return "raioz-" + projectName + "-" + serviceName
+	return naming.GetPrefix() + "-" + projectName + "-" + serviceName
 }
 
 // scopedContext attaches an explicit COMPOSE_PROJECT_NAME to the context so
