@@ -19,7 +19,6 @@
 #
 internal/app/dev.go
 internal/app/down_compose.go
-internal/app/down_deps.go
 internal/app/down_orchestrated.go
 internal/app/down_others.go
 internal/app/down_proxy.go
