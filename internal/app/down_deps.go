@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"os/exec"
-	"path/filepath"
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
@@ -65,40 +64,19 @@ func stopDependencyComposeProjects(
 		}
 
 		projName := naming.DepComposeProjectName(projectName, name)
-		// Compose-based deps: user-supplied fragment(s) + raioz overlay,
-		// teardown needs the same list of -f files that Start used.
-		var composeArgs []string
-		var envFileArgs []string
-		if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
-			overlay := filepath.Join(
-				filepath.Dir(naming.DepComposePath(projectName, name)),
-				"raioz-overlay.yml",
-			)
-			for _, f := range entry.Inline.Compose {
-				abs := f
-				if a, err := filepath.Abs(f); err == nil {
-					abs = a
-				}
-				composeArgs = append(composeArgs, "-f", abs)
-			}
-			composeArgs = append(composeArgs, "-f", overlay)
-			if entry.Inline.Env != nil {
-				for _, f := range entry.Inline.Env.GetFilePaths() {
-					if f != "" {
-						envFileArgs = append(envFileArgs, "--env-file", f)
-					}
-				}
-			}
-		} else {
-			composeArgs = []string{"-f", naming.DepComposePath(projectName, name)}
-		}
-		args := []string{"compose"}
-		args = append(args, envFileArgs...)
-		args = append(args, "-p", projName)
-		args = append(args, composeArgs...)
-		args = append(args, "down")
+		// Tear down by `-p` alone: docker compose resolves the project from
+		// the labels the engine stamped at up time, so it doesn't need the
+		// original -f fragments (which live under TMPDIR and may be gone in
+		// a later session, a cleaned /tmp, or another host). Reconstructing
+		// the -f list and swallowing the error left deps leaking silently.
+		// --remove-orphans sweeps any container still carrying the label.
+		args := []string{"compose", "-p", projName, "down", "--remove-orphans"}
 		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-		_ = cmd.Run() // file might not exist; best-effort teardown
+		if out, err := cmd.CombinedOutput(); err != nil {
+			logging.WarnWithContext(ctx, "Dependency teardown failed",
+				"dep", name, "project", projName,
+				"error", err.Error(), "output", string(out))
+		}
 	}
 }
 
