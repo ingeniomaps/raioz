@@ -94,8 +94,12 @@ type Infra struct {
 // service, overriding auto-detection. Populated from the user's
 // `services.<name>.proxy:` block in raioz.yaml.
 type ServiceProxyOverride struct {
-	Target string `json:"target,omitempty"`
-	Port   int    `json:"port,omitempty"`
+	// Disabled opts the service out of getting a proxy route at all
+	// (`proxy: false` in raioz.yaml). When true, raioz creates no
+	// https://<name>.<domain> route — used for host-net services with no UI.
+	Disabled bool   `json:"disabled,omitempty"`
+	Target   string `json:"target,omitempty"`
+	Port     int    `json:"port,omitempty"`
 }
 
 // PublishSpec captures the user's host-side binding intent for a dependency.

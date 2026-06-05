@@ -460,7 +460,8 @@ network:
 ## Service proxy override
 
 Tell the proxy exactly where to forward traffic for a service, bypassing
-auto-detection. Populated from `services.<n>.proxy:` in `raioz.yaml`.
+auto-detection. Populated from `services.<n>.proxy:` in `raioz.yaml`. The
+field is polymorphic (bool | object), like `network:` / `publish:`.
 
 ```yaml
 services:
@@ -471,6 +472,10 @@ services:
     proxy:
       target: hypixo-keycloak  # container name on the shared network
       port: 8080
+  prometheus:
+    path: ./prometheus
+    command: docker compose -f prometheus/docker-compose.yml up -d
+    proxy: false               # host-net, no UI — skip the HTTPS route
 ```
 
 | Field | Type | Default | Description |
@@ -482,6 +487,14 @@ Needed when `command:` launches a compose stack whose containers raioz
 can't introspect. Without the override, raioz classifies the service as
 "host" and the proxy ends up pointing at `host.docker.internal` with no
 port.
+
+**Opt-out (`proxy: false`).** Services get an `https://<name>.<domain>`
+route by default. For a host-net service with no UI (Prometheus,
+node-exporter, exporters/sidecars) that route is dead and misleading —
+the proxy can't reach a host-net target. Set `proxy: false` and raioz
+creates no route for it, keeping `raioz status` honest. This is the
+symmetric counterpart to a dependency's opt-**in** `routing:`. Absence
+of `proxy:` keeps the default (routed).
 
 ### Launcher-pattern container wait
 

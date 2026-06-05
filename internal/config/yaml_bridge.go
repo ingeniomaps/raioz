@@ -180,10 +180,11 @@ func yamlServiceToService(_ string, svc YAMLService) (Service, error) {
 		service.HostnameAliases = append([]string(nil), svc.HostnameAliases...)
 	}
 	service.Routing = svc.Routing
-	if svc.Proxy != nil && (svc.Proxy.Target != "" || svc.Proxy.Port > 0) {
+	if svc.Proxy != nil && (svc.Proxy.Disabled || svc.Proxy.Target != "" || svc.Proxy.Port > 0) {
 		service.ProxyOverride = &ServiceProxyOverride{
-			Target: svc.Proxy.Target,
-			Port:   svc.Proxy.Port,
+			Disabled: svc.Proxy.Disabled,
+			Target:   svc.Proxy.Target,
+			Port:     svc.Proxy.Port,
 		}
 	}
 

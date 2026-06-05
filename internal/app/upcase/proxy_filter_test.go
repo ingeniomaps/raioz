@@ -52,6 +52,36 @@ func TestShouldProxy_ServiceAlwaysProxied(t *testing.T) {
 	}
 }
 
+func TestShouldProxy_ServiceOptOut_Issue068(t *testing.T) {
+	// `proxy: false` on a host-net service with no UI (Prometheus, exporters)
+	// must skip route creation — no dead https://<name>.<domain>.
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"prometheus": {ProxyOverride: &models.ServiceProxyOverride{Disabled: true}},
+		},
+		Infra: map[string]models.InfraEntry{},
+	}
+	if shouldProxy(deps, "prometheus") {
+		t.Error("service with proxy:false must be opted out of routing")
+	}
+}
+
+func TestShouldProxy_ServiceOverrideStillProxied_Issue068(t *testing.T) {
+	// A target/port override (not disabled) keeps the route — the opt-out is
+	// only the boolean `false`, not any presence of the proxy block.
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"keycloak": {ProxyOverride: &models.ServiceProxyOverride{
+				Target: "hypixo-keycloak", Port: 8080,
+			}},
+		},
+		Infra: map[string]models.InfraEntry{},
+	}
+	if !shouldProxy(deps, "keycloak") {
+		t.Error("service with a target/port override must still be routed")
+	}
+}
+
 func TestShouldProxy_PostgresSkippedByDefault(t *testing.T) {
 	deps := &models.Deps{
 		Services: map[string]models.Service{},

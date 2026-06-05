@@ -223,8 +223,11 @@ func printProxyURLs(pm interfaces.ProxyManager, serviceNames []string) {
 // is the opt-in escape hatch for deps where the user knows they do speak
 // HTTP (e.g. a custom image that happens to reuse a DB name).
 func shouldProxy(deps *models.Deps, name string) bool {
-	if _, isService := deps.Services[name]; isService {
-		return true
+	if svc, isService := deps.Services[name]; isService {
+		// `proxy: false` opts a service out of routing — used for host-net
+		// services with no UI (Prometheus, exporters) where a route would be
+		// dead and misleading. Absence of the override keeps the default.
+		return svc.ProxyOverride == nil || !svc.ProxyOverride.Disabled
 	}
 	entry, isDep := deps.Infra[name]
 	if !isDep || entry.Inline == nil {

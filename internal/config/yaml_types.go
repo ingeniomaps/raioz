@@ -202,13 +202,24 @@ type YAMLService struct {
 	// spawning hypixo-keycloak on 8080) — raioz classifies the service as
 	// "host" and the proxy ends up pointing at host.docker.internal with no
 	// port. Setting `proxy:` bypasses the heuristic entirely.
+	//
+	// Polymorphic (bool | object), like `network:` / `publish:`:
+	//   proxy: false            # opt-out — no https://<name>.<domain> route
+	//   proxy: { target, port } # override detection
+	// `proxy: false` is the escape hatch for host-net services with no UI
+	// (Prometheus, exporters): raioz creates no route instead of a dead one.
 	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"` // since: v0.1.0
 }
 
 // YAMLServiceProxy tells the proxy exactly where to forward traffic for a
 // service. Both fields optional; raioz falls back to detection for whichever
-// the user leaves out.
+// the user leaves out. Accepts the boolean shorthand `false` to opt the
+// service out of routing entirely.
 type YAMLServiceProxy struct {
+	// Disabled is set when the user wrote `proxy: false`, opting the service
+	// out of getting an HTTPS route. Not a YAML field on its own — it is
+	// derived by UnmarshalYAML from the boolean shorthand.
+	Disabled bool `yaml:"-"`
 	// Target is the DNS name or IP the proxy should reverse_proxy to. Use
 	// the container name when the service lives on the shared network
 	// (e.g. "hypixo-keycloak"), or a hostname reachable from the proxy
@@ -216,6 +227,26 @@ type YAMLServiceProxy struct {
 	Target string `yaml:"target,omitempty"` // since: v0.1.0
 	// Port is the port to dial on Target.
 	Port int `yaml:"port,omitempty"` // since: v0.1.0
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler so `proxy:` accepts both the
+// boolean shorthand (`false` to opt out, `true` to keep the default) and the
+// object form ({target, port}). Mirrors YAMLNetwork's polymorphism.
+func (p *YAMLServiceProxy) UnmarshalYAML(unmarshal func(any) error) error {
+	var asBool bool
+	if err := unmarshal(&asBool); err == nil {
+		p.Disabled = !asBool
+		return nil
+	}
+
+	// Alias avoids infinite recursion back into this UnmarshalYAML.
+	type yamlServiceProxyAlias YAMLServiceProxy
+	var obj yamlServiceProxyAlias
+	if err := unmarshal(&obj); err != nil {
+		return err
+	}
+	*p = YAMLServiceProxy(obj)
+	return nil
 }
 
 // YAMLDependency represents a dependency (infrastructure/external service) in raioz.yaml.
