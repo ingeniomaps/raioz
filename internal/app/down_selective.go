@@ -13,6 +13,7 @@ import (
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
+	"raioz/internal/refcount"
 	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
@@ -190,12 +191,21 @@ func stopSelectiveDep(
 	if entry.Inline != nil {
 		override = entry.Inline.Name
 	}
-	if naming.IsSharedDep(override) &&
-		otherProjectsActiveInWorkspace(ctx, deps.Workspace, projectName) {
-		output.PrintInfo(fmt.Sprintf(
-			"%s: shared with sibling projects, leaving it up", name,
-		))
-		return
+	if naming.IsSharedDep(override) {
+		// Selective down releases only this dep, so drop just this project's
+		// reference to it (not the whole project). Keep the dep up if any
+		// still-live sibling references it; stale refs are ignored (issue 069).
+		remaining, err := refcount.DropRef(deps.Workspace, name, projectName)
+		if err != nil {
+			logging.WarnWithContext(ctx, "Shared dep refcount drop failed",
+				"dep", name, "error", err.Error())
+		}
+		if anyLive(remaining, liveProjectsInWorkspace(ctx, deps.Workspace, projectName)) {
+			output.PrintInfo(fmt.Sprintf(
+				"%s: shared with sibling projects, leaving it up", name,
+			))
+			return
+		}
 	}
 
 	projName := naming.DepComposeProjectName(projectName, name)

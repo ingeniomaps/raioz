@@ -4,10 +4,10 @@ import (
 	"context"
 	"os/exec"
 
-	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/refcount"
 	"raioz/internal/runtime"
 )
 
@@ -32,7 +32,17 @@ func stopDependencyComposeProjects(
 	projectName string,
 	deferredDeps []string,
 ) {
-	others := otherProjectsActiveInWorkspace(ctx, deps.Workspace, projectName)
+	// Reconcile the shared-dep refcount against the projects that are
+	// actually live (excluding this one, which is fully leaving). This
+	// drops our own references and purges any left behind by a sibling
+	// that died without a clean `down`, so the per-dep keep-alive check
+	// below trusts a count that mirrors reality (issue 069).
+	live := liveProjectsInWorkspace(ctx, deps.Workspace, projectName)
+	if err := refcount.Reconcile(deps.Workspace, live); err != nil {
+		logging.WarnWithContext(ctx, "Shared dep refcount reconcile failed",
+			"workspace", deps.Workspace, "error", err.Error())
+	}
+
 	deferred := make(map[string]struct{}, len(deferredDeps))
 	for _, n := range deferredDeps {
 		deferred[n] = struct{}{}
@@ -57,10 +67,17 @@ func stopDependencyComposeProjects(
 		if entry.Inline != nil {
 			override = entry.Inline.Name
 		}
-		if naming.IsSharedDep(override) && others {
-			logging.InfoWithContext(ctx, "Keeping shared dependency alive for sibling projects",
-				"dep", name, "workspace", deps.Workspace, "leaving_project", projectName)
-			continue
+		if naming.IsSharedDep(override) {
+			refs, err := refcount.Refs(deps.Workspace, name)
+			if err != nil {
+				logging.WarnWithContext(ctx, "Shared dep refcount lookup failed",
+					"dep", name, "error", err.Error())
+			} else if len(refs) > 0 {
+				logging.InfoWithContext(ctx, "Keeping shared dependency alive; still referenced",
+					"dep", name, "workspace", deps.Workspace,
+					"leaving_project", projectName, "remaining", refs)
+				continue
+			}
 		}
 
 		projName := naming.DepComposeProjectName(projectName, name)
@@ -80,25 +97,44 @@ func stopDependencyComposeProjects(
 	}
 }
 
-// otherProjectsActiveInWorkspace answers the "is anyone else home?" question
-// needed to decide whether shared deps can be torn down. Returns true when at
-// least one raioz-managed container in the workspace belongs to a project
-// other than the one currently being brought down. Shared deps themselves
-// have no project label, so they don't falsely signal other-project activity.
-func otherProjectsActiveInWorkspace(ctx context.Context, workspace, currentProject string) bool {
+// liveProjectsInWorkspace returns the distinct project names (other than
+// currentProject) that still have at least one raioz-managed container up
+// in the workspace. Shared deps carry no project label, so they never show
+// up as consumers. This is the authoritative "who is actually live" set the
+// refcount reconciler trusts over its own persisted entries (issue 069).
+func liveProjectsInWorkspace(ctx context.Context, workspace, currentProject string) []string {
 	if workspace == "" {
-		return false
+		return nil
 	}
-	names := docker.ListContainersByLabels(ctx, map[string]string{
+	names := listContainersByLabelsFn(ctx, map[string]string{
 		naming.LabelManaged:   "true",
 		naming.LabelWorkspace: workspace,
 	})
+	seen := map[string]struct{}{}
+	var live []string
 	for _, n := range names {
-		proj, _ := docker.GetContainerLabel(ctx, n, naming.LabelProject)
-		if proj == "" {
-			continue // a shared dep itself — not a project consumer
+		proj, _ := getContainerLabelFn(ctx, n, naming.LabelProject)
+		if proj == "" || proj == currentProject {
+			continue
 		}
-		if proj != currentProject {
+		if _, ok := seen[proj]; !ok {
+			seen[proj] = struct{}{}
+			live = append(live, proj)
+		}
+	}
+	return live
+}
+
+// anyLive reports whether any of refs names a project in the live set. Used
+// to ignore stale references (a project that died without dropping its ref)
+// when deciding whether a shared dep still has a real consumer.
+func anyLive(refs, live []string) bool {
+	set := make(map[string]struct{}, len(live))
+	for _, p := range live {
+		set[p] = struct{}{}
+	}
+	for _, r := range refs {
+		if _, ok := set[r]; ok {
 			return true
 		}
 	}

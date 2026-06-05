@@ -210,6 +210,10 @@ func (uc *UseCase) processOrchestration(
 			}
 			output.PrintProgressDone(i18n.T("up.infra_healthy"))
 		}
+
+		// Record this project's reference to each shared dep it dispatched
+		// so down can tear them down only when the last consumer leaves.
+		registerSharedDepRefs(ctx, deps, dispatchedInfra)
 	}
 
 	// Build endpoints map for service discovery
