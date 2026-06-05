@@ -32,17 +32,6 @@ func stopDependencyComposeProjects(
 	projectName string,
 	deferredDeps []string,
 ) {
-	// Reconcile the shared-dep refcount against the projects that are
-	// actually live (excluding this one, which is fully leaving). This
-	// drops our own references and purges any left behind by a sibling
-	// that died without a clean `down`, so the per-dep keep-alive check
-	// below trusts a count that mirrors reality (issue 069).
-	live := liveProjectsInWorkspace(ctx, deps.Workspace, projectName)
-	if err := refcount.Reconcile(deps.Workspace, live); err != nil {
-		logging.WarnWithContext(ctx, "Shared dep refcount reconcile failed",
-			"workspace", deps.Workspace, "error", err.Error())
-	}
-
 	deferred := make(map[string]struct{}, len(deferredDeps))
 	for _, n := range deferredDeps {
 		deferred[n] = struct{}{}
@@ -68,19 +57,25 @@ func stopDependencyComposeProjects(
 			override = entry.Inline.Name
 		}
 		if naming.IsSharedDep(override) {
-			refs, err := refcount.Refs(deps.Workspace, name)
+			// Drop only this project's reference and keep the dep up while
+			// any other project still references it. We trust the refcount,
+			// not a container scan: a sibling that consumes only shared deps
+			// owns no project-labeled container, so scanning would wrongly
+			// read it as gone and rip the dep out from under it (issue 069).
+			remaining, err := refcount.DropRef(deps.Workspace, name, projectName)
 			if err != nil {
-				logging.WarnWithContext(ctx, "Shared dep refcount lookup failed",
+				logging.WarnWithContext(ctx, "Shared dep refcount drop failed",
 					"dep", name, "error", err.Error())
-			} else if len(refs) > 0 {
+			}
+			if len(remaining) > 0 {
 				logging.InfoWithContext(ctx, "Keeping shared dependency alive; still referenced",
 					"dep", name, "workspace", deps.Workspace,
-					"leaving_project", projectName, "remaining", refs)
+					"leaving_project", projectName, "remaining", remaining)
 				continue
 			}
 		}
 
-		projName := naming.DepComposeProjectName(projectName, name)
+		projName := naming.DepComposeProjectNameFor(projectName, name, naming.IsSharedDep(override))
 		// Tear down by `-p` alone: docker compose resolves the project from
 		// the labels the engine stamped at up time, so it doesn't need the
 		// original -f fragments (which live under TMPDIR and may be gone in
@@ -95,48 +90,4 @@ func stopDependencyComposeProjects(
 				"error", err.Error(), "output", string(out))
 		}
 	}
-}
-
-// liveProjectsInWorkspace returns the distinct project names (other than
-// currentProject) that still have at least one raioz-managed container up
-// in the workspace. Shared deps carry no project label, so they never show
-// up as consumers. This is the authoritative "who is actually live" set the
-// refcount reconciler trusts over its own persisted entries (issue 069).
-func liveProjectsInWorkspace(ctx context.Context, workspace, currentProject string) []string {
-	if workspace == "" {
-		return nil
-	}
-	names := listContainersByLabelsFn(ctx, map[string]string{
-		naming.LabelManaged:   "true",
-		naming.LabelWorkspace: workspace,
-	})
-	seen := map[string]struct{}{}
-	var live []string
-	for _, n := range names {
-		proj, _ := getContainerLabelFn(ctx, n, naming.LabelProject)
-		if proj == "" || proj == currentProject {
-			continue
-		}
-		if _, ok := seen[proj]; !ok {
-			seen[proj] = struct{}{}
-			live = append(live, proj)
-		}
-	}
-	return live
-}
-
-// anyLive reports whether any of refs names a project in the live set. Used
-// to ignore stale references (a project that died without dropping its ref)
-// when deciding whether a shared dep still has a real consumer.
-func anyLive(refs, live []string) bool {
-	set := make(map[string]struct{}, len(live))
-	for _, p := range live {
-		set[p] = struct{}{}
-	}
-	for _, r := range refs {
-		if _, ok := set[r]; ok {
-			return true
-		}
-	}
-	return false
 }

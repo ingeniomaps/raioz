@@ -144,10 +144,9 @@ func cleanProxyDirOnDisk(ctx context.Context, deps *models.Deps) {
 var listContainersByLabelsFn = docker.ListContainersByLabels
 var getContainerLabelFn = docker.GetContainerLabel
 
-// otherWorkspaceProjectsActive mirrors liveProjectsInWorkspace from
-// down_deps.go but lives here to avoid a package-internal cycle.
-// Returns true when at least one raioz-managed container in the workspace
-// belongs to a project other than the one currently being torn down.
+// otherWorkspaceProjectsActive reports whether any raioz-managed container
+// in the workspace belongs to a project other than the one currently being
+// torn down. Used to decide whether the shared proxy can be stopped.
 func otherWorkspaceProjectsActive(ctx context.Context, workspace, currentProject string) bool {
 	if workspace == "" {
 		return false

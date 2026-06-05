@@ -159,6 +159,7 @@ func (uc *UseCase) processOrchestration(
 				"", // no path for images
 				deps.Project.Name,
 			)
+			svcCtx.SharedDep = naming.IsSharedDep(nameOverride) // ADR-050
 
 			// ProjectDir anchors relative bind-mount sources against the
 			// project's raioz.yaml dir rather than the raioz process cwd.

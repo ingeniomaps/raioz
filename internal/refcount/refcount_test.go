@@ -75,27 +75,6 @@ func TestTwoConsumers_Issue069(t *testing.T) {
 	}
 }
 
-func TestReconcile_PurgesDeadProjects(t *testing.T) {
-	isolate(t)
-	_ = AddRef("conorbi", "loki", "observability")
-	_ = AddRef("conorbi", "loki", "ghost") // project that died without DropRef
-	_ = AddRef("conorbi", "jaeger", "ghost")
-
-	// Only observability is actually live now.
-	if err := Reconcile("conorbi", []string{"observability"}); err != nil {
-		t.Fatalf("Reconcile: %v", err)
-	}
-
-	loki, _ := Refs("conorbi", "loki")
-	if !slices.Equal(loki, []string{"observability"}) {
-		t.Errorf("loki refs = %v, want [observability]", loki)
-	}
-	jaeger, _ := Refs("conorbi", "jaeger")
-	if len(jaeger) != 0 {
-		t.Errorf("jaeger refs = %v, want empty (only ghost referenced it)", jaeger)
-	}
-}
-
 // TestEmptyStateRemovesFile asserts a clean teardown leaves no artifact
 // (ADR-023: state mirrors reality).
 func TestEmptyStateRemovesFile(t *testing.T) {

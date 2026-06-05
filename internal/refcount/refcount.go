@@ -1,7 +1,9 @@
 // Package refcount tracks which raioz projects reference each shared
 // dependency, so `raioz down` can tear a shared dep down only when its
 // last consumer leaves. It replaces the old "scan live containers and
-// guess if anyone is home" heuristic with an explicit, persisted count.
+// guess if anyone is home" heuristic — which was blind to a sibling that
+// consumes only shared deps (those carry no project label) — with an
+// explicit, persisted count that the down path trusts directly.
 //
 // State lives in a single JSON file under naming.RaiozStateDir() (ADR-022),
 // keyed by workspace then dep name. Writes are atomic (fsutil) and the
@@ -183,39 +185,4 @@ func Refs(workspace, dep string) ([]string, error) {
 		return nil
 	})
 	return out, err
-}
-
-// Reconcile drops references to projects that are no longer live, using
-// the caller's authoritative set of live project names (derived from
-// running containers). This is the safety net for dirty downs: a project
-// that died without calling DropRef would otherwise pin its deps forever.
-// live is treated as a whitelist — any referencing project not in it is
-// purged from every dep in the workspace.
-func Reconcile(workspace string, live []string) error {
-	liveSet := make(map[string]struct{}, len(live))
-	for _, p := range live {
-		liveSet[p] = struct{}{}
-	}
-	return withLock(func() error {
-		s, err := load()
-		if err != nil {
-			return err
-		}
-		deps := s.Workspaces[workspace]
-		if deps == nil {
-			return nil
-		}
-		for dep, refs := range deps {
-			kept := slices.DeleteFunc(refs, func(p string) bool {
-				_, ok := liveSet[p]
-				return !ok
-			})
-			if len(kept) == 0 {
-				delete(deps, dep)
-			} else {
-				deps[dep] = kept
-			}
-		}
-		return save(s)
-	})
 }

@@ -225,3 +225,23 @@ func ContainerPrefix(project string) string {
 func DepComposeProjectName(projectName, depName string) string {
 	return GetPrefix() + "-" + projectName + "-dep-" + depName
 }
+
+// SharedDepComposeProjectName is the compose project scope for a
+// workspace-shared dependency. Format: {prefix}-dep-{dep} — no project
+// segment, so every consumer creates and tears the dep down under one
+// shared compose project (the first consumer creates it, the last one out
+// removes it). Mirrors SharedContainer's project-less form. See ADR-050.
+func SharedDepComposeProjectName(depName string) string {
+	return GetPrefix() + "-dep-" + depName
+}
+
+// DepComposeProjectNameFor resolves the compose project scope for a dep,
+// honoring whether it is workspace-shared. Shared deps must agree on a
+// single scope across consumers; per-project deps keep the project segment
+// so `--remove-orphans` never sweeps another project's same-named dep.
+func DepComposeProjectNameFor(projectName, depName string, shared bool) string {
+	if shared {
+		return SharedDepComposeProjectName(depName)
+	}
+	return DepComposeProjectName(projectName, depName)
+}

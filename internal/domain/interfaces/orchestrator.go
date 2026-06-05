@@ -18,6 +18,12 @@ type ServiceContext struct {
 	ContainerName string
 	ProjectName   string // Used for project-isolated temp dirs and naming
 
+	// SharedDep marks a dependency that is workspace-shared (ADR-002): its
+	// compose project scope drops the per-project segment so every consumer
+	// — and the last-one-out teardown — agree on a single compose project.
+	// False for services and per-project deps. See ADR-050.
+	SharedDep bool
+
 	// StopCommand is set when raioz.yaml declares `stop:` on the service.
 	// Runners that support it (HostRunner) use it instead of killing the PID
 	// so commands like `make start` can cleanly tear down their own children.

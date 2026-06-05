@@ -193,14 +193,14 @@ func stopSelectiveDep(
 	}
 	if naming.IsSharedDep(override) {
 		// Selective down releases only this dep, so drop just this project's
-		// reference to it (not the whole project). Keep the dep up if any
-		// still-live sibling references it; stale refs are ignored (issue 069).
+		// reference to it and keep it up while any other project still
+		// references it (issue 069).
 		remaining, err := refcount.DropRef(deps.Workspace, name, projectName)
 		if err != nil {
 			logging.WarnWithContext(ctx, "Shared dep refcount drop failed",
 				"dep", name, "error", err.Error())
 		}
-		if anyLive(remaining, liveProjectsInWorkspace(ctx, deps.Workspace, projectName)) {
+		if len(remaining) > 0 {
 			output.PrintInfo(fmt.Sprintf(
 				"%s: shared with sibling projects, leaving it up", name,
 			))
@@ -208,7 +208,7 @@ func stopSelectiveDep(
 		}
 	}
 
-	projName := naming.DepComposeProjectName(projectName, name)
+	projName := naming.DepComposeProjectNameFor(projectName, name, naming.IsSharedDep(override))
 	// Tear down by `-p` alone: compose resolves the project from the engine
 	// labels, so the original -f fragments (TMPDIR-bound, possibly gone) are
 	// not needed. Reconstructing them and swallowing the error leaked deps.

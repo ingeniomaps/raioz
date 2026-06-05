@@ -80,7 +80,7 @@ below.
 | `raioz.root.json` | `internal/root/root.go::Delete` | `raioz down` (orchestrated) when `len(leftovers) == 0` per ADR-023 | Selective down does NOT delete it (only a subset was torn down) |
 | `audit.log` | `internal/audit/audit.go::rotateIfOverCap` | size > 10 MiB → renamed to `audit.log.1` (overwriting any prior `.1`) | Never deleted outright; tail is recoverable |
 | `routes/<project>.json` | `internal/proxy/routes_persist.go::RemoveProjectRoutes` | `raioz down`'s `stopProxy` | Last project out of the workspace also stops the Caddy container itself (ADR-005) |
-| `shared-deps.json` | `internal/refcount/refcount.go::DropRef` / `Reconcile` (`save` removes the file when empty) | `raioz down` drops the leaving project's refs; the file is deleted once no workspace has any ref left | A shared dep is torn down only when its ref set empties (ADR-050) |
+| `shared-deps.json` | `internal/refcount/refcount.go::DropRef` (`save` removes the file when empty) | `raioz down` drops the leaving project's ref; the file is deleted once no workspace has any ref left | A shared dep is torn down only when its ref set empties (ADR-050) |
 | `Caddyfile` | regenerated, not deleted | every `Reload` — old content overwritten | If the last project leaves the workspace the file remains until the workspace dir is cleaned manually |
 | certs | manual (`rm -rf ~/.raioz/certs/<domain>`) | n/a — raioz never deletes user-trusted CAs | Per-domain isolation makes manual cleanup safe (ADR-003) |
 
