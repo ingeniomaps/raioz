@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.0](https://github.com/ingeniomaps/raioz/compare/v0.11.2...v0.12.0) (2026-06-06)
+
+
+### Features
+
+* **app:** refcount shared deps for safe teardown ([cb9abd1](https://github.com/ingeniomaps/raioz/commit/cb9abd1d406302798e3687cb0e85d54b603cf11f))
+* **proxy:** allow services to opt out of routing ([58d2343](https://github.com/ingeniomaps/raioz/commit/58d23434467244aff03c8553831e72f8d530c57d))
+
+
+### Bug Fixes
+
+* **app:** make shared-dep teardown actually work ([1158a0a](https://github.com/ingeniomaps/raioz/commit/1158a0abaec2b0656028b917270d5bee8827b715))
+* **app:** tear down deps by compose project name ([f7778c2](https://github.com/ingeniomaps/raioz/commit/f7778c24f3cd7ab9ce2a7c308d5505d94ece23b1))
+* **orchestrate:** prefix compose name by workspace ([3380484](https://github.com/ingeniomaps/raioz/commit/33804843046e84c95b5fe5baf28a609de2830bca))
+
+
+### Documentation
+
+* add ADR-050 for shared-dep refcount ([24631a9](https://github.com/ingeniomaps/raioz/commit/24631a964f5382e8672f854fc2eb1c1e6da4c5bb))
+* fix a stale refcount comment and issue refs ([a4d353b](https://github.com/ingeniomaps/raioz/commit/a4d353b3728f9fbe04c6045db42e6615a9510b50))
+
 ## [0.11.2](https://github.com/ingeniomaps/raioz/compare/v0.11.1...v0.11.2) (2026-05-29)
 
 
