@@ -194,7 +194,7 @@ func stopSelectiveDep(
 	if naming.IsSharedDep(override) {
 		// Selective down releases only this dep, so drop just this project's
 		// reference to it and keep it up while any other project still
-		// references it (issue 069).
+		// references it (ADR-050).
 		remaining, err := refcount.DropRef(deps.Workspace, name, projectName)
 		if err != nil {
 			logging.WarnWithContext(ctx, "Shared dep refcount drop failed",

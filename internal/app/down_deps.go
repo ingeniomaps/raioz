@@ -61,7 +61,7 @@ func stopDependencyComposeProjects(
 			// any other project still references it. We trust the refcount,
 			// not a container scan: a sibling that consumes only shared deps
 			// owns no project-labeled container, so scanning would wrongly
-			// read it as gone and rip the dep out from under it (issue 069).
+			// read it as gone and rip the dep out from under it (ADR-050).
 			remaining, err := refcount.DropRef(deps.Workspace, name, projectName)
 			if err != nil {
 				logging.WarnWithContext(ctx, "Shared dep refcount drop failed",
