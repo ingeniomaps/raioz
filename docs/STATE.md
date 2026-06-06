@@ -15,6 +15,7 @@ and how is it protected" in 30 seconds.
 | `raioz.root.json` | `<RaiozStateDir>/workspaces/<project>/` | per-project | Drift-detection snapshot of the resolved `Deps` after most recent `up` | ADR-023 |
 | `audit.log` (+ `.1` rotation tail) | `<RaiozStateDir>/` | per-machine, append-only JSONL | Forensic history of lifecycle / dev / sibling / drift events | ADR-020, ADR-022, ADR-027 |
 | `routes/<project>.json` | `<WorkspaceProxyDir>/routes/` | per-project per-workspace | Persisted proxy route entries; merged into the workspace's `Caddyfile` | ADR-005 |
+| `shared-deps.json` | `<RaiozStateDir>/` | per-machine, keyed by workspace→dep | Refcount of which projects consume each shared dependency; gates last-consumer teardown | ADR-050 |
 | `cert.pem` + `cert-key.pem` | `~/.raioz/certs/<domain>/` | per-domain (machine) | mkcert-issued local TLS cert + private key | ADR-003 |
 
 Plus transient artifacts (not "state" in the sense of "raioz
@@ -31,6 +32,8 @@ reads it later"):
 ~/.local/state/raioz/                  ← naming.RaiozStateDir() (ADR-022)
 ├── audit.log                          ← machine-scope, JSONL, rotated at 10 MiB
 ├── audit.log.1                        ← rotation tail
+├── shared-deps.json                  ← shared-dep refcount (ADR-050)
+├── .shared-deps.lock                 ← advisory lock for the refcount RMW
 ├── workspaces/
 │   └── <project>/
 │       └── raioz.root.json            ← drift-detection snapshot
@@ -65,6 +68,7 @@ below.
 | `raioz.root.json` | `internal/root/root.go::Save` | `raioz up` (`upcase.saveState`) — once per up, after services + infra are tracked |
 | `audit.log` | `internal/audit/audit.go::Log` / `LogWithContext` | every event in the OBSERVABILITY.md matrix that's currently emitted (lifecycle up/down/restart, dev promote/revert, sibling deferred, drift, conflict resolved, service assisted) |
 | `routes/<project>.json` | `internal/proxy/routes_persist.go::SaveProjectRoutes` | `raioz up`'s `startProxy` after `AddRoute` for every service |
+| `shared-deps.json` | `internal/refcount/refcount.go::AddRef` | `raioz up`'s `registerSharedDepRefs` — one ref per dispatched shared dep |
 | `Caddyfile` | `internal/proxy/caddyfile.go::generateCaddyfile` | indirect — every `Reload` and the first `Start` |
 | certs | `internal/proxy/certs.go::EnsureCerts` | proxy `Start` when `tlsMode == mkcert` and the SAN-validated cert is missing |
 
@@ -76,6 +80,7 @@ below.
 | `raioz.root.json` | `internal/root/root.go::Delete` | `raioz down` (orchestrated) when `len(leftovers) == 0` per ADR-023 | Selective down does NOT delete it (only a subset was torn down) |
 | `audit.log` | `internal/audit/audit.go::rotateIfOverCap` | size > 10 MiB → renamed to `audit.log.1` (overwriting any prior `.1`) | Never deleted outright; tail is recoverable |
 | `routes/<project>.json` | `internal/proxy/routes_persist.go::RemoveProjectRoutes` | `raioz down`'s `stopProxy` | Last project out of the workspace also stops the Caddy container itself (ADR-005) |
+| `shared-deps.json` | `internal/refcount/refcount.go::DropRef` (`save` removes the file when empty) | `raioz down` drops the leaving project's ref; the file is deleted once no workspace has any ref left | A shared dep is torn down only when its ref set empties (ADR-050) |
 | `Caddyfile` | regenerated, not deleted | every `Reload` — old content overwritten | If the last project leaves the workspace the file remains until the workspace dir is cleaned manually |
 | certs | manual (`rm -rf ~/.raioz/certs/<domain>`) | n/a — raioz never deletes user-trusted CAs | Per-domain isolation makes manual cleanup safe (ADR-003) |
 

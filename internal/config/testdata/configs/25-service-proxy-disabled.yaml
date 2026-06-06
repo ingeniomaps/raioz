@@ -1,0 +1,19 @@
+# 25-service-proxy-disabled — `services.<n>.proxy: false` (bool shorthand).
+#
+# Opt-out of proxy routing for a host-net service with no UI (Prometheus,
+# exporters): raioz creates no https://<name>.<domain> route instead of a
+# dead one. Exercises the polymorphic bool branch of YAMLServiceProxy
+# (the object branch is covered by 12-service-proxy-override). See ADR-050
+# / issue 068 — do not delete; this is the only fixture for `proxy: false`.
+
+project: observability
+proxy: true
+
+services:
+  grafana:
+    path: ./grafana
+  prometheus:
+    path: ./prometheus
+    command: docker compose -f prometheus/docker-compose.yml up -d
+    stop: docker compose -f prometheus/docker-compose.yml down
+    proxy: false

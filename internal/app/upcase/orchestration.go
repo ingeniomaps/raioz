@@ -159,6 +159,7 @@ func (uc *UseCase) processOrchestration(
 				"", // no path for images
 				deps.Project.Name,
 			)
+			svcCtx.SharedDep = naming.IsSharedDep(nameOverride) // ADR-050
 
 			// ProjectDir anchors relative bind-mount sources against the
 			// project's raioz.yaml dir rather than the raioz process cwd.
@@ -210,6 +211,10 @@ func (uc *UseCase) processOrchestration(
 			}
 			output.PrintProgressDone(i18n.T("up.infra_healthy"))
 		}
+
+		// Record this project's reference to each shared dep it dispatched
+		// so down can tear them down only when the last consumer leaves.
+		registerSharedDepRefs(ctx, deps, dispatchedInfra)
 	}
 
 	// Build endpoints map for service discovery

@@ -3,12 +3,11 @@ package app
 import (
 	"context"
 	"os/exec"
-	"path/filepath"
 
-	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/refcount"
 	"raioz/internal/runtime"
 )
 
@@ -33,7 +32,6 @@ func stopDependencyComposeProjects(
 	projectName string,
 	deferredDeps []string,
 ) {
-	others := otherProjectsActiveInWorkspace(ctx, deps.Workspace, projectName)
 	deferred := make(map[string]struct{}, len(deferredDeps))
 	for _, n := range deferredDeps {
 		deferred[n] = struct{}{}
@@ -58,71 +56,38 @@ func stopDependencyComposeProjects(
 		if entry.Inline != nil {
 			override = entry.Inline.Name
 		}
-		if naming.IsSharedDep(override) && others {
-			logging.InfoWithContext(ctx, "Keeping shared dependency alive for sibling projects",
-				"dep", name, "workspace", deps.Workspace, "leaving_project", projectName)
-			continue
+		if naming.IsSharedDep(override) {
+			// Drop only this project's reference and keep the dep up while
+			// any other project still references it. We trust the refcount,
+			// not a container scan: a sibling that consumes only shared deps
+			// owns no project-labeled container, so scanning would wrongly
+			// read it as gone and rip the dep out from under it (ADR-050).
+			remaining, err := refcount.DropRef(deps.Workspace, name, projectName)
+			if err != nil {
+				logging.WarnWithContext(ctx, "Shared dep refcount drop failed",
+					"dep", name, "error", err.Error())
+			}
+			if len(remaining) > 0 {
+				logging.InfoWithContext(ctx, "Keeping shared dependency alive; still referenced",
+					"dep", name, "workspace", deps.Workspace,
+					"leaving_project", projectName, "remaining", remaining)
+				continue
+			}
 		}
 
-		projName := naming.DepComposeProjectName(projectName, name)
-		// Compose-based deps: user-supplied fragment(s) + raioz overlay,
-		// teardown needs the same list of -f files that Start used.
-		var composeArgs []string
-		var envFileArgs []string
-		if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
-			overlay := filepath.Join(
-				filepath.Dir(naming.DepComposePath(projectName, name)),
-				"raioz-overlay.yml",
-			)
-			for _, f := range entry.Inline.Compose {
-				abs := f
-				if a, err := filepath.Abs(f); err == nil {
-					abs = a
-				}
-				composeArgs = append(composeArgs, "-f", abs)
-			}
-			composeArgs = append(composeArgs, "-f", overlay)
-			if entry.Inline.Env != nil {
-				for _, f := range entry.Inline.Env.GetFilePaths() {
-					if f != "" {
-						envFileArgs = append(envFileArgs, "--env-file", f)
-					}
-				}
-			}
-		} else {
-			composeArgs = []string{"-f", naming.DepComposePath(projectName, name)}
-		}
-		args := []string{"compose"}
-		args = append(args, envFileArgs...)
-		args = append(args, "-p", projName)
-		args = append(args, composeArgs...)
-		args = append(args, "down")
+		projName := naming.DepComposeProjectNameFor(projectName, name, naming.IsSharedDep(override))
+		// Tear down by `-p` alone: docker compose resolves the project from
+		// the labels the engine stamped at up time, so it doesn't need the
+		// original -f fragments (which live under TMPDIR and may be gone in
+		// a later session, a cleaned /tmp, or another host). Reconstructing
+		// the -f list and swallowing the error left deps leaking silently.
+		// --remove-orphans sweeps any container still carrying the label.
+		args := []string{"compose", "-p", projName, "down", "--remove-orphans"}
 		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-		_ = cmd.Run() // file might not exist; best-effort teardown
-	}
-}
-
-// otherProjectsActiveInWorkspace answers the "is anyone else home?" question
-// needed to decide whether shared deps can be torn down. Returns true when at
-// least one raioz-managed container in the workspace belongs to a project
-// other than the one currently being brought down. Shared deps themselves
-// have no project label, so they don't falsely signal other-project activity.
-func otherProjectsActiveInWorkspace(ctx context.Context, workspace, currentProject string) bool {
-	if workspace == "" {
-		return false
-	}
-	names := docker.ListContainersByLabels(ctx, map[string]string{
-		naming.LabelManaged:   "true",
-		naming.LabelWorkspace: workspace,
-	})
-	for _, n := range names {
-		proj, _ := docker.GetContainerLabel(ctx, n, naming.LabelProject)
-		if proj == "" {
-			continue // a shared dep itself — not a project consumer
-		}
-		if proj != currentProject {
-			return true
+		if out, err := cmd.CombinedOutput(); err != nil {
+			logging.WarnWithContext(ctx, "Dependency teardown failed",
+				"dep", name, "project", projName,
+				"error", err.Error(), "output", string(out))
 		}
 	}
-	return false
 }

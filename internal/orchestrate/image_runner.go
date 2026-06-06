@@ -33,6 +33,10 @@ type ImageRunner struct {
 // (moved per ADR-029 to keep app/cli off this package).
 var DepComposeProjectName = naming.DepComposeProjectName
 
+// DepComposeProjectNameFor re-exports the shared-aware resolver (ADR-050)
+// for the same reason as DepComposeProjectName above.
+var DepComposeProjectNameFor = naming.DepComposeProjectNameFor
+
 // Start pulls the image and runs it via a generated compose file. When the
 // target container already exists in a running state (typical for shared
 // dependencies when a sibling project in the same workspace already brought
@@ -62,14 +66,14 @@ func (r *ImageRunner) Start(ctx context.Context, svc interfaces.ServiceContext) 
 
 	logging.InfoWithContext(ctx, "Starting dependency",
 		"name", svc.Name, "compose", composeSpec,
-		"project", DepComposeProjectName(svc.ProjectName, svc.Name))
+		"project", DepComposeProjectNameFor(svc.ProjectName, svc.Name, svc.SharedDep))
 
 	// Scope with an explicit COMPOSE_PROJECT_NAME so --remove-orphans does not
 	// sweep containers from other raioz projects that share the same dep name
 	// (e.g., two projects both declaring a "postgres" dependency). Attach the
 	// env files too so ${VAR} interpolation in user-supplied compose works.
 	scopedCtx := docker.WithComposeProjectName(
-		ctx, DepComposeProjectName(svc.ProjectName, svc.Name),
+		ctx, DepComposeProjectNameFor(svc.ProjectName, svc.Name, svc.SharedDep),
 	)
 	scopedCtx = docker.WithComposeEnvFiles(scopedCtx, svc.EnvFilePaths)
 	scopedCtx = docker.WithComposeExtraEnv(scopedCtx, composeInterpolationEnv(svc))
@@ -110,7 +114,7 @@ func (r *ImageRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) e
 		return nil // Nothing on disk, nothing to stop
 	}
 	scopedCtx := docker.WithComposeProjectName(
-		ctx, DepComposeProjectName(svc.ProjectName, svc.Name),
+		ctx, DepComposeProjectNameFor(svc.ProjectName, svc.Name, svc.SharedDep),
 	)
 	scopedCtx = docker.WithComposeEnvFiles(scopedCtx, svc.EnvFilePaths)
 	scopedCtx = docker.WithComposeExtraEnv(scopedCtx, composeInterpolationEnv(svc))

@@ -13,6 +13,7 @@ import (
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
+	"raioz/internal/refcount"
 	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
@@ -190,46 +191,34 @@ func stopSelectiveDep(
 	if entry.Inline != nil {
 		override = entry.Inline.Name
 	}
-	if naming.IsSharedDep(override) &&
-		otherProjectsActiveInWorkspace(ctx, deps.Workspace, projectName) {
-		output.PrintInfo(fmt.Sprintf(
-			"%s: shared with sibling projects, leaving it up", name,
-		))
-		return
+	if naming.IsSharedDep(override) {
+		// Selective down releases only this dep, so drop just this project's
+		// reference to it and keep it up while any other project still
+		// references it (ADR-050).
+		remaining, err := refcount.DropRef(deps.Workspace, name, projectName)
+		if err != nil {
+			logging.WarnWithContext(ctx, "Shared dep refcount drop failed",
+				"dep", name, "error", err.Error())
+		}
+		if len(remaining) > 0 {
+			output.PrintInfo(fmt.Sprintf(
+				"%s: shared with sibling projects, leaving it up", name,
+			))
+			return
+		}
 	}
 
-	projName := naming.DepComposeProjectName(projectName, name)
-	var composeArgs, envFileArgs []string
-	if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
-		overlay := filepath.Join(
-			filepath.Dir(naming.DepComposePath(projectName, name)),
-			"raioz-overlay.yml",
-		)
-		for _, f := range entry.Inline.Compose {
-			abs := f
-			if a, err := filepath.Abs(f); err == nil {
-				abs = a
-			}
-			composeArgs = append(composeArgs, "-f", abs)
-		}
-		composeArgs = append(composeArgs, "-f", overlay)
-		if entry.Inline.Env != nil {
-			for _, f := range entry.Inline.Env.GetFilePaths() {
-				if f != "" {
-					envFileArgs = append(envFileArgs, "--env-file", f)
-				}
-			}
-		}
-	} else {
-		composeArgs = []string{"-f", naming.DepComposePath(projectName, name)}
+	projName := naming.DepComposeProjectNameFor(projectName, name, naming.IsSharedDep(override))
+	// Tear down by `-p` alone: compose resolves the project from the engine
+	// labels, so the original -f fragments (TMPDIR-bound, possibly gone) are
+	// not needed. Reconstructing them and swallowing the error leaked deps.
+	args := []string{"compose", "-p", projName, "down", "--remove-orphans"}
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		logging.WarnWithContext(ctx, "Dependency teardown failed",
+			"dep", name, "project", projName,
+			"error", err.Error(), "output", string(out))
 	}
-
-	args := []string{"compose"}
-	args = append(args, envFileArgs...)
-	args = append(args, "-p", projName)
-	args = append(args, composeArgs...)
-	args = append(args, "down")
-	_ = exec.CommandContext(ctx, runtime.Binary(), args...).Run()
 
 	output.PrintSuccess(name)
 }

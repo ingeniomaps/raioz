@@ -568,3 +568,20 @@ func TestComposeRunner_Restart(t *testing.T) {
 		t.Errorf("expected 1 Up call, got %d", ups)
 	}
 }
+
+// TestComposeProjectName_PrefixFollowsWorkspace_Issue069 locks in that the
+// compose project scope tracks the active prefix: "raioz-" by default, the
+// workspace name when one is set. The old literal "raioz-" left a workspace
+// up/down naming inconsistent with the rest of raioz's resources.
+func TestComposeProjectName_PrefixFollowsWorkspace_Issue069(t *testing.T) {
+	naming.SetPrefix("")
+	if got := ComposeProjectName("shop", "api"); got != "raioz-shop-api" {
+		t.Errorf("default prefix: got %q, want raioz-shop-api", got)
+	}
+
+	naming.SetPrefix("conorbi")
+	t.Cleanup(func() { naming.SetPrefix("") })
+	if got := ComposeProjectName("observability", "grafana"); got != "conorbi-observability-grafana" {
+		t.Errorf("workspace prefix: got %q, want conorbi-observability-grafana", got)
+	}
+}

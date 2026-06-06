@@ -15,6 +15,7 @@ page documents *how they interact*.
 | **`Manager.routesMu`** | per-process (`sync.RWMutex`) | `Manager.routes` map in memory | `AddRoute` / `RemoveRoute` / `GetURL` / `snapshotRoutes` (ADR-028) | n/a | 3 (innermost) |
 | **`HostRunner.mu`** | per-process (`sync.Mutex`) | `processes` + `launchers` maps (ADR-025) | `recordPID` / `markLauncher` / `takePID` / `peekPID` / `isLauncher` (ADR-028) | n/a | 3 (innermost) |
 | **`processProxyMu`** | per-process (`sync.Mutex`) | Closes flock's per-process gap so two goroutines can't both grab the workspace lock (ADR-010) | inside `acquireWorkspaceLock` | n/a | nested under workspace lock |
+| **`refcount.withLock`** | per-machine (`flock` on `.shared-deps.lock` + `processMu`) | The shared-dep refcount file's read-modify-write (ADR-050) | `AddRef` / `DropRef` / `Refs` | No — siblings included | self-contained: acquired and fully released within one call, never held across another lock |
 | **`RAIOZ_SIBLING_STACK`** | cycle detection (env var, ADR-008) | Detects A→B→A recursion in mode A sibling spawn | `checkSiblingCycle` in `sibling_spawn.go` | n/a | not a lock — env propagation |
 | Docker daemon | external | Container/network/volume create | n/a — daemon serializes | n/a | n/a |
 
