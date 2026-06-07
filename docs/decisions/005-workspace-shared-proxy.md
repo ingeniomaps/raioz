@@ -35,6 +35,44 @@ The Caddy container itself is torn down only when the **last**
 project in the workspace runs `down` (detected via Docker
 labels: no other `com.raioz.workspace=<ws>` containers remain).
 
+### Orphan route-file GC on `down`
+
+The teardown gate requires **two** signals to agree before
+stopping the shared proxy: no persisted route files for any
+project (`RemainingProjects() == 0`) **and** no other
+workspace-labelled containers alive. The route-file signal counts
+files on disk, not live projects — so a file left behind by a
+project that crashed (or was killed outside raioz, e.g.
+`docker compose down` directly) never gets removed by that
+project's own `down` and pins the proxy alive forever, even for
+the genuinely-last project out. The same stale file also injects
+a route to a dead backend into every Caddyfile reload.
+
+To close this, `handleSharedProxyDown` runs a garbage-collection
+pass (`pruneOrphanRouteFiles`) **before** evaluating the gate: it
+crosses every persisted route file against the set of live
+workspace containers (same Docker-label source of truth as the
+"last project leaves" probe) and deletes any file whose owning
+project has zero live containers. After the GC, `RemainingProjects()`
+reflects only genuinely-live projects and the gate decides correctly.
+
+This deliberately relaxes the "each project only manages its own
+route file" invariant: a `down` of project A may delete the
+orphan file of crashed project B. That is safe because the file
+is *demonstrably* orphaned (B has no containers), and the
+alternative — an immortal pin requiring `raioz proxy stop` or a
+manual `rm` — is worse and not discoverable.
+
+**Docker-unreachable guard:** the GC distinguishes "daemon
+unreachable" from "zero containers" via
+`docker.ListContainersByLabelsErr`. If the liveness probe errors,
+the GC is skipped entirely (degrading to the pre-GC keep-alive
+behaviour) rather than risk deleting a live project's routes on a
+transient Docker outage. The error-swallowing
+`ListContainersByLabels` is reserved for best-effort callers; any
+caller that deletes state on the basis of absence must use the
+error-returning variant.
+
 ### Atomic route file writes
 
 `SaveProjectRoutes` writes each project file via temp file +
@@ -96,10 +134,14 @@ Caddyfile reload step itself is planned in
 
 ## References
 
-- Code: `internal/proxy/routes_persist.go`,
+- Code: `internal/proxy/routes_persist.go`
+  (`ListProjectsWithRoutes`, `RemoveRoutesFor`),
   `internal/proxy/caddyfile.go`,
   `internal/app/upcase/orchestration_proxy.go`,
+  `internal/app/down_proxy.go` (`pruneOrphanRouteFiles`,
+  `liveWorkspaceProjects`),
   `internal/naming/naming.go` (`WorkspaceProxyDir`)
+- Orphan route-file GC: issue 020.
 - Related: ADR-002 (shared deps lifecycle),
   ADR-010 (workspace lock that serializes the routes-dir mutator
   path this ADR introduces), Wave 0 issue 021, Wave 1 issue 025.
