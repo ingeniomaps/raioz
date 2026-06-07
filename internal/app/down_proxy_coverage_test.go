@@ -195,6 +195,151 @@ func TestDownUseCase_stopProxy_WorkspaceSharedReloadsWhenSiblingsRemain(t *testi
 	}
 }
 
+// TestDownUseCase_stopProxy_OrphanRoutePrunedThenTumbas covers the ADR-005
+// orphan route-file GC: the last project leaving a workspace must tumba the
+// shared proxy even when a route file from a crashed project still sits on disk.
+// The orphan GC deletes that file (its owner has no live container) so the
+// gate sees RemainingProjects()==0.
+func TestDownUseCase_stopProxy_OrphanRoutePrunedThenTumbas(t *testing.T) {
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	// No siblings alive at all — neither the leaving project nor the
+	// crashed "connector" has containers.
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil // reachable, zero containers
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+	}()
+
+	var stopCalled bool
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"connector"} },
+	}
+	// RemainingProjects mirrors reality: 1 until the orphan is pruned, then 0.
+	proxy.remainingProjectsFunc = func() int {
+		if len(proxy.removedRoutesFor) > 0 {
+			return 0
+		}
+		return 1
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 1 || proxy.removedRoutesFor[0] != "connector" {
+		t.Errorf("orphan route file for 'connector' must be pruned, got %v", proxy.removedRoutesFor)
+	}
+	if !stopCalled {
+		t.Error("last project out must tumba the proxy once the orphan file is gone")
+	}
+}
+
+// TestDownUseCase_stopProxy_OrphanGCSkippedWhenDockerUnreachable proves the
+// guard: if the liveness probe errors, the GC must NOT delete any route file
+// (it can't prove the file is orphaned) and the proxy stays alive.
+func TestDownUseCase_stopProxy_OrphanGCSkippedWhenDockerUnreachable(t *testing.T) {
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, fmt.Errorf("docker daemon unreachable")
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+	}()
+
+	var stopCalled bool
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
+		reloadFunc:                 func(_ context.Context) error { return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"connector"} },
+		remainingProjectsFunc:      func() int { return 1 }, // file never pruned
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 0 {
+		t.Errorf("no route file may be pruned when docker is unreachable, got %v", proxy.removedRoutesFor)
+	}
+	if stopCalled {
+		t.Error("proxy must stay alive (keep-alive) when the GC is skipped on a docker error")
+	}
+}
+
+// TestDownUseCase_stopProxy_LiveSiblingRouteNotPruned ensures the GC only
+// evicts files whose owner is dead: a route file for a project with a live
+// container must survive.
+func TestDownUseCase_stopProxy_LiveSiblingRouteNotPruned(t *testing.T) {
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string {
+		return []string{"acme-beta-api"}
+	}
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "beta", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return []string{"acme-beta-api"}, nil
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+	}()
+
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		reloadFunc:                 func(_ context.Context) error { return nil },
+		stopFunc:                   func(_ context.Context) error { return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"beta"} },
+		remainingProjectsFunc:      func() int { return 1 },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 0 {
+		t.Errorf("a live sibling's route file must not be pruned, got %v", proxy.removedRoutesFor)
+	}
+}
+
 // TestDownUseCase_stopProxy_WorkspaceSharedTumbasWhenAlone confirms the
 // last-out-turns-off-the-lights semantics: when the workspace probe shows
 // no other project active, the shared proxy gets torn down normally.

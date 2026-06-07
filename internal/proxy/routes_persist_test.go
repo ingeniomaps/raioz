@@ -110,6 +110,54 @@ func TestRemainingProjects_CountsFiles(t *testing.T) {
 	}
 }
 
+func TestListProjectsWithRoutes_ReturnsPersistedNames(t *testing.T) {
+	m := makeSharedManager(t, "wsLP", "alpha")
+	if got := m.ListProjectsWithRoutes(); len(got) != 0 {
+		t.Errorf("empty dir → no projects, got %v", got)
+	}
+
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{ServiceName: "a", Hostname: "a"})
+	_ = m.SaveProjectRoutes()
+	m.projectName = "beta"
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{ServiceName: "b", Hostname: "b"})
+	_ = m.SaveProjectRoutes()
+
+	got := m.ListProjectsWithRoutes()
+	// loadAllProjectRoutes sorts by project name, so order is deterministic.
+	want := []string{"alpha", "beta"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("ListProjectsWithRoutes = %v, want %v", got, want)
+	}
+}
+
+func TestRemoveRoutesFor_DeletesArbitraryProjectFile(t *testing.T) {
+	m := makeSharedManager(t, "wsRF", "alpha")
+	// Persist a sibling's file (beta), as if beta had run `up`.
+	m.projectName = "beta"
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{ServiceName: "b", Hostname: "b"})
+	_ = m.SaveProjectRoutes()
+	betaPath := m.routeFilePathFor("beta")
+	if _, err := os.Stat(betaPath); err != nil {
+		t.Fatalf("expected beta routes file, got %v", err)
+	}
+
+	// A different manager instance (project alpha) evicts beta's orphan file.
+	m.projectName = "alpha"
+	if err := m.RemoveRoutesFor("beta"); err != nil {
+		t.Fatalf("RemoveRoutesFor: %v", err)
+	}
+	if _, err := os.Stat(betaPath); !os.IsNotExist(err) {
+		t.Errorf("beta routes file must be gone, stat err=%v", err)
+	}
+}
+
+func TestRemoveRoutesFor_IdempotentOnMissing(t *testing.T) {
+	m := makeSharedManager(t, "wsRFI", "alpha")
+	if err := m.RemoveRoutesFor("ghost"); err != nil {
+		t.Errorf("removing a non-existent project file must succeed, got %v", err)
+	}
+}
+
 func TestGenerateCaddyfile_SharedMergesAcrossProjects(t *testing.T) {
 	m := makeSharedManager(t, "wsE", "alpha")
 

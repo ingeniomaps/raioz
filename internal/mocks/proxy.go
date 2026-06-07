@@ -14,18 +14,20 @@ var _ interfaces.ProxyManager = (*MockProxyManager)(nil)
 // captured fields after Configure to verify the surface that used to
 // be observed via individual setter calls.
 type MockProxyManager struct {
-	StartFunc               func(ctx context.Context, networkName string) error
-	StopFunc                func(ctx context.Context) error
-	AddRouteFunc            func(ctx context.Context, route interfaces.ProxyRoute) error
-	RemoveRouteFunc         func(ctx context.Context, serviceName string) error
-	GetURLFunc              func(serviceName string) string
-	ReloadFunc              func(ctx context.Context) error
-	StatusFunc              func(ctx context.Context) (bool, error)
-	SaveProjectRoutesFunc   func() error
-	RemoveProjectRoutesFunc func() error
-	RemainingProjectsFunc   func() int
-	HostsLineFunc           func() string
-	ConfigureFunc           func(cfg interfaces.ProxyConfig)
+	StartFunc                  func(ctx context.Context, networkName string) error
+	StopFunc                   func(ctx context.Context) error
+	AddRouteFunc               func(ctx context.Context, route interfaces.ProxyRoute) error
+	RemoveRouteFunc            func(ctx context.Context, serviceName string) error
+	GetURLFunc                 func(serviceName string) string
+	ReloadFunc                 func(ctx context.Context) error
+	StatusFunc                 func(ctx context.Context) (bool, error)
+	SaveProjectRoutesFunc      func() error
+	RemoveProjectRoutesFunc    func() error
+	RemainingProjectsFunc      func() int
+	ListProjectsWithRoutesFunc func() []string
+	RemoveRoutesForFunc        func(project string) error
+	HostsLineFunc              func() string
+	ConfigureFunc              func(cfg interfaces.ProxyConfig)
 
 	// Captured state — tests assert against these after Configure.
 	AddedRoutes               []interfaces.ProxyRoute
@@ -114,6 +116,20 @@ func (m *MockProxyManager) RemainingProjects() int {
 		return m.RemainingProjectsFunc()
 	}
 	return 0
+}
+
+func (m *MockProxyManager) ListProjectsWithRoutes() []string {
+	if m.ListProjectsWithRoutesFunc != nil {
+		return m.ListProjectsWithRoutesFunc()
+	}
+	return nil
+}
+
+func (m *MockProxyManager) RemoveRoutesFor(project string) error {
+	if m.RemoveRoutesForFunc != nil {
+		return m.RemoveRoutesForFunc(project)
+	}
+	return nil
 }
 
 func (m *MockProxyManager) IsPublished() bool {

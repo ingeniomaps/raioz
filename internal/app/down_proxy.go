@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -61,6 +62,14 @@ func (uc *DownUseCase) handleSharedProxyDown(ctx context.Context, deps *models.D
 		logging.WarnWithContext(ctx, "Failed to remove project routes",
 			"project", deps.Project.Name, "error", err.Error())
 	}
+
+	// Garbage-collect route files left behind by projects that crashed (or
+	// were torn down outside raioz) without running their own `down`. Such
+	// an orphan file makes RemainingProjects() > 0 forever, pinning the
+	// shared proxy alive on every down even when we are the last project
+	// out (ADR-005). Must run before the gate below so RemainingProjects
+	// reflects only genuinely-live projects.
+	uc.pruneOrphanRouteFiles(ctx, deps.Workspace, deps.Project.Name)
 
 	// Two independent signals must agree before we tumba: no persisted
 	// routes for any project AND no other workspace-labeled containers
@@ -143,6 +152,81 @@ func cleanProxyDirOnDisk(ctx context.Context, deps *models.Deps) {
 // a real Docker daemon.
 var listContainersByLabelsFn = docker.ListContainersByLabels
 var getContainerLabelFn = docker.GetContainerLabel
+
+// listContainersByLabelsErrFn is the error-surfacing probe used by the
+// orphan-route GC. It is a separate hook from listContainersByLabelsFn
+// because the GC makes a destructive decision (deleting route files) and
+// MUST be able to tell "docker unreachable" apart from "no containers".
+var listContainersByLabelsErrFn = docker.ListContainersByLabelsErr
+
+// pruneOrphanRouteFiles removes persisted route files whose owning project
+// has no live container in the workspace. Without this, a project that
+// crashed without running `raioz down` leaves an immortal route file that
+// pins the shared proxy and injects a dead backend into every Caddyfile
+// reload. See ADR-005 (orphan route-file GC).
+//
+// Docker-unreachable guard: if the liveness probe fails we cannot prove any
+// file is an orphan, so we skip the GC entirely (degrading to the pre-issue
+// keep-alive behaviour) rather than risk deleting routes of a project that
+// is actually running.
+func (uc *DownUseCase) pruneOrphanRouteFiles(ctx context.Context, workspace, currentProject string) {
+	if workspace == "" {
+		return
+	}
+	withRoutes := uc.deps.ProxyManager.ListProjectsWithRoutes()
+	if len(withRoutes) == 0 {
+		return
+	}
+
+	live, err := liveWorkspaceProjects(ctx, workspace)
+	if err != nil {
+		logging.WarnWithContext(ctx, "Skipping orphan route GC: docker liveness probe failed",
+			"workspace", workspace, "error", err.Error())
+		return
+	}
+
+	for _, proj := range withRoutes {
+		if proj == currentProject {
+			continue // our own file is handled by RemoveProjectRoutes
+		}
+		if _, alive := live[proj]; alive {
+			continue
+		}
+		if err := uc.deps.ProxyManager.RemoveRoutesFor(proj); err != nil {
+			logging.WarnWithContext(ctx, "Failed to prune orphan route file",
+				"workspace", workspace, "project", proj, "error", err.Error())
+			continue
+		}
+		logging.InfoWithContext(ctx, "Pruned orphan route file (project has no live containers)",
+			"workspace", workspace, "project", proj)
+	}
+}
+
+// liveWorkspaceProjects returns the set of project names that currently have
+// at least one raioz-managed container alive in the workspace. Returns an
+// error if Docker cannot be reached — callers that delete state on the basis
+// of absence MUST treat that as "unknown", not "empty".
+func liveWorkspaceProjects(ctx context.Context, workspace string) (map[string]struct{}, error) {
+	names, err := listContainersByLabelsErrFn(ctx, map[string]string{
+		naming.LabelManaged:   "true",
+		naming.LabelWorkspace: workspace,
+	})
+	if err != nil {
+		return nil, err
+	}
+	live := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		proj, err := getContainerLabelFn(ctx, n, naming.LabelProject)
+		if err != nil {
+			return nil, fmt.Errorf("inspect container %s: %w", n, err)
+		}
+		if proj == "" {
+			continue // shared dep or the proxy itself — not a project consumer
+		}
+		live[proj] = struct{}{}
+	}
+	return live, nil
+}
 
 // otherWorkspaceProjectsActive reports whether any raioz-managed container
 // in the workspace belongs to a project other than the one currently being

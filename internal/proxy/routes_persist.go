@@ -38,13 +38,21 @@ func (m *Manager) routesDir() string {
 // projectRoutesPath returns the absolute path to this project's persisted
 // routes file.
 func (m *Manager) projectRoutesPath() string {
+	return m.routeFilePathFor(m.projectName)
+}
+
+// routeFilePathFor returns the absolute path to an arbitrary project's
+// persisted routes file in the same workspace dir. Used both for the
+// manager's own project (projectRoutesPath) and for the orphan-route GC in
+// the down flow, which evicts files belonging to other, crashed projects.
+func (m *Manager) routeFilePathFor(project string) string {
 	dir := m.routesDir()
-	if dir == "" || m.projectName == "" {
+	if dir == "" || project == "" {
 		return ""
 	}
 	// The project name is part of a filename, so guard against path
 	// traversal even though raioz.yaml validation should already block it.
-	safe := strings.ReplaceAll(m.projectName, string(filepath.Separator), "_")
+	safe := strings.ReplaceAll(project, string(filepath.Separator), "_")
 	safe = strings.ReplaceAll(safe, "..", "_")
 	return filepath.Join(dir, safe+".json")
 }
@@ -191,6 +199,43 @@ func (m *Manager) loadAllProjectRoutes() []persistedProject {
 // remain) and Stop (last one out turns off the lights).
 func (m *Manager) RemainingProjects() int {
 	return len(m.loadAllProjectRoutes())
+}
+
+// ListProjectsWithRoutes returns the name of every project that currently
+// has a persisted routes file in the workspace dir. The down flow crosses
+// this against live containers to find orphan files left behind by projects
+// that crashed without running their own `raioz down` (ADR-005).
+func (m *Manager) ListProjectsWithRoutes() []string {
+	all := m.loadAllProjectRoutes()
+	names := make([]string, 0, len(all))
+	for _, pp := range all {
+		if pp.Project != "" {
+			names = append(names, pp.Project)
+		}
+	}
+	return names
+}
+
+// RemoveRoutesFor deletes the persisted routes file for an arbitrary project
+// in the same workspace. Unlike RemoveProjectRoutes it does not assume the
+// target is the manager's own project — it exists for the down flow's
+// orphan-route GC, which evicts files whose owning project has no live
+// containers. Idempotent (a missing file is not an error).
+func (m *Manager) RemoveRoutesFor(project string) error {
+	path := m.routeFilePathFor(project)
+	if path == "" {
+		return nil
+	}
+	release, err := m.acquireWorkspaceLock()
+	if err != nil {
+		return err
+	}
+	defer release()
+
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove routes file: %w", err)
+	}
+	return nil
 }
 
 // WriteRemoteProjectRoutes writes a persistedProject file for a meta
