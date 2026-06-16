@@ -365,13 +365,9 @@ func buildEndpoints(
 		if svc, ok := deps.Services[name]; ok && svc.Docker != nil && len(svc.Docker.Ports) > 0 {
 			ep.Port = parseFirstPort(svc.Docker.Ports[0])
 		}
-		// Legacy `ports:` on inline infra, when the user hasn't migrated to
-		// the new publish/expose fields. Keep honoring it verbatim.
-		if entry, ok := deps.Infra[name]; ok && entry.Inline != nil &&
-			len(entry.Inline.Ports) > 0 && entry.Inline.Publish == nil {
-			ep.Port = parseFirstPort(entry.Inline.Ports[0])
-			ep.HostPort = ep.Port
-		}
+		// URL scheme + legacy `ports:` fallback for inline infra deps. The
+		// allocator (above) is authoritative for ports it could map.
+		applyInlineDepEndpoint(&ep, name, deps, portAllocs)
 
 		endpoints[name] = ep
 	}

@@ -132,6 +132,9 @@ func AllocateHostPorts(
 	if err := allocAutoDeps(deps, depNames, taken, result); err != nil {
 		return nil, err
 	}
+	if err := allocLegacyPortsDeps(deps, depNames, taken, result); err != nil {
+		return nil, err
+	}
 	// NOTE: host-port bind conflicts are checked by the caller via
 	// checkPortBindConflicts() so they can be resolved interactively
 	// instead of failing hard.

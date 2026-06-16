@@ -140,6 +140,40 @@ func IsNonHTTPImage(image string) bool {
 	return nonHTTPImageNames[bareImageName(image)]
 }
 
+// schemeByBareImage maps well-known datastore/broker images to the URL
+// scheme their clients expect. A redis client cannot parse
+// http://host:6379, a pg client needs postgresql://, etc. Anything not
+// listed speaks HTTP (or close enough that http:// is the safe default).
+// Used by service discovery to build <DEP>_URL. Match is on the bare
+// name, same as IsNonHTTPImage.
+var schemeByBareImage = map[string]string{
+	"redis":      "redis",
+	"keydb":      "redis",
+	"dragonfly":  "redis",
+	"valkey":     "redis",
+	"postgres":   "postgresql",
+	"postgresql": "postgresql",
+	"mysql":      "mysql",
+	"mariadb":    "mysql",
+	"mongo":      "mongodb",
+	"mongodb":    "mongodb",
+	"rabbitmq":   "amqp",
+	"nats":       "nats",
+}
+
+// SchemeForImage returns the URL scheme a client should use to reach the
+// given image's server: "redis" for redis:7, "postgresql" for postgres:16,
+// "amqp" for rabbitmq, etc. Unknown images fall back to "http". Matches on
+// the bare image name (see bareImageName) so registry/namespace/tag don't
+// matter. See issue 020 — a hardcoded http:// scheme left non-HTTP deps
+// unreachable for host callers that parse <DEP>_URL.
+func SchemeForImage(image string) string {
+	if s, ok := schemeByBareImage[bareImageName(image)]; ok {
+		return s
+	}
+	return "http"
+}
+
 // bareImageName extracts the leaf image name from a full image
 // reference. Strips digest (@sha256:...), tag (:N), and
 // registry/namespace (host/ns/name).
