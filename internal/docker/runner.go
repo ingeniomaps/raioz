@@ -289,8 +289,19 @@ func StopContainerWithContext(ctx context.Context, containerName string) error {
 // slice on any docker error; callers should treat a miss as "nothing to do"
 // rather than a fatal failure.
 func ListContainersByLabels(ctx context.Context, labels map[string]string) []string {
+	names, _ := ListContainersByLabelsErr(ctx, labels)
+	return names
+}
+
+// ListContainersByLabelsErr is ListContainersByLabels but surfaces the docker
+// error instead of swallowing it. Callers that make a destructive decision
+// based on the absence of containers (e.g. the down flow's orphan-route GC)
+// MUST use this variant so they can distinguish "daemon unreachable" from
+// "genuinely no matching containers" — treating the former as the latter
+// would delete state belonging to projects that are actually alive.
+func ListContainersByLabelsErr(ctx context.Context, labels map[string]string) ([]string, error) {
 	if len(labels) == 0 {
-		return nil
+		return nil, nil
 	}
 	args := []string{"ps", "-a", "--format", "{{.Names}}"}
 	for k, v := range labels {
@@ -299,11 +310,11 @@ func ListContainersByLabels(ctx context.Context, labels map[string]string) []str
 	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("docker ps by labels: %w", err)
 	}
 	raw := strings.TrimSpace(string(out))
 	if raw == "" {
-		return nil
+		return nil, nil
 	}
 	var names []string
 	for _, line := range strings.Split(raw, "\n") {
@@ -311,5 +322,5 @@ func ListContainersByLabels(ctx context.Context, labels map[string]string) []str
 			names = append(names, n)
 		}
 	}
-	return names
+	return names, nil
 }

@@ -72,10 +72,15 @@ func (m *Manager) GenerateEnvVars(
 			port = ep.HostPort
 		}
 
+		scheme := ep.Scheme
+		if scheme == "" {
+			scheme = "http"
+		}
+
 		vars[envPrefix+"_HOST"] = host
 		if port > 0 {
 			vars[envPrefix+"_PORT"] = fmt.Sprintf("%d", port)
-			vars[envPrefix+"_URL"] = fmt.Sprintf("http://%s:%d", host, port)
+			vars[envPrefix+"_URL"] = fmt.Sprintf("%s://%s:%d", scheme, host, port)
 		}
 
 		// With the bundled proxy actually active, provide the *.localhost

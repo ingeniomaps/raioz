@@ -369,12 +369,15 @@ func TestStatusUseCase_Execute_WorkspaceResolveError(t *testing.T) {
 // mockProxyManager is a minimal mock for ProxyManager, used here since
 // no mock exists in the mocks package for this interface.
 type mockProxyManager struct {
-	statusFunc            func(ctx context.Context) (bool, error)
-	stopFunc              func(ctx context.Context) error
-	reloadFunc            func(ctx context.Context) error
-	remainingProjectsFunc func() int
+	statusFunc                 func(ctx context.Context) (bool, error)
+	stopFunc                   func(ctx context.Context) error
+	reloadFunc                 func(ctx context.Context) error
+	remainingProjectsFunc      func() int
+	listProjectsWithRoutesFunc func() []string
+	removeRoutesForFunc        func(project string) error
 
 	removeProjectRoutesCalled bool
+	removedRoutesFor          []string
 }
 
 func (m *mockProxyManager) Start(ctx context.Context, networkName string) error { return nil }
@@ -420,6 +423,19 @@ func (m *mockProxyManager) RemainingProjects() int {
 		return m.remainingProjectsFunc()
 	}
 	return 0
+}
+func (m *mockProxyManager) ListProjectsWithRoutes() []string {
+	if m.listProjectsWithRoutesFunc != nil {
+		return m.listProjectsWithRoutesFunc()
+	}
+	return nil
+}
+func (m *mockProxyManager) RemoveRoutesFor(project string) error {
+	m.removedRoutesFor = append(m.removedRoutesFor, project)
+	if m.removeRoutesForFunc != nil {
+		return m.removeRoutesForFunc(project)
+	}
+	return nil
 }
 func (m *mockProxyManager) SetPublish(*bool)                 {}
 func (m *mockProxyManager) IsPublished() bool                { return true }

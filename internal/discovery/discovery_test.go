@@ -219,3 +219,43 @@ func TestToEnvPrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateEnvVars_SchemeFromEndpoint(t *testing.T) {
+	// A non-HTTP dep (redis) carries its own URL scheme so the host caller
+	// gets redis://… — an http://… URL is unparseable by redis clients.
+	// See issue 020 defect B.
+	m := NewManager()
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"redis": {
+			Name:     "redis",
+			Runtime:  models.RuntimeImage,
+			Host:     "raioz-app-redis",
+			Port:     6379,
+			HostPort: 6379,
+			Scheme:   "redis",
+		},
+		"api": {Name: "api", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3000},
+	}
+
+	vars := m.GenerateEnvVars("api", models.RuntimeNPM, endpoints, false)
+
+	if vars["REDIS_URL"] != "redis://localhost:6379" {
+		t.Errorf("REDIS_URL = %q, want redis://localhost:6379", vars["REDIS_URL"])
+	}
+}
+
+func TestGenerateEnvVars_EmptySchemeDefaultsToHTTP(t *testing.T) {
+	// An endpoint without an explicit scheme keeps the historical http://
+	// default, so HTTP services are unaffected.
+	m := NewManager()
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"web": {Name: "web", Runtime: models.RuntimeNPM, Host: "localhost", Port: 8080},
+		"api": {Name: "api", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3000},
+	}
+
+	vars := m.GenerateEnvVars("api", models.RuntimeNPM, endpoints, false)
+
+	if vars["WEB_URL"] != "http://localhost:8080" {
+		t.Errorf("WEB_URL = %q, want http://localhost:8080", vars["WEB_URL"])
+	}
+}

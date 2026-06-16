@@ -72,6 +72,14 @@ type ProxyManager interface {
 	// files still in the workspace. Used by the down flow to decide
 	// between Reload (siblings remain) and Stop (last one out).
 	RemainingProjects() int
+	// ListProjectsWithRoutes returns the name of every project that has a
+	// persisted routes file in the workspace. The down flow crosses this
+	// against live containers to detect orphan files (ADR-005).
+	ListProjectsWithRoutes() []string
+	// RemoveRoutesFor deletes the persisted routes file for an arbitrary
+	// project in the workspace (not necessarily the manager's own). Used by
+	// the down flow's orphan-route GC. Idempotent.
+	RemoveRoutesFor(project string) error
 	// IsPublished reports the current publish flag (true when host ports
 	// are bound).
 	IsPublished() bool
