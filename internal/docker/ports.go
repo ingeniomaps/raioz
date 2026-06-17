@@ -267,6 +267,8 @@ type PortOccupant struct {
 	ContainerID   string // short ID when IsDocker
 	IsRaioz       bool   // container name starts with the raioz prefix
 	ProjectName   string // extracted from the container name if IsRaioz
+	Workspace     string // com.raioz.workspace label, "" for per-project deps
+	Service       string // com.raioz.service label (service/dep name)
 }
 
 // IdentifyPortOccupant checks what process or container is bound to a host
@@ -305,6 +307,11 @@ func IdentifyPortOccupant(ctx context.Context, port int) PortOccupant {
 		if proj, _ := GetContainerLabel(ctx, occ.ContainerName, naming.LabelProject); proj != "" {
 			occ.ProjectName = proj
 		}
+		// Workspace-shared deps omit the project label (ADR-002), so the
+		// caller distinguishes "my own shared dep" from a foreign container
+		// by matching workspace + service instead of project.
+		occ.Workspace, _ = GetContainerLabel(ctx, occ.ContainerName, naming.LabelWorkspace)
+		occ.Service, _ = GetContainerLabel(ctx, occ.ContainerName, naming.LabelService)
 		return occ
 	}
 
