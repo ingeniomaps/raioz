@@ -16,6 +16,12 @@ import (
 	"raioz/internal/output"
 )
 
+// publishedHostPortFn reads a container's live published host port. Declared
+// here (port_resolve.go already imports internal/docker) and as a package var
+// so tests can stub it without a running docker daemon — same rationale as
+// portInUseProbe. Consumed by reuseSharedDepHostPorts in port_alloc_locked.go.
+var publishedHostPortFn = docker.GetPublishedHostPort
+
 // isOwnContainer reports whether the port occupant is a raioz container that
 // belongs to THIS run and will therefore be reused — not a foreign conflict.
 // Two cases qualify: a leftover container from the same project, or a

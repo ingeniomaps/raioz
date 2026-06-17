@@ -3,16 +3,10 @@ package upcase
 import (
 	"context"
 
-	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 )
-
-// publishedHostPortFn reads a container's live published host port. Declared
-// as a package var so tests can stub it without a running docker daemon —
-// same rationale as portInUseProbe.
-var publishedHostPortFn = docker.GetPublishedHostPort
 
 // allocatePortsLocked wraps port allocation + bind-conflict resolution
 // in the global ports flock and releases it before returning. A wider
