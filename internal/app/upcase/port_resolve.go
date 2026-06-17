@@ -10,10 +10,39 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/docker"
+	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
+
+// isOwnContainer reports whether the port occupant is a raioz container that
+// belongs to THIS run and will therefore be reused — not a foreign conflict.
+// Two cases qualify: a leftover container from the same project, or a
+// workspace-shared dependency this project also declares. Shared deps omit
+// the project label (ADR-002), so they are matched on workspace + service
+// instead. See issue 020.
+func isOwnContainer(occ docker.PortOccupant, deps *models.Deps, activeWorkspace string) bool {
+	if !occ.IsRaioz || deps == nil {
+		return false
+	}
+	if occ.ProjectName != "" && occ.ProjectName == deps.Project.Name {
+		return true
+	}
+	return occ.Workspace != "" && occ.Workspace == activeWorkspace &&
+		isDeclaredDep(deps, occ.Service)
+}
+
+// isDeclaredDep reports whether name matches a dependency declared by this
+// project. Used to recognize a workspace-shared dep's running container as
+// our own (reuse) rather than a foreign port conflict.
+func isDeclaredDep(deps *models.Deps, name string) bool {
+	if deps == nil || name == "" {
+		return false
+	}
+	_, ok := deps.Infra[name]
+	return ok
+}
 
 // resolvePortBindConflicts walks every bind conflict detected after port
 // allocation, identifies what occupies the port, and lets the user decide
@@ -29,17 +58,18 @@ func resolvePortBindConflicts(
 	conflicts []PortBindConflict,
 	result *PortAllocResult,
 	configPath string,
-	projectName string,
+	deps *models.Deps,
+	activeWorkspace string,
 ) error {
 	reader := bufio.NewReader(os.Stdin)
 
 	for _, c := range conflicts {
 		occ := docker.IdentifyPortOccupant(ctx, c.Port)
 
-		// If the port is held by a raioz container from the SAME project,
-		// it is a leftover from a previous run — we will replace it when
-		// the new containers start, so no user action is needed.
-		if occ.IsRaioz && occ.ProjectName == projectName {
+		// If the port is held by one of our own raioz containers — a
+		// same-project leftover or a workspace-shared dep we declare — it
+		// will be reused when the run proceeds, so it is not a conflict.
+		if isOwnContainer(occ, deps, activeWorkspace) {
 			continue
 		}
 

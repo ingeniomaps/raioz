@@ -5,11 +5,73 @@ import (
 	stderrors "errors"
 	"testing"
 
+	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	raiozerr "raioz/internal/errors"
 	"raioz/internal/mocks"
 	"raioz/internal/workspace"
 )
+
+// TestIsOwnContainer covers the reuse classification that prevents a
+// workspace-shared dep's running container from being reported as a false
+// PORT_CONFLICT against project ” (issue 020 fix a).
+func TestIsOwnContainer(t *testing.T) {
+	deps := &models.Deps{
+		Project: models.Project{Name: "api"},
+		Infra: map[string]models.InfraEntry{
+			"redis": {},
+		},
+	}
+
+	tests := []struct {
+		name      string
+		occ       docker.PortOccupant
+		workspace string
+		want      bool
+	}{
+		{
+			name: "same-project leftover",
+			occ:  docker.PortOccupant{IsRaioz: true, ProjectName: "api"},
+			want: true,
+		},
+		{
+			name:      "workspace-shared dep we declare",
+			occ:       docker.PortOccupant{IsRaioz: true, Workspace: "conorbi", Service: "redis"},
+			workspace: "conorbi",
+			want:      true,
+		},
+		{
+			name:      "shared dep but different workspace",
+			occ:       docker.PortOccupant{IsRaioz: true, Workspace: "other", Service: "redis"},
+			workspace: "conorbi",
+			want:      false,
+		},
+		{
+			name:      "shared container of a dep we do not declare",
+			occ:       docker.PortOccupant{IsRaioz: true, Workspace: "conorbi", Service: "kafka"},
+			workspace: "conorbi",
+			want:      false,
+		},
+		{
+			name:      "no workspace label, foreign project",
+			occ:       docker.PortOccupant{IsRaioz: true, ProjectName: "bff"},
+			workspace: "",
+			want:      false,
+		},
+		{
+			name: "not a raioz container",
+			occ:  docker.PortOccupant{IsRaioz: false, Workspace: "conorbi", Service: "redis"},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isOwnContainer(tt.occ, deps, tt.workspace); got != tt.want {
+				t.Errorf("isOwnContainer() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 // withStubbedTTY forces stdinIsInteractiveFn to the given value for the
 // duration of the test and restores it afterwards.
@@ -31,9 +93,10 @@ func TestResolvePortBindConflictsNonInteractive(t *testing.T) {
 		{Kind: "dep", Name: "redis", Port: 6379},
 	}
 	result := &PortAllocResult{}
+	deps := &models.Deps{Project: models.Project{Name: "my-project"}}
 
 	err := resolvePortBindConflicts(
-		context.Background(), conflicts, result, "", "my-project",
+		context.Background(), conflicts, result, "", deps, "",
 	)
 	if err == nil {
 		t.Fatal("expected non-interactive conflict to fail, got nil")

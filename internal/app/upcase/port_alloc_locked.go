@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/naming"
 )
 
 // allocatePortsLocked wraps port allocation + bind-conflict resolution
@@ -30,7 +31,7 @@ func allocatePortsLocked(
 
 	if conflicts := checkPortBindConflicts(portAllocs); len(conflicts) > 0 {
 		if err := resolvePortBindConflicts(
-			ctx, conflicts, portAllocs, configPath, deps.Project.Name,
+			ctx, conflicts, portAllocs, configPath, deps, naming.WorkspaceName(),
 		); err != nil {
 			return nil, err
 		}
