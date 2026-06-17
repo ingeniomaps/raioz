@@ -11,6 +11,7 @@ import (
 	"raioz/internal/audit"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -71,6 +72,15 @@ func (uc *UseCase) handleDependencyAssist(
 		// Dry-run mode: just show what would be done
 		output.PrintInfo(i18n.T("app.missing_deps_dry_run"))
 		return false, []string{}, nil // Abort in dry-run mode
+	}
+
+	// Non-interactive contexts (CI, scripts, piped stdin) cannot answer the
+	// prompt below — ReadString would hit EOF and abort with a cryptic
+	// "failed to read input". Fail fast with an actionable message instead.
+	if !stdinIsInteractiveFn() {
+		return false, nil, errors.New(errors.ErrCodeInvalidConfig,
+			i18n.T("up.dep.non_interactive_missing")).
+			WithSuggestion(i18n.T("up.dep.non_interactive_hint"))
 	}
 
 	// Interactive mode: ask user what to do
@@ -208,6 +218,14 @@ func (uc *UseCase) handleDependencyConflicts(
 		// Dry-run mode: just show what would be done
 		output.PrintInfo(i18n.T("app.conflict_dry_run"))
 		return false, []string{}, nil // Abort in dry-run mode
+	}
+
+	// Non-interactive contexts cannot answer the conflict prompt below.
+	// Fail fast with an actionable message instead of crashing on EOF.
+	if !stdinIsInteractiveFn() {
+		return false, nil, errors.New(errors.ErrCodeInvalidConfig,
+			i18n.T("up.dep.non_interactive_conflict")).
+			WithSuggestion(i18n.T("up.dep.non_interactive_hint"))
 	}
 
 	// Interactive mode: ask user what to do

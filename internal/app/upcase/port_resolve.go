@@ -46,6 +46,17 @@ func resolvePortBindConflicts(
 		// --- Show what is occupying the port ---
 		printConflictBanner(c, occ)
 
+		// Non-interactive contexts (CI, scripts, piped stdin) cannot answer
+		// the prompt: ReadString would hit EOF and surface a cryptic
+		// "failed to read input" error. Fail fast with an actionable message
+		// instead. Mirrors handleProxyStartFailure's non-tty fallback.
+		if !stdinIsInteractiveFn() {
+			return errors.New(errors.ErrCodePortConflict,
+				fmt.Sprintf(i18n.T("port.conflict.non_interactive"),
+					c.Port, c.Kind, c.Name)).
+				WithSuggestion(i18n.T("port.conflict.non_interactive_hint"))
+		}
+
 		// --- Prompt the user ---
 		resolution, newPort, err := promptPortResolution(c, reader)
 		if err != nil {
