@@ -223,7 +223,6 @@ func TestToEnvPrefix(t *testing.T) {
 func TestGenerateEnvVars_SchemeFromEndpoint(t *testing.T) {
 	// A non-HTTP dep (redis) carries its own URL scheme so the host caller
 	// gets redis://… — an http://… URL is unparseable by redis clients.
-	// See issue 020 defect B.
 	m := NewManager()
 	endpoints := map[string]interfaces.ServiceEndpoint{
 		"redis": {

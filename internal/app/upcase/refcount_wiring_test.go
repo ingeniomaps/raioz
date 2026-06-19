@@ -10,10 +10,10 @@ import (
 	"raioz/internal/refcount"
 )
 
-// TestRegisterSharedDepRefs_Issue069 asserts that `up` records a reference
+// TestRegisterSharedDepRefs asserts that `up` records a reference
 // only for shared deps (workspace-scoped or name-overridden), leaving
 // per-project deps untracked.
-func TestRegisterSharedDepRefs_Issue069(t *testing.T) {
+func TestRegisterSharedDepRefs(t *testing.T) {
 	t.Setenv("RAIOZ_HOME", t.TempDir())
 	naming.SetPrefix("conorbi")
 	t.Cleanup(func() { naming.SetPrefix("") })

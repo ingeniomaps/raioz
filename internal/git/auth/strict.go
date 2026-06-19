@@ -8,9 +8,9 @@ import "context"
 // terminal prompts off, no askpass, no custom SSH command. Public
 // repos clone successfully; private repos fail fast.
 //
-// The Prepare output mirrors the `defaultHardenedCmd` helper from
-// commit 1 of issue 067 — when commit 5 wires the provider into the
-// clone sites, this is the path the default takes.
+// The Prepare output mirrors the `defaultHardenedCmd` helper from an
+// earlier commit — when the provider is wired into the clone sites,
+// this is the path the default takes.
 type strictProvider struct{}
 
 // Name returns the empty string by convention: strict is the

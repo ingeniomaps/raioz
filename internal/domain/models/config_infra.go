@@ -70,7 +70,7 @@ type Infra struct {
 	HostnameAliases []string `json:"hostnameAliases,omitempty"`
 
 	// Project is the path to a sibling raioz project that owns this dep
-	// (mode A of issue #26). When set, raioz brings the sibling up via
+	// (mode A of ADR-008). When set, raioz brings the sibling up via
 	// recursive `raioz up` in its cwd if it's not already running, and
 	// never touches it on `raioz down`. Empty means "this is a normal
 	// image/compose dep".
@@ -79,7 +79,7 @@ type Infra struct {
 	// before the bridge runs.
 	Project string `json:"project,omitempty"`
 
-	// SiblingProject is the mode-B fallback marker (issue #26): when set
+	// SiblingProject is the mode-B fallback marker (ADR-008): when set
 	// alongside Image/Compose, raioz skips the image-based dispatch only
 	// when the sibling project is currently active; otherwise the image
 	// is started normally. Mutually exclusive with Project.

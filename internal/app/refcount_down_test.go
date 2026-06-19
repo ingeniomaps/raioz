@@ -11,7 +11,7 @@ import (
 )
 
 // TestStopDependencyComposeProjects_KeepsAliveWhenReferenced is the
-// regression for issue 069: a shared dep with another consumer must
+// regression: a shared dep with another consumer must
 // survive this project's down. The decision is taken from the refcount
 // alone — no container scan — because a sibling that consumes only shared
 // deps owns no project-labeled container and would be invisible to a scan.
@@ -36,7 +36,7 @@ func TestStopDependencyComposeProjects_KeepsAliveWhenReferenced(t *testing.T) {
 		},
 	}
 
-	stopDependencyComposeProjects(context.Background(), deps, "observability", nil)
+	kept := stopDependencyComposeProjects(context.Background(), deps, "observability", nil)
 
 	// observability's ref is gone; api's remains so loki stays referenced.
 	refs, err := refcount.Refs("conorbi", "loki")
@@ -45,6 +45,15 @@ func TestStopDependencyComposeProjects_KeepsAliveWhenReferenced(t *testing.T) {
 	}
 	if !slices.Equal(refs, []string{"api"}) {
 		t.Errorf("loki refs after down = %v, want [api] (kept alive)", refs)
+	}
+
+	// The kept-alive dep must be reported back to the caller so `down` can
+	// surface it instead of leaving a silent leak.
+	if len(kept) != 1 || kept[0].name != "loki" {
+		t.Fatalf("kept = %+v, want one entry for loki", kept)
+	}
+	if !slices.Equal(kept[0].remaining, []string{"api"}) {
+		t.Errorf("kept[0].remaining = %v, want [api]", kept[0].remaining)
 	}
 }
 
@@ -68,7 +77,7 @@ func TestStopDependencyComposeProjects_LastConsumerDropsRef(t *testing.T) {
 		},
 	}
 
-	stopDependencyComposeProjects(context.Background(), deps, "observability", nil)
+	kept := stopDependencyComposeProjects(context.Background(), deps, "observability", nil)
 
 	refs, err := refcount.Refs("conorbi", "loki")
 	if err != nil {
@@ -76,6 +85,10 @@ func TestStopDependencyComposeProjects_LastConsumerDropsRef(t *testing.T) {
 	}
 	if len(refs) != 0 {
 		t.Errorf("loki refs after last down = %v, want empty", refs)
+	}
+	// Last consumer out: nothing kept alive, nothing to report.
+	if len(kept) != 0 {
+		t.Errorf("kept = %+v, want empty (last consumer tore it down)", kept)
 	}
 }
 

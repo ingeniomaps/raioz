@@ -10,11 +10,11 @@ import (
 	"raioz/internal/domain/models"
 )
 
-// TestBuildProxyRoute_HostnameAliases_Issue006: aliases declared on a
+// TestBuildProxyRoute_HostnameAliases: aliases declared on a
 // service must survive buildProxyRoute so downstream code (Caddyfile,
 // network-alias registration) sees every hostname the user wants routed
 // to the upstream.
-func TestBuildProxyRoute_HostnameAliases_Issue006(t *testing.T) {
+func TestBuildProxyRoute_HostnameAliases(t *testing.T) {
 	deps := &models.Deps{
 		Project: models.Project{Name: "demo"},
 		Services: map[string]models.Service{
@@ -141,8 +141,7 @@ func TestBuildProxyRoute_ExposeFallback(t *testing.T) {
 
 // TestBuildProxyRoute_DepHostnameOverride: `hostname:` on a dep replaces the
 // default subdomain (= entry name) so the route lands at
-// https://<hostname>.<domain> instead of https://<entry-name>.<domain>
-// (issue #001).
+// https://<hostname>.<domain> instead of https://<entry-name>.<domain>.
 func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
 	deps := &models.Deps{
 		Project: models.Project{Name: "demo"},
@@ -166,7 +165,7 @@ func TestBuildProxyRoute_DepHostnameOverride(t *testing.T) {
 // `proxy.port` without `proxy.target`, detection still picks the container
 // name but the port must be the user-declared one. Without this, a multi-port
 // image like mailpit (1025 SMTP / 8025 UI) gets routed to the wrong upstream
-// port (issue #003).
+// port.
 func TestBuildProxyRoute_DepProxyPortOnlyOverridesPort(t *testing.T) {
 	deps := &models.Deps{
 		Project: models.Project{Name: "demo"},
@@ -212,11 +211,11 @@ func TestBuildProxyRoute_PortsBeatsExpose(t *testing.T) {
 }
 
 // TestEndToEnd_DepHostnameAndProxyPortFromYAML exercises the full chain
-// disk → LoadDepsFromYAML → buildProxyRoute that issues #001 and #003
-// describe. Reproduces the gouduet/keycloak case verbatim: a mailpit dep
-// with `hostname: mail` (issue #001) and `proxy.port: 8025` (issue #003)
-// while detection picked the SMTP port 1025. Without both fixes the route
-// emits hostname="mailpit" and port=1025 — the bugs the user filed.
+// disk → LoadDepsFromYAML → buildProxyRoute. Reproduces the
+// gouduet/keycloak case verbatim: a mailpit dep with `hostname: mail`
+// and `proxy.port: 8025` while detection picked the SMTP port 1025.
+// Without both fixes the route emits hostname="mailpit" and port=1025
+// — the bugs the user filed.
 func TestEndToEnd_DepHostnameAndProxyPortFromYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "raioz.yaml")
@@ -249,10 +248,10 @@ dependencies:
 		t.Fatal("mailpit Infra missing")
 	}
 	if mh.Hostname != "mail" {
-		t.Errorf("mailpit.Hostname = %q, want mail (issue #001)", mh.Hostname)
+		t.Errorf("mailpit.Hostname = %q, want mail", mh.Hostname)
 	}
 	if mh.ProxyOverride == nil || mh.ProxyOverride.Port != 8025 {
-		t.Errorf("mailpit.ProxyOverride.Port = %+v, want 8025 (issue #003)",
+		t.Errorf("mailpit.ProxyOverride.Port = %+v, want 8025",
 			mh.ProxyOverride)
 	}
 

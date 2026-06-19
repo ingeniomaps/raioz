@@ -27,7 +27,7 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 	}
 
 	// Each dependency must declare exactly one of `image:` or `compose:`,
-	// unless it's a sibling-project dep (mode A of issue #26) where the
+	// unless it's a sibling-project dep (mode A of ADR-008) where the
 	// sibling provides the runtime. Both image+compose is ambiguous;
 	// neither (and no project) leaves raioz with nothing to start.
 	for name, dep := range cfg.Deps {
@@ -268,7 +268,7 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 
 	// Mirrors yamlServiceToService — without this the parser accepts
 	// `hostname:` on a dependency but the proxy still routes via the entry
-	// name (issue #001).
+	// name.
 	if dep.Hostname != "" {
 		infra.Hostname = dep.Hostname
 	}
@@ -276,7 +276,7 @@ func yamlDependencyToInfra(dep YAMLDependency) InfraEntry {
 		infra.HostnameAliases = append([]string(nil), dep.HostnameAliases...)
 	}
 
-	// Sibling-project hooks (issue #26). Strings only at this layer; the
+	// Sibling-project hooks (ADR-008). Strings only at this layer; the
 	// resolver in internal/app/upcase reads the sibling raioz.yaml lazily
 	// at up time. Path is already absolute by the time we get here thanks
 	// to resolveYAMLPaths.
@@ -303,7 +303,7 @@ func yamlDeprecationWarnings(cfg *RaiozConfig) []string {
 		// Skip the warning when the dep also declares proxy: or hostname:.
 		// In those cases the user is intentionally relying on `ports:` as
 		// the proxy upstream source; pushing them toward `publish:`+`expose:`
-		// would break Caddy routing today (issue #003).
+		// would break Caddy routing today.
 		if dep.Hostname != "" || dep.Proxy != nil {
 			continue
 		}

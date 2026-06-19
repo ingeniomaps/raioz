@@ -165,7 +165,7 @@ var schemeByBareImage = map[string]string{
 // given image's server: "redis" for redis:7, "postgresql" for postgres:16,
 // "amqp" for rabbitmq, etc. Unknown images fall back to "http". Matches on
 // the bare image name (see bareImageName) so registry/namespace/tag don't
-// matter. See issue 020 — a hardcoded http:// scheme left non-HTTP deps
+// matter. A hardcoded http:// scheme would leave non-HTTP deps
 // unreachable for host callers that parse <DEP>_URL.
 func SchemeForImage(image string) string {
 	if s, ok := schemeByBareImage[bareImageName(image)]; ok {

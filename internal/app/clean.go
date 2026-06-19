@@ -38,14 +38,21 @@ func NewCleanUseCase(deps *Dependencies) *CleanUseCase {
 // Execute executes the clean use case
 func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 	projectName := opts.ProjectName
-	if !opts.All && projectName == "" {
+	// workspaceName scopes the stale-ref GC below. Resolved from config when
+	// available; empty for workspace-less projects (covered by Snapshot("")).
+	workspaceName := ""
+	if !opts.All {
 		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 		for _, w := range warnings {
 			output.PrintWarning(w)
 		}
-		if deps != nil {
-			projectName = deps.Project.Name
-		} else {
+		switch {
+		case deps != nil:
+			if projectName == "" {
+				projectName = deps.Project.Name
+			}
+			workspaceName = deps.Workspace
+		case projectName == "":
 			return errors.New(
 				errors.ErrCodeInvalidConfig,
 				i18n.T("error.no_project"),
@@ -118,6 +125,13 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 		}
 		actions = append(actions, networkActions...)
 	}
+
+	// Prune stale shared-dependency references and tear down deps left with
+	// no live consumer (ADR-050). Runs last so the naming-prefix
+	// mutation it performs can't disturb the project/image/volume/network
+	// passes above.
+	actions = append(actions,
+		uc.pruneStaleSharedRefs(ctx, uc.refGCScope(opts.All, workspaceName), opts.DryRun)...)
 
 	// Display actions
 	if opts.DryRun {

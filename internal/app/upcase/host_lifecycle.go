@@ -86,7 +86,7 @@ func recentlyUpped(lastUp time.Time) bool {
 // ends up saving garbage (`project:""`, zero time) back over the file.
 //
 // `deferredDeps` is the list of dep names whose dispatch was skipped at
-// up time because a sibling project owns them (issue #26 mode B). Pass
+// up time because a sibling project owns them (ADR-008 mode B). Pass
 // nil for projects without sibling deps; the slice overwrites
 // LocalState.DeferredToSibling so stale entries from previous ups are
 // dropped without an explicit ClearDeferred per dep.

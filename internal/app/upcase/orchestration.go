@@ -79,7 +79,7 @@ func (uc *UseCase) processOrchestration(
 		infraNames = append(infraNames, name)
 	}
 
-	// deferredDeps: sibling-owned deps skipped at dispatch (issue #26
+	// deferredDeps: sibling-owned deps skipped at dispatch (ADR-008
 	// mode B). Persisted into LocalState so `down` matches the skip.
 	var deferredDeps []string
 	// dispatchedInfra: subset of infraNames with a container in this
@@ -103,7 +103,7 @@ func (uc *UseCase) processOrchestration(
 			detection := detections[name]
 			entry := deps.Infra[name]
 
-			// Sibling-deps gate (issue #26). applySiblingVerdict deletes
+			// Sibling-deps gate (ADR-008). applySiblingVerdict deletes
 			// sibling-mode deps from `detections` (so endpoints / proxy /
 			// health auto-skip), spawns recursive raioz up for mode A,
 			// and stamps mode B defers for the matching down.

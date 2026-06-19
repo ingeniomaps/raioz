@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestYAMLToDeps_ServiceDepCollision guards BUG-9: a name that appears on both
+// TestYAMLToDeps_ServiceDepCollision guards the rule that a name appearing on both
 // `services:` and `dependencies:` must fail-fast at load time so the user sees
 // a descriptive error instead of undefined docker-compose-project behavior.
 func TestYAMLToDeps_ServiceDepCollision(t *testing.T) {

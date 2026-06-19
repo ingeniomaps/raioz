@@ -367,7 +367,7 @@ func TestCleanStaleHostProcessesPreservesOutOfScopePIDs(t *testing.T) {
 }
 
 // Recent LastUp == in-flight launcher: the sweep MUST NOT kill the PID.
-// Issue 020-meta — a sibling-spawn that re-enters keycloak's project dir
+// A sibling-spawn that re-enters keycloak's project dir
 // otherwise reaps the `make` launcher mid-deploy because its PID is
 // alive and lives in state.HostPIDs.
 //

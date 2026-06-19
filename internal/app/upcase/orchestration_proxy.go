@@ -289,7 +289,7 @@ func enrichDetectionsWithExposedPorts(
 // Empty strings / zero port signal "not set" and caller must fall back to
 // detection. This is the escape hatch for entries whose runtime raioz can't
 // fully introspect — services with `command:` that launches a hidden compose
-// stack (BUG-13), or dependencies using `compose:` / a non-default port.
+// stack, or dependencies using `compose:` / a non-default port.
 func proxyTargetOverride(deps *models.Deps, name string) (string, int) {
 	if svc, ok := deps.Services[name]; ok && svc.ProxyOverride != nil {
 		return svc.ProxyOverride.Target, svc.ProxyOverride.Port

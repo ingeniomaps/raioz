@@ -22,7 +22,7 @@ import (
 //
 // Used to keep a workspace-shared dependency on a single host port across
 // projects: the first `up` publishes it, later consumers read the live value
-// here instead of auto-assigning a divergent one (ADR-002, issue 020).
+// here instead of auto-assigning a divergent one (ADR-002).
 func GetPublishedHostPort(ctx context.Context, name string, containerPort int) (int, error) {
 	if name == "" || containerPort <= 0 {
 		return 0, nil

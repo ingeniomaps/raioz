@@ -91,8 +91,7 @@ func (m *MetaRunner) resolveBinary() (string, error) {
 
 // buildSubCmd constructs the *exec.Cmd for a sub-project invocation.
 // cmd.Cancel fires Kill only on DeadlineExceeded so the deferred
-// subCancel in runSingle does not race against launcher grandchildren
-// (issue 020-meta).
+// subCancel in runSingle does not race against launcher grandchildren.
 func (m *MetaRunner) buildSubCmd(
 	ctx context.Context, binary, subCmd string, p config.MetaProject,
 	extraArgs, extraEnv []string, stdout, stderr *os.File,

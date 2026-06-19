@@ -46,7 +46,7 @@ func allocatePortsLocked(
 // port across every project. With `publish: true`, the pure allocator picks a
 // free host port per project — so the 2nd project to come up sees the shared
 // container's port as "busy elsewhere" and bumps it (6379 → 6380), then injects
-// a divergent <DEP>_URL that points at a port nobody serves (issue 020 b).
+// a divergent <DEP>_URL that points at a port nobody serves.
 //
 // Here we look up the port the shared container actually publishes and pin the
 // allocation to it. Only auto-published shared deps are touched: explicit pins

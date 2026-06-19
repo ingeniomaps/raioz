@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// Issue 020-meta: cmd.Cancel must NOT kill the sub-process when its
+// cmd.Cancel must NOT kill the sub-process when its
 // ctx is canceled via the normal-path subCancel (deferred at the end
 // of runSingle after cmd.Run() returns ok). Only DeadlineExceeded —
 // the actual timeout case — must trigger Kill. Without this gate, the

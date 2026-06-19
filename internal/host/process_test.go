@@ -138,7 +138,7 @@ func TestStopServiceWithFailingStopCommand(t *testing.T) {
 	}
 }
 
-// Reproduces issue 019: a shell launcher backgrounds a real worker
+// Reproduces the process-group teardown gap: a shell launcher backgrounds a real worker
 // (`sleep 60 &; wait`) so the worker is a grandchild that shares the
 // shell's process group but is NOT killed when the shell receives
 // SIGTERM directly. Stop must reach the whole group so the worker
@@ -176,7 +176,7 @@ func TestStopServiceWithCommandKillsProcessGroup(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	if IsProcessAlive(workerPID) {
-		t.Errorf("grandchild sleep pid=%d survived stop — issue 019 regression",
+		t.Errorf("grandchild sleep pid=%d survived stop",
 			workerPID)
 	}
 }

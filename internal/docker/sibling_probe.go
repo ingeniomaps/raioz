@@ -13,7 +13,7 @@ import (
 
 // IsProjectActive reports whether (workspace, project) currently has at
 // least one running raioz-managed container. Used by the sibling-deps
-// flow (issue #26) to decide whether the consumer needs to spawn a
+// flow (ADR-008) to decide whether the consumer needs to spawn a
 // recursive `raioz up` (mode A) or skip the dep entirely (mode B).
 //
 // `workspace` may be empty for projects without a workspace declaration —
@@ -28,7 +28,7 @@ import (
 // caller (sibling_dispatch) passes `proxy.target` values declared in
 // the sibling yaml — if the label probe is empty AND any of those
 // names resolves to a running container, the sibling counts as
-// active. See docs/issues/020.
+// active.
 //
 // Errors are propagated unchanged; callers (the orchestrator) decide
 // fail-policy. We do NOT fail-open here — a docker outage is its own bug

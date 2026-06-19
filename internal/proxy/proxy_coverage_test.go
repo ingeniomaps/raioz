@@ -309,7 +309,7 @@ func TestCaddyfileGeneration_GlobalOptions(t *testing.T) {
 	content := string(data)
 
 	if !strings.Contains(content, "auto_https disable_certs") {
-		t.Error("expected auto_https disable_certs for mkcert mode (stops ACME — BUG-12 — but keeps the HTTP→HTTPS redirect)")
+		t.Error("expected auto_https disable_certs for mkcert mode (stops ACME but keeps the HTTP→HTTPS redirect)")
 	}
 
 	os.RemoveAll(filepath.Dir(path))
@@ -384,7 +384,7 @@ func TestCaddyfileGeneration_NoGlobalOptionsWithoutCerts(t *testing.T) {
 	content := string(data)
 
 	// mkcert mode without a certsDir still disables cert automation — Caddy
-	// would otherwise attempt ACME, which is the exact scenario BUG-12
+	// would otherwise attempt ACME, which is the exact scenario this
 	// guards against. disable_certs (not off) so the redirect survives.
 	if !strings.Contains(content, "auto_https disable_certs") {
 		t.Error("mkcert mode must disable cert automation even when certsDir is empty")

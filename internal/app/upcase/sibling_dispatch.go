@@ -15,7 +15,7 @@ import (
 )
 
 // siblingDecisionKind classifies what the up-flow should do with a dep
-// that uses one of the sibling-project fields from issue #26.
+// that uses one of the sibling-project fields from ADR-008.
 type siblingDecisionKind int
 
 const (

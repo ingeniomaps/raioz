@@ -11,8 +11,8 @@ import "fmt"
 // strict. A typo'd `auth:` field should surface at preflight, not
 // silently downgrade auth.
 //
-// Cases beyond "" are added in later commits of issue 067 as the
-// inherit / gh / ssh providers land.
+// Cases beyond "" are added in later commits as the inherit / gh /
+// ssh providers land.
 func ProviderFor(name string) (Provider, error) {
 	switch name {
 	case "":

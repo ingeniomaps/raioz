@@ -2,12 +2,12 @@ package naming
 
 import "testing"
 
-// TestDepComposeProjectNameFor_Issue069 locks in the shared-vs-per-project
+// TestDepComposeProjectNameFor locks in the shared-vs-per-project
 // compose scope: a workspace-shared dep drops the project segment so every
 // consumer agrees on one project (the last-one-out teardown then matches),
 // while a per-project dep keeps the segment to avoid --remove-orphans
 // sweeping another project's same-named dep.
-func TestDepComposeProjectNameFor_Issue069(t *testing.T) {
+func TestDepComposeProjectNameFor(t *testing.T) {
 	SetPrefix("conorbi")
 	defer SetPrefix("")
 

@@ -188,7 +188,7 @@ func allocExplicitDeps(
 		if entry.Inline == nil || entry.Inline.Publish == nil {
 			continue
 		}
-		// Mode A sibling deps (issue #26) have no local container, so
+		// Mode A sibling deps (ADR-008) have no local container, so
 		// any host port we'd reserve here would never get bound.
 		// Skipping also frees the port for a regular dep that wants it.
 		if entry.Inline.Project != "" {

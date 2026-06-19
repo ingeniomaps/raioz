@@ -171,6 +171,45 @@ func DropRef(workspace, dep, project string) ([]string, error) {
 	return remaining, err
 }
 
+// Workspaces returns every workspace key that currently holds at least one
+// tracked dependency. Used by `raioz clean --all` to sweep stale refs
+// across the whole machine. The empty-string key (name-override deps
+// declared outside a workspace) is included when present.
+func Workspaces() ([]string, error) {
+	var out []string
+	err := withLock(func() error {
+		s, err := load()
+		if err != nil {
+			return err
+		}
+		for ws := range s.Workspaces {
+			out = append(out, ws)
+		}
+		slices.Sort(out)
+		return nil
+	})
+	return out, err
+}
+
+// Snapshot returns a copy of the dep -> referencing-projects map for a
+// workspace, or an empty map if the workspace tracks nothing. The returned
+// slices are copies, safe to mutate. Used by the clean-time stale-ref GC to
+// enumerate what to validate without holding the lock across docker probes.
+func Snapshot(workspace string) (map[string][]string, error) {
+	out := map[string][]string{}
+	err := withLock(func() error {
+		s, err := load()
+		if err != nil {
+			return err
+		}
+		for dep, refs := range s.Workspaces[workspace] {
+			out[dep] = append([]string(nil), refs...)
+		}
+		return nil
+	})
+	return out, err
+}
+
 // Refs returns the projects currently referencing dep in workspace.
 func Refs(workspace, dep string) ([]string, error) {
 	var out []string

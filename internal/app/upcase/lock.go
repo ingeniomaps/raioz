@@ -32,7 +32,7 @@ func (l *LockInstance) Release() error {
 
 // acquireLock acquires a lock on the workspace.
 //
-// When raioz is running as a recursive sibling spawn (issue #26 mode A),
+// When raioz is running as a recursive sibling spawn (ADR-008 mode A),
 // the parent process already holds the workspace lock — re-acquiring
 // would deadlock. We detect that via RAIOZ_SIBLING_STACK and return a
 // no-op LockInstance whose Release() is also a no-op. Trust is bounded
