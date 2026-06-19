@@ -80,10 +80,27 @@ leaves a stale reference that keeps its shared deps pinned until it is
 cleaned (a later clean `down` of that project, or `raioz clean`). This is
 the deliberately chosen safe direction: a pinned dep is recoverable,
 whereas tearing a dep out from under a live consumer breaks a running
-project. An automatic container-scan reconcile was implemented and then
-removed precisely because it cannot tell a hard-killed project from a
-live shared-deps-only one — a smoke test caught it tearing down a dep
-that a live sibling was still using.
+project. An automatic container-scan reconcile **on the `down` hot path**
+was implemented and then removed precisely because it cannot tell a
+hard-killed project from a live shared-deps-only one — a smoke test caught
+it tearing down a dep that a live sibling was still using.
+
+**`raioz clean` is the escape hatch — and now acts on it (issue 020).**
+The reconcile that is unsafe on the `down` hot path is acceptable in
+`clean`, which is explicit, user-initiated maintenance: a wrongly-pruned
+ref is re-created by the next `up`, so the blast radius the smoke test
+caught on `down` does not apply. `clean` therefore walks the refcount
+(`internal/app/clean_refcount.go`), probes each referencing project with
+`docker.IsProjectActive` (running-only, no fail-open), drops the refs of
+projects that are not running, and tears down any dep left with zero live
+references. It is conservative on uncertainty: a probe that errors keeps
+the ref. The one residual hazard — a live consumer that uses ONLY shared
+deps owns no project-labeled container and so reads as "not running" — is
+the same edge that kept this off the `down` path; in `clean` it is bounded
+to a re-`up` and surfaced in the action list. Before this, `clean` never
+touched the refcount, so the only remedy for a stale ref was editing
+`shared-deps.json` by hand. The pinned-dep leak is also no longer silent:
+`down` now warns when it keeps a shared dep alive (issue 020, fix B).
 
 ## Consequences
 
@@ -128,13 +145,18 @@ that a live sibling was still using.
 
 ## References
 
-- Code: `internal/refcount/refcount.go`,
+- Code: `internal/refcount/refcount.go` (`Snapshot` / `Workspaces`
+  enumerate for the clean-time GC),
   `internal/app/upcase/refcount_wiring.go:22`,
   `internal/naming/naming.go` (`SharedDepComposeProjectName` /
   `DepComposeProjectNameFor`),
-  `internal/app/down_deps.go:29` (`stopDependencyComposeProjects`),
-  `internal/app/down_selective.go:159` (`stopSelectiveDep`)
+  `internal/app/down_deps.go:29` (`stopDependencyComposeProjects`,
+  reports kept-alive deps — issue 020 fix B),
+  `internal/app/down_selective.go:159` (`stopSelectiveDep`),
+  `internal/app/clean_refcount.go` (clean-time stale-ref GC — issue 020
+  fix A)
 - Related: ADR-002 (shared deps workspace-scoped), ADR-010 (workspace
   lock), ADR-022 (unified state paths), ADR-023 (state mirrors reality),
   ADR-047 §H-2 (atomic state writes)
-- Issue: `docs/issues/069-down-no-tumba-dependencies-shared.md`
+- Issue: `docs/issues/069-down-no-tumba-dependencies-shared.md`,
+  `docs/issues/020-down-no-tumba-deps-shared-con-refcount-stale.md`
