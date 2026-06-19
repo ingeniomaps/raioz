@@ -4,6 +4,37 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.0](https://github.com/ingeniomaps/raioz/compare/v0.12.0...v0.13.0) (2026-06-19)
+
+
+### Features
+
+* **app:** surface and prune stale shared-dep refs ([0b9a64b](https://github.com/ingeniomaps/raioz/commit/0b9a64b55925314a4ee8d3ebaf19cd312d42fa5e))
+* handle stale shared-dependency refcount entries ([6f51d1f](https://github.com/ingeniomaps/raioz/commit/6f51d1fa715e5614c3b3a5704f0cf6649b634d7c))
+
+
+### Bug Fixes
+
+* **app:** avoid EOF crash on prompts in non-TTY ([a1d80cc](https://github.com/ingeniomaps/raioz/commit/a1d80cc8db5a27bd8e6fec77aa7f4aa1c6ca32a7))
+* **app:** keep shared dep host port consistent ([0c89063](https://github.com/ingeniomaps/raioz/commit/0c89063e3edf5b23da8b87d215a929badaaf14f0))
+* **app:** repair discovery for legacy-ports deps ([6a39c66](https://github.com/ingeniomaps/raioz/commit/6a39c66fba5cd798e37efe14c40c7409564d3ec4))
+* **app:** repair discovery for legacy-ports deps ([b0d58bd](https://github.com/ingeniomaps/raioz/commit/b0d58bda92e40139898893acf575f9f2cff31652))
+* **app:** shared-dep host ports, reuse & non-interactive up (020) ([5c0d6e2](https://github.com/ingeniomaps/raioz/commit/5c0d6e2fed9fe63c4203050c56429c90bf99ce6b))
+* **app:** treat shared dep as reuse, not conflict ([8e97011](https://github.com/ingeniomaps/raioz/commit/8e9701155a5ee4f6bdda89463bc3a7ed813fdaa1))
+* **proxy:** prune orphan route files on down ([f99708e](https://github.com/ingeniomaps/raioz/commit/f99708e378187a9fa5ba74abeb10839fc9b3ef7a))
+
+
+### Refactor
+
+* **app:** keep allocator off infra baseline ([575e9b2](https://github.com/ingeniomaps/raioz/commit/575e9b2c86b6f74efe7bc5fd7abab38bdae7bfba))
+
+
+### Documentation
+
+* add ADR-051 for shared dep host port ([a5c4026](https://github.com/ingeniomaps/raioz/commit/a5c40264e27f2550d3053d921c9db4f5d2e8bf83))
+* document orphan route-file GC in ADR-005 ([0f576dd](https://github.com/ingeniomaps/raioz/commit/0f576ddee662812f64c198aa2561b258023d3389))
+* record clean-time stale-ref GC in ADR-050 ([48db689](https://github.com/ingeniomaps/raioz/commit/48db689c042508428929e105b6ba56b88fe677b9))
+
 ## [0.12.0](https://github.com/ingeniomaps/raioz/compare/v0.11.2...v0.12.0) (2026-06-06)
 
 
