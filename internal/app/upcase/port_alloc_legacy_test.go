@@ -7,7 +7,7 @@ import (
 )
 
 // legacyDeps builds a Deps whose single infra dep uses the legacy `ports:`
-// field (no publish/expose), the shape issue 020 is about.
+// field (no publish/expose).
 func legacyDeps(name string, ports []string) *models.Deps {
 	return newDepsWithInfra(nil, map[string]*models.Infra{
 		name: {Image: "redis", Ports: ports},

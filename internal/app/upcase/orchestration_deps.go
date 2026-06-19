@@ -16,7 +16,7 @@ import (
 //
 //  1. Allocator result for the dep. Covers both the new `publish:` /
 //     `expose:` path AND legacy `ports:` that the allocator could parse
-//     (issue 020) — it represents the fresh, conflict-checked assignment
+//     — it represents the fresh, conflict-checked assignment
 //     with a deterministic host port.
 //  2. Legacy `ports:` list the allocator could not model (ranges,
 //     IP-prefixed, /proto). Passed through verbatim for backwards
@@ -49,7 +49,7 @@ func resolveDepPublishPorts(
 // endpoint.
 //
 //   - Scheme comes from the image so <DEP>_URL is redis://, postgresql://,
-//     etc. instead of a useless http:// (issue 020, defect B).
+//     etc. instead of a useless http://.
 //   - When the allocator already mapped this dep (`allocated`), its
 //     conflict-checked host port from buildEndpoints stands. Only the
 //     unparseable legacy fallback copies the container port as the host

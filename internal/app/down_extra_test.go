@@ -291,7 +291,7 @@ func TestDownUseCase_stopHostProcesses_WithProcesses(t *testing.T) {
 	}
 }
 
-// Issue 019 regression: single-project down must call
+// Single-project down must call
 // sweepLauncherOrphans for every host service so daemons that
 // re-parented to init (next-server, vite, esbuild) are cleared by
 // cwd. The orchestrated / selective / restart paths already do

@@ -79,7 +79,7 @@ func TestCertMatchesDomain_MissingWildcard(t *testing.T) {
 	}
 }
 
-// TestCertMatchesDomain_DifferentDomain reproduces BUG-11: a cert minted for
+// TestCertMatchesDomain_DifferentDomain reproduces cross-domain cert reuse: a cert minted for
 // acme.localhost must NOT be accepted as valid for hypixo.dev. Before the
 // per-domain namespace + SAN check, this case silently passed.
 func TestCertMatchesDomain_DifferentDomain(t *testing.T) {
@@ -88,7 +88,7 @@ func TestCertMatchesDomain_DifferentDomain(t *testing.T) {
 	writeSelfSignedCert(t, certPath, []string{"acme.localhost", "*.acme.localhost"})
 
 	if certMatchesDomain(certPath, "hypixo.dev", nil) {
-		t.Error("cross-domain cert reuse should be rejected (BUG-11)")
+		t.Error("cross-domain cert reuse should be rejected")
 	}
 }
 

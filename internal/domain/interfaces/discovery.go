@@ -21,8 +21,7 @@ type ServiceEndpoint struct {
 	// Scheme is the URL scheme a caller uses to build <DEP>_URL (e.g.
 	// "redis", "postgresql", "http"). Empty is treated as "http". Set
 	// from the dependency image so non-HTTP datastores get a scheme their
-	// client can actually parse instead of a useless http:// URL. See
-	// issue 020.
+	// client can actually parse instead of a useless http:// URL.
 	Scheme string
 }
 

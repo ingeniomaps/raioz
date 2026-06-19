@@ -597,14 +597,14 @@ func TestCloneServiceNilDocker(t *testing.T) {
 	}
 }
 
-// TestCloneService_PreservesAllFields_Issue006: generative guard. Populates
+// TestCloneService_PreservesAllFields: generative guard. Populates
 // every exported field of models.Service via reflection, clones it, then
 // walks the clone and fails for any field that came back zero. Prevents
 // the recurring "someone added a field but forgot to copy it in
 // cloneService" bug — already happened twice (ProxyOverride in the past,
 // HostnameAliases now). If this test fails on a new field X, adding
 // `X: s.X` (or deep-copy equivalent) to cloneService is the fix.
-func TestCloneService_PreservesAllFields_Issue006(t *testing.T) {
+func TestCloneService_PreservesAllFields(t *testing.T) {
 	var orig models.Service
 	setAllFieldsNonZero(reflect.ValueOf(&orig).Elem())
 
@@ -624,10 +624,10 @@ func TestCloneService_PreservesAllFields_Issue006(t *testing.T) {
 	}
 }
 
-// TestCloneInfraEntry_PreservesAllFields_Issue006: same guard for
+// TestCloneInfraEntry_PreservesAllFields: same guard for
 // cloneInfraEntry. Infra has a bigger footprint (Seed, Expose, Publish…)
 // and the same historical pattern of silent drops on merge.
-func TestCloneInfraEntry_PreservesAllFields_Issue006(t *testing.T) {
+func TestCloneInfraEntry_PreservesAllFields(t *testing.T) {
 	var orig models.Infra
 	setAllFieldsNonZero(reflect.ValueOf(&orig).Elem())
 	entry := models.InfraEntry{Path: "/p", Inline: &orig}
@@ -691,11 +691,11 @@ func setAllFieldsNonZero(v reflect.Value) {
 	}
 }
 
-// TestCloneService_HostnameAliases_Issue006: on workspace merge, the old
+// TestCloneService_HostnameAliases: on workspace merge, the old
 // project's HostnameAliases must survive the clone or the proxy silently
 // drops the extra hostnames the user declared — same class of bug as the
 // previously-fixed ProxyOverride drop that already lives in cloneService.
-func TestCloneService_HostnameAliases_Issue006(t *testing.T) {
+func TestCloneService_HostnameAliases(t *testing.T) {
 	orig := models.Service{
 		Hostname:        "sso",
 		HostnameAliases: []string{"accounts", "login"},
@@ -752,7 +752,7 @@ func TestCloneInfraEntry(t *testing.T) {
 			t.Error("Inline should stay nil")
 		}
 	})
-	// Issue #006 sibling: cloneInfraEntry was dropping Hostname and
+	// cloneInfraEntry was dropping Hostname and
 	// HostnameAliases — latent bug that would bite the moment someone
 	// reached a dep under aliases (e.g. `pg.example.dev` + `db.example.dev`
 	// for the same postgres) across a workspace merge.

@@ -51,9 +51,9 @@ func (c Capability) String() string {
 // Supports reports whether the active runtime is known to support the
 // given capability. Resolution order:
 //
-//  1. Operator override via RAIOZ_RUNTIME_CAPABILITY (issue 041 fast
-//     path so nerdctl 2.x users can opt back into HostGatewayAlias
-//     before version detection lands).
+//  1. Operator override via RAIOZ_RUNTIME_CAPABILITY (fast path so
+//     nerdctl 2.x users can opt back into HostGatewayAlias before
+//     version detection lands).
 //  2. Known-broken combinations (e.g. nerdctl + HostGatewayAlias).
 //  3. Optimistic default (true).
 func Supports(c Capability) bool {

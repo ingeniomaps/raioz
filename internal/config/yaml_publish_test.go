@@ -251,7 +251,7 @@ dependencies:
 
 // TestYAMLBridge_HostnameAliasesOnService: `hostnameAliases:` on a service
 // flows into Service.HostnameAliases so buildProxyRoute can fan them into
-// the Caddy site block (issue #006).
+// the Caddy site block.
 func TestYAMLBridge_HostnameAliasesOnService(t *testing.T) {
 	var svc YAMLService
 	yamlText := "path: .\nhostname: sso\nhostnameAliases: [accounts, login]\n"
@@ -273,7 +273,7 @@ func TestYAMLBridge_HostnameAliasesOnService(t *testing.T) {
 }
 
 // TestYAMLBridge_HostnameAliasesOnDependency: same as above but on the dep
-// side, ensuring Infra.HostnameAliases is populated (issue #006).
+// side, ensuring Infra.HostnameAliases is populated.
 func TestYAMLBridge_HostnameAliasesOnDependency(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "test",
@@ -294,7 +294,7 @@ func TestYAMLBridge_HostnameAliasesOnDependency(t *testing.T) {
 
 // TestYAMLBridge_HostnameOnDependency: `hostname:` on a dep is parsed into
 // Infra.Hostname so the proxy can route via the user's chosen subdomain
-// instead of falling back to the entry name (issue #001).
+// instead of falling back to the entry name.
 func TestYAMLBridge_HostnameOnDependency(t *testing.T) {
 	cfg := &RaiozConfig{
 		Project: "test",
@@ -314,7 +314,7 @@ func TestYAMLBridge_HostnameOnDependency(t *testing.T) {
 
 // TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenProxy: when the dep also
 // declares `proxy:`, the migration suggested by the warning would break
-// Caddy routing — so the warning must stay silent (issue #003).
+// Caddy routing — so the warning must stay silent.
 func TestLoadDepsFromYAML_LegacyPortsSkipsWarningWhenProxy(t *testing.T) {
 	dir := t.TempDir()
 	path := dir + "/raioz.yaml"

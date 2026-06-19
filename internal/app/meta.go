@@ -253,7 +253,7 @@ func (m *MetaRunner) run(
 
 	results := make(MetaSummaryList, 0, len(projects))
 	// completed grows as each `up` sub returns ok; stamped into the
-	// env of subsequent sub-ups (issue 020-meta).
+	// env of subsequent sub-ups.
 	completed := append([]string(nil), initialCompleted...)
 	for _, p := range projects {
 		if skipPath != "" && p.Path == skipPath {

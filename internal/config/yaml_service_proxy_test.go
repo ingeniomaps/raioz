@@ -6,10 +6,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// TestYAMLServiceProxy_Unmarshal_Issue068 covers the polymorphic `proxy:`
+// TestYAMLServiceProxy_Unmarshal covers the polymorphic `proxy:`
 // field on a service: the boolean shorthand (`false` opts out, `true` keeps
 // the default) and the object form ({target, port}).
-func TestYAMLServiceProxy_Unmarshal_Issue068(t *testing.T) {
+func TestYAMLServiceProxy_Unmarshal(t *testing.T) {
 	cases := []struct {
 		name         string
 		yaml         string
@@ -68,11 +68,11 @@ func TestYAMLServiceProxy_Unmarshal_Issue068(t *testing.T) {
 	}
 }
 
-// TestYAMLServiceToService_ProxyDisabled_Issue068 asserts the bridge carries
+// TestYAMLServiceToService_ProxyDisabled asserts the bridge carries
 // the opt-out into models.ServiceProxyOverride.Disabled. The pre-fix guard
 // only built the override when Target/Port were set, so `proxy: false` would
 // have been silently dropped.
-func TestYAMLServiceToService_ProxyDisabled_Issue068(t *testing.T) {
+func TestYAMLServiceToService_ProxyDisabled(t *testing.T) {
 	svc := YAMLService{Path: "./prometheus", Proxy: &YAMLServiceProxy{Disabled: true}}
 	out, err := yamlServiceToService("prometheus", svc)
 	if err != nil {

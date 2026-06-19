@@ -22,7 +22,7 @@ var switchCmd = &cobra.Command{
 	Long: "Detects which active raioz projects (cross-workspace) hold host " +
 		"ports declared in the cwd's raioz.yaml, prompts to confirm, stops " +
 		"them, and then runs `raioz up`. Combines `down --conflicting` + " +
-		"`up` into one step. Issue #24.",
+		"`up` into one step.",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		defer func() {

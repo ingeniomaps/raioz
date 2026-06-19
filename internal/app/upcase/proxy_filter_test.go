@@ -52,7 +52,7 @@ func TestShouldProxy_ServiceAlwaysProxied(t *testing.T) {
 	}
 }
 
-func TestShouldProxy_ServiceOptOut_Issue068(t *testing.T) {
+func TestShouldProxy_ServiceOptOut(t *testing.T) {
 	// `proxy: false` on a host-net service with no UI (Prometheus, exporters)
 	// must skip route creation — no dead https://<name>.<domain>.
 	deps := &models.Deps{
@@ -66,7 +66,7 @@ func TestShouldProxy_ServiceOptOut_Issue068(t *testing.T) {
 	}
 }
 
-func TestShouldProxy_ServiceOverrideStillProxied_Issue068(t *testing.T) {
+func TestShouldProxy_ServiceOverrideStillProxied(t *testing.T) {
 	// A target/port override (not disabled) keeps the route — the opt-out is
 	// only the boolean `false`, not any presence of the proxy block.
 	deps := &models.Deps{
@@ -131,7 +131,7 @@ func TestShouldProxy_RoutingOptIn(t *testing.T) {
 		},
 	}
 	if !shouldProxy(deps, "pgweb") {
-		t.Error("explicit routing: must override the DB heuristic (BUG-14 opt-in)")
+		t.Error("explicit routing: must override the DB heuristic (opt-in)")
 	}
 }
 

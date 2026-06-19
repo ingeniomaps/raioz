@@ -27,7 +27,7 @@ var publishedHostPortFn = docker.GetPublishedHostPort
 // Two cases qualify: a leftover container from the same project, or a
 // workspace-shared dependency this project also declares. Shared deps omit
 // the project label (ADR-002), so they are matched on workspace + service
-// instead. See issue 020.
+// instead.
 func isOwnContainer(occ docker.PortOccupant, deps *models.Deps, activeWorkspace string) bool {
 	if !occ.IsRaioz || deps == nil {
 		return false

@@ -19,7 +19,7 @@ type LocalState struct {
 
 	// DeferredToSibling lists the dep names whose dispatch was skipped
 	// at `up` time because a sibling raioz project was already serving
-	// them (issue #26 mode B). `down` consults this list so it doesn't
+	// them (ADR-008 mode B). `down` consults this list so it doesn't
 	// try to tear down containers the consumer never created. The list
 	// is rewritten on every `up` — entries persist only as long as the
 	// sibling stays active.
@@ -75,7 +75,7 @@ func (s *LocalState) GetDevOverride(name string) (DevOverride, bool) {
 }
 
 // MarkDeferred records that a dep was skipped at `up` time because a
-// sibling raioz project was already serving it (issue #26 mode B). The
+// sibling raioz project was already serving it (ADR-008 mode B). The
 // matching `down` reads this list to skip the dep too — without it,
 // raioz would try to tear down a container it never created. No-op if
 // the dep is already on the list, so callers can call this without

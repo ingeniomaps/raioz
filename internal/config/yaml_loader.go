@@ -107,7 +107,7 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 }
 
 // validateSiblingDependency enforces the mutual-exclusion rules around the
-// sibling-project fields introduced in issue #26. Returns nil when the dep
+// sibling-project fields introduced in ADR-008. Returns nil when the dep
 // declares no sibling fields (the common case).
 func validateSiblingDependency(name string, dep YAMLDependency, path string) error {
 	hasProject := dep.Project != ""
@@ -187,7 +187,7 @@ func resolveYAMLPaths(cfg *RaiozConfig, baseDir string) {
 		if dep.Dev != nil && dep.Dev.Path != "" && !filepath.IsAbs(dep.Dev.Path) {
 			dep.Dev.Path = filepath.Join(baseDir, dep.Dev.Path)
 		}
-		// Sibling project paths (issue #26) point at another raioz.yaml
+		// Sibling project paths (ADR-008) point at another raioz.yaml
 		// directory. Normalize to absolute so the resolver doesn't have
 		// to track the consumer's cwd.
 		if dep.Project != "" && !filepath.IsAbs(dep.Project) {

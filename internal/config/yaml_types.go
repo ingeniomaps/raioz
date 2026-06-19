@@ -323,7 +323,7 @@ type YAMLDependency struct {
 	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"` // since: v0.1.1
 
 	// Project points at a sibling raioz project that *is* this dependency
-	// (mode A of issue #26). Path is relative to this raioz.yaml. When
+	// (mode A of ADR-008). Path is relative to this raioz.yaml. When
 	// set, the dep has no image/compose of its own — `raioz up` reads the
 	// sibling's raioz.yaml and brings it up via a recursive `raioz up` in
 	// the sibling's cwd if it's not already running. `raioz down` of the
@@ -332,7 +332,7 @@ type YAMLDependency struct {
 	// Mutually exclusive with Image / Compose / SiblingProject.
 	Project string `yaml:"project,omitempty"` // since: v0.4.0
 
-	// SiblingProject is the fallback variant (mode B of issue #26): pair
+	// SiblingProject is the fallback variant (mode B of ADR-008): pair
 	// it with Image (or Compose) and raioz will skip the local image
 	// declaration whenever the sibling project is active, but fall back
 	// to the image when the sibling isn't running. Useful for CI and

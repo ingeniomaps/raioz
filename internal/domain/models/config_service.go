@@ -28,7 +28,7 @@ type Service struct {
 	// ProxyOverride forces a specific (target, port) pair for the proxy
 	// reverse_proxy directive, bypassing runtime detection. Needed when a
 	// service's `command:` launches its own docker compose that raioz
-	// can't introspect — see BUG-13.
+	// can't introspect.
 	ProxyOverride *ServiceProxyOverride `json:"proxyOverride,omitempty"`
 
 	// Port is the explicit host port the user declared in raioz.yaml (`port:`).
@@ -78,7 +78,7 @@ type SourceConfig struct {
 	Tag          string   `json:"tag,omitempty"`          // Required if kind == "image"
 	Path         string   `json:"path,omitempty"`         // Required if kind == "git" or "local"
 	Access       string   `json:"access,omitempty"`       // "readonly" | "editable" (default: "editable", only for git)
-	Auth         string   `json:"auth,omitempty"`         // "" (strict, default) | "inherit" | "gh" | "ssh" — issue 067
+	Auth         string   `json:"auth,omitempty"`         // "" (strict, default) | "inherit" | "gh" | "ssh"
 	Command      string   `json:"command,omitempty"`      // Command to run directly on host (without Docker)
 	Runtime      string   `json:"runtime,omitempty"`      // Runtime type for host execution (optional)
 	ComposeFiles []string `json:"composeFiles,omitempty"` // Explicit compose files (overrides auto-detect)

@@ -19,8 +19,8 @@ func validateInfra(deps *models.Deps) error {
 		// One of `image:`, `compose:`, or `project:` is required.
 		// `compose:` points at user-supplied docker-compose fragment(s);
 		// in that mode raioz does NOT need an image field because the
-		// user's compose declares the image itself. `project:` (issue
-		// #26 mode A) makes a sibling raioz project the runtime — no
+		// user's compose declares the image itself. `project:` (ADR-008
+		// mode A) makes a sibling raioz project the runtime — no
 		// local image at all.
 		if infra.Image == "" && len(infra.Compose) == 0 && infra.Project == "" {
 			return errors.New(
@@ -87,7 +87,7 @@ func validateInfra(deps *models.Deps) error {
 		}
 
 		// Compose-mode deps don't need `image:` — the user's compose
-		// file declares it. Sibling-project deps (issue #26 mode A)
+		// file declares it. Sibling-project deps (ADR-008 mode A)
 		// don't need either; the sibling raioz.yaml is the runtime.
 		if entry.Inline.Image == "" && len(entry.Inline.Compose) == 0 && entry.Inline.Project == "" {
 			return errors.New(

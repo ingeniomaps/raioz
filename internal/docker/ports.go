@@ -316,7 +316,7 @@ func IdentifyPortOccupant(ctx context.Context, port int) PortOccupant {
 	}
 
 	// Fallback: legacy name-prefix heuristic. Covers containers created
-	// before labels were introduced (BUG-2 baseline) so we don't
+	// before labels were introduced (pre-label baseline) so we don't
 	// regress users with stale containers on disk.
 	pfx := naming.GetPrefix() + "-"
 	if strings.HasPrefix(occ.ContainerName, pfx) {

@@ -4,7 +4,7 @@
 // The default (no `auth:` declared in yaml) is the strict provider:
 // public-only clones with credential helper disabled, no askpass, no
 // custom SSH command. Other providers — implemented in subsequent
-// commits of issue 067 — opt the dev into:
+// commits — opt the dev into:
 //
 //   - inherit: trust the user's existing git config (credential
 //     helper, ssh-agent, etc.)

@@ -47,9 +47,9 @@ func TestDropRef_LastConsumerEmpties(t *testing.T) {
 	}
 }
 
-// TestTwoConsumers walks the exact scenario from issue 069: two projects
+// TestTwoConsumers walks the exact shared-dep scenario: two projects
 // share loki; the first down keeps it alive, the second tears it down.
-func TestTwoConsumers_Issue069(t *testing.T) {
+func TestTwoConsumers(t *testing.T) {
 	isolate(t)
 	if err := AddRef("conorbi", "loki", "observability"); err != nil {
 		t.Fatalf("AddRef A: %v", err)

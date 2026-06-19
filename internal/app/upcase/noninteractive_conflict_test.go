@@ -14,7 +14,7 @@ import (
 
 // TestIsOwnContainer covers the reuse classification that prevents a
 // workspace-shared dep's running container from being reported as a false
-// PORT_CONFLICT against project ” (issue 020 fix a).
+// PORT_CONFLICT against project ”.
 func TestIsOwnContainer(t *testing.T) {
 	deps := &models.Deps{
 		Project: models.Project{Name: "api"},
@@ -84,7 +84,7 @@ func withStubbedTTY(t *testing.T, interactive bool) {
 
 // TestResolvePortBindConflictsNonInteractive verifies that a bind conflict
 // surfaced in a non-tty session fails fast with a PORT_CONFLICT error
-// instead of crashing on an EOF read from a closed stdin (issue 020 fix c).
+// instead of crashing on an EOF read from a closed stdin.
 func TestResolvePortBindConflictsNonInteractive(t *testing.T) {
 	initI18nUp(t)
 	withStubbedTTY(t, false)

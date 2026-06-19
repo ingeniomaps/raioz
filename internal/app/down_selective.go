@@ -151,7 +151,7 @@ func stopSelectiveService(
 // across the workspace AND another project still uses it — same rule as
 // the bulk teardown path.
 //
-// Sibling-mode deps (issue #26) are also skipped: mode A always (the
+// Sibling-mode deps (ADR-008) are also skipped: mode A always (the
 // sibling raioz project owns the lifecycle), mode B only when this dep
 // was deferred at up time per LocalState. In both cases we never
 // created a container locally, so there's nothing to tear down — and

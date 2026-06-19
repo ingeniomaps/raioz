@@ -40,14 +40,14 @@ func TestGenerateCaddyfileContent_SimpleRoute(t *testing.T) {
 	}
 }
 
-// TestGenerateCaddyfileContent_DepHostnameOverride_Issue001: regression
+// TestGenerateCaddyfileContent_DepHostnameOverride: regression
 // guard for the gouduet/keycloak case — the route emitted by buildProxyRoute
 // for a dep with `hostname: mail` and `proxy.port: 8025` must produce a
 // Caddyfile that routes https://mail.demo.dev → <container>:8025, not
-// https://mailpit.demo.dev → <container>:1025 (the bug from issue #001 +
-// #003 combined). Image under test is axllent/mailpit, which shares the
+// https://mailpit.demo.dev → <container>:1025 (the combined hostname +
+// port bug). Image under test is axllent/mailpit, which shares the
 // dual-port shape (1025 SMTP + 8025 UI) with the original mailhog repro.
-func TestGenerateCaddyfileContent_DepHostnameOverride_Issue001(t *testing.T) {
+func TestGenerateCaddyfileContent_DepHostnameOverride(t *testing.T) {
 	m := NewManager("")
 	m.projectName = ("demo")
 	m.domain = ("demo.dev")
@@ -60,16 +60,16 @@ func TestGenerateCaddyfileContent_DepHostnameOverride_Issue001(t *testing.T) {
 
 	got := m.GenerateCaddyfileContent()
 	if !strings.Contains(got, "mail.demo.dev") {
-		t.Errorf("expected mail.demo.dev (issue #001), got:\n%s", got)
+		t.Errorf("expected mail.demo.dev, got:\n%s", got)
 	}
 	if strings.Contains(got, "mailpit.demo.dev") {
-		t.Errorf("did not expect entry-name mailpit.demo.dev (issue #001), got:\n%s", got)
+		t.Errorf("did not expect entry-name mailpit.demo.dev, got:\n%s", got)
 	}
 	if !strings.Contains(got, "demo-mailpit:8025") {
-		t.Errorf("expected reverse_proxy demo-mailpit:8025 (issue #003), got:\n%s", got)
+		t.Errorf("expected reverse_proxy demo-mailpit:8025, got:\n%s", got)
 	}
 	if strings.Contains(got, ":1025") {
-		t.Errorf("did not expect SMTP port 1025 leaking through (issue #003), got:\n%s", got)
+		t.Errorf("did not expect SMTP port 1025 leaking through, got:\n%s", got)
 	}
 }
 
@@ -228,11 +228,11 @@ func TestGenerateCaddyfileContent_MultipleRoutes(t *testing.T) {
 	}
 }
 
-// TestGenerateCaddyfileContent_HostnameAliases_Issue006: a route declared
+// TestGenerateCaddyfileContent_HostnameAliases: a route declared
 // with Aliases must fan them into a single Caddy site block sharing the
 // reverse_proxy, so `sso.example.dev` AND `accounts.example.dev` reach the
 // same upstream without duplicating the upstream directive.
-func TestGenerateCaddyfileContent_HostnameAliases_Issue006(t *testing.T) {
+func TestGenerateCaddyfileContent_HostnameAliases(t *testing.T) {
 	m := NewManager("")
 	m.projectName = ("demo")
 	m.domain = ("example.dev")

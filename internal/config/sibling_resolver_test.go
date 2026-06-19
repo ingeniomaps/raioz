@@ -243,7 +243,7 @@ func TestValidateSiblingWorkspace_NilSibling(t *testing.T) {
 
 // --- ProxyTargets ---------------------------------------------------------
 
-// Issue 020 — launcher-pattern siblings expose their container name
+// Launcher-pattern siblings expose their container name
 // via services.<n>.proxy.target. ResolveSibling now collects those so
 // the docker.IsProjectActive fallback can probe by name when the
 // label-based scan misses.

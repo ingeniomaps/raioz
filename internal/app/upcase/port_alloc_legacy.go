@@ -12,7 +12,7 @@ import (
 // `ports:` field (pre-publish/expose). A single-value entry like
 // `ports: ["6379"]` tells Docker to publish container port 6379 on a RANDOM
 // host port — which raioz could never report back to host callers, so it
-// emitted localhost:<container-port> (unreachable). See issue 020 defect A.
+// emitted localhost:<container-port> (unreachable).
 //
 // Routing these through the allocator gives them a deterministic,
 // conflict-checked host port, exactly like `publish:`. resolveDepPublishPorts

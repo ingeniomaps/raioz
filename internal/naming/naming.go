@@ -221,7 +221,7 @@ func ContainerPrefix(project string) string {
 // a dependency. Format: {prefix}-{project}-dep-{dep}. The "dep-" infix avoids
 // collisions with service compose project names produced by ComposeRunner.
 // Lives here (not in orchestrate) so app/cli callers don't need to import
-// the infra runner package (ADR-029 / issue 049).
+// the infra runner package (ADR-029).
 func DepComposeProjectName(projectName, depName string) string {
 	return GetPrefix() + "-" + projectName + "-dep-" + depName
 }

@@ -25,7 +25,7 @@ type SwitchOptions struct {
 }
 
 // SwitchUseCase wraps `raioz down --conflicting && raioz up` into a single
-// command. Issue #24 camino B. Detects host-port collisions against the
+// command. Detects host-port collisions against the
 // cwd's raioz.yaml, prompts for confirmation, stops the offenders, then
 // brings the cwd project up.
 //

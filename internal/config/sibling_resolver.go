@@ -9,7 +9,7 @@ import (
 
 // SiblingInfo describes a sibling raioz project referenced by a
 // dependency through `project:` (mode A) or `siblingProject:` (mode B)
-// of issue #26. It carries just enough metadata to drive the
+// of ADR-008. It carries just enough metadata to drive the
 // orchestration decisions in later phases — no docker state, no I/O
 // beyond the initial config read.
 type SiblingInfo struct {
@@ -98,7 +98,7 @@ func ResolveSibling(dir string) (*SiblingInfo, error) {
 // collectSiblingProxyTargets returns every service-level proxy.target
 // declared in the sibling yaml. The launcher pattern uses this field
 // to name a container raioz did not create directly; the sibling
-// probe (issue 020) falls back to those names when its label-based
+// probe falls back to those names when its label-based
 // scan returns empty.
 func collectSiblingProxyTargets(cfg *RaiozConfig) []string {
 	var out []string

@@ -141,7 +141,7 @@ func ValidateInfraImagesWithContext(ctx context.Context, deps *models.Deps) erro
 		if len(entry.Inline.Compose) > 0 {
 			continue
 		}
-		// Sibling-project deps (issue #26 mode A) have no local image —
+		// Sibling-project deps (ADR-008 mode A) have no local image —
 		// the sibling raioz project owns its own runtime. Mode B
 		// (`siblingProject:` + `image:`) keeps the image so the fallback
 		// path can still pre-pull when raioz can't reach the sibling.

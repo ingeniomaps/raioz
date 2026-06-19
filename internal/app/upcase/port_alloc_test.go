@@ -283,7 +283,7 @@ func newDepsWithInfra(
 }
 
 func TestAllocateHostPorts_ModeASiblingDepSkipped(t *testing.T) {
-	// A sibling-mode dep (issue #26) has no local container, so any
+	// A sibling-mode dep (ADR-008) has no local container, so any
 	// host port reserved for it would never get bound. Even when the
 	// user accidentally pairs `project:` with explicit publish or
 	// auto-publish, the allocator should leave the port free for a
