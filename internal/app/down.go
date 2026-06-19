@@ -315,6 +315,7 @@ func (uc *DownUseCase) stopProjectServices(
 		servicesToStop[name] = true
 	}
 
+	var keptDeps []keptSharedDep
 	if len(servicesToStop) == 0 && len(currentDeps.Infra) == 0 {
 		output.PrintInfo(i18n.T("output.no_services_to_stop"))
 	} else {
@@ -328,9 +329,9 @@ func (uc *DownUseCase) stopProjectServices(
 		// Dependencies live in separate per-dep compose files created by
 		// ImageRunner, NOT in the main compose file. Use the same teardown
 		// function that the orchestrated path uses.
-		// Legacy json projects predate sibling deps (issue #26), so the
+		// Legacy json projects predate sibling deps (ADR-008), so the
 		// deferred list is always nil here.
-		stopDependencyComposeProjects(ctx, currentDeps, projectName, nil)
+		keptDeps = stopDependencyComposeProjects(ctx, currentDeps, projectName, nil)
 	}
 
 	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
@@ -341,5 +342,6 @@ func (uc *DownUseCase) stopProjectServices(
 	uc.stopProxy(ctx, opts)
 
 	output.PrintSuccess(i18n.T("output.project_stopped", projectName))
+	reportKeptSharedDeps(keptDeps)
 	return true, nil
 }

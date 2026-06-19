@@ -146,13 +146,13 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 
 	// Stop dependency compose projects. The deferred list comes from
 	// the matching `up`'s LocalState — deps that were skipped because a
-	// sibling project owned them (issue #26 mode B) must be skipped on
+	// sibling project owned them (ADR-008 mode B) must be skipped on
 	// down too.
 	var deferredDeps []string
 	if localState != nil {
 		deferredDeps = localState.DeferredToSibling
 	}
-	stopDependencyComposeProjects(ctx, deps, projectName, deferredDeps)
+	keptDeps := stopDependencyComposeProjects(ctx, deps, projectName, deferredDeps)
 
 	// Stop proxy
 	uc.stopProxy(ctx, opts)
@@ -230,6 +230,10 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 	}
 
 	output.PrintSuccess(i18n.T("output.project_stopped_basic", projectName))
+
+	// Surface shared deps left running for other consumers last, so the
+	// warning isn't scrolled off by teardown chatter.
+	reportKeptSharedDeps(keptDeps)
 	return nil
 }
 
@@ -295,7 +299,7 @@ func stopExactContainer(ctx context.Context, name string) {
 // com.raioz.managed=true so unrelated containers that happen to share a
 // prefix (e.g. a user's own `roax-*` fleet when raioz project is `roa`) are
 // never touched. Historically this was name-only, which silently killed
-// sibling projects on the same machine — see BUG-2.
+// sibling projects on the same machine.
 func stopContainersByPrefix(ctx context.Context, prefix string) {
 	cmd := exec.CommandContext(ctx, runtime.Binary(), "ps", "-a",
 		"--filter", "name="+prefix,

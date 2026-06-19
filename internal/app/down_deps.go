@@ -5,11 +5,23 @@ import (
 	"os/exec"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/output"
 	"raioz/internal/refcount"
 	"raioz/internal/runtime"
 )
+
+// keptSharedDep records a workspace-shared dependency that `down` left
+// running because other projects still reference it. Surfaced at the tail
+// of `down` so a kept-alive dep — including one pinned by a stale ref from
+// a project that is no longer running — is visible instead of buried in a
+// --verbose-only Info log. `raioz clean` reconciles stale refs (ADR-050).
+type keptSharedDep struct {
+	name      string
+	remaining []string
+}
 
 // stopDependencyComposeProjects stops compose projects created by image_runner.
 // Uses the same COMPOSE_PROJECT_NAME that ImageRunner.Start set so Docker
@@ -21,7 +33,7 @@ import (
 // this guard, project A's down would rip postgres out from under project B.
 //
 // `deferredDeps` lists dep names whose dispatch was skipped at up time
-// because a sibling raioz project owns them (issue #26 mode B). Those
+// because a sibling raioz project owns them (ADR-008 mode B). Those
 // have no container in the consumer's namespace and must not be torn
 // down — running `docker compose down` for them would be a no-op but
 // still spawns a process per dep, so we filter early. Pass nil for
@@ -31,11 +43,13 @@ func stopDependencyComposeProjects(
 	deps *models.Deps,
 	projectName string,
 	deferredDeps []string,
-) {
+) []keptSharedDep {
 	deferred := make(map[string]struct{}, len(deferredDeps))
 	for _, n := range deferredDeps {
 		deferred[n] = struct{}{}
 	}
+
+	var kept []keptSharedDep
 
 	for name, entry := range deps.Infra {
 		// Mode A (project:) — sibling-owned dep with its own lifecycle.
@@ -71,6 +85,7 @@ func stopDependencyComposeProjects(
 				logging.InfoWithContext(ctx, "Keeping shared dependency alive; still referenced",
 					"dep", name, "workspace", deps.Workspace,
 					"leaving_project", projectName, "remaining", remaining)
+				kept = append(kept, keptSharedDep{name: name, remaining: remaining})
 				continue
 			}
 		}
@@ -89,5 +104,24 @@ func stopDependencyComposeProjects(
 				"dep", name, "project", projName,
 				"error", err.Error(), "output", string(out))
 		}
+	}
+
+	return kept
+}
+
+// reportKeptSharedDeps surfaces shared dependencies that `down` left
+// running because other projects still reference them. The keep-alive
+// itself is correct (ADR-050: the last consumer out frees them), but it
+// was previously logged at Info — invisible without --verbose — so a dep
+// pinned by a STALE ref from a project that is no longer running read as
+// a silent container + port leak. Surfacing it as a warning
+// with the `raioz clean` escape hatch turns that into something the dev
+// can see and act on.
+func reportKeptSharedDeps(kept []keptSharedDep) {
+	for _, k := range kept {
+		output.PrintWarning(i18n.T("down.shared_dep_kept_alive", k.name, k.remaining))
+	}
+	if len(kept) > 0 {
+		output.PrintWarning(i18n.T("down.shared_dep_kept_alive_hint"))
 	}
 }
