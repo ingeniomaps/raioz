@@ -3,11 +3,14 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
+	"raioz/internal/naming"
+	"raioz/internal/state"
 )
 
 // proxyTestDeps returns Dependencies with ConfigLoader + ProxyManager wired up
@@ -220,6 +223,10 @@ func TestDownUseCase_stopProxy_OrphanRoutePrunedThenTumbas(t *testing.T) {
 		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
 		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
 		listProjectsWithRoutesFunc: func() []string { return []string{"connector"} },
+		// The crashed project's dir is known and holds no state file →
+		// LoadLocalState yields an empty state (no host PIDs): positive
+		// proof of death, so the GC may prune.
+		projectDirForFunc: func(string) string { return t.TempDir() },
 	}
 	// RemainingProjects mirrors reality: 1 until the orphan is pruned, then 0.
 	proxy.remainingProjectsFunc = func() int {
@@ -386,5 +393,270 @@ func TestDownUseCase_stopProxy_WorkspaceSharedTumbasWhenAlone(t *testing.T) {
 	}
 	if !stopCalled {
 		t.Error("last project out must tumba the shared proxy")
+	}
+}
+
+// TestDownUseCase_stopProxy_SharedDepVetoesTeardown covers the ADR-005
+// shared-dep veto: a live shared dep (project="" + kind=dependency) means
+// some consumer is still up (ADR-002) even when it owns no labeled
+// containers — e.g. a sibling whose services run via `command:`. The
+// teardown must be vetoed.
+func TestDownUseCase_stopProxy_SharedDepVetoesTeardown(t *testing.T) {
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string {
+		return []string{"acme-redis"}
+	}
+	getContainerLabelFn = func(_ context.Context, _, label string) (string, error) {
+		if label == naming.LabelKind {
+			return naming.KindDependency, nil
+		}
+		return "", nil // project label empty: shared dep by design (ADR-002)
+	}
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return []string{"acme-redis"}, nil
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+	}()
+
+	var stopCalled, reloadCalled bool
+	proxy := &mockProxyManager{
+		statusFunc: func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:   func(_ context.Context) error { stopCalled = true; return nil },
+		reloadFunc: func(_ context.Context) error { reloadCalled = true; return nil },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if stopCalled {
+		t.Error("a live shared dep must veto the proxy teardown (ADR-002 contract)")
+	}
+	if !reloadCalled {
+		t.Error("keep-alive path must reload the proxy so our routes are dropped")
+	}
+}
+
+// TestDownUseCase_stopProxy_ProxyKindDoesNotVeto proves the veto is scoped:
+// the workspace proxy container itself (project="" + kind=proxy) is not
+// evidence of a consumer, so the last project out still tumba it.
+func TestDownUseCase_stopProxy_ProxyKindDoesNotVeto(t *testing.T) {
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string {
+		return []string{"acme-proxy"}
+	}
+	getContainerLabelFn = func(_ context.Context, _, label string) (string, error) {
+		if label == naming.LabelKind {
+			return naming.KindProxy, nil
+		}
+		return "", nil
+	}
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return []string{"acme-proxy"}, nil
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+	}()
+
+	var stopCalled bool
+	proxy := &mockProxyManager{
+		statusFunc: func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:   func(_ context.Context) error { stopCalled = true; return nil },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if !stopCalled {
+		t.Error("the proxy's own container must not veto the last-out teardown")
+	}
+}
+
+// TestDownUseCase_stopProxy_HostRunSiblingRouteKeptByLivePID covers the
+// ADR-005 host-aware GC: a sibling with zero containers but a live host PID
+// recorded in its .raioz.state.json must keep its route file (and thereby
+// the shared proxy).
+func TestDownUseCase_stopProxy_HostRunSiblingRouteKeptByLivePID(t *testing.T) {
+	initI18nForTest(t)
+
+	siblingDir := t.TempDir()
+	if err := state.SaveLocalState(siblingDir, &state.LocalState{
+		Project:  "beta",
+		HostPIDs: map[string]int{"web": os.Getpid()}, // provably alive
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil // docker reachable, zero containers anywhere
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+	}()
+
+	var stopCalled bool
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
+		reloadFunc:                 func(_ context.Context) error { return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"beta"} },
+		remainingProjectsFunc:      func() int { return 1 }, // beta's file survives
+		projectDirForFunc:          func(string) string { return siblingDir },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 0 {
+		t.Errorf("route file of a host-run live sibling must not be pruned, got %v", proxy.removedRoutesFor)
+	}
+	if stopCalled {
+		t.Error("proxy must stay alive while a host-run sibling is provably alive")
+	}
+}
+
+// TestDownUseCase_stopProxy_DeadHostPIDsGetPruned is the complement: when the
+// sibling's state is readable and every recorded PID is dead, the GC has its
+// positive proof of death and must prune (no immortal route files).
+func TestDownUseCase_stopProxy_DeadHostPIDsGetPruned(t *testing.T) {
+	initI18nForTest(t)
+
+	siblingDir := t.TempDir()
+	if err := state.SaveLocalState(siblingDir, &state.LocalState{
+		Project:  "beta",
+		HostPIDs: map[string]int{"web": 4194304}, // arbitrary; probe stubbed dead
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	prevAlive := hostPIDAliveFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil
+	}
+	hostPIDAliveFn = func(int) bool { return false }
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+		hostPIDAliveFn = prevAlive
+	}()
+
+	var stopCalled bool
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"beta"} },
+		projectDirForFunc:          func(string) string { return siblingDir },
+	}
+	proxy.remainingProjectsFunc = func() int {
+		if len(proxy.removedRoutesFor) > 0 {
+			return 0
+		}
+		return 1
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 1 {
+		t.Errorf("dead sibling's route file must be pruned, got %v", proxy.removedRoutesFor)
+	}
+	if !stopCalled {
+		t.Error("last project out must tumba the proxy once the dead sibling's file is gone")
+	}
+}
+
+// TestDownUseCase_stopProxy_LegacyRouteFileNeverPruned: a route file without
+// a persisted projectDir (written pre-field, or by a remote sub-project,
+// ADR-049) gives the GC no way to prove death — it must be kept.
+func TestDownUseCase_stopProxy_LegacyRouteFileNeverPruned(t *testing.T) {
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+	}()
+
+	var stopCalled bool
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
+		reloadFunc:                 func(_ context.Context) error { return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"legacy"} },
+		remainingProjectsFunc:      func() int { return 1 },
+		projectDirForFunc:          func(string) string { return "" }, // pre-field file
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 0 {
+		t.Errorf("legacy route file must never be pruned, got %v", proxy.removedRoutesFor)
+	}
+	if stopCalled {
+		t.Error("proxy must stay alive when a route file's owner liveness is unknown")
 	}
 }

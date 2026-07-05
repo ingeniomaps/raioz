@@ -320,3 +320,48 @@ func TestGenerateCaddyfile_PerProjectUsesInMemoryRoutes(t *testing.T) {
 		t.Errorf("per-project mode must render m.routes, got:\n%s", body)
 	}
 }
+
+// TestSaveProjectRoutes_PersistsProjectDir covers the ADR-005 host-aware
+// liveness field: the manager's projectDir must land in the route file and
+// ProjectDirFor must read it back so the down flow's orphan GC can locate
+// the owner's .raioz.state.json.
+func TestSaveProjectRoutes_PersistsProjectDir(t *testing.T) {
+	m := makeSharedManager(t, "wsD", "delta")
+	m.projectDir = "/home/dev/work/delta"
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "api", Hostname: "api", Target: "delta-api", Port: 3000,
+	})
+
+	if err := m.SaveProjectRoutes(); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	data, err := os.ReadFile(m.projectRoutesPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"projectDir": "/home/dev/work/delta"`) {
+		t.Errorf("route file must persist projectDir, got:\n%s", data)
+	}
+	if got := m.ProjectDirFor("delta"); got != "/home/dev/work/delta" {
+		t.Errorf("ProjectDirFor = %q, want /home/dev/work/delta", got)
+	}
+}
+
+// TestProjectDirFor_LegacyFileWithoutField proves backward compatibility:
+// a route file written before the projectDir field existed yields "" —
+// the GC treats that as "liveness unknown" and never prunes it.
+func TestProjectDirFor_LegacyFileWithoutField(t *testing.T) {
+	m := makeSharedManager(t, "wsE", "echo")
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{ServiceName: "x", Hostname: "x"})
+	if err := m.SaveProjectRoutes(); err != nil {
+		t.Fatal(err)
+	}
+	// No projectDir was configured → field omitted (omitempty).
+	if got := m.ProjectDirFor("echo"); got != "" {
+		t.Errorf("legacy file must yield empty dir, got %q", got)
+	}
+	// Missing file → also "".
+	if got := m.ProjectDirFor("no-such-project"); got != "" {
+		t.Errorf("missing file must yield empty dir, got %q", got)
+	}
+}

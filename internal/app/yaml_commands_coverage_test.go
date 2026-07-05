@@ -375,6 +375,7 @@ type mockProxyManager struct {
 	remainingProjectsFunc      func() int
 	listProjectsWithRoutesFunc func() []string
 	removeRoutesForFunc        func(project string) error
+	projectDirForFunc          func(project string) string
 
 	removeProjectRoutesCalled bool
 	removedRoutesFor          []string
@@ -436,6 +437,12 @@ func (m *mockProxyManager) RemoveRoutesFor(project string) error {
 		return m.removeRoutesForFunc(project)
 	}
 	return nil
+}
+func (m *mockProxyManager) ProjectDirFor(project string) string {
+	if m.projectDirForFunc != nil {
+		return m.projectDirForFunc(project)
+	}
+	return ""
 }
 func (m *mockProxyManager) SetPublish(*bool)                 {}
 func (m *mockProxyManager) IsPublished() bool                { return true }

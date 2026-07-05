@@ -38,6 +38,7 @@ func (uc *UseCase) startProxy(
 		ProjectName:   deps.Project.Name,
 		Workspace:     deps.Workspace,
 		NetworkSubnet: deps.Network.GetSubnet(),
+		ProjectDir:    deps.ProjectRoot,
 	}
 	if deps.ProxyConfig != nil {
 		cfg.Domain = deps.ProxyConfig.Domain

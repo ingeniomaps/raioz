@@ -9,6 +9,7 @@ import (
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
@@ -159,11 +160,18 @@ var getContainerLabelFn = docker.GetContainerLabel
 // MUST be able to tell "docker unreachable" apart from "no containers".
 var listContainersByLabelsErrFn = docker.ListContainersByLabelsErr
 
+// hostPIDAliveFn is the host-process liveness probe used by the orphan-route
+// GC. Package-level hook for the same reason as the container probes above:
+// the GC makes a destructive decision and tests must be able to simulate a
+// live/dead sibling host process without spawning one.
+var hostPIDAliveFn = host.IsProcessAlive
+
 // pruneOrphanRouteFiles removes persisted route files whose owning project
-// has no live container in the workspace. Without this, a project that
-// crashed without running `raioz down` leaves an immortal route file that
-// pins the shared proxy and injects a dead backend into every Caddyfile
-// reload. See ADR-005 (orphan route-file GC).
+// shows no sign of life — neither a labeled container in the workspace nor
+// a live host PID in its .raioz.state.json (see routeOwnerAliveOnHost).
+// Without this, a project that crashed without running `raioz down` leaves
+// an immortal route file that pins the shared proxy and injects a dead
+// backend into every Caddyfile reload. See ADR-005 (orphan route-file GC).
 //
 // Docker-unreachable guard: if the liveness probe fails we cannot prove any
 // file is an orphan, so we skip the GC entirely (degrading to the pre-issue
@@ -192,14 +200,51 @@ func (uc *DownUseCase) pruneOrphanRouteFiles(ctx context.Context, workspace, cur
 		if _, alive := live[proj]; alive {
 			continue
 		}
+		if uc.routeOwnerAliveOnHost(ctx, workspace, proj) {
+			continue
+		}
 		if err := uc.deps.ProxyManager.RemoveRoutesFor(proj); err != nil {
 			logging.WarnWithContext(ctx, "Failed to prune orphan route file",
 				"workspace", workspace, "project", proj, "error", err.Error())
 			continue
 		}
-		logging.InfoWithContext(ctx, "Pruned orphan route file (project has no live containers)",
+		logging.InfoWithContext(ctx, "Pruned orphan route file (project has no live containers or host processes)",
 			"workspace", workspace, "project", proj)
 	}
+}
+
+// routeOwnerAliveOnHost reports whether the project owning a route file is
+// alive host-side. A project whose services run via `command:` (host process
+// or user-owned container) has no raioz-labeled containers, so container
+// absence alone is not proof of death — its route file records the project
+// directory, and that directory's .raioz.state.json records host PIDs.
+//
+// The pruning contract (ADR-005) is "positive proof of death, never absence
+// of proof of life": returns true (keep the file) whenever liveness cannot
+// be determined — legacy or remote (ADR-049) route files without a
+// projectDir, or an unreadable state file. Returns false only when the
+// state is readable and shows no live host PIDs.
+func (uc *DownUseCase) routeOwnerAliveOnHost(ctx context.Context, workspace, project string) bool {
+	dir := uc.deps.ProxyManager.ProjectDirFor(project)
+	if dir == "" {
+		logging.DebugWithContext(ctx, "Keeping route file: owner liveness unknown (no projectDir persisted)",
+			"workspace", workspace, "project", project)
+		return true
+	}
+	st, err := state.LoadLocalState(dir)
+	if err != nil {
+		logging.DebugWithContext(ctx, "Keeping route file: owner state unreadable",
+			"workspace", workspace, "project", project, "dir", dir, "error", err.Error())
+		return true
+	}
+	for name, pid := range st.HostPIDs {
+		if pid > 0 && hostPIDAliveFn(pid) {
+			logging.InfoWithContext(ctx, "Keeping route file: owner has a live host process",
+				"workspace", workspace, "project", project, "service", name, "pid", pid)
+			return true
+		}
+	}
+	return false
 }
 
 // liveWorkspaceProjects returns the set of project names that currently have
@@ -231,6 +276,15 @@ func liveWorkspaceProjects(ctx context.Context, workspace string) (map[string]st
 // otherWorkspaceProjectsActive reports whether any raioz-managed container
 // in the workspace belongs to a project other than the one currently being
 // torn down. Used to decide whether the shared proxy can be stopped.
+//
+// Containers with an empty project label are shared deps or the proxy
+// itself (ADR-002). A live shared dep vetoes the teardown: by ADR-002's
+// own contract deps survive individual downs until the last consumer
+// leaves, so one still running means some consumer remains — possibly a
+// project whose services run via `command:` (host process or user-owned
+// container) and therefore owns no labeled containers at all. The current
+// project's own shared deps can't false-positive here: the orchestrated
+// down stops them before stopProxy runs.
 func otherWorkspaceProjectsActive(ctx context.Context, workspace, currentProject string) bool {
 	if workspace == "" {
 		return false
@@ -241,12 +295,17 @@ func otherWorkspaceProjectsActive(ctx context.Context, workspace, currentProject
 	})
 	for _, n := range names {
 		proj, _ := getContainerLabelFn(ctx, n, naming.LabelProject)
-		if proj == "" {
-			continue // shared dep or shared proxy — not a project consumer
+		if proj != "" {
+			if proj != currentProject {
+				return true
+			}
+			continue
 		}
-		if proj != currentProject {
-			return true
+		kind, _ := getContainerLabelFn(ctx, n, naming.LabelKind)
+		if kind == naming.KindDependency {
+			return true // live shared dep ⇒ some consumer remains (ADR-002)
 		}
+		// kind proxy (or unknown): still not evidence of a consumer.
 	}
 	return false
 }

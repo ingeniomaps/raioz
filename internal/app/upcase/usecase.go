@@ -283,6 +283,12 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	var hostProcessInfo map[string]*host.ProcessInfo
 	var orchResult *orchestrationResult
 
+	// Project root must be on deps BEFORE orchestration: startProxy
+	// persists it into the route file so the down flow's orphan GC can
+	// probe host-side liveness (ADR-005). saveState below re-assigns the
+	// same value for the legacy provenance path.
+	deps.ProjectRoot = projectDir
+
 	if isYAMLMode(deps) {
 		// New orchestrator flow: detect runtimes, start with native tools
 		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath, opts.RouterOff)
