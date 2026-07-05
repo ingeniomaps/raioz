@@ -74,6 +74,25 @@ Cualquier path referenciado en `services.<n>.path`,
 Match → **error**. Mensaje accionable que muestra el path
 resuelto y por qué fue rechazado.
 
+*Excepción opt-in `workspaceRoot:` (v0.14.0).* La contención de
+H2 ancla por defecto en el directorio del propio `raioz.yaml`
+(`baseDir`). Eso rechaza una topología legítima: un workspace
+multi-repo donde el yaml vive en un sub-repo y los servicios
+apuntan a repos hermanos vía `../` (regresión reportada para
+configs que funcionaban pre-v0.7.0). Declarar `workspaceRoot:`
+(relativo al yaml) **mueve el límite de contención** a esa raíz:
+los paths siguen **contenidos en duro** —un escape fuera de la
+raíz declarada se sigue rechazando— y el blocklist de sistema
+sigue aplicando a todos los paths. La raíz declarada no puede
+ser un directorio de sistema. Sin `workspaceRoot` el
+comportamiento es idéntico al previo (contención por repo), así
+que no introduce regresión para configs single-repo. La
+confianza es **declarada explícitamente por el dev**, igual que
+ya ocurre con `dependencies.*.project` (ADR-008): no se relaja
+H2 a "solo blocklist" por default. Implementación:
+`validatePathSafety`/`checkInsideRoot` en
+`internal/config/path_safety.go`.
+
 **Regla H3 — Image tag pinning warning.**
 
 `dependencies.<n>.image` sin tag explícito o con tag `:latest`

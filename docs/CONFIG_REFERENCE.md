@@ -67,6 +67,7 @@ dependencies:
 | `version` | string | no | — | Schema version this file targets. Currently `"1"`. A warning is emitted when absent. See [Versioning](#versioning). |
 | `project` | string | yes | — | Project name. Used for Docker resource naming. Lowercase, hyphens, max 63 chars. |
 | `workspace` | string | no | — | Groups projects on same Docker network. When set, resources use `{workspace}-` prefix instead of `raioz-`. |
+| `workspaceRoot` | string | no | the yaml's own dir | Widens the path-safety containment boundary (ADR-036 H2). By default every path in the yaml must resolve inside the yaml's directory; in a multi-repo workspace where the `raioz.yaml` lives in a sub-repo and services point at sibling repos via `../`, declare `workspaceRoot:` (relative to this yaml, e.g. `..`) to move the boundary there. Paths stay HARD-contained against the declared root; the root itself may not be a system dir. See [Multi-repo workspaces](#multi-repo-workspaces). |
 | `network` | string or object | no | auto-derived | Pin Docker network name and/or subnet. See [Network config](#network-config). |
 | `proxy` | bool or object | no | `false` | Enable Caddy reverse proxy with HTTPS. See [Proxy config](#proxy-config). |
 | `pre` | string or list | no | — | Commands to run before anything else (env rendering, secrets fetch). Failure aborts `up`. |
@@ -390,6 +391,58 @@ declare `EXPOSE` (postgres → 5432, pgadmin4 → 80, redisinsight → 5540),
 so explicit `ports:`/`expose:` is only needed for non-standard
 deployments. Lookup runs after deps start (image is local by then) and
 caches per `image:tag` for the process lifetime.
+
+---
+
+## Multi-repo workspaces
+
+By default, ADR-036 hygiene rule H2 requires every path in a
+`raioz.yaml` (`services.*.path`, `*.compose`, `*.env`, `command:`/`stop:`
+scripts, hooks) to resolve **inside the yaml's own directory**. This is
+the right default: it stops a config from reaching `/etc`, `../../`, or
+anywhere outside the repo it ships in.
+
+It also rejects a legitimate topology: a multi-repo workspace where the
+`raioz.yaml` lives in one repo and the services live in sibling repos
+checked out next to it.
+
+```text
+~/work/
+├── front/
+│   └── raioz.yaml      # services.api.path: ../api
+├── api/
+└── core/
+```
+
+Declare `workspaceRoot:` (relative to the yaml) to move the containment
+boundary up to the directory that holds all the repos:
+
+```yaml
+project: multi
+workspaceRoot: ..        # boundary becomes ~/work/ instead of ~/work/front/
+services:
+  api:
+    path: ../api         # now valid: resolves inside the workspace root
+  core:
+    path: ../core
+dependencies:
+  db:
+    compose: ../api/docker-compose.yml
+```
+
+`workspaceRoot` is **opt-in** and changes nothing for single-repo
+configs — when it's absent, containment stays anchored at the yaml's
+directory exactly as before. When declared, paths remain **hard
+contained** against the new root (a `../../escape` outside the root is
+still rejected), and the system-directory blocklist still applies to
+every path. The declared root itself may not be a system directory
+(`workspaceRoot: /etc` is rejected). Relative paths always resolve
+against the yaml's own directory regardless of the root.
+
+Sibling raioz projects declared via `dependencies.*.project` /
+`siblingProject` (ADR-008) and `router.project` (ADR-037) are exempt
+from containment entirely — they only get the system blocklist — because
+they point at independent raioz projects by design.
 
 ---
 
