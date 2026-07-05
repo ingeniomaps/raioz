@@ -348,6 +348,108 @@ func TestValidatePathSafety_SiblingProjectOutsideOK(t *testing.T) {
 	}
 }
 
+// TestValidatePathSafety_WorkspaceRootWidensContainment confirms the
+// opt-in escape hatch: declaring workspaceRoot moves the containment
+// boundary so multi-repo sibling paths (../api) validate as contained,
+// while the same paths are still rejected when no workspaceRoot is set.
+func TestValidatePathSafety_WorkspaceRootWidensContainment(t *testing.T) {
+	root := t.TempDir()                  // the workspace root (parent of repos)
+	base := filepath.Join(root, "front") // raioz.yaml lives in front/
+
+	// Baseline: without workspaceRoot, ../api escapes baseDir → rejected.
+	strict := &RaiozConfig{
+		Services: map[string]YAMLService{"api": {Path: "../api"}},
+	}
+	if err := validatePathSafety(strict, base); err == nil {
+		t.Fatal("expected ../api to be rejected without workspaceRoot")
+	}
+
+	// With workspaceRoot: .. the sibling paths resolve inside root → ok.
+	widened := &RaiozConfig{
+		WorkspaceRoot: "..",
+		Services: map[string]YAMLService{
+			"api": {
+				Path:    "../api",
+				Compose: []string{"../api/docker-compose.yml"},
+				Command: "../api/run.sh",
+				Env:     []string{"../api/.env"},
+			},
+		},
+		Deps: map[string]YAMLDependency{
+			"db": {Compose: []string{"../api/db.yml"}},
+		},
+	}
+	if err := validatePathSafety(widened, base); err != nil {
+		t.Errorf("expected multi-repo paths to pass with workspaceRoot, got: %v", err)
+	}
+}
+
+// TestValidatePathSafety_WorkspaceRootStillContains confirms the widened
+// boundary is still HARD containment: a path that escapes even the
+// declared root is rejected (not silently downgraded to blocklist-only).
+func TestValidatePathSafety_WorkspaceRootStillContains(t *testing.T) {
+	root := t.TempDir()
+	base := filepath.Join(root, "front")
+	cfg := &RaiozConfig{
+		WorkspaceRoot: "..",
+		Services: map[string]YAMLService{
+			"api": {Path: "../../outside-the-root"},
+		},
+	}
+	err := validatePathSafety(cfg, base)
+	if err == nil {
+		t.Fatal("expected path escaping the widened root to be rejected")
+	}
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) || rerr.Code != errors.ErrCodeUnsafePath {
+		t.Fatalf("expected UNSAFE_PATH, got %v", err)
+	}
+}
+
+// TestValidatePathSafety_WorkspaceRootSystemDirRejected confirms the
+// declared root itself cannot be a system dir — otherwise it would
+// re-open everything H2 closes.
+func TestValidatePathSafety_WorkspaceRootSystemDirRejected(t *testing.T) {
+	base := t.TempDir()
+	cfg := &RaiozConfig{
+		WorkspaceRoot: "/etc",
+		Services:      map[string]YAMLService{"api": {Path: "./api"}},
+	}
+	err := validatePathSafety(cfg, base)
+	if err == nil {
+		t.Fatal("expected workspaceRoot=/etc to be rejected")
+	}
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) {
+		t.Fatalf("expected *RaiozError, got %T", err)
+	}
+	if rerr.Context["field"] != "workspaceRoot" {
+		t.Errorf("expected field=workspaceRoot, got %v", rerr.Context["field"])
+	}
+}
+
+// TestValidatePathSafety_WorkspaceRootStillBlocksSystemDirs confirms the
+// system blocklist still applies to every path even when a workspaceRoot
+// widens the containment boundary.
+func TestValidatePathSafety_WorkspaceRootStillBlocksSystemDirs(t *testing.T) {
+	root := t.TempDir()
+	base := filepath.Join(root, "front")
+	cfg := &RaiozConfig{
+		WorkspaceRoot: "..",
+		Services: map[string]YAMLService{
+			"api": {Path: "./api", Env: []string{"/etc/secret.env"}},
+		},
+	}
+	err := validatePathSafety(cfg, base)
+	if err == nil {
+		t.Fatal("expected /etc env path to be blocked even with workspaceRoot")
+	}
+	var rerr *errors.RaiozError
+	if !stderrors.As(err, &rerr) || rerr.Context["system_dir"] != "/etc" {
+		t.Fatalf("expected system_dir=/etc, got %v", err)
+	}
+}
+
 // TestValidatePathSafety_CommandWithBinaryArgNotValidated confirms the
 // documented heuristic miss: a command whose first token is a binary
 // (PATH-resolved) and whose argument happens to be a path is NOT

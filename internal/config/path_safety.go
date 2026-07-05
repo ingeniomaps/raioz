@@ -28,44 +28,62 @@ var systemBlocklist = []string{
 }
 
 // validatePathSafety enforces ADR-036 hygiene rule H2: every path
-// referenced by raioz.yaml must resolve inside baseDir and must not
-// point to a known sensitive system directory. baseDir must already
-// be absolute.
+// referenced by raioz.yaml must resolve inside the containment root and
+// must not point to a known sensitive system directory. baseDir must
+// already be absolute.
+//
+// The containment root defaults to baseDir (the yaml's own directory).
+// When the config declares workspaceRoot, the root widens to that
+// directory so a multi-repo workspace (yaml in a sub-repo, services in
+// sibling repos via `../`) validates as contained — paths are still
+// HARD-contained, just against a boundary the dev declared explicitly.
+// Relative paths always resolve against baseDir regardless of root.
 //
 // The check is purely textual — symlinks are not resolved. An attacker
 // who can write a malicious symlink already has repo write access,
 // which is a separate threat model.
 //
 // Sibling project paths (dep.Project, dep.SiblingProject) are
-// intentionally NOT validated against baseDir: by design (ADR-008)
+// intentionally NOT validated against the root: by design (ADR-008)
 // they point at other raioz projects elsewhere on the dev's machine.
 // They ARE still checked against the system blocklist.
 func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
+	root := baseDir
+	if cfg.WorkspaceRoot != "" {
+		// The declared root itself must not be a system dir — otherwise
+		// `workspaceRoot: /etc` would re-open everything H2 closes.
+		if err := checkSystemBlocklist(cfg.WorkspaceRoot, baseDir,
+			"workspaceRoot"); err != nil {
+			return err
+		}
+		root = resolveAbs(cfg.WorkspaceRoot, baseDir)
+	}
+
 	for name, svc := range cfg.Services {
-		if err := checkInsidePath(svc.Path, baseDir,
+		if err := checkInsideRoot(svc.Path, baseDir, root,
 			"services."+name+".path"); err != nil {
 			return err
 		}
 		for i, env := range svc.Env {
-			if err := checkInsidePath(env, baseDir,
+			if err := checkInsideRoot(env, baseDir, root,
 				fmt.Sprintf("services.%s.env[%d]", name, i)); err != nil {
 				return err
 			}
 		}
 		for i, comp := range svc.Compose {
-			if err := checkInsidePath(comp, baseDir,
+			if err := checkInsideRoot(comp, baseDir, root,
 				fmt.Sprintf("services.%s.compose[%d]", name, i)); err != nil {
 				return err
 			}
 		}
 		if p, ok := pathFromCommand(svc.Command); ok {
-			if err := checkInsidePath(p, baseDir,
+			if err := checkInsideRoot(p, baseDir, root,
 				"services."+name+".command"); err != nil {
 				return err
 			}
 		}
 		if p, ok := pathFromCommand(svc.Stop); ok {
-			if err := checkInsidePath(p, baseDir,
+			if err := checkInsideRoot(p, baseDir, root,
 				"services."+name+".stop"); err != nil {
 				return err
 			}
@@ -74,19 +92,19 @@ func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
 
 	for name, dep := range cfg.Deps {
 		for i, env := range dep.Env {
-			if err := checkInsidePath(env, baseDir,
+			if err := checkInsideRoot(env, baseDir, root,
 				fmt.Sprintf("dependencies.%s.env[%d]", name, i)); err != nil {
 				return err
 			}
 		}
 		for i, comp := range dep.Compose {
-			if err := checkInsidePath(comp, baseDir,
+			if err := checkInsideRoot(comp, baseDir, root,
 				fmt.Sprintf("dependencies.%s.compose[%d]", name, i)); err != nil {
 				return err
 			}
 		}
 		if dep.Dev != nil {
-			if err := checkInsidePath(dep.Dev.Path, baseDir,
+			if err := checkInsideRoot(dep.Dev.Path, baseDir, root,
 				"dependencies."+name+".dev.path"); err != nil {
 				return err
 			}
@@ -114,7 +132,7 @@ func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
 
 	for i, cmd := range cfg.Pre {
 		if p, ok := pathFromCommand(cmd); ok {
-			if err := checkInsidePath(p, baseDir,
+			if err := checkInsideRoot(p, baseDir, root,
 				fmt.Sprintf("pre[%d]", i)); err != nil {
 				return err
 			}
@@ -122,7 +140,7 @@ func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
 	}
 	for i, cmd := range cfg.PreUp {
 		if p, ok := pathFromCommand(cmd); ok {
-			if err := checkInsidePath(p, baseDir,
+			if err := checkInsideRoot(p, baseDir, root,
 				fmt.Sprintf("preUp[%d]", i)); err != nil {
 				return err
 			}
@@ -130,7 +148,7 @@ func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
 	}
 	for i, cmd := range cfg.Post {
 		if p, ok := pathFromCommand(cmd); ok {
-			if err := checkInsidePath(p, baseDir,
+			if err := checkInsideRoot(p, baseDir, root,
 				fmt.Sprintf("post[%d]", i)); err != nil {
 				return err
 			}
@@ -141,9 +159,19 @@ func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
 }
 
 // checkInsidePath runs the full H2 check: system blocklist AND
-// containment within baseDir. Empty rawPath is a no-op so callers
-// don't need to guard.
+// containment within baseDir. Equivalent to checkInsideRoot with
+// root == baseDir — the classic per-repo containment used when no
+// workspaceRoot is declared. Empty rawPath is a no-op.
 func checkInsidePath(rawPath, baseDir, field string) error {
+	return checkInsideRoot(rawPath, baseDir, baseDir, field)
+}
+
+// checkInsideRoot runs the full H2 check: system blocklist AND
+// containment within root. rawPath is resolved relative to baseDir
+// (where the yaml lives) but contained against root (which equals
+// baseDir by default, or the declared workspaceRoot). Empty rawPath is
+// a no-op so callers don't need to guard.
+func checkInsideRoot(rawPath, baseDir, root, field string) error {
 	if rawPath == "" {
 		return nil
 	}
@@ -151,7 +179,7 @@ func checkInsidePath(rawPath, baseDir, field string) error {
 	if err := blocklistError(rawPath, abs, field); err != nil {
 		return err
 	}
-	rel, err := filepath.Rel(baseDir, abs)
+	rel, err := filepath.Rel(root, abs)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeUnsafePath,
