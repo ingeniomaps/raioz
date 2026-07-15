@@ -13,6 +13,7 @@ import (
 
 	"raioz/internal/audit"
 	"raioz/internal/config"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
@@ -171,10 +172,17 @@ func (uc *RestartUseCase) RestartYAML(
 		}
 	}()
 
+	// Track per-service failures so the command reflects them in its exit
+	// code. Without this the restart returned nil even when a relaunch died
+	// in the settle window — exit 0 with a stopped service (the symptom that
+	// hid the host-service ctx-kill bug). The named return `err` is read by
+	// the audit defer above, so assigning it also flips the lifecycle status.
+	var failed []string
 	for _, name := range services {
 		if isYAMLHostService(proj, name) {
-			if err := uc.restartHostService(ctx, proj, name); err != nil {
-				output.PrintProgressError(name + ": " + err.Error())
+			if restartErr := uc.restartHostService(ctx, proj, name); restartErr != nil {
+				output.PrintProgressError(name + ": " + restartErr.Error())
+				failed = append(failed, name)
 			} else {
 				output.PrintProgressDone(name)
 			}
@@ -184,13 +192,21 @@ func (uc *RestartUseCase) RestartYAML(
 		containerName := naming.Container(proj.ProjectName, name)
 		output.PrintProgress(i18n.T("output.restarting_service", name))
 		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
-		if out, err := cmd.CombinedOutput(); err != nil {
+		if out, restartErr := cmd.CombinedOutput(); restartErr != nil {
 			output.PrintProgressError(name + ": " + strings.TrimSpace(string(out)))
+			failed = append(failed, name)
 		} else {
 			output.PrintProgressDone(name)
 		}
 	}
-	return nil
+	if len(failed) > 0 {
+		err = errors.New(
+			errors.ErrCodeServiceStartFailed,
+			i18n.T("error.restart_failed"),
+		).WithSuggestion(i18n.T("error.restart_suggestion")).
+			WithContext("services", strings.Join(failed, ", "))
+	}
+	return err
 }
 
 // collectYAMLServiceNames returns the service names of a YAML project in a
