@@ -31,12 +31,20 @@ Run a single test:
 go test -v -run TestFunctionName ./internal/package/...
 ```
 
-## Code Quality Constraints (enforced in CI)
+## Code Quality Constraints
+
+Enforced in CI (the lint job fails the build):
 
 - **Max 400 lines per file** (excluding tests + `internal/config/schema.go` JSON blob) — `make check-lines`
 - **Max 120 characters per line** — `make check-length`
-- **Test coverage >= 73%** — `make check-coverage` (raised from 70% in v0.2.0; mocks/testing packages excluded from the metric. See [ROADMAP.md](ROADMAP.md) for the path back to 80%)
 - **i18n catalogs in sync** — `make check-i18n`
+
+Local only — `make check` does NOT run it and CI only prints the number:
+
+- **Test coverage >= 73%** — `make check-coverage` (raised from 70% in v0.2.0; mocks/testing
+  packages excluded from the metric). Actual total sits just below the threshold, so the target
+  fails today; run it deliberately rather than expecting it to gate a push. See
+  [ROADMAP.md](ROADMAP.md) for the path back to 80%.
 
 ### Lint baseline
 `.golangci.yml` enables: `govet`, `staticcheck`, `unused`,

@@ -48,6 +48,9 @@ See [docs/CI.md](docs/CI.md) for the full matrix.
 | Test coverage | >= 73% (target: 80%; see ROADMAP) | `make check-coverage` |
 | i18n catalog sync | all keys present | `make check-i18n` |
 
+Every row but coverage fails the build: CI prints the coverage number
+without comparing it, and `make check` skips the target entirely.
+
 The strict lint subset (`errcheck`, `gosec`, `revive` curated,
 `wrapcheck` at stdlib boundaries) ships on top of the v0.1.0
 baseline. Tests are exempted from those checks — see
