@@ -787,3 +787,138 @@ func TestDownUseCase_stopProxy_RouteTargetProbeErrorKeepsFile(t *testing.T) {
 		t.Errorf("probe error must fail closed (keep the file), got %v", proxy.removedRoutesFor)
 	}
 }
+
+// forceGateFixture builds the "stale route file that can't be proven dead"
+// scenario: a route file whose owning project dir is unknown (written by a
+// version predating the field), so the GC must keep it (ADR-005) and
+// RemainingProjects never reaches 0. Nothing else in the workspace is alive.
+func forceGateFixture(t *testing.T) (*mockProxyManager, *Dependencies, func()) {
+	t.Helper()
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	prevAlive, prevAny := hostPIDAliveFn, anyContainerRunningFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil // docker reachable, zero containers
+	}
+	hostPIDAliveFn = func(int) bool { return false }
+	anyContainerRunningFn = func(_ context.Context, _ []string) (bool, error) { return false, nil }
+
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"ghost"} },
+		remainingProjectsFunc:      func() int { return 1 },
+		projectDirForFunc:          func(string) string { return "" }, // unknown ⇒ never prune
+		routeTargetsForFunc:        func(string) []string { return nil },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "acme",
+				}, nil, nil
+			},
+		},
+	}
+	return proxy, deps, func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+		hostPIDAliveFn, anyContainerRunningFn = prevAlive, prevAny
+	}
+}
+
+// A stale route file that the GC cannot prove dead pins the shared proxy
+// alive forever. --all and --prune-shared exist precisely to break that pin;
+// a flagless down must keep the conservative behavior.
+func TestDownUseCase_stopProxy_ForceFlagsBreakStaleRoutePin(t *testing.T) {
+	cases := []struct {
+		name     string
+		opts     DownOptions
+		wantStop bool
+	}{
+		{name: "no flags keeps the proxy", opts: DownOptions{}, wantStop: false},
+		{name: "prune-shared forces teardown", opts: DownOptions{PruneShared: true}, wantStop: true},
+		{name: "all forces teardown", opts: DownOptions{All: true}, wantStop: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy, deps, restore := forceGateFixture(t)
+			defer restore()
+
+			var stopCalled, reloadCalled bool
+			proxy.stopFunc = func(_ context.Context) error { stopCalled = true; return nil }
+			proxy.reloadFunc = func(_ context.Context) error { reloadCalled = true; return nil }
+
+			NewDownUseCase(deps).stopProxy(context.Background(), tc.opts)
+
+			if stopCalled != tc.wantStop {
+				t.Errorf("Stop called = %v, want %v", stopCalled, tc.wantStop)
+			}
+			if reloadCalled == tc.wantStop {
+				t.Errorf("Reload called = %v; it is the alternative to Stop", reloadCalled)
+			}
+		})
+	}
+}
+
+// The live-sibling half of the gate is never waived: a launcher-pattern
+// project owns no labeled container, so only its route targets prove it is
+// up. --all must not cut the HTTPS out from under it.
+func TestDownUseCase_stopProxy_ForceRespectsLiveRouteTargetSibling(t *testing.T) {
+	initI18nForTest(t)
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	prevAlive, prevAny := hostPIDAliveFn, anyContainerRunningFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil
+	}
+	hostPIDAliveFn = func(int) bool { return false }
+	anyContainerRunningFn = func(_ context.Context, names []string) (bool, error) {
+		for _, n := range names {
+			if n == "gouduet-keycloak" {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+		hostPIDAliveFn, anyContainerRunningFn = prevAlive, prevAny
+	}()
+
+	var stopCalled, reloadCalled bool
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
+		reloadFunc:                 func(_ context.Context) error { reloadCalled = true; return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"keycloak"} },
+		remainingProjectsFunc:      func() int { return 1 },
+		projectDirForFunc:          func(string) string { return "" },
+		routeTargetsForFunc:        func(string) []string { return []string{"gouduet-keycloak"} },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "gouduet",
+				}, nil, nil
+			},
+		},
+	}
+	NewDownUseCase(deps).stopProxy(context.Background(), DownOptions{All: true})
+
+	if stopCalled {
+		t.Error("--all must not stop a proxy a launcher-pattern sibling is still using")
+	}
+	if !reloadCalled {
+		t.Error("expected a keep-alive Reload instead of the teardown")
+	}
+}
