@@ -166,6 +166,11 @@ var listContainersByLabelsErrFn = docker.ListContainersByLabelsErr
 // live/dead sibling host process without spawning one.
 var hostPIDAliveFn = host.IsProcessAlive
 
+// anyContainerRunningFn is the route-target liveness probe used by the
+// orphan-route GC. Hookable like the probes above so tests can simulate a
+// live/dead launcher-pattern backend without a docker daemon.
+var anyContainerRunningFn = docker.AnyContainerRunning
+
 // pruneOrphanRouteFiles removes persisted route files whose owning project
 // shows no sign of life — neither a labeled container in the workspace nor
 // a live host PID in its .raioz.state.json (see routeOwnerAliveOnHost).
@@ -201,6 +206,15 @@ func (uc *DownUseCase) pruneOrphanRouteFiles(ctx context.Context, workspace, cur
 			continue
 		}
 		if uc.routeOwnerAliveOnHost(ctx, workspace, proj) {
+			continue
+		}
+		// Launcher-pattern services (`command: make start` → `docker
+		// compose up -d`) daemonize: the recorded host PID dies at once
+		// and the resulting containers are user-owned (no raioz labels),
+		// so both probes above miss them. The persisted route targets are
+		// the durable link to the real backends — any of them running is
+		// proof of life (ADR-005, same fallback as sibling_probe ADR-008).
+		if uc.routeTargetAliveInDocker(ctx, workspace, proj) {
 			continue
 		}
 		if err := uc.deps.ProxyManager.RemoveRoutesFor(proj); err != nil {
@@ -245,6 +259,34 @@ func (uc *DownUseCase) routeOwnerAliveOnHost(ctx context.Context, workspace, pro
 		}
 	}
 	return false
+}
+
+// routeTargetAliveInDocker reports whether any container-name target in the
+// project's persisted route file is currently running. It is the third
+// liveness probe of the orphan-route GC, covering launcher-pattern services
+// whose user-owned containers carry no raioz labels and whose recorded host
+// PID (the launcher) is already dead — the two earlier probes miss them.
+//
+// Returns false when the file has no container targets (no signal; the
+// earlier probes already decided). Fail-closed: a docker probe error keeps
+// the file (returns true), matching ADR-005's "never absence of proof of
+// life".
+func (uc *DownUseCase) routeTargetAliveInDocker(ctx context.Context, workspace, project string) bool {
+	targets := uc.deps.ProxyManager.RouteTargetsFor(project)
+	if len(targets) == 0 {
+		return false
+	}
+	running, err := anyContainerRunningFn(ctx, targets)
+	if err != nil {
+		logging.WarnWithContext(ctx, "Keeping route file: target liveness probe failed",
+			"workspace", workspace, "project", project, "error", err.Error())
+		return true
+	}
+	if running {
+		logging.InfoWithContext(ctx, "Keeping route file: owner has a live route-target container",
+			"workspace", workspace, "project", project)
+	}
+	return running
 }
 
 // liveWorkspaceProjects returns the set of project names that currently have

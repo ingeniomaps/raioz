@@ -660,3 +660,130 @@ func TestDownUseCase_stopProxy_LegacyRouteFileNeverPruned(t *testing.T) {
 		t.Error("proxy must stay alive when a route file's owner liveness is unknown")
 	}
 }
+
+// TestDownUseCase_stopProxy_LiveRouteTargetKeepsRouteFile is issue 023: a
+// launcher-pattern sibling (`command: make start`) has a dead launcher PID
+// and unlabeled user-owned containers, so the label + host-PID probes both
+// miss it. Its persisted route target still points at a RUNNING container —
+// the GC must keep the file (a live backend is proof of life, ADR-005).
+func TestDownUseCase_stopProxy_LiveRouteTargetKeepsRouteFile(t *testing.T) {
+	initI18nForTest(t)
+
+	siblingDir := t.TempDir()
+	if err := state.SaveLocalState(siblingDir, &state.LocalState{
+		Project:  "keycloak",
+		HostPIDs: map[string]int{"keycloak": 4194304}, // the make-start launcher, dead
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	prevAlive, prevAny := hostPIDAliveFn, anyContainerRunningFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil
+	}
+	hostPIDAliveFn = func(int) bool { return false } // launcher dead
+	var probedTargets []string
+	anyContainerRunningFn = func(_ context.Context, names []string) (bool, error) {
+		probedTargets = names
+		return true, nil // the user-owned container is up
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+		hostPIDAliveFn, anyContainerRunningFn = prevAlive, prevAny
+	}()
+
+	var stopCalled bool
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { stopCalled = true; return nil },
+		reloadFunc:                 func(_ context.Context) error { return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"keycloak"} },
+		remainingProjectsFunc:      func() int { return 1 },
+		projectDirForFunc:          func(string) string { return siblingDir },
+		routeTargetsForFunc:        func(string) []string { return []string{"gouduet-keycloak"} },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "gouduet",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 0 {
+		t.Errorf("live launcher-pattern sibling's route file must be kept, got %v", proxy.removedRoutesFor)
+	}
+	if stopCalled {
+		t.Error("proxy must stay alive: the sibling's route-target container is running")
+	}
+	if len(probedTargets) != 1 || probedTargets[0] != "gouduet-keycloak" {
+		t.Errorf("expected the persisted route target to be probed, got %v", probedTargets)
+	}
+}
+
+// TestDownUseCase_stopProxy_RouteTargetProbeErrorKeepsFile: a docker error
+// while probing route targets must fail closed — the file is kept rather
+// than risk pruning a live sibling on a transient outage (ADR-005).
+func TestDownUseCase_stopProxy_RouteTargetProbeErrorKeepsFile(t *testing.T) {
+	initI18nForTest(t)
+
+	siblingDir := t.TempDir()
+	if err := state.SaveLocalState(siblingDir, &state.LocalState{
+		Project:  "keycloak",
+		HostPIDs: map[string]int{"keycloak": 4194304},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
+	prevAlive, prevAny := hostPIDAliveFn, anyContainerRunningFn
+	listContainersByLabelsFn = func(_ context.Context, _ map[string]string) []string { return nil }
+	getContainerLabelFn = func(_ context.Context, _, _ string) (string, error) { return "", nil }
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, nil
+	}
+	hostPIDAliveFn = func(int) bool { return false }
+	anyContainerRunningFn = func(_ context.Context, _ []string) (bool, error) {
+		return false, fmt.Errorf("docker daemon unreachable")
+	}
+	defer func() {
+		listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn = prevList, prevLabel, prevErr
+		hostPIDAliveFn, anyContainerRunningFn = prevAlive, prevAny
+	}()
+
+	proxy := &mockProxyManager{
+		statusFunc:                 func(_ context.Context) (bool, error) { return true, nil },
+		stopFunc:                   func(_ context.Context) error { return nil },
+		reloadFunc:                 func(_ context.Context) error { return nil },
+		listProjectsWithRoutesFunc: func() []string { return []string{"keycloak"} },
+		remainingProjectsFunc:      func() int { return 1 },
+		projectDirForFunc:          func(string) string { return siblingDir },
+		routeTargetsForFunc:        func(string) []string { return []string{"gouduet-keycloak"} },
+	}
+	deps := &Dependencies{
+		ProxyManager: proxy,
+		ConfigLoader: &mocks.MockConfigLoader{
+			LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+				return &models.Deps{
+					Project:   models.Project{Name: "alpha"},
+					Workspace: "gouduet",
+				}, nil, nil
+			},
+		},
+	}
+	uc := NewDownUseCase(deps)
+	uc.stopProxy(context.Background(), DownOptions{})
+
+	if len(proxy.removedRoutesFor) != 0 {
+		t.Errorf("probe error must fail closed (keep the file), got %v", proxy.removedRoutesFor)
+	}
+}

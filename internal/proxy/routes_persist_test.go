@@ -83,6 +83,44 @@ func TestRemoveProjectRoutes_DeletesFile(t *testing.T) {
 	}
 }
 
+// TestRouteTargetsFor_ExcludesHostGatewayAndStripsPort covers issue 023's
+// filtering: the orphan-route GC probes container targets for liveness, so
+// host.docker.internal targets (no container-liveness signal) are excluded
+// and the ":port" suffix is stripped down to the bare container name.
+func TestRouteTargetsFor_ExcludesHostGatewayAndStripsPort(t *testing.T) {
+	m := makeSharedManager(t, "wsRT", "alpha")
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "api", Hostname: "api", Target: "gouduet-keycloak:8080", Port: 8080,
+	})
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "web", Hostname: "web", Target: "alpha-web", Port: 3000,
+	})
+	m.AddRoute(t.Context(), interfaces.ProxyRoute{
+		ServiceName: "onhost", Hostname: "onhost", Target: "host.docker.internal:3001", Port: 3001,
+	})
+	if err := m.SaveProjectRoutes(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := m.RouteTargetsFor("alpha")
+	want := map[string]bool{"gouduet-keycloak": true, "alpha-web": true}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d container targets %v, got %v", len(want), want, got)
+	}
+	for _, g := range got {
+		if !want[g] {
+			t.Errorf("unexpected target %q (host-gateway must be excluded, port stripped)", g)
+		}
+	}
+}
+
+func TestRouteTargetsFor_MissingFileReturnsNil(t *testing.T) {
+	m := makeSharedManager(t, "wsRT2", "alpha")
+	if got := m.RouteTargetsFor("nonexistent"); got != nil {
+		t.Errorf("missing route file must return nil, got %v", got)
+	}
+}
+
 func TestRemoveProjectRoutes_IdempotentOnMissing(t *testing.T) {
 	m := makeSharedManager(t, "wsC", "gamma")
 	if err := m.RemoveProjectRoutes(); err != nil {

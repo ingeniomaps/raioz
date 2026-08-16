@@ -88,6 +88,11 @@ type ProxyManager interface {
 	// predates the field. The orphan-route GC uses it to probe host-side
 	// liveness before pruning; "" means unknown → never prune (ADR-005).
 	ProjectDirFor(project string) string
+	// RouteTargetsFor returns the container-name targets persisted in the
+	// given project's routes file (host-gateway targets excluded). The
+	// orphan-route GC probes them for liveness before pruning — a running
+	// backend is proof of life for launcher-pattern projects (ADR-005).
+	RouteTargetsFor(project string) []string
 	// IsPublished reports the current publish flag (true when host ports
 	// are bound).
 	IsPublished() bool

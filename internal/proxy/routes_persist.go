@@ -267,6 +267,38 @@ func (m *Manager) ProjectDirFor(project string) string {
 	return pp.ProjectDir
 }
 
+// RouteTargetsFor returns the container-name targets persisted in the given
+// project's routes file. Host-gateway targets (host.docker.internal) and
+// empty targets are skipped — they carry no container-liveness signal (the
+// host-PID probe covers host processes). Returns nil when the file is
+// missing, unreadable, or has no container targets. The down flow's
+// orphan-route GC probes these to detect launcher-pattern backends whose
+// user-owned containers carry no raioz labels (ADR-005 / ADR-008).
+func (m *Manager) RouteTargetsFor(project string) []string {
+	path := m.routeFilePathFor(project)
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var pp persistedProject
+	if err := json.Unmarshal(data, &pp); err != nil {
+		return nil
+	}
+	targets := make([]string, 0, len(pp.Routes))
+	for _, r := range pp.Routes {
+		// Target is "host" or "host:port"; take the host part.
+		host, _, _ := strings.Cut(r.Target, ":")
+		if host == "" || host == "host.docker.internal" {
+			continue
+		}
+		targets = append(targets, host)
+	}
+	return targets
+}
+
 // WriteRemoteProjectRoutes writes a persistedProject file for a meta
 // sub-project that runs in remote mode (ADR-049). The meta runner has no
 // Manager bound to it — sub-projects don't spawn locally — so this helper
