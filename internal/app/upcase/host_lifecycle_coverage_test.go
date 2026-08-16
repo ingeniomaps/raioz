@@ -152,10 +152,8 @@ func TestSavePartialHostPIDsRecordsStartedService(t *testing.T) {
 	if ls.NetworkName != "acme-net" {
 		t.Errorf("NetworkName = %q, want acme-net", ls.NetworkName)
 	}
-	// The retry after a failed up runs within the launcher window, and
-	// cleanStaleHostProcesses skips its sweep while LastUp is fresh. A
-	// bumped LastUp here would leave the orphan alive for the retry to
-	// collide with.
+	// A bumped LastUp would make the immediate retry skip its stale sweep
+	// and collide with the orphan this rescue just recorded.
 	if !ls.LastUp.Equal(previousUp) {
 		t.Errorf("LastUp = %v, want it untouched at %v", ls.LastUp, previousUp)
 	}

@@ -110,15 +110,11 @@ func StartService(
 		return nil, fmt.Errorf("invalid command for service %s: %s", serviceName, svc.Source.Command)
 	}
 
-	// Synchronous commands (make launch/stop, etc.) live and die with the
-	// CLI, so keep them bound to ctx. Background daemons (npm/bun run dev)
-	// must OUTLIVE the CLI: cobra's signal context is cancelled by the
-	// deferred stop() in cli/root.go on EVERY clean exit, and
-	// CommandContext's watchdog would SIGKILL the just-launched service the
-	// moment `raioz up` / `raioz restart` returns. Plain exec.Command by
-	// design for the daemon path — same fix as orchestrate.HostRunner.Start
-	// (see its doc comment and the SubprocessSurvivesParentCtxCancel test).
-	// Cancellation during the settle window is still handled below.
+	// Synchronous commands live and die with the CLI, so keep them bound to
+	// ctx. Daemons must outlive it: cobra's signal context is cancelled on
+	// every clean exit, and CommandContext's watchdog would SIGKILL the
+	// service the moment `raioz up` / `restart` returns. The settle window
+	// below still honors cancellation.
 	shouldWait := shouldWaitForCommand(svc.Source.Command)
 	var cmd *exec.Cmd
 	switch {

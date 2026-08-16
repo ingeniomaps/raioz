@@ -48,14 +48,12 @@ func (uc *DownUseCase) downOtherProjectsOnly(
 }
 
 // downOtherWorkspaceProjects stops every OTHER raioz project with live
-// containers in the workspace. This is what makes `raioz down --all` a
-// workspace shutdown instead of a cwd-project one; the caller then tears
-// down the cwd project and its shared infra as usual.
+// containers in the workspace — what makes `raioz down --all` a workspace
+// shutdown rather than a cwd-project one.
 //
-// Best-effort by design: a project whose services run via `command:` owns no
-// labeled container, so the scan can't see it and it stays up. That is not a
-// silent half-down — the proxy gate probes those projects through their route
-// targets, so the shared proxy survives for them (ADR-005 rule 3).
+// Label-invisible projects (`command:` launchers) survive the scan. Not a
+// silent half-down: the proxy gate still sees them through their route
+// targets and keeps serving them (ADR-005).
 func (uc *DownUseCase) downOtherWorkspaceProjects(ctx context.Context, workspace, currentProject string) {
 	if workspace == "" {
 		return

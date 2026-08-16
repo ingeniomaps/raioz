@@ -112,10 +112,9 @@ func TestDockerfileRunner_Start_EnvFile(t *testing.T) {
 	}
 }
 
-// fakeDockerReconcile writes a fake runtime binary that answers `inspect`
-// with the given payload — the "state|managed-label" pair reconcileExisting
-// asks for, or "" to make inspect fail (container absent) — and appends
-// every invocation's argv to args.txt. Returns the args file path.
+// fakeDockerReconcile fakes the runtime binary: `inspect` echoes the given
+// "state|managed-label" payload ("" makes it fail, i.e. container absent) and
+// every invocation appends its argv to the returned args file.
 func fakeDockerReconcile(t *testing.T, inspectPayload string) string {
 	t.Helper()
 	if _, err := exec.LookPath("sh"); err != nil {

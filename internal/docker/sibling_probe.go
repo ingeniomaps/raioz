@@ -73,12 +73,9 @@ func IsProjectActive(ctx context.Context, workspace, project string,
 }
 
 // AnyContainerRunning reports whether any of the given container names is
-// currently running. Exported for the down flow's orphan-route GC, which
-// needs the same launcher-pattern fallback as IsProjectActive: `command:`
-// services produce user-owned containers without raioz labels, so a route
-// file's targets are the only durable link between it and its live backends.
-// Empty input returns (false, nil); errors propagate so callers can
-// fail-closed (keep the route file) on a docker outage.
+// running. Exported for the down flow's orphan-route GC, which needs the same
+// launcher-pattern fallback as IsProjectActive. Errors propagate so callers
+// can fail closed on a docker outage.
 func AnyContainerRunning(ctx context.Context, names []string) (bool, error) {
 	return probeByContainerNames(ctx, names)
 }

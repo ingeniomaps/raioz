@@ -300,12 +300,9 @@ func TestStartServiceLocalBackground(t *testing.T) {
 	}
 }
 
-// A background host service (daemon) must OUTLIVE a parent ctx cancel.
-// StartService used to spawn it with exec.CommandContext, so cobra's signal
-// context — cancelled on EVERY clean CLI exit (deferred stop() in
-// cli/root.go) — SIGKILLed the just-relaunched service the moment
-// `raioz restart` returned (issue 022). Mirrors
-// orchestrate.TestHostRunner_Start_SubprocessSurvivesParentCtxCancel.
+// A background host service must OUTLIVE a parent ctx cancel: cobra's signal
+// context is cancelled on every clean CLI exit, and CommandContext's watchdog
+// used to SIGKILL the daemon the moment `raioz restart` returned.
 func TestStartServiceBackgroundSurvivesParentCtxCancel(t *testing.T) {
 	skipIfNoBinary(t, "sleep")
 

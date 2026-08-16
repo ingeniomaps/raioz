@@ -83,10 +83,9 @@ func TestRemoveProjectRoutes_DeletesFile(t *testing.T) {
 	}
 }
 
-// TestRouteTargetsFor_ExcludesHostGatewayAndStripsPort covers issue 023's
-// filtering: the orphan-route GC probes container targets for liveness, so
-// host.docker.internal targets (no container-liveness signal) are excluded
-// and the ":port" suffix is stripped down to the bare container name.
+// The GC probes these names against docker, so a target must arrive as a bare
+// container name — no port suffix — and host.docker.internal must not arrive
+// at all (nothing to probe).
 func TestRouteTargetsFor_ExcludesHostGatewayAndStripsPort(t *testing.T) {
 	m := makeSharedManager(t, "wsRT", "alpha")
 	m.AddRoute(t.Context(), interfaces.ProxyRoute{

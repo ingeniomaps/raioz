@@ -173,10 +173,8 @@ func (uc *RestartUseCase) RestartYAML(
 	}()
 
 	// Track per-service failures so the command reflects them in its exit
-	// code. Without this the restart returned nil even when a relaunch died
-	// in the settle window — exit 0 with a stopped service (the symptom that
-	// hid the host-service ctx-kill bug). The named return `err` is read by
-	// the audit defer above, so assigning it also flips the lifecycle status.
+	// code: restart used to return nil even when a relaunch died in the
+	// settle window, reporting success over a stopped service.
 	var failed []string
 	for _, name := range services {
 		if isYAMLHostService(proj, name) {

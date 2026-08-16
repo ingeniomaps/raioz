@@ -24,14 +24,9 @@ func init() {
 // It builds the image and runs it as a standalone container on the Raioz network.
 type DockerfileRunner struct{}
 
-// Start builds the Docker image and runs it.
-//
-// The container name is deterministic (workspace-project-service), so a
-// leftover from a previous run always collides with `docker run --name`
-// unless it is reconciled first — see reconcileExisting. A container already
-// running short-circuits build+run (idempotent up, same contract as
-// ImageRunner.Start), so a re-up reuses it instead of rebuilding; watch mode
-// goes through Restart, which removes the container and does rebuild.
+// Start builds the Docker image and runs it. A container already running is
+// reused as-is, so a re-up rebuilds nothing; watch mode forces the rebuild by
+// going through Restart, which removes the container first.
 func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
 	reused, err := r.reconcileExisting(ctx, svc.ContainerName)
 	if err != nil {
@@ -63,10 +58,8 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		"--network-alias", svc.Name,
 	}
 
-	// Identify the container as raioz-managed (ADR-001). Everything that
-	// recognizes raioz's own containers — down, status, the route GC —
-	// matches on these labels, so without them `raioz down` reported
-	// success while the service kept running.
+	// ADR-001: down/status/the route GC find raioz containers by these
+	// labels. Without them `down` reports success and leaves them running.
 	args = append(args, labelArgs(naming.Labels(
 		naming.WorkspaceName(), svc.ProjectName, svc.Name, naming.KindService,
 	))...)
@@ -124,20 +117,12 @@ func labelArgs(labels map[string]string) []string {
 	return args
 }
 
-// reconcileExisting resolves a pre-existing container with the same
-// deterministic name before `docker run --name` gets a chance to fail with
-// "name is already in use" (exit 125). Three outcomes:
+// reconcileExisting clears any leftover container holding our deterministic
+// name, which would otherwise fail `docker run --name` with exit 125.
+// Reports whether the container was already running and can be reused.
 //
-//   - absent (inspect fails or reports nothing): nothing to do, build+run.
-//   - running AND raioz-managed: the service is already up; report reuse so
-//     Start returns without rebuilding or recreating it.
-//   - anything else: a leftover from an ordered down, a crash or a reboot —
-//     or a container from a raioz old enough to have created it without the
-//     ADR-001 labels, which `down` can never stop. Force-remove it and let
-//     Start recreate it, labels included.
-//
-// Mirrors proxy.removeStaleContainer and ImageRunner.Start's reuse probe —
-// this runner was the last of the three `docker run` sites without it.
+// A running container without the raioz labels predates ADR-001 and `down`
+// can never stop it, so it is replaced rather than reused.
 func (r *DockerfileRunner) reconcileExisting(ctx context.Context, containerName string) (bool, error) {
 	if containerName == "" {
 		return false, nil

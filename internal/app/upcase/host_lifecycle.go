@@ -100,17 +100,13 @@ func saveHostPIDs(
 		dispatcher, serviceNames, detections, deferredDeps, true)
 }
 
-// savePartialHostPIDs persists what a FAILED up managed to start before it
-// bailed. Without it those processes are invisible to raioz: `down` iterates
-// the persisted HostPIDs and `status` falls back to them, so an unrecorded
-// PID is a live process nobody can stop or report — and the next `up` reads
-// its port as taken by a stranger.
+// savePartialHostPIDs persists what a FAILED up started before it bailed.
+// `down` and `status` only know the PIDs recorded here, so an unrecorded one
+// is a live process nobody can stop or even report.
 //
-// LastUp deliberately stays untouched: cleanStaleHostProcesses skips its
-// sweep entirely while recentlyUpped(LastUp) holds, and the normal recovery
-// from a failed up is an immediate retry, well inside that window. Stamping
-// LastUp here would make the retry walk into the very port conflict this
-// rescue exists to prevent.
+// LastUp stays untouched on purpose: cleanStaleHostProcesses skips its sweep
+// while recentlyUpped(LastUp) holds, and the usual recovery is an immediate
+// retry — well inside that window.
 func savePartialHostPIDs(
 	projectDir, projectName, workspaceName, networkName string,
 	dispatcher serviceDispatcher,

@@ -45,9 +45,7 @@ func (uc *DownUseCase) stopProxy(ctx context.Context, opts DownOptions) {
 	})
 
 	if deps.Workspace != "" {
-		// --all / --prune-shared ask for the shared infra to go down too.
-		// Both mean the same thing here: skip the orphan-route-file guard.
-		// Neither can override the live-sibling check (see the gate).
+		// --all and --prune-shared mean the same thing to the proxy.
 		uc.handleSharedProxyDown(ctx, deps, opts.All || opts.PruneShared)
 		return
 	}
@@ -59,11 +57,9 @@ func (uc *DownUseCase) stopProxy(ctx context.Context, opts DownOptions) {
 // handleSharedProxyDown implements the workspace-shared lifecycle: drop our
 // routes, then either reload (siblings remain) or stop (last one out).
 //
-// force (from --all / --prune-shared) waives only the route-file half of the
-// gate: a leftover file from a project that is provably gone should not pin
-// the proxy forever when the user explicitly asked for a full shutdown. The
-// live-sibling half is never waived — no flag tears down a proxy another
-// project is still serving traffic through.
+// force waives the route-file half of the gate so a leftover file can't pin
+// the proxy forever. The live-sibling half is never waived: no flag tears
+// down a proxy another project is still serving traffic through.
 func (uc *DownUseCase) handleSharedProxyDown(ctx context.Context, deps *models.Deps, force bool) {
 	if err := uc.deps.ProxyManager.RemoveProjectRoutes(); err != nil {
 		logging.WarnWithContext(ctx, "Failed to remove project routes",
@@ -78,12 +74,9 @@ func (uc *DownUseCase) handleSharedProxyDown(ctx context.Context, deps *models.D
 	// reflects only genuinely-live projects.
 	uc.pruneOrphanRouteFiles(ctx, deps.Workspace, deps.Project.Name)
 
-	// Two independent signals must agree before we tumba: no persisted
-	// routes for any project AND no other workspace project still alive.
-	// Either alone is too aggressive — routes can be stale from a crash,
-	// and labels can be stale during a partial up — but requiring both
-	// keeps siblings safe in the common case. `force` drops the first
-	// requirement, which is exactly the stale-route-file case.
+	// Both signals must agree before we tumba: routes can be stale from a
+	// crash and labels can be stale during a partial up, so either alone is
+	// too aggressive. `force` drops the route half — the stale-file case.
 	noRouteFiles := uc.deps.ProxyManager.RemainingProjects() == 0
 	noLiveSiblings := !uc.workspaceSiblingAlive(ctx, deps.Workspace, deps.Project.Name)
 

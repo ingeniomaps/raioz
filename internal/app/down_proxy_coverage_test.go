@@ -661,11 +661,9 @@ func TestDownUseCase_stopProxy_LegacyRouteFileNeverPruned(t *testing.T) {
 	}
 }
 
-// TestDownUseCase_stopProxy_LiveRouteTargetKeepsRouteFile is issue 023: a
-// launcher-pattern sibling (`command: make start`) has a dead launcher PID
-// and unlabeled user-owned containers, so the label + host-PID probes both
-// miss it. Its persisted route target still points at a RUNNING container —
-// the GC must keep the file (a live backend is proof of life, ADR-005).
+// A launcher-pattern sibling has a dead launcher PID and unlabeled
+// containers, so the label and host-PID probes both miss it. Its route
+// target still points at a running container: keep the file (ADR-005).
 func TestDownUseCase_stopProxy_LiveRouteTargetKeepsRouteFile(t *testing.T) {
 	initI18nForTest(t)
 
@@ -730,9 +728,8 @@ func TestDownUseCase_stopProxy_LiveRouteTargetKeepsRouteFile(t *testing.T) {
 	}
 }
 
-// TestDownUseCase_stopProxy_RouteTargetProbeErrorKeepsFile: a docker error
-// while probing route targets must fail closed — the file is kept rather
-// than risk pruning a live sibling on a transient outage (ADR-005).
+// A docker error while probing route targets must fail closed rather than
+// risk pruning a live sibling on a transient outage (ADR-005).
 func TestDownUseCase_stopProxy_RouteTargetProbeErrorKeepsFile(t *testing.T) {
 	initI18nForTest(t)
 
@@ -788,10 +785,9 @@ func TestDownUseCase_stopProxy_RouteTargetProbeErrorKeepsFile(t *testing.T) {
 	}
 }
 
-// forceGateFixture builds the "stale route file that can't be proven dead"
-// scenario: a route file whose owning project dir is unknown (written by a
-// version predating the field), so the GC must keep it (ADR-005) and
-// RemainingProjects never reaches 0. Nothing else in the workspace is alive.
+// forceGateFixture: a route file with no projectDir, so the GC can never
+// prove its owner dead and RemainingProjects never reaches 0. Nothing else
+// in the workspace is alive.
 func forceGateFixture(t *testing.T) (*mockProxyManager, *Dependencies, func()) {
 	t.Helper()
 	initI18nForTest(t)

@@ -186,10 +186,9 @@ func TestRestartYAML_WithServices(t *testing.T) {
 		ProjectName: "test",
 		Deps:        &models.Deps{},
 	}
-	// The docker service "api" cannot be restarted (no such container /
-	// docker unavailable), so RestartYAML must now surface a non-nil error
-	// instead of the old silent `return nil` that hid dead relaunches
-	// (issue 022 secondary defect — exit 0 with a stopped service).
+	// The docker service "api" cannot be restarted, so RestartYAML must
+	// surface a non-nil error instead of the silent `return nil` that used
+	// to report exit 0 over a stopped service.
 	err := (&RestartUseCase{}).RestartYAML(
 		context.Background(), proj, RestartOptions{Services: []string{"api"}})
 	if err == nil {

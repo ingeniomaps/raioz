@@ -268,12 +268,9 @@ func (m *Manager) ProjectDirFor(project string) string {
 }
 
 // RouteTargetsFor returns the container-name targets persisted in the given
-// project's routes file. Host-gateway targets (host.docker.internal) and
-// empty targets are skipped — they carry no container-liveness signal (the
-// host-PID probe covers host processes). Returns nil when the file is
-// missing, unreadable, or has no container targets. The down flow's
-// orphan-route GC probes these to detect launcher-pattern backends whose
-// user-owned containers carry no raioz labels (ADR-005 / ADR-008).
+// project's routes file, for the down flow's liveness probe. Host-gateway
+// targets are skipped: they point at a host process, which the PID probe
+// already covers.
 func (m *Manager) RouteTargetsFor(project string) []string {
 	path := m.routeFilePathFor(project)
 	if path == "" {

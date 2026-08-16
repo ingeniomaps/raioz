@@ -1,6 +1,4 @@
-// Step 3 of processOrchestration: bring up the project's own services in
-// dependency order. Split out of orchestration.go, which keeps the phase
-// sequencing (detect → infra → services → proxy).
+// Step 3 of processOrchestration: bring up the project's own services.
 
 package upcase
 
@@ -18,19 +16,15 @@ import (
 	"raioz/internal/output"
 )
 
-// serviceDispatcher is the slice of orchestrate.Dispatcher the up flow
-// actually uses: start a service, and report the host PID it produced.
-// Depending on the narrow port instead of the concrete type keeps this file
-// (and host_lifecycle.go) off the app→infra import list — ADR-012/ADR-029 —
-// and lets tests hand in a stub without an orchestrator.
+// serviceDispatcher is the slice of orchestrate.Dispatcher the up flow uses.
+// Depending on the port rather than the concrete type keeps this file and
+// host_lifecycle.go off the app→infra import list (ADR-012/ADR-029).
 type serviceDispatcher interface {
 	Start(ctx context.Context, svc interfaces.ServiceContext) error
 	GetHostPID(serviceName string) int
 }
 
-// startServicesParams carries the orchestration state Step 3 reads. A struct
-// rather than a dozen positional args: every field is already computed by the
-// earlier steps and passing them by name keeps the call site readable.
+// startServicesParams carries the state the earlier steps already computed.
 type startServicesParams struct {
 	deps         *models.Deps
 	detections   DetectionMap
@@ -44,12 +38,9 @@ type startServicesParams struct {
 }
 
 // startServices starts every service in order, stopping at the first failure.
-//
-// Services that already started keep running — tearing down a stack of warm
-// services because the last one failed would throw away expensive work — so
-// the failure path persists their PIDs first. Without that, `down` and
-// `status` lose track of live processes and the next `up` sees their ports as
-// held by a stranger.
+// Services already up are left running — tearing down a warm stack over one
+// late failure would throw away expensive work — so their PIDs are handed to
+// the state file on the way out (see savePartialHostPIDs).
 func (uc *UseCase) startServices(ctx context.Context, p startServicesParams) error {
 	if len(p.serviceNames) == 0 {
 		return nil
