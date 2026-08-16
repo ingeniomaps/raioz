@@ -111,6 +111,139 @@ func TestDockerfileRunner_Start_EnvFile(t *testing.T) {
 	}
 }
 
+// fakeDockerReconcile writes a fake runtime binary that answers `inspect`
+// with the given state ("" makes inspect fail, i.e. container absent) and
+// appends every invocation's argv to args.txt. Returns the args file path.
+func fakeDockerReconcile(t *testing.T, inspectState string) string {
+	t.Helper()
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+
+	dir := t.TempDir()
+	argsFile := dir + "/args.txt"
+	inspectBranch := "exit 1"
+	if inspectState != "" {
+		inspectBranch = "echo " + inspectState
+	}
+	script := dir + "/fake-docker.sh"
+	body := "#!/bin/sh\n" +
+		"echo \"$@\" >> " + argsFile + "\n" +
+		"if [ \"$1\" = inspect ]; then " + inspectBranch + "; fi\n" +
+		"exit 0\n"
+	if err := writeExecutable(script, body); err != nil {
+		t.Fatalf("writeExecutable: %v", err)
+	}
+	withRuntimeBinary(t, script)
+	return argsFile
+}
+
+func readFakeDockerArgs(t *testing.T, argsFile string) string {
+	t.Helper()
+	out, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("read args file: %v", err)
+	}
+	return string(out)
+}
+
+// A stopped container with the same deterministic name used to make
+// `docker run --name` fail with exit 125. Start must force-remove it and
+// then create the container as usual.
+func TestDockerfileRunner_Start_RemovesStoppedContainer(t *testing.T) {
+	argsFile := fakeDockerReconcile(t, "exited")
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	got := readFakeDockerArgs(t, argsFile)
+	if !strings.Contains(got, "rm -f raioz-proj-api") {
+		t.Errorf("expected stale container removal; got: %q", got)
+	}
+	if !strings.Contains(got, "run -d --name raioz-proj-api") {
+		t.Errorf("expected docker run after reconcile; got: %q", got)
+	}
+	if rm, run := strings.Index(got, "rm -f"), strings.Index(got, "run -d"); rm < 0 || run < 0 || rm > run {
+		t.Errorf("rm must precede run; rm=%d run=%d in %q", rm, run, got)
+	}
+}
+
+// An already-running container means the service is up: reuse it instead of
+// rebuilding and recreating (same contract as ImageRunner.Start).
+func TestDockerfileRunner_Start_ReusesRunningContainer(t *testing.T) {
+	argsFile := fakeDockerReconcile(t, "running")
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	got := readFakeDockerArgs(t, argsFile)
+	if strings.Contains(got, "rm -f") {
+		t.Errorf("running container must not be removed; got: %q", got)
+	}
+	if strings.Contains(got, "build") || strings.Contains(got, "run -d") {
+		t.Errorf("running container must short-circuit build+run; got: %q", got)
+	}
+}
+
+// No container with that name: reconcile is a no-op and Start proceeds
+// straight to build + run, the pre-fix behavior.
+func TestDockerfileRunner_Start_AbsentContainerBuildsAndRuns(t *testing.T) {
+	argsFile := fakeDockerReconcile(t, "")
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	got := readFakeDockerArgs(t, argsFile)
+	if strings.Contains(got, "rm -f") {
+		t.Errorf("absent container must not trigger removal; got: %q", got)
+	}
+	if !strings.Contains(got, "build -t raioz-api") || !strings.Contains(got, "run -d") {
+		t.Errorf("expected build and run; got: %q", got)
+	}
+}
+
+// A failing `docker rm -f` must abort Start: running the create anyway would
+// only surface the same name conflict with a less useful message.
+func TestDockerfileRunner_Start_RemoveFailureAborts(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+
+	dir := t.TempDir()
+	script := dir + "/fake-docker.sh"
+	body := "#!/bin/sh\n" +
+		"if [ \"$1\" = inspect ]; then echo exited; exit 0; fi\n" +
+		"if [ \"$1\" = rm ]; then echo 'permission denied'; exit 1; fi\n" +
+		"exit 0\n"
+	if err := writeExecutable(script, body); err != nil {
+		t.Fatalf("writeExecutable: %v", err)
+	}
+	withRuntimeBinary(t, script)
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+
+	err := r.Start(context.Background(), svc)
+	if err == nil {
+		t.Fatal("expected error when removing the stale container fails")
+	}
+	if !strings.Contains(err.Error(), "docker rm raioz-proj-api") {
+		t.Errorf("error should name the failed removal; got: %v", err)
+	}
+}
+
 func TestDockerfileRunner_Start_BuildFails(t *testing.T) {
 	if _, err := exec.LookPath("false"); err != nil {
 		t.Skip("false not available")
