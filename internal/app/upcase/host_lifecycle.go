@@ -7,7 +7,6 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
-	"raioz/internal/orchestrate"
 	"raioz/internal/state"
 )
 
@@ -92,10 +91,47 @@ func recentlyUpped(lastUp time.Time) bool {
 // dropped without an explicit ClearDeferred per dep.
 func saveHostPIDs(
 	projectDir, projectName, workspaceName, networkName string,
-	dispatcher *orchestrate.Dispatcher,
+	dispatcher serviceDispatcher,
 	serviceNames []string,
 	detections DetectionMap,
 	deferredDeps []string,
+) {
+	persistHostPIDs(projectDir, projectName, workspaceName, networkName,
+		dispatcher, serviceNames, detections, deferredDeps, true)
+}
+
+// savePartialHostPIDs persists what a FAILED up managed to start before it
+// bailed. Without it those processes are invisible to raioz: `down` iterates
+// the persisted HostPIDs and `status` falls back to them, so an unrecorded
+// PID is a live process nobody can stop or report — and the next `up` reads
+// its port as taken by a stranger.
+//
+// LastUp deliberately stays untouched: cleanStaleHostProcesses skips its
+// sweep entirely while recentlyUpped(LastUp) holds, and the normal recovery
+// from a failed up is an immediate retry, well inside that window. Stamping
+// LastUp here would make the retry walk into the very port conflict this
+// rescue exists to prevent.
+func savePartialHostPIDs(
+	projectDir, projectName, workspaceName, networkName string,
+	dispatcher serviceDispatcher,
+	startedNames []string,
+	detections DetectionMap,
+	deferredDeps []string,
+) {
+	if len(startedNames) == 0 {
+		return
+	}
+	persistHostPIDs(projectDir, projectName, workspaceName, networkName,
+		dispatcher, startedNames, detections, deferredDeps, false)
+}
+
+func persistHostPIDs(
+	projectDir, projectName, workspaceName, networkName string,
+	dispatcher serviceDispatcher,
+	serviceNames []string,
+	detections DetectionMap,
+	deferredDeps []string,
+	bumpLastUp bool,
 ) {
 	localState, _ := state.LoadLocalState(projectDir)
 	if localState == nil {
@@ -107,7 +143,9 @@ func saveHostPIDs(
 	localState.Project = projectName
 	localState.Workspace = workspaceName
 	localState.NetworkName = networkName
-	localState.LastUp = time.Now()
+	if bumpLastUp {
+		localState.LastUp = time.Now()
+	}
 
 	localState.DeferredToSibling = deferredDeps
 

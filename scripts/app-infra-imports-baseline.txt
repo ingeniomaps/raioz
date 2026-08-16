@@ -25,7 +25,6 @@ internal/app/down_proxy_liveness.go
 internal/app/ports_conflicting.go
 internal/app/switch.go
 internal/app/upcase/compose.go
-internal/app/upcase/host_lifecycle.go
 internal/app/upcase/orchestration.go
 internal/app/upcase/orchestration_proxy.go
 internal/app/upcase/port_resolve.go
