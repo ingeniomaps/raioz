@@ -91,10 +91,8 @@ func (uc *UseCase) buildStartContext(
 	// Inject PORT for host services so frameworks honoring $PORT (Next.js,
 	// Vite, Django, etc.) rebind to the allocator's pick. Docker services
 	// get their port via published config.
-	if p.portAllocs != nil {
-		if alloc, ok := p.portAllocs.Services[name]; ok && alloc.IsHost() && alloc.Port > 0 {
-			envVars["PORT"] = strconv.Itoa(alloc.Port)
-		}
+	if alloc, ok := p.portAllocs.Services[name]; ok && alloc.IsHost() && alloc.Port > 0 {
+		envVars["PORT"] = strconv.Itoa(alloc.Port)
 	}
 
 	svcCtx := buildServiceContext(
