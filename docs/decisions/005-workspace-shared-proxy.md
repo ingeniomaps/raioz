@@ -99,6 +99,24 @@ mere absence of proof of life**:
    when the project dir is known, the state is readable, and no
    recorded PID is alive.
 
+3. **Live route targets veto the prune.** Rules 1 and 2 both miss
+   the launcher pattern (ADR-025): a `command:` that shells out to
+   `make start` → `docker compose up -d` daemonizes, so the
+   recorded host PID is the launcher's and dies within seconds,
+   while the resulting containers are user-owned and carry no
+   raioz labels. Both probes read "dead" on a fully live project.
+   The route file itself holds the missing link: its `Target`
+   fields name those containers. Before pruning, the GC asks
+   Docker whether any container-name target is running
+   (`ProxyManager.RouteTargetsFor` → `docker.AnyContainerRunning`,
+   the same by-name probe ADR-008 uses for siblings) and keeps the
+   file if one is. `host.docker.internal` targets are excluded —
+   they carry no container signal, and rule 2 already covers host
+   processes. A file with zero container targets yields no signal;
+   the earlier rules decide. A probe error keeps the file
+   (fail-closed), same posture as the Docker-unreachable guard
+   below.
+
 The accepted cost mirrors the label-leak direction already
 declared acceptable below: a workspace where every project
 crashed but shared deps survived keeps the proxy alive until
