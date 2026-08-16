@@ -11,6 +11,7 @@ import (
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
 
@@ -112,9 +113,10 @@ func TestDockerfileRunner_Start_EnvFile(t *testing.T) {
 }
 
 // fakeDockerReconcile writes a fake runtime binary that answers `inspect`
-// with the given state ("" makes inspect fail, i.e. container absent) and
-// appends every invocation's argv to args.txt. Returns the args file path.
-func fakeDockerReconcile(t *testing.T, inspectState string) string {
+// with the given payload — the "state|managed-label" pair reconcileExisting
+// asks for, or "" to make inspect fail (container absent) — and appends
+// every invocation's argv to args.txt. Returns the args file path.
+func fakeDockerReconcile(t *testing.T, inspectPayload string) string {
 	t.Helper()
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not available")
@@ -123,8 +125,8 @@ func fakeDockerReconcile(t *testing.T, inspectState string) string {
 	dir := t.TempDir()
 	argsFile := dir + "/args.txt"
 	inspectBranch := "exit 1"
-	if inspectState != "" {
-		inspectBranch = "echo " + inspectState
+	if inspectPayload != "" {
+		inspectBranch = "echo '" + inspectPayload + "'"
 	}
 	script := dir + "/fake-docker.sh"
 	body := "#!/bin/sh\n" +
@@ -151,7 +153,7 @@ func readFakeDockerArgs(t *testing.T, argsFile string) string {
 // `docker run --name` fail with exit 125. Start must force-remove it and
 // then create the container as usual.
 func TestDockerfileRunner_Start_RemovesStoppedContainer(t *testing.T) {
-	argsFile := fakeDockerReconcile(t, "exited")
+	argsFile := fakeDockerReconcile(t, "exited|true")
 
 	r := &DockerfileRunner{}
 	svc := makeDockerfileSvc(t)
@@ -172,10 +174,10 @@ func TestDockerfileRunner_Start_RemovesStoppedContainer(t *testing.T) {
 	}
 }
 
-// An already-running container means the service is up: reuse it instead of
-// rebuilding and recreating (same contract as ImageRunner.Start).
+// An already-running raioz container means the service is up: reuse it
+// instead of rebuilding and recreating (same contract as ImageRunner.Start).
 func TestDockerfileRunner_Start_ReusesRunningContainer(t *testing.T) {
-	argsFile := fakeDockerReconcile(t, "running")
+	argsFile := fakeDockerReconcile(t, "running|true")
 
 	r := &DockerfileRunner{}
 	svc := makeDockerfileSvc(t)
@@ -190,6 +192,49 @@ func TestDockerfileRunner_Start_ReusesRunningContainer(t *testing.T) {
 	}
 	if strings.Contains(got, "build") || strings.Contains(got, "run -d") {
 		t.Errorf("running container must short-circuit build+run; got: %q", got)
+	}
+}
+
+// A running container without the raioz labels comes from a version that
+// created it before ADR-001 was honored here: `down` can never stop it, so
+// reusing it would make it immortal. Replace it instead.
+func TestDockerfileRunner_Start_ReplacesUnmanagedRunningContainer(t *testing.T) {
+	argsFile := fakeDockerReconcile(t, "running|<no value>")
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	got := readFakeDockerArgs(t, argsFile)
+	if !strings.Contains(got, "rm -f raioz-proj-api") {
+		t.Errorf("unlabeled container must be replaced, not reused; got: %q", got)
+	}
+	if !strings.Contains(got, "run -d --name raioz-proj-api") {
+		t.Errorf("expected docker run after replacing; got: %q", got)
+	}
+}
+
+// Every container this runner creates must carry the raioz identity labels
+// (ADR-001) — without them `raioz down` cannot find the container and
+// reports success while the service keeps running.
+func TestDockerfileRunner_Start_StampsManagedLabels(t *testing.T) {
+	argsFile := fakeDockerReconcile(t, "")
+
+	r := &DockerfileRunner{}
+	svc := makeDockerfileSvc(t)
+
+	if err := r.Start(context.Background(), svc); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+
+	got := readFakeDockerArgs(t, argsFile)
+	for key, want := range naming.Labels("", svc.ProjectName, svc.Name, naming.KindService) {
+		if !strings.Contains(got, "--label "+key+"="+want) {
+			t.Errorf("missing --label %s=%s in docker run args; got: %q", key, want, got)
+		}
 	}
 }
 

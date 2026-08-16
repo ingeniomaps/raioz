@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
 
@@ -61,6 +63,14 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		"--network-alias", svc.Name,
 	}
 
+	// Identify the container as raioz-managed (ADR-001). Everything that
+	// recognizes raioz's own containers — down, status, the route GC —
+	// matches on these labels, so without them `raioz down` reported
+	// success while the service kept running.
+	args = append(args, labelArgs(naming.Labels(
+		naming.WorkspaceName(), svc.ProjectName, svc.Name, naming.KindService,
+	))...)
+
 	// Add host.docker.internal mapping (Linux without Docker Desktop).
 	// Gated on runtime.Supports so nerdctl 1.x — which rejects the
 	// host-gateway alias — doesn't crash. ADR-046.
@@ -98,16 +108,33 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 	return nil
 }
 
+// labelArgs turns a label set into `--label k=v` flags, key-sorted so the
+// command line is deterministic across runs (Go map iteration is not).
+func labelArgs(labels map[string]string) []string {
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	args := make([]string, 0, len(keys)*2)
+	for _, k := range keys {
+		args = append(args, "--label", k+"="+labels[k])
+	}
+	return args
+}
+
 // reconcileExisting resolves a pre-existing container with the same
 // deterministic name before `docker run --name` gets a chance to fail with
 // "name is already in use" (exit 125). Three outcomes:
 //
 //   - absent (inspect fails or reports nothing): nothing to do, build+run.
-//   - running: the service is already up; report reuse so Start returns
-//     without rebuilding or recreating it.
-//   - any other state (exited, created, paused, dead): a leftover from an
-//     ordered down, a crash or a reboot. Force-remove it and let Start
-//     recreate it.
+//   - running AND raioz-managed: the service is already up; report reuse so
+//     Start returns without rebuilding or recreating it.
+//   - anything else: a leftover from an ordered down, a crash or a reboot —
+//     or a container from a raioz old enough to have created it without the
+//     ADR-001 labels, which `down` can never stop. Force-remove it and let
+//     Start recreate it, labels included.
 //
 // Mirrors proxy.removeStaleContainer and ImageRunner.Start's reuse probe —
 // this runner was the last of the three `docker run` sites without it.
@@ -117,28 +144,30 @@ func (r *DockerfileRunner) reconcileExisting(ctx context.Context, containerName 
 	}
 
 	inspect := exec.CommandContext(ctx, runtime.Binary(), "inspect",
-		"--format", "{{.State.Status}}", containerName)
+		"--format", "{{.State.Status}}|{{index .Config.Labels \""+naming.LabelManaged+"\"}}",
+		containerName)
 	out, err := inspect.Output()
 	if err != nil {
 		return false, nil // container does not exist
 	}
 
-	switch state := strings.TrimSpace(string(out)); state {
-	case "":
+	state, managed, _ := strings.Cut(strings.TrimSpace(string(out)), "|")
+	if state == "" {
 		return false, nil
-	case "running":
+	}
+	if state == "running" && managed == "true" {
 		logging.InfoWithContext(ctx, "Container already running, reusing",
 			"container", containerName)
 		return true, nil
-	default:
-		logging.InfoWithContext(ctx, "Removing stale container",
-			"container", containerName, "state", state)
-		rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
-		if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
-			return false, fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
-		}
-		return false, nil
 	}
+
+	logging.InfoWithContext(ctx, "Removing stale container",
+		"container", containerName, "state", state, "managed", managed == "true")
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
+		return false, fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
+	}
+	return false, nil
 }
 
 // Stop stops and removes the container.
