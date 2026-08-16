@@ -47,6 +47,32 @@ func (uc *DownUseCase) downOtherProjectsOnly(
 	return err
 }
 
+// downOtherWorkspaceProjects stops every OTHER raioz project with live
+// containers in the workspace. This is what makes `raioz down --all` a
+// workspace shutdown instead of a cwd-project one; the caller then tears
+// down the cwd project and its shared infra as usual.
+//
+// Best-effort by design: a project whose services run via `command:` owns no
+// labeled container, so the scan can't see it and it stays up. That is not a
+// silent half-down — the proxy gate probes those projects through their route
+// targets, so the shared proxy survives for them (ADR-005 rule 3).
+func (uc *DownUseCase) downOtherWorkspaceProjects(ctx context.Context, workspace, currentProject string) {
+	if workspace == "" {
+		return
+	}
+	live, err := liveWorkspaceProjects(ctx, workspace)
+	if err != nil {
+		logging.WarnWithContext(ctx, "Skipping workspace-wide down: docker probe failed",
+			"workspace", workspace, "error", err.Error())
+		return
+	}
+	names := filterOtherActiveProjects(sortedKeys(live), currentProject)
+	if len(names) == 0 {
+		return
+	}
+	stopProjects(ctx, names)
+}
+
 // uniqueConflictingProjects returns the deduplicated, sorted set of project
 // names extracted from a list of PortConflicts, skipping the cwd's own name
 // and any conflict missing a project label. Pure function so the filter

@@ -308,3 +308,84 @@ func TestFilterOtherActiveProjects(t *testing.T) {
 		})
 	}
 }
+
+// --all is a workspace shutdown: every OTHER project with live containers in
+// the workspace goes down first, and the cwd project is never touched here
+// (the regular down path owns it).
+func TestDownOtherWorkspaceProjects_StopsSiblingsOnly(t *testing.T) {
+	initI18nForTest(t)
+
+	prevErrList, prevLabel, prevStop := listContainersByLabelsErrFn, getContainerLabelFn, stopProjectContainersFn
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return []string{"acme-alpha-api", "acme-beta-web", "acme-postgres"}, nil
+	}
+	getContainerLabelFn = func(_ context.Context, container, _ string) (string, error) {
+		switch container {
+		case "acme-alpha-api":
+			return "alpha", nil
+		case "acme-beta-web":
+			return "beta", nil
+		default:
+			return "", nil // shared dep — no project owner
+		}
+	}
+	var stopped []string
+	stopProjectContainersFn = func(_ context.Context, project string) ([]string, error) {
+		stopped = append(stopped, project)
+		return []string{project + "-container"}, nil
+	}
+	t.Cleanup(func() {
+		listContainersByLabelsErrFn, getContainerLabelFn, stopProjectContainersFn = prevErrList, prevLabel, prevStop
+	})
+
+	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "acme", "alpha")
+
+	if len(stopped) != 1 || stopped[0] != "beta" {
+		t.Errorf("expected only sibling 'beta' to be stopped, got %v", stopped)
+	}
+}
+
+// A docker probe failure must not be read as "no siblings": skip the sweep
+// rather than tear down a workspace on incomplete information.
+func TestDownOtherWorkspaceProjects_SkipsWhenDockerFails(t *testing.T) {
+	initI18nForTest(t)
+
+	prevErrList, prevStop := listContainersByLabelsErrFn, stopProjectContainersFn
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		return nil, errors.New("docker daemon unreachable")
+	}
+	var stopped []string
+	stopProjectContainersFn = func(_ context.Context, project string) ([]string, error) {
+		stopped = append(stopped, project)
+		return nil, nil
+	}
+	t.Cleanup(func() {
+		listContainersByLabelsErrFn, stopProjectContainersFn = prevErrList, prevStop
+	})
+
+	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "acme", "alpha")
+
+	if len(stopped) != 0 {
+		t.Errorf("no project may be stopped when the probe fails, got %v", stopped)
+	}
+}
+
+// No workspace means no workspace-wide sweep — the legacy per-project mode
+// has no siblings to reason about.
+func TestDownOtherWorkspaceProjects_NoWorkspaceNoop(t *testing.T) {
+	initI18nForTest(t)
+
+	prevErrList := listContainersByLabelsErrFn
+	called := false
+	listContainersByLabelsErrFn = func(_ context.Context, _ map[string]string) ([]string, error) {
+		called = true
+		return nil, nil
+	}
+	t.Cleanup(func() { listContainersByLabelsErrFn = prevErrList })
+
+	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "", "alpha")
+
+	if called {
+		t.Error("no docker probe should run without a workspace")
+	}
+}
