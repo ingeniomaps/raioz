@@ -97,7 +97,7 @@ check-i18n: ## Verify all i18n catalogs have the same keys
 	@go test -run TestCatalogCompleteness -count=1 ./internal/i18n/ \
 		&& echo "All catalogs in sync"
 
-check-labels: ## Verify com.raioz.* labels are not hardcoded outside internal/naming/
+check-labels: ## Verify label literals stay in internal/naming/ and every container creator stamps them
 	@echo "Checking for hardcoded com.raioz.* labels..."
 	@./scripts/lint-labels.sh
 
