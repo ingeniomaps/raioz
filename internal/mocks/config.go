@@ -80,9 +80,8 @@ func (m *MockConfigLoader) FilterIgnoredServices(deps *models.Deps) (*models.Dep
 	if m.FilterIgnoredServicesFunc != nil {
 		return m.FilterIgnoredServicesFunc(deps)
 	}
-	// Pass through, like the real filter with an empty ignore list. Returning
-	// nil made every caller that forgot to stub this nil-deref instead of
-	// failing an assertion.
+	// Pass through, like the real filter with an empty ignore list.
+	// Returning nil nil-derefs any caller that forgot to stub this.
 	return deps, nil, nil
 }
 

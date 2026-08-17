@@ -15,9 +15,8 @@ func initI18nUp(t *testing.T) {
 	t.Helper()
 	os.Setenv("RAIOZ_LANG", "en")
 	t.Cleanup(func() { os.Unsetenv("RAIOZ_LANG") })
-	// Point raioz state at a temp dir: applyFilters reads the machine's
-	// ignore list, so without this the suite passes or panics depending on
-	// whether the developer (or the CI runner) has ignored services.
+	// applyFilters reads the machine's ignore list, so without this the
+	// suite's result depends on who runs it.
 	t.Setenv("RAIOZ_HOME", t.TempDir())
 	i18n.Init("en")
 }
