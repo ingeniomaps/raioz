@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -35,6 +36,10 @@ func LintConfig(cfg *RaiozConfig, metas []FieldMeta, declaredVersion string) []L
 	idx := indexMetas(metas)
 	var findings []LintFinding
 	walkStruct(reflect.ValueOf(cfg).Elem(), "", "RaiozConfig", idx, declaredVersion, &findings)
+	// The walk hits services and dependencies by map iteration, which Go
+	// randomizes — without this the same config lints in a different order
+	// on every run.
+	sort.Slice(findings, func(i, j int) bool { return findings[i].Path < findings[j].Path })
 	return findings
 }
 
