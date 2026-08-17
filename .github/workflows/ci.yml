@@ -12,6 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # check-config-fixtures.sh diffs against the branch point. A
+          # shallow clone has no merge-base, and the script opts out
+          # rather than block — it would pass without checking anything.
+          fetch-depth: 0
       - uses: actions/setup-go@v7
         with:
           go-version: '1.26'
@@ -53,6 +58,16 @@ jobs:
 
       - name: Check container identity labels (ADR-001)
         run: make check-labels
+
+      - name: Check CLI layering policy (ADR-017)
+        run: make check-cli-layering
+
+      - name: Check config corpus and fixture coupling (issue 027)
+        env:
+          # On a PR, compare against the target branch; on a push the
+          # script falls back to origin/main on its own.
+          BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) || '' }}
+        run: make check-configs
 
       - name: Check app-layer infra imports baseline (issue 049)
         run: make check-app-infra-imports
