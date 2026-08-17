@@ -29,8 +29,25 @@ func fakeDocker(t *testing.T, replies map[string]fakeReply) string {
 	var sb strings.Builder
 	sb.WriteString("#!/bin/sh\n")
 	sb.WriteString("for a in \"$@\"; do echo \"$a\" >> " + argsFile + "; done\n")
+	// Match the two-word key first ("volume inspect") so a test can give
+	// different answers to subcommands that share a first word.
+	sb.WriteString("case \"$1 $2\" in\n")
+	for sub, reply := range replies {
+		if !strings.Contains(sub, " ") {
+			continue
+		}
+		sb.WriteString("  \"" + sub + "\")\n")
+		if reply.stdout != "" {
+			sb.WriteString("    printf '%s' '" + reply.stdout + "'\n")
+		}
+		sb.WriteString("    exit " + itoa(reply.exitCode) + " ;;\n")
+	}
+	sb.WriteString("esac\n")
 	sb.WriteString("case \"$1\" in\n")
 	for sub, reply := range replies {
+		if strings.Contains(sub, " ") {
+			continue
+		}
 		sb.WriteString("  " + sub + ")\n")
 		if reply.stdout != "" {
 			sb.WriteString("    printf '%s' '" + reply.stdout + "'\n")
