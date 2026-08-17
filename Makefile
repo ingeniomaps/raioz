@@ -38,9 +38,9 @@ test-coverage: ## Run tests with coverage
 	@echo ""
 	@go tool cover -func=coverage.out | grep -E "^total:"
 
-COVERAGE_THRESHOLD ?= 73
+COVERAGE_THRESHOLD ?= 74
 
-check-coverage: test-coverage ## Check coverage against threshold (default: 73%)
+check-coverage: test-coverage ## Check coverage against threshold (default: 74%)
 	@./scripts/check-coverage.sh $(COVERAGE_THRESHOLD)
 
 # Gate a coverage.out that already exists. CI's test job writes one with

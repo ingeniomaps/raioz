@@ -38,7 +38,7 @@ All enforced in CI — each one fails the build:
 - **Max 400 lines per file** (excluding tests + `internal/config/schema.go` JSON blob) — `make check-lines`
 - **Max 120 characters per line** — `make check-length`
 - **i18n catalogs in sync** — `make check-i18n`
-- **Test coverage >= 73%** — gated in the test job via `make check-coverage-file`, which reuses the
+- **Test coverage >= 74%** — gated in the test job via `make check-coverage-file`, which reuses the
   profile that job already wrote. `COVERAGE_THRESHOLD` in the Makefile is the single source of
   truth; mocks/testing are stripped before measuring, so the number runs ~1.8 points above the raw
   `go tool cover` total. Raise the threshold as coverage climbs — see [ROADMAP.md](ROADMAP.md).
