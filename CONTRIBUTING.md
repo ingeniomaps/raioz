@@ -45,7 +45,7 @@ See [docs/CI.md](docs/CI.md) for the full matrix.
 |------|-------|-------|
 | Max lines per file | 400 (tests + `internal/config/schema.go` exempt) | `make check-lines` |
 | Max line length | 120 chars | `make check-length` |
-| Test coverage | >= 74% (target: 80%; see ROADMAP) | `make check-coverage` |
+| Test coverage | >= 75% | `make check-coverage` |
 | i18n catalog sync | all keys present | `make check-i18n` |
 
 Every row fails the build in CI. Coverage is gated in the test job
