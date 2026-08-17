@@ -102,8 +102,11 @@ jobs:
           GOOS=darwin  GOARCH=arm64 go build -o /tmp/raioz-mac-arm64    ./cmd/raioz
       - name: Test with race and coverage
         run: go test -race -coverprofile=coverage.out ./...
-      - name: Coverage report
-        run: go tool cover -func=coverage.out | grep total
+      - name: Coverage gate
+        # Threshold lives in the Makefile (COVERAGE_THRESHOLD) so local and
+        # CI cannot drift apart. The script strips mocks/testing first —
+        # that is the repo's metric, ~1.8 points above the raw total.
+        run: make check-coverage-file
 
   integration:
     name: Integration E2E
