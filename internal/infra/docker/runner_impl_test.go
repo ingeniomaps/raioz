@@ -369,17 +369,6 @@ func TestDockerRunnerImpl_ViewLogsWithContext_MissingFile(t *testing.T) {
 	})
 }
 
-func TestDockerRunnerImpl_GenerateCompose(t *testing.T) {
-	r := NewDockerRunner()
-	deps := &models.Deps{
-		Project: models.Project{Name: "test"},
-	}
-	ws := &interfaces.Workspace{
-		Root: t.TempDir(),
-	}
-	_, _, _ = r.GenerateCompose(deps, ws, t.TempDir())
-}
-
 func TestDockerRunnerImpl_UpServicesWithContext(t *testing.T) {
 	if !dockerAvailable() {
 		t.Skip("docker not available")

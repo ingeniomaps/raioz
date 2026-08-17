@@ -48,10 +48,6 @@ type ComposeRunner interface {
 	) (string, error)
 	AreServicesRunning(composePath string, serviceNames []string) (bool, error)
 
-	GenerateCompose(
-		deps *models.Deps, ws *Workspace, projectDir string,
-	) (string, []string, error)
-
 	CleanProjectWithContext(
 		ctx context.Context, composePath string, dryRun bool,
 	) ([]string, error)
