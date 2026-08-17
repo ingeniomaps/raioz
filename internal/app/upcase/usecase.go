@@ -10,7 +10,6 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
-	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -278,40 +277,24 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		return err
 	}
 
+	// composePath stays empty: the orchestrator runs services natively and
+	// generates no compose file. The state/health helpers below still take
+	// the path because they predate that.
 	var composePath string
 	var serviceNames, infraNames []string
-	var hostProcessInfo map[string]*host.ProcessInfo
 	var orchResult *orchestrationResult
 
 	// Project root must be on deps BEFORE orchestration: startProxy
 	// persists it into the route file so the down flow's orphan GC can
-	// probe host-side liveness (ADR-005). saveState below re-assigns the
-	// same value for the legacy provenance path.
+	// probe host-side liveness (ADR-005).
 	deps.ProjectRoot = projectDir
 
-	if isYAMLMode(deps) {
-		// New orchestrator flow: detect runtimes, start with native tools
-		orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath, opts.RouterOff)
-		if err != nil {
-			return err
-		}
-		serviceNames = orchResult.serviceNames
-		infraNames = orchResult.infraNames
-	} else {
-		// Legacy flow: host services + generate compose
-		hostProcessInfo, err = uc.processHostServices(ctx, deps, ws, projectDir)
-		if err != nil {
-			return err
-		}
-
-		composePath, serviceNames, infraNames, err = uc.processCompose(ctx, deps, ws, projectDir)
-		if err != nil {
-			if len(hostProcessInfo) > 0 {
-				_ = uc.stopHostServices(ctx, hostProcessInfo)
-			}
-			return err
-		}
+	orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath, opts.RouterOff)
+	if err != nil {
+		return err
 	}
+	serviceNames = orchResult.serviceNames
+	infraNames = orchResult.infraNames
 
 	// State: save state, root config, drift detection, audit
 	// (persist project root so merge can resolve volumes per project)
@@ -319,14 +302,6 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	err = uc.saveState(ctx, deps, ws, composePath, serviceNames, addedServices, assistedServicesMap, appliedOverrides)
 	if err != nil {
 		return err
-	}
-
-	// Save host processes state
-	if len(hostProcessInfo) > 0 {
-		if err := uc.saveHostProcessesState(ctx, ws, hostProcessInfo); err != nil {
-			// Log but don't fail - host processes state is optional
-			logging.WarnWithContext(ctx, "Failed to save host processes state", "error", err.Error())
-		}
 	}
 
 	// Update global state — best-effort; global state is optional.
