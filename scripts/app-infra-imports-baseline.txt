@@ -21,11 +21,9 @@ internal/app/dev.go
 internal/app/down_compose.go
 internal/app/down_orchestrated.go
 internal/app/down_others.go
-internal/app/down_proxy.go
+internal/app/down_proxy_liveness.go
 internal/app/ports_conflicting.go
 internal/app/switch.go
-internal/app/upcase/compose.go
-internal/app/upcase/host_lifecycle.go
 internal/app/upcase/orchestration.go
 internal/app/upcase/orchestration_proxy.go
 internal/app/upcase/port_resolve.go

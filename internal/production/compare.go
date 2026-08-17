@@ -100,8 +100,16 @@ func compareService(name string, local *models.Service, prod *ProductionService)
 		}
 	}
 
+	// A service without `ports:` has no docker block at all — the common
+	// shape for `command:` services. Treat it as an empty one instead of
+	// dereferencing nil.
+	localDocker := local.Docker
+	if localDocker == nil {
+		localDocker = &models.DockerConfig{}
+	}
+
 	// Compare ports
-	localPorts := local.Docker.Ports
+	localPorts := localDocker.Ports
 	if localPorts == nil {
 		localPorts = []string{}
 	}
@@ -116,7 +124,7 @@ func compareService(name string, local *models.Service, prod *ProductionService)
 	}
 
 	// Compare volumes
-	localVolumes := local.Docker.Volumes
+	localVolumes := localDocker.Volumes
 	if localVolumes == nil {
 		localVolumes = []string{}
 	}
@@ -134,7 +142,7 @@ func compareService(name string, local *models.Service, prod *ProductionService)
 	}
 
 	// Compare dependencies
-	localDepends := local.Docker.DependsOn
+	localDepends := localDocker.DependsOn
 	if localDepends == nil {
 		localDepends = []string{}
 	}

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
 
@@ -22,8 +24,18 @@ func init() {
 // It builds the image and runs it as a standalone container on the Raioz network.
 type DockerfileRunner struct{}
 
-// Start builds the Docker image and runs it.
+// Start builds the Docker image and runs it. A container already running is
+// reused as-is, so a re-up rebuilds nothing; watch mode forces the rebuild by
+// going through Restart, which removes the container first.
 func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceContext) error {
+	reused, err := r.reconcileExisting(ctx, svc.ContainerName)
+	if err != nil {
+		return err
+	}
+	if reused {
+		return nil
+	}
+
 	imageName := "raioz-" + svc.Name
 
 	logging.InfoWithContext(ctx, "Building Docker image",
@@ -45,6 +57,12 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		"--network", svc.NetworkName,
 		"--network-alias", svc.Name,
 	}
+
+	// ADR-001: down/status/the route GC find raioz containers by these
+	// labels. Without them `down` reports success and leaves them running.
+	args = append(args, labelArgs(naming.Labels(
+		naming.WorkspaceName(), svc.ProjectName, svc.Name, naming.KindService,
+	))...)
 
 	// Add host.docker.internal mapping (Linux without Docker Desktop).
 	// Gated on runtime.Supports so nerdctl 1.x — which rejects the
@@ -81,6 +99,60 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 	}
 
 	return nil
+}
+
+// labelArgs turns a label set into `--label k=v` flags, key-sorted so the
+// command line is deterministic across runs (Go map iteration is not).
+func labelArgs(labels map[string]string) []string {
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	args := make([]string, 0, len(keys)*2)
+	for _, k := range keys {
+		args = append(args, "--label", k+"="+labels[k])
+	}
+	return args
+}
+
+// reconcileExisting clears any leftover container holding our deterministic
+// name, which would otherwise fail `docker run --name` with exit 125.
+// Reports whether the container was already running and can be reused.
+//
+// A running container without the raioz labels predates ADR-001 and `down`
+// can never stop it, so it is replaced rather than reused.
+func (r *DockerfileRunner) reconcileExisting(ctx context.Context, containerName string) (bool, error) {
+	if containerName == "" {
+		return false, nil
+	}
+
+	inspect := exec.CommandContext(ctx, runtime.Binary(), "inspect",
+		"--format", "{{.State.Status}}|{{index .Config.Labels \""+naming.LabelManaged+"\"}}",
+		containerName)
+	out, err := inspect.Output()
+	if err != nil {
+		return false, nil // container does not exist
+	}
+
+	state, managed, _ := strings.Cut(strings.TrimSpace(string(out)), "|")
+	if state == "" {
+		return false, nil
+	}
+	if state == "running" && managed == "true" {
+		logging.InfoWithContext(ctx, "Container already running, reusing",
+			"container", containerName)
+		return true, nil
+	}
+
+	logging.InfoWithContext(ctx, "Removing stale container",
+		"container", containerName, "state", state, "managed", managed == "true")
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
+		return false, fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
+	}
+	return false, nil
 }
 
 // Stop stops and removes the container.

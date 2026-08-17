@@ -7,7 +7,6 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
-	"raioz/internal/orchestrate"
 	"raioz/internal/state"
 )
 
@@ -92,10 +91,43 @@ func recentlyUpped(lastUp time.Time) bool {
 // dropped without an explicit ClearDeferred per dep.
 func saveHostPIDs(
 	projectDir, projectName, workspaceName, networkName string,
-	dispatcher *orchestrate.Dispatcher,
+	dispatcher serviceDispatcher,
 	serviceNames []string,
 	detections DetectionMap,
 	deferredDeps []string,
+) {
+	persistHostPIDs(projectDir, projectName, workspaceName, networkName,
+		dispatcher, serviceNames, detections, deferredDeps, true)
+}
+
+// savePartialHostPIDs persists what a FAILED up started before it bailed.
+// `down` and `status` only know the PIDs recorded here, so an unrecorded one
+// is a live process nobody can stop or even report.
+//
+// LastUp stays untouched on purpose: cleanStaleHostProcesses skips its sweep
+// while recentlyUpped(LastUp) holds, and the usual recovery is an immediate
+// retry — well inside that window.
+func savePartialHostPIDs(
+	projectDir, projectName, workspaceName, networkName string,
+	dispatcher serviceDispatcher,
+	startedNames []string,
+	detections DetectionMap,
+	deferredDeps []string,
+) {
+	if len(startedNames) == 0 {
+		return
+	}
+	persistHostPIDs(projectDir, projectName, workspaceName, networkName,
+		dispatcher, startedNames, detections, deferredDeps, false)
+}
+
+func persistHostPIDs(
+	projectDir, projectName, workspaceName, networkName string,
+	dispatcher serviceDispatcher,
+	serviceNames []string,
+	detections DetectionMap,
+	deferredDeps []string,
+	bumpLastUp bool,
 ) {
 	localState, _ := state.LoadLocalState(projectDir)
 	if localState == nil {
@@ -107,7 +139,9 @@ func saveHostPIDs(
 	localState.Project = projectName
 	localState.Workspace = workspaceName
 	localState.NetworkName = networkName
-	localState.LastUp = time.Now()
+	if bumpLastUp {
+		localState.LastUp = time.Now()
+	}
 
 	localState.DeferredToSibling = deferredDeps
 

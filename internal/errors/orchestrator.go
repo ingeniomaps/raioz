@@ -58,8 +58,8 @@ func ServiceStartFailed(serviceName, runtime string, err error) *RaiozError {
 	suggestions := map[string]string{
 		"compose": "Check the service's docker-compose.yml for errors. " +
 			"Try running 'docker compose up' directly in the service directory.",
-		"dockerfile": "Check the Dockerfile for build errors. " +
-			"Try running 'docker build .' in the service directory.",
+		"dockerfile": "The build or the run step failed. Try 'docker build .' in the service " +
+			"directory, then check for a bound port, a missing env file, or an unreachable network.",
 		"npm": "Check package.json scripts. " +
 			"Try running 'npm run dev' directly in the service directory.",
 		"go": "Check for compilation errors. " +

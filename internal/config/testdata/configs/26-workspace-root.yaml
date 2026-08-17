@@ -1,0 +1,20 @@
+# 26-workspace-root — `workspaceRoot:` widened containment (ADR-036 H2).
+#
+# Multi-repo workspace: the yaml lives in a sub-repo and services point
+# at sibling repos via `../`. Without workspaceRoot the H2 path-safety
+# check rejects those paths; declaring it moves the containment boundary
+# to the parent directory. Locks both the field and the `../` shape.
+
+project: multi-repo
+workspaceRoot: ..
+
+services:
+  api:
+    path: ../api
+  core:
+    path: ../core
+
+dependencies:
+  db:
+    image: postgres:16
+    compose: ../api/docker-compose.yml

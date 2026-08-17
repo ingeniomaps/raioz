@@ -38,6 +38,9 @@ type ProxyConfig struct {
 	NetworkSubnet string  // CIDR; empty → Docker auto-assigns
 	ContainerIP   string  // empty + NetworkSubnet → derive <base>.1.1
 	Publish       *bool   // nil → default (true); *false → no host binding
+	ProjectDir    string  // abs path to the project dir; persisted into the
+	// route file so the down flow's orphan GC can probe the project's
+	// host-side liveness (ADR-005). Empty → liveness unknown, never pruned.
 }
 
 // ProxyManager defines operations for managing the reverse proxy.
@@ -80,6 +83,15 @@ type ProxyManager interface {
 	// project in the workspace (not necessarily the manager's own). Used by
 	// the down flow's orphan-route GC. Idempotent.
 	RemoveRoutesFor(project string) error
+	// ProjectDirFor returns the project directory persisted in the given
+	// project's routes file, or "" when the file is missing, unreadable, or
+	// predates the field. The orphan-route GC uses it to probe host-side
+	// liveness before pruning; "" means unknown → never prune (ADR-005).
+	ProjectDirFor(project string) string
+	// RouteTargetsFor returns the container-name targets persisted in the
+	// given project's routes file (host-gateway targets excluded). A running
+	// one is proof of life for a launcher-pattern project (ADR-005).
+	RouteTargetsFor(project string) []string
 	// IsPublished reports the current publish flag (true when host ports
 	// are bound).
 	IsPublished() bool

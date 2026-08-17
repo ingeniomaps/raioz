@@ -93,8 +93,10 @@ var downCmd = &cobra.Command{
 func init() {
 	downCmd.Flags().StringVarP(&configPath, "file", "f", "", "Path to config file")
 	downCmd.Flags().StringVarP(&projectName, "project", "p", "", "Project name (alternative to --file)")
-	downCmd.Flags().BoolVar(&downAll, "all", false, "Stop all workspace services and infra (full shutdown)")
-	downCmd.Flags().BoolVar(&pruneShared, "prune-shared", false, "Also stop infra if no other active projects use it")
+	downCmd.Flags().BoolVar(&downAll, "all", false,
+		"Stop every project in the workspace, then this one and the shared infra it leaves free")
+	downCmd.Flags().BoolVar(&pruneShared, "prune-shared", false,
+		"Also stop the shared proxy when no other project in the workspace is using it")
 	downCmd.Flags().BoolVar(&downConflicting, "conflicting", false,
 		"Stop other active raioz projects whose host ports collide with the cwd's raioz.yaml")
 	downCmd.Flags().BoolVar(&downAllProjects, "all-projects", false,

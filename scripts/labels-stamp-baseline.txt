@@ -1,0 +1,16 @@
+# Baseline for scripts/lint-labels.sh rules R1/R2 — ADR-001.
+#
+# Each entry is a file that creates containers (a `docker run` argv, or a
+# compose spec with container_name) without stamping naming.Labels().
+# Containers they create are invisible to every label-driven sweep, so
+# `raioz down` cannot stop them.
+#
+# Rules:
+#   - NEW creators without labels fail the lint outright.
+#   - Entries LEAVE this list when the file starts stamping. They never
+#     get added back.
+#   - Test files are not tracked.
+#
+# Currently empty: every container creator stamps its labels. Keep it that
+# way — the lint fails a new one outright, and nothing here is a licence to
+# add another.

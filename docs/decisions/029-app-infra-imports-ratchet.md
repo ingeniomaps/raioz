@@ -53,7 +53,10 @@ Clusters:
   validation, sibling dispatch, watch setup, compose,
   host_lifecycle, orchestration, orchestration_proxy).
 - `internal/app/down*.go` — teardown family (compose, deps,
-  orchestrated, others, proxy, selective).
+  orchestrated, others, proxy_liveness, selective). The docker
+  import that put `down_proxy.go` on this list moved to
+  `down_proxy_liveness.go` when the file was split; the entry
+  followed the imports rather than the filename.
 - `internal/app/{dev,doctor_orchestrator,switch,ports_conflicting,yaml_mode}.go`
   — single-purpose use cases.
 - `internal/cli/hosts.go` — pure-viz exception (ADR-017

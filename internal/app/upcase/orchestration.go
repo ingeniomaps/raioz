@@ -2,7 +2,6 @@ package upcase
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"raioz/internal/docker"
@@ -229,66 +228,18 @@ func (uc *UseCase) processOrchestration(
 	// Step 3: Start services in dependency order
 	serviceNames := orderedServiceNames(deps)
 
-	if len(serviceNames) > 0 {
-		output.PrintProgress(i18n.T("up.starting_services", len(serviceNames)))
-		svcStart := time.Now()
-
-		for _, name := range serviceNames {
-			svc := deps.Services[name]
-			detection := detections[name]
-
-			containerName := naming.Container(deps.Project.Name, name)
-
-			// Generate discovery env vars for this service
-			envVars := make(map[string]string)
-			if uc.deps.DiscoveryManager != nil {
-				envVars = uc.deps.DiscoveryManager.GenerateEnvVars(
-					name, detection.Runtime, endpoints, deps.Proxy,
-				)
-			}
-
-			// Inject PORT for host services so frameworks honoring $PORT
-			// (Next.js, Vite, Django, etc.) rebind to the allocator's
-			// pick. Docker services get their port via published config.
-			if alloc, ok := portAllocs.Services[name]; ok && alloc.IsHost() && alloc.Port > 0 {
-				envVars["PORT"] = strconv.Itoa(alloc.Port)
-			}
-
-			svcCtx := buildServiceContext(
-				name, detection, networkName,
-				envVars,
-				servicePorts(svc),
-				svc.GetDependsOn(),
-				containerName,
-				svc.Source.Path,
-				deps.Project.Name,
-			)
-
-			// Propagate custom stop command (from `stop:` in raioz.yaml) so the
-			// runner can use it instead of SIGTERMing the PID.
-			if svc.Commands != nil && svc.Commands.Down != "" {
-				svcCtx.StopCommand = svc.Commands.Down
-			}
-			// ADR-025: needed for HostRunner's launcher-container wait.
-			if svc.ProxyOverride != nil {
-				svcCtx.ProxyTarget = svc.ProxyOverride.Target
-			}
-
-			// Pass the service's own `env:` (inline vars + --env-file) to
-			// the runner; mirrors the deps path above.
-			applyServiceEnv(&svcCtx, svc.Env, projectDir)
-
-			if err := dispatcher.Start(ctx, svcCtx); err != nil {
-				return nil, errors.ServiceStartFailed(name, string(detection.Runtime), err)
-			}
-
-			output.PrintSuccess(name + " (" + string(detection.Runtime) + ")")
-		}
-
-		logging.InfoWithContext(ctx, "Services started",
-			"count", len(serviceNames),
-			"duration_ms", time.Since(svcStart).Milliseconds())
-		output.PrintProgressDone(i18n.T("up.services_started", len(serviceNames)))
+	if err := uc.startServices(ctx, startServicesParams{
+		deps:         deps,
+		detections:   detections,
+		serviceNames: serviceNames,
+		endpoints:    endpoints,
+		portAllocs:   portAllocs,
+		dispatcher:   dispatcher,
+		networkName:  networkName,
+		projectDir:   projectDir,
+		deferredDeps: deferredDeps,
+	}); err != nil {
+		return nil, err
 	}
 
 	// Persist host PIDs (and project/workspace/network provenance) so

@@ -54,6 +54,12 @@ func IsProcessAlive(pid int) bool {
 // because they would match thousands of unrelated user processes. Empty
 // or non-absolute input returns nil without scanning.
 //
+// The calling process and its ancestor chain are never signalled: the
+// shell that invoked raioz from inside the project has its cwd in the
+// swept path whenever the service declares `path: .`, and the launcher
+// daemons this sweep targets re-parent to init — they are never our
+// ancestors.
+//
 // Linux: walks /proc/<pid>/cwd. macOS/Windows: returns nil (no /proc).
 func KillOrphansByCwd(servicePath string) []int {
 	return killOrphansByCwd(servicePath)

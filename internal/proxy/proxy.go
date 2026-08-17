@@ -25,6 +25,7 @@ type Manager struct {
 	routes      map[string]interfaces.ProxyRoute
 	networkName string
 	projectName string // used for per-project container/volume naming
+	projectDir  string // abs project dir, persisted into the route file (ADR-005)
 	domain      string // default: "localhost"
 	certsDir    string // path to mkcert certificates
 	tlsMode     string // "mkcert" (default/local) | "letsencrypt" (server)

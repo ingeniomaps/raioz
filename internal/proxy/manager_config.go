@@ -24,6 +24,7 @@ func (m *Manager) Configure(cfg interfaces.ProxyConfig) {
 	m.tlsMode = caddyTLSValue(cfg.TLSMode)
 	m.bindHost = cfg.BindHost
 	m.projectName = cfg.ProjectName
+	m.projectDir = cfg.ProjectDir
 	m.workspaceName = cfg.Workspace
 	m.networkSubnet = cfg.NetworkSubnet
 	m.containerIP = cfg.ContainerIP

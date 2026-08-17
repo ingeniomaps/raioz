@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/models"
@@ -52,30 +53,25 @@ func TestCIUseCase_Execute_PreflightDockerNotRunning(t *testing.T) {
 	}
 }
 
-func TestCIUseCase_Execute_LegacyValidateOnly(t *testing.T) {
+func TestCIUseCase_Execute_NoYAMLProject(t *testing.T) {
 	initI18nForTest(t)
 	deps := newFullMockDeps()
 	deps.Validator = &mocks.MockValidator{}
 	deps.ConfigLoader = &mocks.MockConfigLoader{
 		LoadDepsFunc: func(configPath string) (*models.Deps, []string, error) {
-			return &models.Deps{
-				Project:       models.Project{Name: "test"},
-				SchemaVersion: "1.0",
-				Services:      map[string]models.Service{},
-				Infra:         map[string]models.InfraEntry{},
-			}, nil, nil
+			return nil, nil, fmt.Errorf(".raioz.json is no longer supported")
 		},
 	}
 	uc := NewCIUseCase(deps)
-	result, err := uc.Execute(CIOptions{
-		OnlyValidate: true,
-		ConfigPath:   "raioz.json",
-	})
+	result, err := uc.Execute(CIOptions{OnlyValidate: true, ConfigPath: "raioz.json"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !result.Success {
-		t.Errorf("expected Success=true, errors=%v", result.Errors)
+	if result.Success {
+		t.Error("expected Success=false without a raioz.yaml project")
+	}
+	if len(result.Errors) == 0 || !strings.Contains(result.Errors[0], "no longer supported") {
+		t.Errorf("expected the loader's own message, got %v", result.Errors)
 	}
 }
 
@@ -157,37 +153,5 @@ func TestCIUseCase_Execute_YAMLMissingImage(t *testing.T) {
 	}
 	if result.Success {
 		t.Error("expected Success=false for missing image")
-	}
-}
-
-func TestCIUseCase_validateFast(t *testing.T) {
-	initI18nForTest(t)
-	deps := newFullMockDeps()
-	uc := NewCIUseCase(deps)
-	cfgDeps := &models.Deps{
-		Project: models.Project{Name: "test"},
-	}
-	if err := uc.validateFast(cfgDeps); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
-func TestCIUseCase_validateFast_SchemaError(t *testing.T) {
-	initI18nForTest(t)
-	deps := newFullMockDeps()
-	deps.Validator = &mocks.MockValidator{
-		ValidateSchemaFunc: func(d *models.Deps) error { return fmt.Errorf("bad schema") },
-	}
-	uc := NewCIUseCase(deps)
-	if err := uc.validateFast(&models.Deps{}); err == nil {
-		t.Error("expected error for bad schema")
-	}
-}
-
-func TestCIUseCase_checkWorkspacePermissions(t *testing.T) {
-	deps := newFullMockDeps()
-	uc := NewCIUseCase(deps)
-	if err := uc.checkWorkspacePermissions("/tmp"); err != nil {
-		t.Errorf("unexpected error: %v", err)
 	}
 }

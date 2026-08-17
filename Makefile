@@ -1,4 +1,4 @@
-.PHONY: help lint format test test-coverage check-coverage build install clean
+.PHONY: help lint format test test-coverage check-coverage check-coverage-file build install clean
 .PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint check ci
 .PHONY: integration-test generate mock security
 
@@ -38,9 +38,15 @@ test-coverage: ## Run tests with coverage
 	@echo ""
 	@go tool cover -func=coverage.out | grep -E "^total:"
 
-COVERAGE_THRESHOLD ?= 73
+COVERAGE_THRESHOLD ?= 75
 
-check-coverage: test-coverage ## Check coverage against threshold (default: 73%)
+check-coverage: test-coverage ## Check coverage against threshold (default: 75%)
+	@./scripts/check-coverage.sh $(COVERAGE_THRESHOLD)
+
+# Gate a coverage.out that already exists. CI's test job writes one with
+# -race; re-running the suite there just to measure it again would double
+# the slowest job.
+check-coverage-file: ## Check an existing coverage.out against the threshold
 	@./scripts/check-coverage.sh $(COVERAGE_THRESHOLD)
 
 build: ## Build the binary
@@ -97,7 +103,7 @@ check-i18n: ## Verify all i18n catalogs have the same keys
 	@go test -run TestCatalogCompleteness -count=1 ./internal/i18n/ \
 		&& echo "All catalogs in sync"
 
-check-labels: ## Verify com.raioz.* labels are not hardcoded outside internal/naming/
+check-labels: ## Verify label literals stay in internal/naming/ and every container creator stamps them
 	@echo "Checking for hardcoded com.raioz.* labels..."
 	@./scripts/lint-labels.sh
 

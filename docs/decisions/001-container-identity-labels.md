@@ -45,6 +45,27 @@ Enforcement: `make check-labels` (script
 outside `internal/naming/` references `"com.raioz.*"` as a
 string literal.
 
+That rule alone proved insufficient: `DockerfileRunner` shipped
+for a year building its `docker run` argv with no labels at
+all, so `raioz down` could not see its containers, reported
+success, and left the service running. Prohibiting the wrong
+spelling says nothing about code that never spells it. The lint
+now also fails when a file that creates a container — a `docker
+run` argv, or a compose spec with `container_name` — does not
+call `naming.Labels()`.
+
+Two escapes, both deliberate:
+
+- **Ephemeral runs (`--rm`) are exempt.** A container that
+  deletes itself on exit never has to be found again, so the
+  identity contract does not apply (`internal/snapshot`'s
+  `alpine tar` is the case that exists today).
+- **`scripts/labels-stamp-baseline.txt`** holds the legacy
+  `.raioz.json` compose generators, which name containers
+  without labeling them. It is a shrinking ratchet: entries may
+  leave when a file starts stamping, never be added. The list
+  empties when the deprecated JSON flow (ADR-038) goes away.
+
 ## Consequences
 
 ### Positive
@@ -82,5 +103,6 @@ string literal.
 ## References
 
 - Code: `internal/naming/labels.go`, `internal/naming/labels_test.go`
-- Lint: `scripts/lint-labels.sh`, `Makefile` target `check-labels`
+- Lint: `scripts/lint-labels.sh`, `scripts/labels-stamp-baseline.txt`,
+  `Makefile` target `check-labels`
 - Related: ADR-002 (shared deps omit project label)

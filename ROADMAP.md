@@ -130,23 +130,37 @@ Full detail in [CHANGELOG.md](CHANGELOG.md).
 Items considered for the upcoming release but not yet committed.
 Promotion to a versioned section happens at release-cut time.
 
-### Testing — coverage back to 80%
+### Testing — coverage
 
-v0.2.0 raised the threshold from 70% to 73% after a focused unit-test
-push and excluding `internal/mocks` + `internal/testing` from the
-metric. Real total sits at ~74% as of v0.4.0. The remaining gap is
-concentrated in packages whose uncovered code needs a live Docker
-daemon to exercise:
+Real total sits at **77.4%**. `COVERAGE_THRESHOLD` is **75 and stays
+there**: it is a floor that catches a change gutting the suite, not a
+target to chase. Actual coverage should keep rising through tests worth
+writing; padding the number to move the gate defeats the gate. The
+threshold is enforced in CI's test job (`make check-coverage-file`),
+which reuses the profile that job already writes.
 
-- `internal/tui` — 41% (bubbletea models)
-- `internal/docker` — ~59% (image / network / clean operations)
-- `internal/app/upcase` — ~61% (full up-flow integration)
-- `internal/tunnel` — ~61% (cloudflared / bore subprocess)
-- `internal/workspace` — ~64%
+**A live Docker daemon was never the blocker.** An earlier version of
+this section claimed the remaining gap needed one; `internal/docker`
+went 50% → 71% with no daemon at all, by swapping `runtime.Binary()`
+for a shell script that answers per subcommand and records its argv
+(`fakeDocker` in `internal/docker/inspect_probe_test.go`). Asserting
+the argv is the point: the flags are the contract, and a wrong filter
+returns the wrong containers silently. That pass also surfaced three
+real bugs — a `compare` panic, non-deterministic `yaml lint` output,
+and three calls that ignored `RAIOZ_RUNTIME`.
 
-Path forward is integration tests under a real Docker daemon, not
-more unit tests — most pure-function gaps already closed. Bump
-`COVERAGE_THRESHOLD` to 80 once the integration suite lands.
+What is left, and why it is not queued:
+
+- `internal/app/upcase` — 63%. The bulk is `Execute`, the whole up flow
+  in one function. Covering it means mocking every dependency to assert
+  the steps ran in order; the Integration E2E job already exercises it
+  for real.
+- `internal/tui` — 37%. Observer-only per ADR-044; bugs there are
+  cosmetic.
+- `internal/app/upcase/dependency_assist.go`, `watch_setup.go` — TTY
+  prompts and fsnotify goroutines.
+- `internal/tunnel` — 61%, `internal/workspace` — 63%. Both reachable
+  with the same fake-binary approach if someone wants the points.
 
 ### Release automation (shipped, v0.10.0 setup + v0.10.1 first auto-release)
 

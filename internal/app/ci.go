@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"raioz/internal/i18n"
 )
 
 // CIResult represents the result of a CI run
@@ -88,13 +90,25 @@ func (uc *CIUseCase) Execute(opts CIOptions) (*CIResult, error) {
 		Status: "passed",
 	})
 
-	// Try YAML mode first
-	if proj := ResolveYAMLProject(uc.deps, opts.ConfigPath); proj != nil {
-		return uc.executeYAML(proj, opts, result)
+	proj := ResolveYAMLProject(uc.deps, opts.ConfigPath)
+	if proj == nil {
+		// Ask the loader why: it is the gate that rejects .raioz.json
+		// (ADR-038) and reports a missing or unparseable file, so its
+		// message is more useful than anything invented here.
+		msg := i18n.T("error.no_yaml_project")
+		if _, _, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath); err != nil {
+			msg = err.Error()
+		}
+		result.Validations = append(result.Validations, ValidationResult{
+			Check:   "load_config",
+			Status:  "failed",
+			Message: msg,
+		})
+		result.Errors = append(result.Errors, msg)
+		return result, nil
 	}
 
-	// Legacy JSON mode
-	return uc.executeLegacy(opts, result)
+	return uc.executeYAML(proj, opts, result)
 }
 
 // executeYAML runs CI validations for a YAML-mode project.

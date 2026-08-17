@@ -80,7 +80,9 @@ func (m *MockConfigLoader) FilterIgnoredServices(deps *models.Deps) (*models.Dep
 	if m.FilterIgnoredServicesFunc != nil {
 		return m.FilterIgnoredServicesFunc(deps)
 	}
-	return nil, nil, nil
+	// Pass through, like the real filter with an empty ignore list.
+	// Returning nil nil-derefs any caller that forgot to stub this.
+	return deps, nil, nil
 }
 
 func (m *MockConfigLoader) CheckIgnoredDependencies(deps *models.Deps, ignoredServices []string) map[string][]string {

@@ -63,6 +63,67 @@ is *demonstrably* orphaned (B has no containers), and the
 alternative — an immortal pin requiring `raioz proxy stop` or a
 manual `rm` — is worse and not discoverable.
 
+### Host-run siblings: container absence is not proof of death
+
+A project whose services run via `command:` (host process, or a
+container the dev's own tooling creates — no raioz labels) owns
+**zero** labelled containers even while fully alive. Its shared
+deps do run as raioz containers, but those carry an empty
+`com.raioz.project` *by design* (ADR-002). Both gate signals and
+the GC were originally blind to such a project: a sibling's
+`down` would prune its route file as orphaned, pass the gate, and
+tumba the proxy out from under it (issue 021, workspace
+`gouduet`). Two rules close the hole; both follow one principle —
+**pruning and teardown require positive proof of death, never
+mere absence of proof of life**:
+
+1. **Live shared deps veto the teardown.** In
+   `otherWorkspaceProjectsActive`, a workspace container with an
+   empty project label and `com.raioz.kind=dependency` counts as
+   occupancy: by ADR-002's own contract, shared deps survive
+   individual downs until the last consumer leaves, so one still
+   running means some consumer remains — even an unlabelled one.
+   The proxy's own container (`kind=proxy`) still doesn't count.
+   No false keep-alive from the leaving project's own deps: the
+   orchestrated down stops those before `stopProxy` runs.
+
+2. **The GC probes host-side liveness.** Route files persist the
+   owning project's directory (`persistedProject.ProjectDir`,
+   written by `SaveProjectRoutes`). Before pruning, the GC reads
+   `<ProjectDir>/.raioz.state.json` and keeps the file if any
+   recorded host PID is alive (`host.IsProcessAlive`). Files
+   without the field — written pre-field, or by remote
+   sub-projects (ADR-049), which have no local liveness signal at
+   all — are treated as "liveness unknown" and never pruned; a
+   re-`up` rewrites the file with the field. The GC prunes only
+   when the project dir is known, the state is readable, and no
+   recorded PID is alive.
+
+3. **Live route targets veto the prune.** Rules 1 and 2 both miss
+   the launcher pattern (ADR-025): a `command:` that shells out to
+   `make start` → `docker compose up -d` daemonizes, so the
+   recorded host PID is the launcher's and dies within seconds,
+   while the resulting containers are user-owned and carry no
+   raioz labels. Both probes read "dead" on a fully live project.
+   The route file itself holds the missing link: its `Target`
+   fields name those containers. Before pruning, the GC asks
+   Docker whether any container-name target is running
+   (`ProxyManager.RouteTargetsFor` → `docker.AnyContainerRunning`,
+   the same by-name probe ADR-008 uses for siblings) and keeps the
+   file if one is. `host.docker.internal` targets are excluded —
+   they carry no container signal, and rule 2 already covers host
+   processes. A file with zero container targets yields no signal;
+   the earlier rules decide. A probe error keeps the file
+   (fail-closed), same posture as the Docker-unreachable guard
+   below.
+
+The accepted cost mirrors the label-leak direction already
+declared acceptable below: a workspace where every project
+crashed but shared deps survived keeps the proxy alive until
+`raioz clean` or a real last-consumer `down`. Keep-alive is
+cheap; tearing down a live sibling's HTTPS (plus its persisted
+routes) is not.
+
 **Docker-unreachable guard:** the GC distinguishes "daemon
 unreachable" from "zero containers" via
 `docker.ListContainersByLabelsErr`. If the liveness probe errors,
@@ -141,7 +202,9 @@ Caddyfile reload step itself is planned in
   `internal/app/down_proxy.go` (`pruneOrphanRouteFiles`,
   `liveWorkspaceProjects`),
   `internal/naming/naming.go` (`WorkspaceProxyDir`)
-- Orphan route-file GC: issue 020.
+- Orphan route-file GC: issue 020. Host-aware liveness for
+  host-run siblings (`ProjectDir` in route files, shared-dep
+  teardown veto): issue 021.
 - Related: ADR-002 (shared deps lifecycle),
   ADR-010 (workspace lock that serializes the routes-dir mutator
   path this ADR introduces), Wave 0 issue 021, Wave 1 issue 025.

@@ -6,16 +6,7 @@ import (
 	dockerpkg "raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
-	workspacepkg "raioz/internal/workspace"
 )
-
-// GenerateCompose generates a docker-compose file from dependencies
-func (r *DockerRunnerImpl) GenerateCompose(
-	deps *models.Deps, ws *interfaces.Workspace, projectDir string,
-) (string, []string, error) {
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return dockerpkg.GenerateCompose(deps, wsConcrete, projectDir)
-}
 
 // UpServicesWithContext starts specific Docker Compose services with context support
 func (r *DockerRunnerImpl) UpServicesWithContext(

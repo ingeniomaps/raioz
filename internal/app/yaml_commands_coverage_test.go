@@ -186,11 +186,14 @@ func TestRestartYAML_WithServices(t *testing.T) {
 		ProjectName: "test",
 		Deps:        &models.Deps{},
 	}
-	// Docker won't be running but the function should not panic
+	// The docker service "api" cannot be restarted, so RestartYAML must
+	// surface a non-nil error instead of the silent `return nil` that used
+	// to report exit 0 over a stopped service.
 	err := (&RestartUseCase{}).RestartYAML(
 		context.Background(), proj, RestartOptions{Services: []string{"api"}})
-	// Will fail because Docker is not available, but we exercise the code path
-	_ = err
+	if err == nil {
+		t.Fatal("expected non-nil error when a service restart fails, got nil")
+	}
 }
 
 func TestCollectYAMLServiceNames_SortedAndStable(t *testing.T) {
@@ -375,6 +378,8 @@ type mockProxyManager struct {
 	remainingProjectsFunc      func() int
 	listProjectsWithRoutesFunc func() []string
 	removeRoutesForFunc        func(project string) error
+	projectDirForFunc          func(project string) string
+	routeTargetsForFunc        func(project string) []string
 
 	removeProjectRoutesCalled bool
 	removedRoutesFor          []string
@@ -434,6 +439,18 @@ func (m *mockProxyManager) RemoveRoutesFor(project string) error {
 	m.removedRoutesFor = append(m.removedRoutesFor, project)
 	if m.removeRoutesForFunc != nil {
 		return m.removeRoutesForFunc(project)
+	}
+	return nil
+}
+func (m *mockProxyManager) ProjectDirFor(project string) string {
+	if m.projectDirForFunc != nil {
+		return m.projectDirForFunc(project)
+	}
+	return ""
+}
+func (m *mockProxyManager) RouteTargetsFor(project string) []string {
+	if m.routeTargetsForFunc != nil {
+		return m.routeTargetsForFunc(project)
 	}
 	return nil
 }

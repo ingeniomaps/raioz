@@ -300,6 +300,51 @@ func TestStartServiceLocalBackground(t *testing.T) {
 	}
 }
 
+// A background host service must OUTLIVE a parent ctx cancel: cobra's signal
+// context is cancelled on every clean CLI exit, and CommandContext's watchdog
+// used to SIGKILL the daemon the moment `raioz restart` returned.
+func TestStartServiceBackgroundSurvivesParentCtxCancel(t *testing.T) {
+	skipIfNoBinary(t, "sleep")
+
+	projectDir := t.TempDir()
+	ws := &workspace.Workspace{Root: t.TempDir()}
+	deps := &models.Deps{Project: models.Project{Name: "test"}}
+
+	svc := models.Service{
+		Source: models.SourceConfig{
+			Kind:    "local",
+			Path:    ".",
+			Command: "sleep 5",
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	info, err := StartService(ctx, ws, deps, "svc", svc, projectDir)
+	if err != nil {
+		t.Fatalf("StartService() error = %v", err)
+	}
+	if info == nil || info.PID == 0 {
+		t.Fatalf("expected valid PID, got %+v", info)
+	}
+	t.Cleanup(func() {
+		proc, _ := os.FindProcess(info.PID)
+		if proc != nil {
+			_ = proc.Kill()
+		}
+	})
+
+	cancel()
+	// 500ms is generous: the broken CommandContext behavior reaped the
+	// child within tens of milliseconds.
+	time.Sleep(500 * time.Millisecond)
+
+	running, _ := IsServiceRunning(info.PID)
+	if !running {
+		t.Errorf("background service killed after parent ctx cancel (pid=%d); "+
+			"the daemon path must use plain exec.Command", info.PID)
+	}
+}
+
 func TestStartServiceLocalRelativePath(t *testing.T) {
 	skipIfNoBinary(t, "sleep")
 

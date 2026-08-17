@@ -110,14 +110,22 @@ func StartService(
 		return nil, fmt.Errorf("invalid command for service %s: %s", serviceName, svc.Source.Command)
 	}
 
-	// Create command
+	// Synchronous commands live and die with the CLI, so keep them bound to
+	// ctx. Daemons must outlive it: cobra's signal context is cancelled on
+	// every clean exit, and CommandContext's watchdog would SIGKILL the
+	// service the moment `raioz up` / `restart` returns. The settle window
+	// below still honors cancellation.
+	shouldWait := shouldWaitForCommand(svc.Source.Command)
 	var cmd *exec.Cmd
-	if len(cmdParts) == 1 {
-		// Single command (e.g., "npm")
+	switch {
+	case shouldWait && len(cmdParts) == 1:
 		cmd = exec.CommandContext(ctx, cmdParts[0])
-	} else {
-		// Command with args (e.g., "npm run dev")
+	case shouldWait:
 		cmd = exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+	case len(cmdParts) == 1:
+		cmd = exec.Command(cmdParts[0])
+	default:
+		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
 	}
 
 	// Set working directory
@@ -162,11 +170,9 @@ func StartService(
 		logging.DebugWithContext(ctx, "Detected docker-compose.yml path", "service", serviceName, "composePath", composePath)
 	}
 
-	// Check if command should run synchronously (wait for completion)
-	// Commands like "make launch" or "make stop" should complete before continuing
-	// Commands like "npm run dev" should run in background
-	shouldWait := shouldWaitForCommand(svc.Source.Command)
-
+	// shouldWait was computed above (it decides the exec.Command flavor):
+	// "make launch" / "make stop"-style commands complete before continuing;
+	// "npm run dev"-style commands run in background and must survive the CLI.
 	if shouldWait {
 		// For synchronous commands, write to both console and log files
 		// Output is already being written to both via MultiWriter set above
@@ -239,6 +245,17 @@ func StartService(
 			stdoutFile.Close()
 			stderrFile.Close()
 			return nil, formatEarlyExitError(serviceName, startSettleWindow, exitErr, stderrPath)
+		case <-ctx.Done():
+			// SIGINT/SIGTERM during the settle window: the daemon is no
+			// longer bound to ctx (plain exec.Command), so tear its process
+			// group down explicitly (mirrors orchestrate.HostRunner.Start).
+			_ = KillProcessTree(cmd.Process.Pid)
+			stdoutFile.Close()
+			stderrFile.Close()
+			return nil, fmt.Errorf(
+				"start of service %s cancelled during settle window: %w",
+				serviceName, ctx.Err(),
+			)
 		case <-time.After(startSettleWindow):
 			// Process is still alive past the settle window. The wait
 			// goroutine remains parked on cmd.Wait() and writes to the

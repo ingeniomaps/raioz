@@ -24,21 +24,18 @@ type MockDockerRunner struct {
 		projectName string, services map[string]models.Service,
 		ws *interfaces.Workspace,
 	) (map[string]*interfaces.ServiceInfo, error)
-	GetNetworkProjectsFunc              func(networkName string, baseDir string) ([]string, error)
-	GetVolumeProjectsFunc               func(volumeName string, baseDir string) ([]string, error)
-	ExtractNamedVolumesFunc             func(volumes []string) ([]string, error)
-	FormatStatusTableFunc               func(services map[string]*interfaces.ServiceInfo, jsonOutput bool) error
-	GetAvailableServicesWithContextFunc func(ctx context.Context, composePath string) ([]string, error)
-	ViewLogsWithContextFunc             func(ctx context.Context, composePath string, opts interfaces.LogsOptions) error
-	CleanProjectWithContextFunc         func(ctx context.Context, composePath string, dryRun bool) ([]string, error)
-	CleanAllProjectsWithContextFunc     func(ctx context.Context, baseDir string, dryRun bool) ([]string, error)
-	CleanUnusedImagesWithContextFunc    func(ctx context.Context, dryRun bool) ([]string, error)
-	CleanUnusedVolumesWithContextFunc   func(ctx context.Context, dryRun bool, force bool) ([]string, error)
-	CleanUnusedNetworksWithContextFunc  func(ctx context.Context, dryRun bool) ([]string, error)
-	GetAllActivePortsFunc               func(baseDir string) ([]interfaces.PortInfo, error)
-	GenerateComposeFunc                 func(
-		deps *models.Deps, ws *interfaces.Workspace, projectDir string,
-	) (string, []string, error)
+	GetNetworkProjectsFunc               func(networkName string, baseDir string) ([]string, error)
+	GetVolumeProjectsFunc                func(volumeName string, baseDir string) ([]string, error)
+	ExtractNamedVolumesFunc              func(volumes []string) ([]string, error)
+	FormatStatusTableFunc                func(services map[string]*interfaces.ServiceInfo, jsonOutput bool) error
+	GetAvailableServicesWithContextFunc  func(ctx context.Context, composePath string) ([]string, error)
+	ViewLogsWithContextFunc              func(ctx context.Context, composePath string, opts interfaces.LogsOptions) error
+	CleanProjectWithContextFunc          func(ctx context.Context, composePath string, dryRun bool) ([]string, error)
+	CleanAllProjectsWithContextFunc      func(ctx context.Context, baseDir string, dryRun bool) ([]string, error)
+	CleanUnusedImagesWithContextFunc     func(ctx context.Context, dryRun bool) ([]string, error)
+	CleanUnusedVolumesWithContextFunc    func(ctx context.Context, dryRun bool, force bool) ([]string, error)
+	CleanUnusedNetworksWithContextFunc   func(ctx context.Context, dryRun bool) ([]string, error)
+	GetAllActivePortsFunc                func(baseDir string) ([]interfaces.PortInfo, error)
 	UpServicesWithContextFunc            func(ctx context.Context, composePath string, serviceNames []string) error
 	RestartServicesWithContextFunc       func(ctx context.Context, composePath string, serviceNames []string) error
 	ForceRecreateServicesWithContextFunc func(ctx context.Context, composePath string, serviceNames []string) error

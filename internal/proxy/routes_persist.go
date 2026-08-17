@@ -23,6 +23,13 @@ type persistedProject struct {
 	Domain  string                  `json:"domain"`
 	TLSMode string                  `json:"tlsMode"`
 	Routes  []interfaces.ProxyRoute `json:"routes"`
+	// ProjectDir is the absolute path to the owning project's directory.
+	// The down flow's orphan GC uses it to probe the project's host-side
+	// liveness (.raioz.state.json PIDs) before pruning. Empty — including
+	// files written before the field existed and remote sub-projects
+	// (ADR-049) — means liveness is unknowable and the file is never
+	// pruned (ADR-005).
+	ProjectDir string `json:"projectDir,omitempty"`
 }
 
 // routesDir is the directory under the workspace's proxy temp tree where
@@ -97,10 +104,11 @@ func (m *Manager) SaveProjectRoutes() error {
 	}
 
 	pp := persistedProject{
-		Project: m.projectName,
-		Domain:  m.domain,
-		TLSMode: m.tlsMode,
-		Routes:  routes,
+		Project:    m.projectName,
+		Domain:     m.domain,
+		TLSMode:    m.tlsMode,
+		Routes:     routes,
+		ProjectDir: m.projectDir,
 	}
 	data, err := json.MarshalIndent(pp, "", "  ")
 	if err != nil {
@@ -236,6 +244,56 @@ func (m *Manager) RemoveRoutesFor(project string) error {
 		return fmt.Errorf("failed to remove routes file: %w", err)
 	}
 	return nil
+}
+
+// ProjectDirFor returns the ProjectDir persisted in the given project's
+// routes file, or "" when the file is missing, unreadable, or predates the
+// field. Used by the down flow's orphan-route GC to locate the project's
+// .raioz.state.json before deciding a route file is prunable — "" means
+// liveness is unknown and the caller must not prune (ADR-005).
+func (m *Manager) ProjectDirFor(project string) string {
+	path := m.routeFilePathFor(project)
+	if path == "" {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var pp persistedProject
+	if err := json.Unmarshal(data, &pp); err != nil {
+		return ""
+	}
+	return pp.ProjectDir
+}
+
+// RouteTargetsFor returns the container-name targets persisted in the given
+// project's routes file, for the down flow's liveness probe. Host-gateway
+// targets are skipped: they point at a host process, which the PID probe
+// already covers.
+func (m *Manager) RouteTargetsFor(project string) []string {
+	path := m.routeFilePathFor(project)
+	if path == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var pp persistedProject
+	if err := json.Unmarshal(data, &pp); err != nil {
+		return nil
+	}
+	targets := make([]string, 0, len(pp.Routes))
+	for _, r := range pp.Routes {
+		// Target is "host" or "host:port"; take the host part.
+		host, _, _ := strings.Cut(r.Target, ":")
+		if host == "" || host == "host.docker.internal" {
+			continue
+		}
+		targets = append(targets, host)
+	}
+	return targets
 }
 
 // WriteRemoteProjectRoutes writes a persistedProject file for a meta

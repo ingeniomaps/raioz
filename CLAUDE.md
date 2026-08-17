@@ -31,12 +31,21 @@ Run a single test:
 go test -v -run TestFunctionName ./internal/package/...
 ```
 
-## Code Quality Constraints (enforced in CI)
+## Code Quality Constraints
+
+All enforced in CI — each one fails the build:
 
 - **Max 400 lines per file** (excluding tests + `internal/config/schema.go` JSON blob) — `make check-lines`
 - **Max 120 characters per line** — `make check-length`
-- **Test coverage >= 73%** — `make check-coverage` (raised from 70% in v0.2.0; mocks/testing packages excluded from the metric. See [ROADMAP.md](ROADMAP.md) for the path back to 80%)
 - **i18n catalogs in sync** — `make check-i18n`
+- **Test coverage >= 75%** — gated in the test job via `make check-coverage-file`, which reuses the
+  profile that job already wrote. `COVERAGE_THRESHOLD` in the Makefile is the single source of
+  truth; mocks/testing are stripped before measuring, so the number runs ~1.8 points above the raw
+  `go tool cover` total.
+
+  75 is the floor, not a target to chase: it exists to catch a change that guts the suite. Actual
+  coverage runs above it and should keep rising through tests worth writing — never by padding the
+  number to move the gate.
 
 ### Lint baseline
 `.golangci.yml` enables: `govet`, `staticcheck`, `unused`,
@@ -177,7 +186,7 @@ on disk (LocalState, `raioz.root.json`, audit log, routes, certs),
 see [docs/STATE.md](docs/STATE.md). For the threat model and what
 raioz does NOT protect against, see [docs/SECURITY.md](docs/SECURITY.md).
 
-- **[ADR-001](docs/decisions/001-container-identity-labels.md)** — Containers identified by `com.raioz.*` labels, never by name prefix. New runners MUST stamp the labels via `naming.Labels()`; `make check-labels` enforces literal-free call sites. Files: `internal/naming/labels.go`, `internal/orchestrate/image_runner.go`.
+- **[ADR-001](docs/decisions/001-container-identity-labels.md)** — Containers identified by `com.raioz.*` labels, never by name prefix. New runners MUST stamp the labels via `naming.Labels()`; `make check-labels` enforces both halves — no literals outside `internal/naming/`, and no `docker run` / compose spec that creates a container without stamping them (ephemeral `--rm` runs exempt, legacy generators baselined in `scripts/labels-stamp-baseline.txt`). Files: `internal/naming/labels.go`, `internal/orchestrate/image_runner.go`.
 - **[ADR-002](docs/decisions/002-shared-deps-workspace-scoped.md)** — Workspace-shared deps omit `com.raioz.project`; lifecycle uses `otherProjectsActiveInWorkspace`, no refcount file. `ImageRunner.Start` is idempotent.
 - **[ADR-003](docs/decisions/003-cert-namespacing.md)** — TLS certs live in `~/.raioz/certs/<domain>/`; `EnsureCerts` validates SANs include both `<domain>` and `*.<domain>` before reuse.
 - **[ADR-004](docs/decisions/004-caddy-auto-https-off.md)** — Caddyfile uses `auto_https disable_certs` in mkcert mode (stops ACME — which would hang on custom domains without public DNS — while keeping the HTTP→HTTPS redirect). Do **not** use `off` (kills the redirect too) or `disable_redirects` alone (leaves ACME on).

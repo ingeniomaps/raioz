@@ -45,8 +45,12 @@ See [docs/CI.md](docs/CI.md) for the full matrix.
 |------|-------|-------|
 | Max lines per file | 400 (tests + `internal/config/schema.go` exempt) | `make check-lines` |
 | Max line length | 120 chars | `make check-length` |
-| Test coverage | >= 73% (target: 80%; see ROADMAP) | `make check-coverage` |
+| Test coverage | >= 75% | `make check-coverage` |
 | i18n catalog sync | all keys present | `make check-i18n` |
+
+Every row fails the build in CI. Coverage is gated in the test job
+rather than by `make check`, which does not run it — use
+`make check-coverage` locally.
 
 The strict lint subset (`errcheck`, `gosec`, `revive` curated,
 `wrapcheck` at stdlib boundaries) ships on top of the v0.1.0

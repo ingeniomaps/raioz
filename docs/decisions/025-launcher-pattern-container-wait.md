@@ -172,6 +172,30 @@ Landed in this commit:
   persisting launcher mode in LocalState would couple the state
   schema to a transient runner concern.
 
+## Post-kill cwd sweep: the invoker's chain is protected
+
+The launcher family's daemons (nx daemon, vite, esbuild watchers)
+double-fork into a new session before raioz records a PID, so
+`kill -PGID` on down can't reach them. `host.KillOrphansByCwd`
+is the safety net: it SIGTERMs every process whose cwd is the
+service path or below (Linux-only, ≥4 path components).
+
+Sweeping by cwd has one structural false positive: when the
+service declares `path: .`, the service path IS the project dir —
+and the shell that ran `raioz down` from inside the project has
+its cwd right there. Interactive shells ignore SIGTERM, which
+masked the bug; non-interactive ones (scripts, CI, `bash -c`
+wrappers) died with the down half-reported and any chained `&&`
+steps silently skipped (issue 022).
+
+The sweep therefore excludes the calling process **and its full
+ancestor chain** (`ancestorPIDs`, a `/proc/<pid>/stat` ppid walk).
+This costs nothing in coverage: the daemons the sweep exists for
+re-parent to init and are never raioz's ancestors. Unrelated
+sibling processes rooted in the service dir (an editor, a manual
+`tail -f`) are still swept — that's the documented contract of
+cwd-based cleanup, not collateral.
+
 ## Alternatives considered
 
 - **Always wait, no opt-out** — would slow down every host service
@@ -197,9 +221,12 @@ Landed in this commit:
 - Code: `internal/orchestrate/host_runner.go`,
   `internal/orchestrate/host_runner_launcher.go`,
   `internal/docker/wait.go`,
-  `internal/host/process_helpers.go`.
+  `internal/host/process_helpers.go`,
+  `internal/host/proctree_unix.go` (cwd sweep + ancestor
+  exclusion), `internal/app/down_launcher_sweep.go`.
 - Tests: `internal/docker/wait_test.go`,
-  `internal/host/launcher_timeout_test.go`.
+  `internal/host/launcher_timeout_test.go`,
+  `internal/host/proctree_unix_test.go`.
 - Predecessor: issue 010 introduced the launcher-pattern
   detection without the post-launcher container wait. This ADR
   closes the loop.

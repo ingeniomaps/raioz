@@ -55,15 +55,6 @@ func (m *MockDockerRunner) GetAllActivePorts(baseDir string) ([]interfaces.PortI
 	return nil, nil
 }
 
-func (m *MockDockerRunner) GenerateCompose(
-	deps *models.Deps, ws *interfaces.Workspace, projectDir string,
-) (string, []string, error) {
-	if m.GenerateComposeFunc != nil {
-		return m.GenerateComposeFunc(deps, ws, projectDir)
-	}
-	return "", nil, nil
-}
-
 func (m *MockDockerRunner) UpServicesWithContext(ctx context.Context, composePath string, serviceNames []string) error {
 	if m.UpServicesWithContextFunc != nil {
 		return m.UpServicesWithContextFunc(ctx, composePath, serviceNames)
