@@ -4,6 +4,59 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.0](https://github.com/ingeniomaps/raioz/compare/v0.13.0...v0.14.0) (2026-08-17)
+
+
+### Features
+
+* **app:** make --all a workspace-wide down ([ba0285e](https://github.com/ingeniomaps/raioz/commit/ba0285eb39eeaa2baeb55ef95ff6997ddf0b2de6))
+* **config:** add workspaceRoot boundary override ([410e70e](https://github.com/ingeniomaps/raioz/commit/410e70eded4ace1951891f8f9e85c4b4b4be5627))
+
+
+### Bug Fixes
+
+* **app:** honor --all and --prune-shared on proxy ([78ec287](https://github.com/ingeniomaps/raioz/commit/78ec287aa6eb395ee473fb1743da27ad53b5645a))
+* **app:** keep routes of live launcher siblings ([c6c0d07](https://github.com/ingeniomaps/raioz/commit/c6c0d079c97841c43eaf66ae697007e13bd9369a))
+* **app:** keep shared proxy for host-run siblings ([6c00f6c](https://github.com/ingeniomaps/raioz/commit/6c00f6c0b3909e01ce1e43eb51d5b91f51009c43))
+* **config:** sort the yaml lint findings ([1b10436](https://github.com/ingeniomaps/raioz/commit/1b1043659db73b32557e6fdae9ef96a3864a052c))
+* **docker:** honor RAIOZ_RUNTIME in compose ps and stats ([1c0f9bc](https://github.com/ingeniomaps/raioz/commit/1c0f9bc5b52c402e286bec97eb3d351b4e6bfc4c))
+* **docker:** label the containers the legacy generator names ([d7ce9ce](https://github.com/ingeniomaps/raioz/commit/d7ce9cee5609fe08a99711d03e380b087000e24d))
+* **errors:** stop blaming the Dockerfile on run ([b507eac](https://github.com/ingeniomaps/raioz/commit/b507eaca71a24ef5f0b679ce6bcbec537dc25891))
+* **host:** exclude invoker chain from cwd sweep ([07cc7b9](https://github.com/ingeniomaps/raioz/commit/07cc7b926485d140eea7d8b2d8795d564766edd8))
+* **host:** keep restarted daemon alive on CLI exit ([9483047](https://github.com/ingeniomaps/raioz/commit/9483047f27c20f3f66e0e93a78f64c2ab7e18319))
+* **orchestrate:** reuse or clear stale containers ([1e80796](https://github.com/ingeniomaps/raioz/commit/1e807967e2acdd5a1948163e90a90f8846016776))
+* **orchestrate:** stamp raioz labels on containers ([4d2b8a5](https://github.com/ingeniomaps/raioz/commit/4d2b8a5b7ad2d8f6d4660f408193510432162dd5))
+* **production:** survive services without a docker block ([34f0d83](https://github.com/ingeniomaps/raioz/commit/34f0d835a9ec223152c4eef371cabf7d1480dfb8))
+* **upcase:** keep PIDs of a partially failed up ([33966d5](https://github.com/ingeniomaps/raioz/commit/33966d5a0a454341057b5e09a914466bb301a51e))
+
+
+### Refactor
+
+* **app:** drop the legacy CI path ([268102c](https://github.com/ingeniomaps/raioz/commit/268102c38e1830c65e92ccd260722d73d18e1d7d))
+* **docker:** delete the compose generator and its orphans ([cb81447](https://github.com/ingeniomaps/raioz/commit/cb814476c8b046c53a4ae6cd876b91106e7e668e))
+* **upcase:** drop the unreachable legacy up branch ([888bacc](https://github.com/ingeniomaps/raioz/commit/888bacc47397027748baf3c27b38bf2ede453cac))
+* **upcase:** drop unreachable portAllocs nil check ([5437641](https://github.com/ingeniomaps/raioz/commit/5437641fb6a15d99566fe6124d6d421072748fb4))
+
+
+### Documentation
+
+* correct the coverage section in ROADMAP ([4fe65f2](https://github.com/ingeniomaps/raioz/commit/4fe65f208e08ee0b2e222c8244e8861d94903229))
+* document workspaceRoot boundary widening ([23b5bb0](https://github.com/ingeniomaps/raioz/commit/23b5bb0581723ca86256ec07d049d981c785d6e5))
+* record cwd-sweep ancestor rule in ADR-025 ([021ac00](https://github.com/ingeniomaps/raioz/commit/021ac0050636dbe894300a923a5a5edd848a58e4))
+* record host-run liveness rules in ADR-005 ([5637a23](https://github.com/ingeniomaps/raioz/commit/5637a233b531cd7e03eb7ecbd8d75bb6e1ef3d1d))
+* record route-target liveness in ADR-005 ([2368092](https://github.com/ingeniomaps/raioz/commit/23680923ee58a5d8a27c81d793c9e0f6dc700924))
+* record the label-stamping rule in ADR-001 ([0255c56](https://github.com/ingeniomaps/raioz/commit/0255c568e85db5bf68130d2081021bea90238818))
+* stop claiming CI enforces the coverage gate ([e5831f2](https://github.com/ingeniomaps/raioz/commit/e5831f25e8be309d46c698d08296f7b9355f81ac))
+
+
+### Build
+
+* **ci:** gate coverage instead of just printing it ([668eda1](https://github.com/ingeniomaps/raioz/commit/668eda148bf30ef45ab36b37ef25c5efe83c4815))
+* **ci:** run the CLI layering and config corpus gates ([a11f24e](https://github.com/ingeniomaps/raioz/commit/a11f24e68d75eed70c240f9c30eb7fca560db33d))
+* **lint:** require every container creator to label ([edd8b71](https://github.com/ingeniomaps/raioz/commit/edd8b71d5bd006b7e80bb9f60f9659dc2fda0fe0))
+* raise the coverage threshold to 74 ([1ae7cad](https://github.com/ingeniomaps/raioz/commit/1ae7cad9c96a6856f1a12b4a9809c2308c99516f))
+* settle the coverage floor at 75 ([9024c1a](https://github.com/ingeniomaps/raioz/commit/9024c1ad1fe08b423c699d7ef114a0d1b0b89cf3))
+
 ## [0.13.0](https://github.com/ingeniomaps/raioz/compare/v0.12.0...v0.13.0) (2026-06-19)
 
 
