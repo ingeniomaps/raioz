@@ -62,7 +62,7 @@ func batchResourceUsage(ctx context.Context, names []string) map[string]containe
 
 	args := append([]string{"stats", "--no-stream", "--format",
 		"{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"}, names...)
-	cmd := exec.CommandContext(timeoutCtx, "docker", args...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return result
@@ -109,7 +109,7 @@ func getResourceUsageWithContext(ctx context.Context, containerName string) (str
 	defer cancel()
 
 	cmd := exec.CommandContext(timeoutCtx,
-		"docker", "stats",
+		runtime.Binary(), "stats",
 		"--no-stream",
 		"--format",
 		"{{.CPUPerc}}\t{{.MemUsage}}",

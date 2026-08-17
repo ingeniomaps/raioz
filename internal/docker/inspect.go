@@ -124,7 +124,7 @@ func GetContainerNameWithContext(ctx context.Context, composePath string, servic
 
 	// Use docker compose ps to get container name
 	cmd := exec.CommandContext(timeoutCtx,
-		"docker", "compose", "-f", composePath,
+		runtime.Binary(), "compose", "-f", composePath,
 		"ps", "-q", serviceName,
 	)
 	output, err := cmd.Output()
