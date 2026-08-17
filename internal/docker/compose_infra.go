@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/domain/models"
 	"raioz/internal/env"
+	"raioz/internal/naming"
 	"raioz/internal/workspace"
 )
 
@@ -93,6 +94,14 @@ func buildInlineInfraConfig(
 		"container_name": containerName,
 		"image":          image,
 		"networks":       infraNetworksConfig,
+		// ADR-001. Project is left empty when the workspace is explicit,
+		// because the container is then workspace-scoped and shared: a
+		// project label would let one project's down rip it out from
+		// under its siblings (ADR-002).
+		"labels": naming.Labels(
+			workspaceName, sharedAwareProject(deps.Project.Name, hasExplicitWorkspace),
+			name, naming.KindDependency,
+		),
 	}
 
 	if len(infra.Ports) > 0 {

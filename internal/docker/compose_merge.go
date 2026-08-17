@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
+
+	"raioz/internal/naming"
 )
 
 // mergeExternalComposeFile loads a YAML file and merges its services, volumes, and networks into
@@ -105,6 +107,13 @@ func mergeExternalComposeFile(
 				return nil, fmt.Errorf("failed to normalize container name for infra %s/%s: %w", infraKey, svcName, err)
 			}
 			config["container_name"] = containerName
+
+			// ADR-001, merged rather than assigned: the fragment is the
+			// user's and may already carry labels of its own.
+			mergeLabels(config, naming.Labels(
+				workspaceName, sharedAwareProject(projectName, hasExplicitWorkspace),
+				infraID, naming.KindDependency,
+			))
 
 			// Resolve and normalize volumes
 			volStrs := volumeStringsFromServiceConfig(svcMap)

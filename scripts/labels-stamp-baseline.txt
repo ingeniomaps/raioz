@@ -11,9 +11,6 @@
 #     get added back.
 #   - Test files are not tracked.
 #
-# The three entries below belong to the legacy .raioz.json compose
-# generator (deprecated in ADR-038). They go away with that flow; do not
-# grow this list to cover new code on the YAML path.
-internal/docker/compose_infra.go
-internal/docker/compose_merge.go
-internal/docker/compose_services.go
+# Currently empty: every container creator stamps its labels. Keep it that
+# way — the lint fails a new one outright, and nothing here is a licence to
+# add another.

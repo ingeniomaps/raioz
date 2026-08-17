@@ -56,11 +56,13 @@ if [ ! -f "$baseline" ]; then
 fi
 
 declare -A allowed
+baselined=0
 while IFS= read -r line; do
     case "$line" in
         ''|'#'*) continue ;;
     esac
     allowed["$line"]=1
+    baselined=$(( baselined + 1 ))
 done < "$baseline"
 
 declare -A offenders
@@ -132,4 +134,4 @@ if [ -n "$stale" ]; then
     echo "$stale"
 fi
 
-echo "✅ Labels: no stray literals, every container creator stamps them (${#allowed[@]} baselined)"
+echo "✅ Labels: no stray literals, every container creator stamps them ($baselined baselined)"

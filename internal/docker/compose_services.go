@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/domain/models"
 	"raioz/internal/env"
+	"raioz/internal/naming"
 	"raioz/internal/workspace"
 )
 
@@ -56,6 +57,9 @@ func addServiceToCompose(
 		"container_name": containerName,
 		"ports":          svc.Docker.Ports,
 		"networks":       networksConfig,
+		// ADR-001: without these the container is invisible to every
+		// label-driven sweep (down, status, the shared-proxy gate).
+		"labels": naming.Labels(workspaceName, deps.Project.Name, name, naming.KindService),
 	}
 
 	// Add volumes if present
