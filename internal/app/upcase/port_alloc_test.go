@@ -22,8 +22,20 @@ func TestMain(m *testing.M) {
 	prev := portInUseProbe
 	portInUseProbe = func(string) (bool, error) { return false, nil }
 	i18n.Init("en")
+	// Host service logs live under naming.LogDir, which resolves through
+	// RaiozStateDir: without redirecting it, tests that start a host
+	// service leave a log dir inside the developer's real
+	// ~/.local/state/raioz/logs/.
+	stateDir, err := os.MkdirTemp("", "raioz-upcase-test-")
+	if err != nil {
+		panic("create temp state dir: " + err.Error())
+	}
+	if err := os.Setenv("RAIOZ_HOME", stateDir); err != nil {
+		panic("set RAIOZ_HOME: " + err.Error())
+	}
 	code := m.Run()
 	portInUseProbe = prev
+	_ = os.RemoveAll(stateDir)
 	os.Exit(code)
 }
 

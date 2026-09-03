@@ -2,6 +2,7 @@ package naming
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -74,10 +75,30 @@ func TestSetPrefix_Empty(t *testing.T) {
 func TestLogFile(t *testing.T) {
 	SetPrefix("raioz")
 	defer SetPrefix("")
+	home := t.TempDir()
+	t.Setenv("RAIOZ_HOME", home)
 
-	got := LogFile("myapp", "api")
-	if !strings.Contains(got, "raioz-myapp") || !strings.HasSuffix(got, "api.log") {
-		t.Errorf("unexpected log path: %s", got)
+	want := filepath.Join(home, "logs", "myapp", "api.log")
+	if got := LogFile("myapp", "api"); got != want {
+		t.Errorf("LogFile() = %s, want %s", got, want)
+	}
+}
+
+// Host logs live under the state dir, never under /tmp: a tmpfs wipe on
+// reboot deletes exactly the failed startup the dev came to read. Pins the
+// property so a future move back to TempDir has to argue with a test.
+func TestLogDirIsNotTemp(t *testing.T) {
+	SetPrefix("raioz")
+	defer SetPrefix("")
+	home := t.TempDir()
+	t.Setenv("RAIOZ_HOME", home)
+
+	got := LogDir("myapp")
+	if !strings.HasPrefix(got, RaiozStateDir()) {
+		t.Errorf("LogDir() = %s, want it under RaiozStateDir() %s", got, RaiozStateDir())
+	}
+	if legacy := filepath.Join(TempDir("myapp"), "logs"); got == legacy {
+		t.Errorf("LogDir() still resolves to the per-project temp dir: %s", got)
 	}
 }
 

@@ -115,12 +115,32 @@ func TempDir(project string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s", prefix, project))
 }
 
-// LogDir returns the log directory for a project.
+// LogDir returns the log directory for a project's host services.
+// Format: $XDG_STATE_HOME/raioz/logs/{project}/
+//
+// Under RaiozStateDir and not TempDir for the same reason ProxyDir moved
+// (see its doc comment): /tmp is wiped on reboot, and what gets wiped is
+// exactly the startup log you go looking for after something failed. It
+// is also the discoverable location — a dev who doesn't know the temp
+// naming convention can't find `/tmp/{prefix}-{project}/logs/`, and the
+// empty-handed conclusion ("the service isn't logging") is wrong.
+//
+// ADR-022 makes RaiozStateDir the single home for raioz-owned runtime
+// state; host logs are exactly that.
 func LogDir(project string) string {
-	return filepath.Join(TempDir(project), "logs")
+	return filepath.Join(RaiozStateDir(), "logs", project)
 }
 
-// LogFile returns the log file path for a host service.
+// LogFile returns the log file path for a host service. One combined file
+// per service: stdout and stderr interleave the way they did on the
+// terminal, and `raioz logs` has a single path to read.
+//
+// This is the ONLY function that decides where a host service logs.
+// Every writer (up's runner, restart's) and every reader (`raioz logs`,
+// up's log streaming, the early-exit error tail) goes through it — when
+// writers picked their own path, the same service changed file depending
+// on which command had launched it and the idle directory sat there
+// frozen with a stale successful startup in it.
 func LogFile(project, service string) string {
 	return filepath.Join(LogDir(project), service+".log")
 }

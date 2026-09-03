@@ -34,6 +34,9 @@ reads it later"):
 ├── audit.log.1                        ← rotation tail
 ├── shared-deps.json                  ← shared-dep refcount (ADR-050)
 ├── .shared-deps.lock                 ← advisory lock for the refcount RMW
+├── logs/
+│   └── <project>/
+│       └── <service>.log              ← one combined stdout+stderr per host service
 ├── workspaces/
 │   └── <project>/
 │       └── raioz.root.json            ← drift-detection snapshot
@@ -71,6 +74,13 @@ below.
 | `shared-deps.json` | `internal/refcount/refcount.go::AddRef` | `raioz up`'s `registerSharedDepRefs` — one ref per dispatched shared dep |
 | `Caddyfile` | `internal/proxy/caddyfile.go::generateCaddyfile` | indirect — every `Reload` and the first `Start` |
 | certs | `internal/proxy/certs.go::EnsureCerts` | proxy `Start` when `tlsMode == mkcert` and the SAN-validated cert is missing |
+| `logs/<project>/<service>.log` | `internal/orchestrate/host_runner.go::Start` (`raioz up`) and `internal/host/process.go::StartService` (`raioz restart`) | every host service launch — truncated, not appended |
+
+Both host writers go through `naming.LogFile`, and so does every reader
+(`raioz logs`, `up`'s log streaming, the early-exit error tail). That is
+load-bearing: when the two writers picked their own paths, a service
+changed file depending on which command had launched it, and the path
+nobody was writing sat there holding a stale successful startup.
 
 ## Quién borra qué
 
@@ -83,6 +93,7 @@ below.
 | `shared-deps.json` | `internal/refcount/refcount.go::DropRef` (`save` removes the file when empty) | `raioz down` drops the leaving project's ref; the file is deleted once no workspace has any ref left | A shared dep is torn down only when its ref set empties (ADR-050) |
 | `Caddyfile` | regenerated, not deleted | every `Reload` — old content overwritten | If the last project leaves the workspace the file remains until the workspace dir is cleaned manually |
 | certs | manual (`rm -rf ~/.raioz/certs/<domain>`) | n/a — raioz never deletes user-trusted CAs | Per-domain isolation makes manual cleanup safe (ADR-003) |
+| `logs/<project>/<service>.log` | nobody | n/a | Truncated on each launch, so a file never grows past one run's output. The per-project directory outlives the project — deleting it is a manual `rm -rf` |
 
 ## LocalState vs raioz.root.json — the project-scoped split
 
