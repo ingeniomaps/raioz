@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"raioz/internal/domain/models"
+	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/workspace"
@@ -37,6 +39,12 @@ type ProcessInfo struct {
 //
 // Exposed as a package var (not a const) so tests can shrink it.
 var startSettleWindow = 500 * time.Millisecond
+
+// launcherKillGrace bounds how long a synchronous command may take to die
+// once its deadline has fired and its process group has been signalled.
+// Past it Go force-kills the child, so a command that ignores SIGTERM
+// can't outlive the timeout that exists to bound it.
+var launcherKillGrace = 5 * time.Second
 
 // StartService starts a service directly on the host (without Docker)
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
@@ -117,16 +125,46 @@ func StartService(
 	// service the moment `raioz up` / `restart` returns. The settle window
 	// below still honors cancellation.
 	shouldWait := shouldWaitForCommand(svc.Source.Command)
+
+	// A synchronous command runs under a deadline. `restart` holds the
+	// workspace lock for as long as StartService takes, so an unbounded
+	// cmd.Run() turns a command that never returns into a raioz process
+	// that never returns either, with the lock held (observed: a restart
+	// alive for 42 minutes, blocking every other raioz command). The
+	// bound reuses RAIOZ_LAUNCHER_TIMEOUT — the same knob ADR-025 uses
+	// for the launcher-pattern wait — instead of inventing a constant.
+	runCtx := ctx
+	if shouldWait {
+		var cancel context.CancelFunc
+		runCtx, cancel = exectimeout.WithTimeoutFromContext(ctx, LauncherWaitTimeout())
+		defer cancel()
+	}
+
 	var cmd *exec.Cmd
 	switch {
 	case shouldWait && len(cmdParts) == 1:
-		cmd = exec.CommandContext(ctx, cmdParts[0])
+		cmd = exec.CommandContext(runCtx, cmdParts[0])
 	case shouldWait:
-		cmd = exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+		cmd = exec.CommandContext(runCtx, cmdParts[0], cmdParts[1:]...)
 	case len(cmdParts) == 1:
 		cmd = exec.Command(cmdParts[0])
 	default:
 		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
+	}
+
+	// Own process group on BOTH paths so KillProcessTree (used by
+	// restart, down, and the cancellation below) reaches grandchildren
+	// via Kill(-pid). This used to be set only on the background path,
+	// so interrupting a synchronous start killed the direct child and
+	// left its children — the `go run` and the binary actually serving —
+	// reparented to init: still attending, invisible to raioz.
+	SetNewProcessGroup(cmd)
+	if shouldWait {
+		// CommandContext's default cancel signals cmd.Process alone.
+		// Take down the group instead, and let WaitDelay bound a child
+		// that ignores SIGTERM so the deadline is a real deadline.
+		cmd.Cancel = func() error { return KillProcessTree(cmd.Process.Pid) }
+		cmd.WaitDelay = launcherKillGrace
 	}
 
 	// Set working directory
@@ -188,13 +226,37 @@ func StartService(
 			"service", serviceName, "command", svc.Source.Command,
 		)
 
-		if err := cmd.Run(); err != nil {
+		runErr := cmd.Run()
+
+		// The launcher exited fine but something it spawned inherited the
+		// output pipe and kept it open — the detached-daemon shape ADR-025
+		// describes. Without WaitDelay this blocked until that daemon died
+		// (i.e. forever); with it, Wait reports ErrWaitDelay over a clean
+		// exit. That is a success, not a failed command.
+		if errors.Is(runErr, exec.ErrWaitDelay) {
+			logging.DebugWithContext(ctx, "Launcher detached with the output pipe still open",
+				"service", serviceName, "command", svc.Source.Command)
+			runErr = nil
+		}
+
+		if runErr != nil {
 			// Close the file to ensure output is flushed
 			logFile.Close()
 
+			// A timeout and a failure are opposite diagnoses: "your
+			// launcher never finishes" vs "your launcher broke".
+			if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+				return nil, fmt.Errorf(
+					"command for service %s did not finish within %s: %q is treated as a "+
+						"launcher that completes; a long-running service should not match "+
+						"the synchronous command list (raise RAIOZ_LAUNCHER_TIMEOUT if it "+
+						"legitimately needs longer)",
+					serviceName, LauncherWaitTimeout(), svc.Source.Command)
+			}
+
 			// Build error message (output already shown in console)
 			errMsg := fmt.Sprintf("Command failed: %s", svc.Source.Command)
-			return nil, fmt.Errorf("%s: %w", errMsg, err)
+			return nil, fmt.Errorf("%s: %w", errMsg, runErr)
 		}
 
 		// Close the file after successful execution
@@ -215,13 +277,6 @@ func StartService(
 	// cluttering. Reset stdout/stderr to the log file for background processes
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-
-	// Put the child in its own process group so KillProcessTree (used by
-	// restart, down, and tests) can reach grandchildren via Kill(-pid).
-	// Without this the orchestrator's host_runner path got it (it sets it
-	// inline) but this code path didn't, so restart of a host service
-	// silently couldn't kill the previous incarnation.
-	SetNewProcessGroup(cmd)
 
 	// Start process in background (not Run, because we want it to run continuously)
 	if err := cmd.Start(); err != nil {

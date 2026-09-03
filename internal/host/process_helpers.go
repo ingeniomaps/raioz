@@ -188,23 +188,19 @@ func shouldWaitForCommand(command string) bool {
 		}
 	}
 
-	// Scripts (installer.sh, setup.sh, etc.) should execute synchronously to catch errors
-	// These are typically deployment/setup scripts that should complete before continuing
-	isScript := strings.HasSuffix(commandLower, ".sh") ||
-		strings.HasPrefix(commandLower, "./") ||
-		strings.HasPrefix(commandLower, "sh ")
-	if isScript {
-		// Exclude long-running scripts that should run in background
-		// If it's a simple script execution (not npm run, go run, etc.), wait for it
-		if !strings.Contains(commandLower, "npm run") &&
-			!strings.Contains(commandLower, "go run") &&
-			!strings.Contains(commandLower, "python") &&
-			!strings.Contains(commandLower, "node") {
-			return true
-		}
-	}
-
-	// Default: run in background for long-running services
+	// No inference from the shape of the string. The file extension says
+	// nothing about how long a process lives: `bash start-api.sh` is a
+	// launcher that runs for hours and `./installer.sh` is a script that
+	// returns, and a `.sh` suffix (or a `./` prefix) can't tell them
+	// apart. The runtime exclusion list this used to carry couldn't
+	// either — it only saw the declared command, not what the script
+	// execs inside, so a wrapper around `go run` was classified as
+	// synchronous and `restart` blocked for the life of the service.
+	//
+	// A `command:` under `services:` is by contract a long-running
+	// service (see YAMLService.Command): start it in the background and
+	// let the settle window catch the one that dies immediately.
+	// Synchrony belongs to hooks (`pre:` / `post:`, ADR-024), not here.
 	return false
 }
 

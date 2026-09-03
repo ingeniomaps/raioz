@@ -48,13 +48,21 @@ func TestShouldWaitForCommand(t *testing.T) {
 		{"npm run dev", "npm run dev", false},
 		{"go run", "go run main.go", false},
 		{"empty", "", false},
-		{"setup script sh prefix", "sh setup.sh", true},
-		{"script with .sh suffix", "./installer.sh", true},
-		{"relative binary", "./mybinary", true},
 		{"go run script-like", "go run script.sh", false},
 		{"python", "python main.py", false},
 		{"node", "node index.js", false},
 		{"case insensitive", "MAKE LAUNCH", true},
+
+		// The shape of the command string used to decide this, and it
+		// decided wrong: these all block for the life of the service.
+		// A launcher script is the ordinary way to start a service that
+		// needs its .env loaded first, and marking it synchronous made
+		// `restart` never return while holding the workspace lock.
+		{"launcher script by suffix", "./installer.sh", false},
+		{"launcher script via sh", "sh setup.sh", false},
+		{"relative binary", "./mybinary", false},
+		{"launcher script via bash", "bash /home/dev/proj/start-api.sh", false},
+		{"launcher script behind env", "env FOO=1 bash /home/dev/proj/start-api.sh", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

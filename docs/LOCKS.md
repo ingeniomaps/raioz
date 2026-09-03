@@ -127,6 +127,26 @@ across the whole `up` for the parent but bypassed in the child.
 | `HostRunner.mu` | microseconds | Same. |
 | `processProxyMu` | nested inside workspace lock | Same. |
 
+### The lock covers the operation, never the life of a service
+
+A command that holds a lock may wait for work that **finishes**: stopping a
+process, relaunching it, writing state. It must never wait for a service to
+exit. `raioz restart` learned this the hard way: `internal/host.StartService`
+classified any `command:` ending in `.sh` as synchronous and ran it with an
+unbounded `cmd.Run()`, so restarting a service launched by a script held the
+workspace lock for as long as the service ran — 42 minutes in the reported
+case — and every other raioz command failed with "the lock already exists".
+
+Two rules follow, and both are enforced in code:
+
+- A service `command:` starts in the background. Synchrony belongs to hooks
+  (`pre:` / `post:`, ADR-024), which run before the lock matters.
+- Any path that does block while holding a lock runs under a deadline.
+  `StartService`'s remaining synchronous branch uses `RAIOZ_LAUNCHER_TIMEOUT`
+  and kills the child's whole process group when it fires; `stop.go`'s custom
+  `stop:` command has always used its own 60s bound. A new blocking call
+  under a lock needs the same treatment.
+
 ## Audit cases
 
 ### `raioz dev` (dev promote/revert)
