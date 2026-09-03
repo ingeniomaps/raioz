@@ -3,12 +3,12 @@ package app
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/mocks"
-	"raioz/internal/workspace"
 )
 
 func initI18nStatus(t *testing.T) {
@@ -25,7 +25,10 @@ func TestNewStatusUseCase(t *testing.T) {
 	}
 }
 
-func TestStatusNoConfig(t *testing.T) {
+// Without a resolvable raioz.yaml there is nothing to report: the loader
+// hard-errors on any other shape (ADR-038), so status says so instead of
+// falling through to a path that could never load a project.
+func TestStatusWithoutYAMLProjectErrors(t *testing.T) {
 	initI18nStatus(t)
 
 	uc := NewStatusUseCase(&Dependencies{
@@ -36,106 +39,11 @@ func TestStatusNoConfig(t *testing.T) {
 		},
 	})
 
-	err := uc.Execute(context.Background(), StatusOptions{ConfigPath: "bad.json"})
+	err := uc.Execute(context.Background(), StatusOptions{ConfigPath: "raioz.yaml"})
 	if err == nil {
-		t.Error("expected error when config cannot determine project")
+		t.Fatal("expected an error when no YAML project resolves")
 	}
-}
-
-func TestStatusNoState(t *testing.T) {
-	initI18nStatus(t)
-
-	cfgDeps := &models.Deps{
-		Project:  models.Project{Name: "test"},
-		Services: map[string]models.Service{},
-	}
-	ws := &workspace.Workspace{Root: "/tmp/test"}
-
-	uc := NewStatusUseCase(&Dependencies{
-		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
-				return cfgDeps, nil, nil
-			},
-		},
-		Workspace: &mocks.MockWorkspaceManager{
-			ResolveFunc: func(name string) (*workspace.Workspace, error) {
-				return ws, nil
-			},
-		},
-		StateManager: &mocks.MockStateManager{},
-		DockerRunner: &mocks.MockDockerRunner{
-			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
-				return false, nil
-			},
-		},
-	})
-
-	err := uc.Execute(context.Background(), StatusOptions{ConfigPath: "config.json"})
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
-}
-
-func TestStatusNoStateJSON(t *testing.T) {
-	initI18nStatus(t)
-
-	cfgDeps := &models.Deps{
-		Project:  models.Project{Name: "test"},
-		Services: map[string]models.Service{},
-	}
-	ws := &workspace.Workspace{Root: "/tmp/test"}
-
-	uc := NewStatusUseCase(&Dependencies{
-		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
-				return cfgDeps, nil, nil
-			},
-		},
-		Workspace: &mocks.MockWorkspaceManager{
-			ResolveFunc: func(name string) (*workspace.Workspace, error) {
-				return ws, nil
-			},
-		},
-		StateManager: &mocks.MockStateManager{},
-		DockerRunner: &mocks.MockDockerRunner{
-			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
-				return false, nil
-			},
-		},
-	})
-
-	err := uc.Execute(context.Background(), StatusOptions{ConfigPath: "config.json", JSON: true})
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
-}
-
-func TestStatusWithProjectName(t *testing.T) {
-	initI18nStatus(t)
-
-	ws := &workspace.Workspace{Root: "/tmp/test"}
-
-	uc := NewStatusUseCase(&Dependencies{
-		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
-				return nil, nil, nil
-			},
-		},
-		Workspace: &mocks.MockWorkspaceManager{
-			ResolveFunc: func(name string) (*workspace.Workspace, error) {
-				return ws, nil
-			},
-		},
-		StateManager: &mocks.MockStateManager{},
-		DockerRunner: &mocks.MockDockerRunner{
-			IsProjectActiveFunc: func(ctx context.Context, ws, p string) (bool, error) {
-				return false, nil
-			},
-		},
-	})
-
-	err := uc.Execute(context.Background(), StatusOptions{ProjectName: "my-proj", ConfigPath: "config.json"})
-	if err != nil {
-		t.Fatalf("error: %v", err)
+	if !strings.Contains(err.Error(), i18n.T("error.no_project")) {
+		t.Errorf("error = %v, want it to report the missing project", err)
 	}
 }
