@@ -620,25 +620,25 @@ func TestStartServiceCleanExitInSettleWindowIsNotError(t *testing.T) {
 	}
 }
 
-func TestStartServiceSynchronousTrue(t *testing.T) {
-	skipIfNoBinary(t, "true")
+// A command on the synchronous list runs to completion and leaves no PID
+// to track. The command has to be one raioz actually treats as a launcher
+// ("make launch" here, via a fake make on PATH): the shape of the string
+// no longer decides this, so a plain `./script.sh` goes to the background
+// path like any other service command.
+func TestStartServiceSynchronousCommandReturnsNoPID(t *testing.T) {
+	skipIfNoBinary(t, "sh")
+
+	projectDir := t.TempDir()
+	fakeMake := projectDir + "/make"
+	if err := os.WriteFile(fakeMake, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatalf("write fake make: %v", err)
+	}
+	t.Setenv("PATH", projectDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	ws := &workspace.Workspace{Root: t.TempDir()}
 	deps := &models.Deps{Project: models.Project{Name: "test"}}
-
 	svc := models.Service{
-		Source: models.SourceConfig{
-			Kind:    "local",
-			Path:    ".",
-			Command: "./true.sh", // shouldWait returns true for ./ commands
-		},
-	}
-
-	// Create a script named true.sh that exits 0
-	projectDir := t.TempDir()
-	scriptPath := projectDir + "/true.sh"
-	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
-		t.Fatalf("write script: %v", err)
+		Source: models.SourceConfig{Kind: "local", Path: ".", Command: "make launch"},
 	}
 
 	info, err := StartService(context.Background(), ws, deps, "svc", svc, projectDir)

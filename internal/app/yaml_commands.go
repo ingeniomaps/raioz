@@ -78,24 +78,25 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filt
 			// container is the source of truth — bypass the PID/compose
 			// heuristics that go false-negative for launchers that exit
 			// 0 after `docker run -d`.
-			status := "stopped"
+			status := statusStopped
 			pidInfo := ""
 			if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
 				if state := dockerInspectStatus(ctx, svc.ProxyOverride.Target); state != "" {
 					if state == "running" {
-						status = "running"
+						status = statusRunning
 					} else {
-						status = "stopped"
+						status = statusStopped
 					}
 					goto print
 				}
 			}
 
-			// Fallback: process alive via saved PID.
+			// Fallback: process alive via saved PID. A live PID is not
+			// the same as a live service — see hostServiceStatus.
 			if localState != nil {
 				if pid, ok := localState.HostPIDs[name]; ok && pid > 0 {
 					if isHostProcessAlive(pid) {
-						status = "running"
+						status = hostServiceStatus(ctx, svc.Port)
 						pidInfo = fmt.Sprintf("pid:%d", pid)
 					}
 				}

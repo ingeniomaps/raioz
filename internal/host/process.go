@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +11,9 @@ import (
 	"time"
 
 	"raioz/internal/domain/models"
+	exectimeout "raioz/internal/exec"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/workspace"
 )
 
@@ -36,6 +39,12 @@ type ProcessInfo struct {
 //
 // Exposed as a package var (not a const) so tests can shrink it.
 var startSettleWindow = 500 * time.Millisecond
+
+// launcherKillGrace bounds how long a synchronous command may take to die
+// once its deadline has fired and its process group has been signalled.
+// Past it Go force-kills the child, so a command that ignores SIGTERM
+// can't outlive the timeout that exists to bound it.
+var launcherKillGrace = 5 * time.Second
 
 // StartService starts a service directly on the host (without Docker)
 // projectDir is the directory where .raioz.json is located (used for local services with path: ".")
@@ -116,16 +125,46 @@ func StartService(
 	// service the moment `raioz up` / `restart` returns. The settle window
 	// below still honors cancellation.
 	shouldWait := shouldWaitForCommand(svc.Source.Command)
+
+	// A synchronous command runs under a deadline. `restart` holds the
+	// workspace lock for as long as StartService takes, so an unbounded
+	// cmd.Run() turns a command that never returns into a raioz process
+	// that never returns either, with the lock held (observed: a restart
+	// alive for 42 minutes, blocking every other raioz command). The
+	// bound reuses RAIOZ_LAUNCHER_TIMEOUT — the same knob ADR-025 uses
+	// for the launcher-pattern wait — instead of inventing a constant.
+	runCtx := ctx
+	if shouldWait {
+		var cancel context.CancelFunc
+		runCtx, cancel = exectimeout.WithTimeoutFromContext(ctx, LauncherWaitTimeout())
+		defer cancel()
+	}
+
 	var cmd *exec.Cmd
 	switch {
 	case shouldWait && len(cmdParts) == 1:
-		cmd = exec.CommandContext(ctx, cmdParts[0])
+		cmd = exec.CommandContext(runCtx, cmdParts[0])
 	case shouldWait:
-		cmd = exec.CommandContext(ctx, cmdParts[0], cmdParts[1:]...)
+		cmd = exec.CommandContext(runCtx, cmdParts[0], cmdParts[1:]...)
 	case len(cmdParts) == 1:
 		cmd = exec.Command(cmdParts[0])
 	default:
 		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
+	}
+
+	// Own process group on BOTH paths so KillProcessTree (used by
+	// restart, down, and the cancellation below) reaches grandchildren
+	// via Kill(-pid). This used to be set only on the background path,
+	// so interrupting a synchronous start killed the direct child and
+	// left its children — the `go run` and the binary actually serving —
+	// reparented to init: still attending, invisible to raioz.
+	SetNewProcessGroup(cmd)
+	if shouldWait {
+		// CommandContext's default cancel signals cmd.Process alone.
+		// Take down the group instead, and let WaitDelay bound a child
+		// that ignores SIGTERM so the deadline is a real deadline.
+		cmd.Cancel = func() error { return KillProcessTree(cmd.Process.Pid) }
+		cmd.WaitDelay = launcherKillGrace
 	}
 
 	// Set working directory
@@ -134,30 +173,36 @@ func StartService(
 	// Set environment variables (merge with current env)
 	cmd.Env = append(os.Environ(), envVars...)
 
-	// Set up output: write to both console and log files
-	logDir := filepath.Join(ws.Root, "logs", "host")
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+	// Set up output: one combined log per service, at the single path
+	// naming.LogFile owns. `up`'s runner writes there and `raioz logs`
+	// reads there; this used to write to <workspace>/logs/host/ instead,
+	// so the same service changed file depending on which command had
+	// launched it last and the idle directory sat frozen with a stale
+	// successful startup — the first thing a dev reads when debugging.
+	//
+	// The project name comes from the same field the reader uses
+	// (YAMLProject.ProjectName is cfgDeps.Project.Name), deliberately
+	// with no cleverer fallback: any fallback here would be a name the
+	// reader can't derive, which is how the two paths diverged.
+	projectName := ""
+	if deps != nil {
+		projectName = deps.Project.Name
+	}
+	logPath := naming.LogFile(projectName, serviceName)
+	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create logs directory: %w", err)
 	}
 
-	stdoutPath := filepath.Join(logDir, fmt.Sprintf("%s.stdout.log", serviceName))
-	stderrPath := filepath.Join(logDir, fmt.Sprintf("%s.stderr.log", serviceName))
-
-	stdoutFile, err := os.Create(stdoutPath)
+	logFile, err := os.Create(logPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout log file: %w", err)
-	}
-	stderrFile, err := os.Create(stderrPath)
-	if err != nil {
-		stdoutFile.Close()
-		return nil, fmt.Errorf("failed to create stderr log file: %w", err)
+		return nil, fmt.Errorf("failed to create log file: %w", err)
 	}
 
-	// For synchronous commands (shouldWait), write to both console and log files
-	// For background commands, only write to log files to avoid cluttering console
+	// For synchronous commands (shouldWait), write to both console and log file.
+	// For background commands, only write to the log file to avoid cluttering console
 	// We'll determine this after checking shouldWait, but set up MultiWriter for both cases
-	cmd.Stdout = io.MultiWriter(os.Stdout, stdoutFile)
-	cmd.Stderr = io.MultiWriter(os.Stderr, stderrFile)
+	cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+	cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 
 	// Detect docker-compose.yml path if service uses docker-compose
 	var composePath string
@@ -181,19 +226,41 @@ func StartService(
 			"service", serviceName, "command", svc.Source.Command,
 		)
 
-		if err := cmd.Run(); err != nil {
-			// Close files to ensure output is flushed
-			stdoutFile.Close()
-			stderrFile.Close()
+		runErr := cmd.Run()
+
+		// The launcher exited fine but something it spawned inherited the
+		// output pipe and kept it open — the detached-daemon shape ADR-025
+		// describes. Without WaitDelay this blocked until that daemon died
+		// (i.e. forever); with it, Wait reports ErrWaitDelay over a clean
+		// exit. That is a success, not a failed command.
+		if errors.Is(runErr, exec.ErrWaitDelay) {
+			logging.DebugWithContext(ctx, "Launcher detached with the output pipe still open",
+				"service", serviceName, "command", svc.Source.Command)
+			runErr = nil
+		}
+
+		if runErr != nil {
+			// Close the file to ensure output is flushed
+			logFile.Close()
+
+			// A timeout and a failure are opposite diagnoses: "your
+			// launcher never finishes" vs "your launcher broke".
+			if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
+				return nil, fmt.Errorf(
+					"command for service %s did not finish within %s: %q is treated as a "+
+						"launcher that completes; a long-running service should not match "+
+						"the synchronous command list (raise RAIOZ_LAUNCHER_TIMEOUT if it "+
+						"legitimately needs longer)",
+					serviceName, LauncherWaitTimeout(), svc.Source.Command)
+			}
 
 			// Build error message (output already shown in console)
 			errMsg := fmt.Sprintf("Command failed: %s", svc.Source.Command)
-			return nil, fmt.Errorf("%s: %w", errMsg, err)
+			return nil, fmt.Errorf("%s: %w", errMsg, runErr)
 		}
 
-		// Close files after successful execution
-		stdoutFile.Close()
-		stderrFile.Close()
+		// Close the file after successful execution
+		logFile.Close()
 
 		// For synchronous commands, return a dummy ProcessInfo (no PID to track)
 		processInfo := &ProcessInfo{
@@ -206,22 +273,14 @@ func StartService(
 		return processInfo, nil
 	}
 
-	// For background commands, only write to log files (not console) to avoid cluttering
-	// Reset stdout/stderr to only log files for background processes
-	cmd.Stdout = stdoutFile
-	cmd.Stderr = stderrFile
-
-	// Put the child in its own process group so KillProcessTree (used by
-	// restart, down, and tests) can reach grandchildren via Kill(-pid).
-	// Without this the orchestrator's host_runner path got it (it sets it
-	// inline) but this code path didn't, so restart of a host service
-	// silently couldn't kill the previous incarnation.
-	SetNewProcessGroup(cmd)
+	// For background commands, only write to the log file (not console) to avoid
+	// cluttering. Reset stdout/stderr to the log file for background processes
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 
 	// Start process in background (not Run, because we want it to run continuously)
 	if err := cmd.Start(); err != nil {
-		stdoutFile.Close()
-		stderrFile.Close()
+		logFile.Close()
 		return nil, fmt.Errorf("failed to start process for service %s: %w", serviceName, err)
 	}
 
@@ -242,16 +301,14 @@ func StartService(
 				// proxy.target) is what makes the service observable.
 				break
 			}
-			stdoutFile.Close()
-			stderrFile.Close()
-			return nil, formatEarlyExitError(serviceName, startSettleWindow, exitErr, stderrPath)
+			logFile.Close()
+			return nil, formatEarlyExitError(serviceName, startSettleWindow, exitErr, logPath)
 		case <-ctx.Done():
 			// SIGINT/SIGTERM during the settle window: the daemon is no
 			// longer bound to ctx (plain exec.Command), so tear its process
 			// group down explicitly (mirrors orchestrate.HostRunner.Start).
 			_ = KillProcessTree(cmd.Process.Pid)
-			stdoutFile.Close()
-			stderrFile.Close()
+			logFile.Close()
 			return nil, fmt.Errorf(
 				"start of service %s cancelled during settle window: %w",
 				serviceName, ctx.Err(),
@@ -273,11 +330,8 @@ func StartService(
 		StartTime:   time.Now(),
 	}
 
-	// Close file handles (process will keep them open)
-	// Note: In production, you might want to keep these open and manage them differently
-	// For now, we close them and let the process inherit them
-	stdoutFile.Close()
-	stderrFile.Close()
+	// Close the parent's handle (the child keeps its own dup)
+	logFile.Close()
 
 	return processInfo, nil
 }
