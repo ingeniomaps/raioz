@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.1](https://github.com/ingeniomaps/raioz/compare/v0.14.0...v0.14.1) (2026-09-03)
+
+
+### Bug Fixes
+
+* **app:** probe the port before reporting running ([f884cb7](https://github.com/ingeniomaps/raioz/commit/f884cb7098457d36b42c2726cdabb41cb6183230))
+* **host:** run launcher scripts in the background ([2a45e2b](https://github.com/ingeniomaps/raioz/commit/2a45e2b9b42567211ea3c3bbca6970f92070b89c))
+* **host:** write logs where raioz logs reads them ([350adac](https://github.com/ingeniomaps/raioz/commit/350adac4646dd83ef07cec018807fc1ed6bc76ce))
+
+
+### Refactor
+
+* **app:** drop the dead legacy status path ([ee2b675](https://github.com/ingeniomaps/raioz/commit/ee2b675220593671d703c24ac3bad5b6044423ba))
+
 ## [0.14.0](https://github.com/ingeniomaps/raioz/compare/v0.13.0...v0.14.0) (2026-08-17)
 
 
