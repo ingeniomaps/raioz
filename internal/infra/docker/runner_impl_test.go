@@ -422,15 +422,3 @@ func TestDockerRunnerImpl_GetServicesInfoWithContext(t *testing.T) {
 		nil, "proj", nil, ws,
 	)
 }
-
-func TestDockerRunnerImpl_FormatStatusTable(t *testing.T) {
-	r := NewDockerRunner()
-	services := map[string]*interfaces.ServiceInfo{
-		"api": {
-			Status: "running",
-			CPU:    "1%",
-			Memory: "10MB",
-		},
-	}
-	_ = r.FormatStatusTable(services, true) // JSON output
-}

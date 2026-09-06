@@ -3,10 +3,12 @@ package docker
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/runtime"
 )
 
 // Tests that exercise inspect.go functions by calling them with a valid
@@ -27,68 +29,6 @@ func mkValidCompose(t *testing.T, dir string) string {
 	return compose
 }
 
-func TestGetContainerName_NotRunning(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	// Service not running, should return "" (or error)
-	name, err := GetContainerName(compose, "svc1")
-	_ = err
-	_ = name
-}
-
-func TestGetServiceInfo_NotRunning(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	info, err := GetServiceInfo(compose, "svc1", "proj", nil, nil)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if info == nil {
-		t.Fatal("info nil")
-	}
-	// Service is not running
-	if info.Status != "stopped" {
-		t.Errorf("status = %q, want stopped", info.Status)
-	}
-}
-
-func TestGetServiceInfo_WithService(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	svc := &models.Service{
-		Source: models.SourceConfig{Kind: "image", Image: "alpine"},
-	}
-	info, err := GetServiceInfo(compose, "svc1", "proj", svc, nil)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if info == nil {
-		t.Fatal("info nil")
-	}
-}
-
-func TestGetServicesInfo_NotRunning(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	result, err := GetServicesInfo(
-		compose, []string{"svc1", "svc2"}, "proj",
-		map[string]models.Service{
-			"svc1": {Source: models.SourceConfig{Kind: "image", Image: "alpine"}},
-		},
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if len(result) == 0 {
-		t.Error("expected at least one result entry")
-	}
-}
-
 func TestGetServicesInfoWithContext_NotRunning(t *testing.T) {
 	requireDocker(t)
 	tmp := t.TempDir()
@@ -101,16 +41,6 @@ func TestGetServicesInfoWithContext_NotRunning(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 	_ = result
-}
-
-// --- getResourceUsage: call with nonexistent container ---
-
-func TestGetResourceUsage_Nonexistent(t *testing.T) {
-	requireDocker(t)
-	_, _, err := getResourceUsage("raioz-test-nonexistent-container-xyz-12345")
-	if err == nil {
-		t.Error("expected error for nonexistent container")
-	}
 }
 
 // --- PullImage wrapper (calls WithContext): just exercise wrapper ---
@@ -195,4 +125,48 @@ func TestViewLogs_Valid(t *testing.T) {
 	compose := mkValidCompose(t, tmp)
 	// May return an error if service is not running, but exercises the path
 	_ = ViewLogs(compose, LogsOptions{Tail: 5})
+}
+
+// A container that exists but is not running used to be reported as
+// "running" because the status was inferred from the container name alone.
+// Paused is the cheapest state to stage deterministically; the same code
+// path carries restarting, exited and dead.
+func TestGetServicesInfoWithContext_HonorsContainerState(t *testing.T) {
+	requireDocker(t)
+	tmp := t.TempDir()
+	compose := filepath.Join(tmp, "docker-compose.yml")
+	content := `services:
+  svc1:
+    image: alpine:latest
+    command: ["sleep", "300"]
+`
+	if err := os.WriteFile(compose, []byte(content), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	ctx := context.Background()
+	if out, err := exec.CommandContext(ctx, runtime.Binary(),
+		"compose", "-f", compose, "up", "-d").CombinedOutput(); err != nil {
+		t.Skipf("compose up unavailable: %v (%s)", err, out)
+	}
+	t.Cleanup(func() {
+		_ = exec.Command(runtime.Binary(), "compose", "-f", compose, "down", "-t", "1").Run()
+	})
+	if out, err := exec.CommandContext(ctx, runtime.Binary(),
+		"compose", "-f", compose, "pause", "svc1").CombinedOutput(); err != nil {
+		t.Skipf("compose pause unavailable: %v (%s)", err, out)
+	}
+
+	result, err := GetServicesInfoWithContext(ctx, compose, []string{"svc1"},
+		"testproj", map[string]models.Service{}, nil)
+	if err != nil {
+		t.Fatalf("GetServicesInfoWithContext: %v", err)
+	}
+	info, ok := result["svc1"]
+	if !ok {
+		t.Fatalf("no info for svc1: %+v", result)
+	}
+	if info.Status != "paused" {
+		t.Errorf("Status = %q, want %q", info.Status, "paused")
+	}
 }

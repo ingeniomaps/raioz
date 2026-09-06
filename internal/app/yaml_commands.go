@@ -42,7 +42,7 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filt
 			if !inFilter(want, name) {
 				continue
 			}
-			status := proj.ContainerStatus(ctx, name)
+			status := formatContainerStatus(proj.ContainerState(ctx, name))
 			cpu, mem := proj.ContainerStats(ctx, name)
 			image := ""
 			if entry.Inline != nil {
@@ -81,12 +81,12 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filt
 			status := statusStopped
 			pidInfo := ""
 			if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
-				if state := dockerInspectStatus(ctx, svc.ProxyOverride.Target); state != "" {
-					if state == "running" {
-						status = statusRunning
-					} else {
-						status = statusStopped
-					}
+				if st, ok := dockerStateProbe(ctx, svc.ProxyOverride.Target); ok {
+					// Verbatim, restart count included. Collapsing every
+					// non-running state into "stopped" hid `restarting`,
+					// and reporting the status alone hid the crash loop
+					// that spends most of its cycle in `running`.
+					status = formatContainerStatus(st)
 					goto print
 				}
 			}

@@ -40,12 +40,6 @@ type DockerRunner interface {
 	ImageValidator
 	PortValidator
 
-	// FormatStatusTable formats service information as a table.
-	//
-	// Deprecated: presentation belongs in internal/output/. Use
-	// `output.PrintStatusTable` directly — this method delegates to it
-	// and will be removed once every caller migrates.
-	FormatStatusTable(services map[string]*ServiceInfo, jsonOutput bool) error
 	// FormatPortConflicts formats port conflicts for display.
 	//
 	// Deprecated: use `output.FormatPortConflicts`.

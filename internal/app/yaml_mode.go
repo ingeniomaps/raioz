@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	dockerpkg "raioz/internal/docker"
@@ -101,11 +102,37 @@ func (p *YAMLProject) resolveInfraContainerName(name string) string {
 	return naming.Container(p.ProjectName, name)
 }
 
-// ContainerStatus returns status of a specific container. Routes both
-// the canonical-name probe and the label-based fallback
-// through naming.ResolveContainer — the single resolver shared by proxy,
-// discovery, and down.
+// ContainerState is everything a single `docker inspect` can say about a
+// container's liveness.
+//
+// Restarts is not decoration: State.Status alone cannot tell a crash loop
+// from a healthy service. `restarting` covers only the backoff between
+// attempts, so a container that takes seconds to die reads `running` in
+// nearly every sample — 12 of 12 samples over 18s of a 5s-crash loop said
+// `running`, and `docker ps` agreed ("Up 2 seconds"). The restart counter
+// is the one field that does not flicker, and only the restart policy
+// bumps it: a manual `docker restart` leaves it at 0.
+type ContainerState struct {
+	Status   string // State.Status verbatim: running, restarting, exited, ...
+	Restarts int    // State.RestartCount
+}
+
+// dockerStateProbe is the probe the status paths consult. Package var so
+// tests can decide the answer without a docker daemon — same seam as
+// hostStatusPortProbe.
+var dockerStateProbe = inspectContainerState
+
+// ContainerStatus returns the status of a specific container, discarding
+// the restart count. For callers that only branch on liveness.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
+	return p.ContainerState(ctx, name).Status
+}
+
+// ContainerState returns the runtime state of a specific container. Routes
+// both the canonical-name probe and the label-based fallback
+// through naming.ResolveContainer — the single resolver shared by proxy,
+// discovery, and down. A container that does not exist reports "stopped".
+func (p *YAMLProject) ContainerState(ctx context.Context, name string) ContainerState {
 	var override string
 	if p.Deps != nil {
 		if entry, ok := p.Deps.Infra[name]; ok && entry.Inline != nil {
@@ -115,29 +142,58 @@ func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
 	resolved, _ := naming.ResolveContainer(ctx, dockerpkg.NewLookup(),
 		p.ProjectName, name, override)
 	if resolved == "" {
-		return "stopped"
+		return ContainerState{Status: statusStopped}
 	}
-	if state := dockerInspectStatus(ctx, resolved); state != "" {
-		return state
+	if st, ok := dockerStateProbe(ctx, resolved); ok {
+		return st
 	}
-	return "stopped"
+	return ContainerState{Status: statusStopped}
 }
 
-// dockerInspectStatus returns the State.Status of a container by name, or
-// "" when docker inspect fails (typically because the container does not
-// exist). Pure helper extracted so ContainerStatus can branch cleanly on
-// "miss" vs "found" without re-running shell parsing.
-func dockerInspectStatus(ctx context.Context, name string) string {
+// inspectContainerState returns the runtime state of a container by name.
+// The bool is false when docker inspect fails (typically because the
+// container does not exist), so callers can branch cleanly on "miss" vs
+// "found" without re-running shell parsing.
+func inspectContainerState(ctx context.Context, name string) (ContainerState, bool) {
 	if name == "" {
-		return ""
+		return ContainerState{}, false
 	}
 	cmd := exec.CommandContext(ctx, runtime.Binary(), "inspect",
-		"--format", "{{.State.Status}}", name)
+		"--format", "{{.State.Status}} {{.RestartCount}}", name)
 	out, err := cmd.Output()
 	if err != nil {
-		return ""
+		return ContainerState{}, false
 	}
-	return strings.TrimSpace(string(out))
+	return parseContainerState(string(out))
+}
+
+// parseContainerState reads the two-field inspect format. Split from the
+// exec so the parsing has a test that does not need a docker daemon. A
+// missing count is tolerated rather than fatal: the status still answers
+// more than nothing.
+func parseContainerState(out string) (ContainerState, bool) {
+	fields := strings.Fields(out)
+	if len(fields) == 0 {
+		return ContainerState{}, false
+	}
+	st := ContainerState{Status: fields[0]}
+	if len(fields) > 1 {
+		st.Restarts, _ = strconv.Atoi(fields[1])
+	}
+	return st, true
+}
+
+// formatContainerStatus renders the status cell of the status tables. The
+// restart count is appended only when it is non-zero, so a healthy row is
+// unchanged and a container that has died on its own says so in every
+// phase of its loop — see ContainerState for why State.Status alone does
+// not. The cell overflows its column when the marker is present; that row
+// is the one the reader is meant to notice.
+func formatContainerStatus(st ContainerState) string {
+	if st.Restarts > 0 {
+		return fmt.Sprintf("%s restarts:%d", st.Status, st.Restarts)
+	}
+	return st.Status
 }
 
 // ContainerStats returns CPU and memory for a container.
