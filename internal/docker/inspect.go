@@ -18,7 +18,7 @@ import (
 // ServiceInfo contains detailed information about a service
 type ServiceInfo struct {
 	Name        string
-	Status      string // running, stopped
+	Status      string // State.Status verbatim, or "stopped" with no container
 	Health      string // healthy, unhealthy, starting, none
 	Uptime      string // time since start
 	Memory      string // memory usage
@@ -339,6 +339,12 @@ func GetServicesInfoWithContext(
 		info := &ServiceInfo{Name: name, Status: "running", Health: "none"}
 
 		if inspect, ok := inspectMap[cn]; ok {
+			// The container name only proves the container exists. Its
+			// state is what the caller asked for, and it is already
+			// decoded in the batch inspect above.
+			if s := strings.ToLower(inspect.State.Status); s != "" {
+				info.Status = s
+			}
 			if inspect.State.Health != nil {
 				info.Health = strings.ToLower(inspect.State.Health.Status)
 			}
