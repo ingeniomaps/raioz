@@ -4,6 +4,18 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.2](https://github.com/ingeniomaps/raioz/compare/v0.14.1...v0.14.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **status:** stop hiding a container crash loop ([767ae49](https://github.com/ingeniomaps/raioz/commit/767ae49b6e409ed019b368f2b03bcd4c18777b7a))
+
+
+### Refactor
+
+* **docker:** drop the dead status table path ([5268e39](https://github.com/ingeniomaps/raioz/commit/5268e39bf50ac1fa74adce83a143e871be76b0e3))
+
 ## [0.14.1](https://github.com/ingeniomaps/raioz/compare/v0.14.0...v0.14.1) (2026-09-03)
 
 
