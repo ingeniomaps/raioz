@@ -139,58 +139,12 @@ func TestBatchResourceUsage_NonexistentContainers(t *testing.T) {
 	}
 }
 
-func TestServiceInfo_Fields(t *testing.T) {
-	info := &ServiceInfo{
-		Name:        "api",
-		Status:      "running",
-		Health:      "healthy",
-		Uptime:      "2h 30m",
-		Memory:      "256MB/1GB",
-		CPU:         "12.5%",
-		Image:       "myapp:latest",
-		Version:     "abc123def456",
-		LastUpdated: "2025-01-01 12:00:00",
-		Linked:      true,
-		LinkTarget:  "/home/user/projects/api",
-	}
-
-	if info.Name != "api" {
-		t.Errorf("Name = %q", info.Name)
-	}
-	if !info.Linked {
-		t.Error("Linked should be true")
-	}
-	if info.LinkTarget != "/home/user/projects/api" {
-		t.Errorf("LinkTarget = %q", info.LinkTarget)
-	}
-}
-
 func TestGetContainerNameWithContext_EmptyComposePath(t *testing.T) {
 	_, err := GetContainerNameWithContext(
 		context.Background(), "", "svc",
 	)
 	if err == nil {
 		t.Error("expected error for empty compose path")
-	}
-}
-
-func TestGetServiceInfoWithContext_InvalidPath(t *testing.T) {
-	// Invalid path => GetContainerNameWithContext fails => returns stopped
-	info, err := GetServiceInfoWithContext(
-		context.Background(), "/nonexistent/path.yml",
-		"svc", "proj", nil, nil,
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if info == nil {
-		t.Fatal("info should not be nil")
-	}
-	if info.Status != "stopped" {
-		t.Errorf("status = %q, want stopped", info.Status)
-	}
-	if info.Health != "none" {
-		t.Errorf("health = %q, want none", info.Health)
 	}
 }
 
@@ -227,45 +181,5 @@ func TestGetServicesInfoWithContext_EmptyList(t *testing.T) {
 	}
 	if len(result) != 0 {
 		t.Errorf("expected empty result, got %d", len(result))
-	}
-}
-
-func TestGetResourceUsage_Wrapper(t *testing.T) {
-	// Exercises the wrapper function (calls WithContext)
-	_, _, err := getResourceUsage("raioz-nonexistent-container-xyz")
-	if err == nil {
-		// Docker might not be available, which is fine
-		t.Log("no error (docker may not be available)")
-	}
-}
-
-func TestGetServiceInfo_Wrapper(t *testing.T) {
-	// Exercises the non-context wrapper
-	info, err := GetServiceInfo(
-		"/nonexistent/path.yml", "svc", "proj", nil, nil,
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if info.Status != "stopped" {
-		t.Errorf("status = %q, want stopped", info.Status)
-	}
-}
-
-func TestGetServicesInfo_Wrapper(t *testing.T) {
-	result, err := GetServicesInfo(
-		"/nonexistent/path.yml",
-		[]string{"svc1"},
-		"proj",
-		map[string]models.Service{},
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if info, ok := result["svc1"]; ok {
-		if info.Status != "stopped" {
-			t.Errorf("svc1.Status = %q, want stopped", info.Status)
-		}
 	}
 }

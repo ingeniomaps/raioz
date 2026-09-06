@@ -205,27 +205,3 @@ func (r *DockerRunnerImpl) GetAllActivePorts(baseDir string) ([]interfaces.PortI
 	}
 	return result, nil
 }
-
-// FormatStatusTable formats service information as a table
-func (r *DockerRunnerImpl) FormatStatusTable(services map[string]*interfaces.ServiceInfo, jsonOutput bool) error {
-	// Convert from interfaces.ServiceInfo to docker.ServiceInfo
-	dockerServices := make(map[string]*dockerpkg.ServiceInfo)
-	for name, info := range services {
-		if info != nil {
-			dockerServices[name] = &dockerpkg.ServiceInfo{
-				Name:        name,
-				Status:      info.Status,
-				Uptime:      info.Uptime,
-				Memory:      info.Memory,
-				CPU:         info.CPU,
-				Image:       info.Image,
-				Version:     info.Commit,
-				Health:      info.Health,
-				LastUpdated: "",    // Not available in interfaces.ServiceInfo
-				Linked:      false, // Not available in interfaces.ServiceInfo
-				LinkTarget:  "",    // Not available in interfaces.ServiceInfo
-			}
-		}
-	}
-	return dockerpkg.FormatStatusTable(dockerServices, jsonOutput)
-}

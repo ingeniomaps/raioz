@@ -100,13 +100,18 @@ Landed in commit `<this commit>`:
 
 **Not landed in this ADR** (tracked for follow-up):
 
-- **Move `FormatStatusTable` / `FormatPortConflicts` /
-  `FormatSharedVolumesWarning` to `internal/output/`.** Each is
-  already a free function in `internal/docker/` (`format.go`,
-  `ports.go`, `volumes_shared.go`). Relocating them is mechanical
-  but touches the `internal/docker` ↔ `internal/output` boundary,
-  which deserves its own ADR follow-up rather than smuggling
-  through here.
+- **Move `FormatPortConflicts` / `FormatSharedVolumesWarning` to
+  `internal/output/`.** Each is already a free function in
+  `internal/docker/` (`ports.go`, `volumes_shared.go`). Relocating
+  them is mechanical but touches the `internal/docker` ↔
+  `internal/output` boundary, which deserves its own ADR follow-up
+  rather than smuggling through here.
+
+  `FormatStatusTable` was on this list too. It is not: the method,
+  its adapter and `internal/docker/format.go` were deleted once the
+  legacy status path went away and left them with no caller. The
+  deprecation note pointed at an `output.PrintStatusTable` that was
+  never written. Nothing to relocate.
 - **Move `NormalizeContainerName` / `NormalizeInfraName` /
   `NormalizeVolumeName` to `internal/naming/`.** Same story: the
   functions are self-contained inside `internal/docker/naming.go`,

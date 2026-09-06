@@ -27,7 +27,6 @@ type MockDockerRunner struct {
 	GetNetworkProjectsFunc               func(networkName string, baseDir string) ([]string, error)
 	GetVolumeProjectsFunc                func(volumeName string, baseDir string) ([]string, error)
 	ExtractNamedVolumesFunc              func(volumes []string) ([]string, error)
-	FormatStatusTableFunc                func(services map[string]*interfaces.ServiceInfo, jsonOutput bool) error
 	GetAvailableServicesWithContextFunc  func(ctx context.Context, composePath string) ([]string, error)
 	ViewLogsWithContextFunc              func(ctx context.Context, composePath string, opts interfaces.LogsOptions) error
 	CleanProjectWithContextFunc          func(ctx context.Context, composePath string, dryRun bool) ([]string, error)
@@ -161,13 +160,6 @@ func (m *MockDockerRunner) ExtractNamedVolumes(volumes []string) ([]string, erro
 		return m.ExtractNamedVolumesFunc(volumes)
 	}
 	return nil, nil
-}
-
-func (m *MockDockerRunner) FormatStatusTable(services map[string]*interfaces.ServiceInfo, jsonOutput bool) error {
-	if m.FormatStatusTableFunc != nil {
-		return m.FormatStatusTableFunc(services, jsonOutput)
-	}
-	return nil
 }
 
 func (m *MockDockerRunner) GetAvailableServicesWithContext(ctx context.Context, composePath string) ([]string, error) {

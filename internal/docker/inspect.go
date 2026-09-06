@@ -2,7 +2,6 @@ package docker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -26,8 +25,6 @@ type ServiceInfo struct {
 	Image       string // image name and tag
 	Version     string // commit SHA or image digest
 	LastUpdated string // last update time
-	Linked      bool   // true if service is linked to external path
-	LinkTarget  string // external path if linked (empty if not linked)
 }
 
 // ContainerInspect contains docker inspect output structure
@@ -44,11 +41,6 @@ type ContainerInspect struct {
 		Env   []string `json:"Env"`
 	} `json:"Config"`
 	Image string `json:"Image"` // image digest
-}
-
-// GetContainerName returns the container name for a service
-func GetContainerName(composePath string, serviceName string) (string, error) {
-	return GetContainerNameWithContext(context.Background(), composePath, serviceName)
 }
 
 // GetContainerLabel returns the value of a single Docker label on a container
@@ -155,142 +147,6 @@ func GetContainerNameWithContext(ctx context.Context, composePath string, servic
 	name = strings.TrimPrefix(name, "/")
 
 	return name, nil
-}
-
-// GetServiceInfo retrieves detailed information about a service
-func GetServiceInfo(
-	composePath string,
-	serviceName string,
-	projectName string,
-	svc *models.Service,
-	ws *workspace.Workspace,
-) (*ServiceInfo, error) {
-	return GetServiceInfoWithContext(context.Background(), composePath, serviceName, projectName, svc, ws)
-}
-
-// GetServiceInfoWithContext retrieves detailed information about a service with context support
-func GetServiceInfoWithContext(
-	ctx context.Context,
-	composePath string,
-	serviceName string,
-	projectName string,
-	svc *models.Service,
-	ws *workspace.Workspace,
-) (*ServiceInfo, error) {
-	info := &ServiceInfo{
-		Name:   serviceName,
-		Status: "stopped",
-		Health: "none",
-	}
-
-	// Get container name
-	containerName, err := GetContainerNameWithContext(ctx, composePath, serviceName)
-	if err != nil || containerName == "" {
-		// Service not running
-		return info, nil
-	}
-
-	info.Status = "running"
-
-	// Create context with timeout for inspect
-	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerInspectTimeout)
-	defer cancel()
-
-	// Get container inspect data
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "inspect", containerName)
-	output, err := cmd.Output()
-	if err != nil {
-		// If inspect fails, return basic info
-		if exectimeout.IsTimeoutError(timeoutCtx, err) {
-			// Log timeout but return basic info
-			return info, nil
-		}
-		return info, nil
-	}
-
-	var inspectData []ContainerInspect
-	if err := json.Unmarshal(output, &inspectData); err != nil || len(inspectData) == 0 {
-		return info, nil
-	}
-
-	inspect := inspectData[0]
-
-	// Parse health status
-	if inspect.State.Health != nil {
-		info.Health = strings.ToLower(inspect.State.Health.Status)
-	} else {
-		info.Health = "none"
-	}
-
-	// Parse uptime
-	if inspect.State.StartedAt != "" {
-		startedAt, err := time.Parse(time.RFC3339Nano, inspect.State.StartedAt)
-		if err == nil {
-			uptime := time.Since(startedAt)
-			info.Uptime = formatUptime(uptime)
-		}
-	}
-
-	// Get image info
-	info.Image = inspect.Config.Image
-
-	// Get image digest/version (first 12 chars)
-	if inspect.Image != "" {
-		parts := strings.Split(inspect.Image, ":")
-		if len(parts) > 1 {
-			digest := parts[1]
-			if len(digest) > 12 {
-				info.Version = digest[:12]
-			} else {
-				info.Version = digest
-			}
-		}
-	}
-
-	// Get resource usage
-	cpu, memory, err := getResourceUsageWithContext(ctx, containerName)
-	if err == nil {
-		info.CPU = cpu
-		info.Memory = memory
-	}
-
-	// Get version from git if it's a git-based service
-	if svc != nil && svc.Source.Kind == "git" && ws != nil {
-		repoPath := workspace.GetServicePath(ws, serviceName, *svc)
-
-		// Create context with timeout for git operations
-		ctx, cancel := exectimeout.WithTimeout(exectimeout.DefaultTimeout)
-		defer cancel()
-
-		if commitSHA, err := git.GetCommitSHA(ctx, repoPath); err == nil {
-			info.Version = commitSHA
-			// Get commit date for last updated
-			if commitDate, err := git.GetCommitDate(ctx, repoPath); err == nil {
-				info.LastUpdated = commitDate
-			}
-		}
-	}
-
-	// Get last updated time from container start if not set from git
-	if info.LastUpdated == "" && inspect.State.StartedAt != "" {
-		startedAt, err := time.Parse(time.RFC3339Nano, inspect.State.StartedAt)
-		if err == nil {
-			info.LastUpdated = startedAt.Format("2006-01-02 15:04:05")
-		}
-	}
-
-	return info, nil
-}
-
-// GetServicesInfo retrieves detailed information for all services
-func GetServicesInfo(
-	composePath string,
-	serviceNames []string,
-	projectName string,
-	services map[string]models.Service,
-	ws *workspace.Workspace,
-) (map[string]*ServiceInfo, error) {
-	return GetServicesInfoWithContext(context.Background(), composePath, serviceNames, projectName, services, ws)
 }
 
 // GetServicesInfoWithContext retrieves detailed information for all services with context support.

@@ -29,68 +29,6 @@ func mkValidCompose(t *testing.T, dir string) string {
 	return compose
 }
 
-func TestGetContainerName_NotRunning(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	// Service not running, should return "" (or error)
-	name, err := GetContainerName(compose, "svc1")
-	_ = err
-	_ = name
-}
-
-func TestGetServiceInfo_NotRunning(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	info, err := GetServiceInfo(compose, "svc1", "proj", nil, nil)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if info == nil {
-		t.Fatal("info nil")
-	}
-	// Service is not running
-	if info.Status != "stopped" {
-		t.Errorf("status = %q, want stopped", info.Status)
-	}
-}
-
-func TestGetServiceInfo_WithService(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	svc := &models.Service{
-		Source: models.SourceConfig{Kind: "image", Image: "alpine"},
-	}
-	info, err := GetServiceInfo(compose, "svc1", "proj", svc, nil)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if info == nil {
-		t.Fatal("info nil")
-	}
-}
-
-func TestGetServicesInfo_NotRunning(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	result, err := GetServicesInfo(
-		compose, []string{"svc1", "svc2"}, "proj",
-		map[string]models.Service{
-			"svc1": {Source: models.SourceConfig{Kind: "image", Image: "alpine"}},
-		},
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if len(result) == 0 {
-		t.Error("expected at least one result entry")
-	}
-}
-
 func TestGetServicesInfoWithContext_NotRunning(t *testing.T) {
 	requireDocker(t)
 	tmp := t.TempDir()
@@ -103,16 +41,6 @@ func TestGetServicesInfoWithContext_NotRunning(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 	_ = result
-}
-
-// --- getResourceUsage: call with nonexistent container ---
-
-func TestGetResourceUsage_Nonexistent(t *testing.T) {
-	requireDocker(t)
-	_, _, err := getResourceUsage("raioz-test-nonexistent-container-xyz-12345")
-	if err == nil {
-		t.Error("expected error for nonexistent container")
-	}
 }
 
 // --- PullImage wrapper (calls WithContext): just exercise wrapper ---
