@@ -4,6 +4,35 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.0](https://github.com/ingeniomaps/raioz/compare/v0.14.2...v0.15.0) (2026-09-07)
+
+
+### Features
+
+* **up:** probe declared health endpoints ([6092b28](https://github.com/ingeniomaps/raioz/commit/6092b28cd2a89b441bcfc58c30678746a23756ba))
+
+
+### Bug Fixes
+
+* **health:** report the project's real health ([96daee0](https://github.com/ingeniomaps/raioz/commit/96daee00aee5a3533f1920d67fb0d57b35174122))
+* **tui:** make the dashboard report real status ([271c2db](https://github.com/ingeniomaps/raioz/commit/271c2dba30176626cc9bacfbd428c2a32d0d9b60))
+* **up:** stop warning about unprobeable health endpoints ([9254f10](https://github.com/ingeniomaps/raioz/commit/9254f10848947191f9deed944eeff5b54df579b4))
+
+
+### Refactor
+
+* **docker:** shrink what the port carries ([f3c834d](https://github.com/ingeniomaps/raioz/commit/f3c834df5f2246bf73b96bd2dad9ad4d49b6da71))
+* drop functions unreachable from main ([b0d47be](https://github.com/ingeniomaps/raioz/commit/b0d47beff0a713d4501a51e5eb5ff37775bec7e7))
+* **host:** share the HTTP health probe ([0ca2710](https://github.com/ingeniomaps/raioz/commit/0ca2710c7698ec9090bf20fe683ac3140facd933))
+* **init:** drop the JSON-era interactive init ([7bfdd5e](https://github.com/ingeniomaps/raioz/commit/7bfdd5ef0da871b2356cef473e96852cf840a5e0))
+* **upcase:** drop the project.commands branch ([a5cc116](https://github.com/ingeniomaps/raioz/commit/a5cc1166c8a74148ff07a249fdbe57ac66dd245c))
+* **upcase:** drop the workspace-merge corpse ([53b4807](https://github.com/ingeniomaps/raioz/commit/53b48076731dd6b739aa469c5786b8c4458ce52d))
+
+
+### Documentation
+
+* **adr:** fix ADR-044's premise about the TUI ([833374e](https://github.com/ingeniomaps/raioz/commit/833374e1c400c6543db11e889dcae51fc5268cde))
+
 ## [0.14.2](https://github.com/ingeniomaps/raioz/compare/v0.14.1...v0.14.2) (2026-09-06)
 
 
