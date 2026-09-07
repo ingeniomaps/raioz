@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"raioz/internal/domain/models"
 )
@@ -75,34 +74,6 @@ func TestContainerInspect_JSONParsing(t *testing.T) {
 	}
 }
 
-func TestFormatUptime_Comprehensive(t *testing.T) {
-	tests := []struct {
-		name string
-		d    time.Duration
-		want string
-	}{
-		{"zero", 0, "0m"},
-		{"under a minute", 30 * time.Second, "0m"},
-		{"1 minute", time.Minute, "1m"},
-		{"59 minutes", 59 * time.Minute, "59m"},
-		{"1 hour", time.Hour, "1h 0m"},
-		{"1 hour 1 min", time.Hour + time.Minute, "1h 1m"},
-		{"23 hours 59 min", 23*time.Hour + 59*time.Minute, "23h 59m"},
-		{"1 day", 24 * time.Hour, "1d 0h 0m"},
-		{"1 day 2 hours 3 min", 26*time.Hour + 3*time.Minute, "1d 2h 3m"},
-		{"7 days", 7 * 24 * time.Hour, "7d 0h 0m"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatUptime(tt.d)
-			if got != tt.want {
-				t.Errorf("formatUptime(%v) = %q, want %q", tt.d, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestBatchInspect_EmptyNames(t *testing.T) {
 	result := batchInspect(context.Background(), []string{})
 	if len(result) != 0 {
@@ -117,23 +88,6 @@ func TestBatchInspect_NonexistentContainers(t *testing.T) {
 		"raioz-test-nonexistent-2",
 	})
 	// docker inspect will fail, so result should be empty
-	if len(result) != 0 {
-		t.Errorf("expected empty for nonexistent, got %d", len(result))
-	}
-}
-
-func TestBatchResourceUsage_EmptyNames(t *testing.T) {
-	result := batchResourceUsage(context.Background(), []string{})
-	if len(result) != 0 {
-		t.Errorf("expected empty result, got %d entries", len(result))
-	}
-}
-
-func TestBatchResourceUsage_NonexistentContainers(t *testing.T) {
-	requireDocker(t)
-	result := batchResourceUsage(context.Background(), []string{
-		"raioz-test-nonexistent-1",
-	})
 	if len(result) != 0 {
 		t.Errorf("expected empty for nonexistent, got %d", len(result))
 	}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"time"
 
 	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
@@ -14,17 +13,18 @@ import (
 	"raioz/internal/workspace"
 )
 
-// ServiceInfo contains detailed information about a service
+// ServiceInfo is what the global state records about a service.
+//
+// It carries only what a consumer reads. Health, uptime, CPU and memory
+// used to be collected here too — including a `docker stats` on every
+// `up` — and then dropped on the floor: the sole consumer narrows this
+// to models.ServiceInfo{Status, Version, Image}. The dashboard, the one
+// place those numbers are shown, queries Docker itself.
 type ServiceInfo struct {
-	Name        string
-	Status      string // State.Status verbatim, or "stopped" with no container
-	Health      string // healthy, unhealthy, starting, none
-	Uptime      string // time since start
-	Memory      string // memory usage
-	CPU         string // CPU usage
-	Image       string // image name and tag
-	Version     string // commit SHA or image digest
-	LastUpdated string // last update time
+	Name    string
+	Status  string // State.Status verbatim, or "stopped" with no container
+	Image   string // image name and tag
+	Version string // commit SHA or image digest
 }
 
 // ContainerInspect contains docker inspect output structure
@@ -34,7 +34,6 @@ type ContainerInspect struct {
 		Health *struct {
 			Status string `json:"Status"`
 		} `json:"Health"`
-		StartedAt string `json:"StartedAt"`
 	} `json:"State"`
 	Config struct {
 		Image string   `json:"Image"`
@@ -149,8 +148,8 @@ func GetContainerNameWithContext(ctx context.Context, composePath string, servic
 	return name, nil
 }
 
-// GetServicesInfoWithContext retrieves detailed information for all services with context support.
-// It batches docker inspect and docker stats calls to avoid N+1 command overhead.
+// GetServicesInfoWithContext retrieves information for all services with
+// context support. One batched docker inspect covers every container.
 func GetServicesInfoWithContext(
 	ctx context.Context,
 	composePath string,
@@ -166,7 +165,7 @@ func GetServicesInfoWithContext(
 	for _, name := range serviceNames {
 		cn, err := GetContainerNameWithContext(ctx, composePath, name)
 		if err != nil || cn == "" {
-			result[name] = &ServiceInfo{Name: name, Status: "stopped", Health: "none"}
+			result[name] = &ServiceInfo{Name: name, Status: "stopped"}
 			continue
 		}
 		containerMap[name] = cn
@@ -183,16 +182,13 @@ func GetServicesInfoWithContext(
 	}
 	inspectMap := batchInspect(ctx, containerNames)
 
-	// Step 3: single batch docker stats for all running containers
-	statsMap := batchResourceUsage(ctx, containerNames)
-
-	// Step 4: assemble ServiceInfo for each service
+	// Step 3: assemble ServiceInfo for each service
 	for _, name := range serviceNames {
 		if _, ok := containerMap[name]; !ok {
 			continue // already set to stopped above
 		}
 		cn := containerMap[name]
-		info := &ServiceInfo{Name: name, Status: "running", Health: "none"}
+		info := &ServiceInfo{Name: name, Status: "running"}
 
 		if inspect, ok := inspectMap[cn]; ok {
 			// The container name only proves the container exists. Its
@@ -200,16 +196,6 @@ func GetServicesInfoWithContext(
 			// decoded in the batch inspect above.
 			if s := strings.ToLower(inspect.State.Status); s != "" {
 				info.Status = s
-			}
-			if inspect.State.Health != nil {
-				info.Health = strings.ToLower(inspect.State.Health.Status)
-			}
-			if inspect.State.StartedAt != "" {
-				startedAt, err := time.Parse(time.RFC3339Nano, inspect.State.StartedAt)
-				if err == nil {
-					info.Uptime = formatUptime(time.Since(startedAt))
-					info.LastUpdated = startedAt.Format("2006-01-02 15:04:05")
-				}
 			}
 			info.Image = inspect.Config.Image
 			if inspect.Image != "" {
@@ -225,11 +211,6 @@ func GetServicesInfoWithContext(
 			}
 		}
 
-		if stats, ok := statsMap[cn]; ok {
-			info.CPU = stats.cpu
-			info.Memory = stats.memory
-		}
-
 		// Git version override for git-based services
 		var svc *models.Service
 		if s, ok := services[name]; ok {
@@ -241,9 +222,6 @@ func GetServicesInfoWithContext(
 			defer cancel()
 			if commitSHA, err := git.GetCommitSHA(gitCtx, repoPath); err == nil {
 				info.Version = commitSHA
-				if commitDate, err := git.GetCommitDate(gitCtx, repoPath); err == nil {
-					info.LastUpdated = commitDate
-				}
 			}
 		}
 

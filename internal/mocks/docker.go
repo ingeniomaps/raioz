@@ -61,10 +61,6 @@ type MockDockerRunner struct {
 		workspace string, service string, project string,
 		hasExplicitWorkspace bool,
 	) (string, error)
-	NormalizeInfraNameFunc func(
-		workspace string, infra string, project string,
-		hasExplicitWorkspace bool,
-	) (string, error)
 	GetContainerNameWithContextFunc   func(ctx context.Context, composePath string, serviceName string) (string, error)
 	GetContainerStatusByNameFunc      func(ctx context.Context, containerName string) (string, error)
 	FindManagedContainerByServiceFunc func(ctx context.Context, project, service string) string

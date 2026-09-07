@@ -64,17 +64,6 @@ func TestDockerRunnerImpl_NormalizeContainerName(t *testing.T) {
 	}
 }
 
-func TestDockerRunnerImpl_NormalizeInfraName(t *testing.T) {
-	r := NewDockerRunner()
-	got, err := r.NormalizeInfraName("ws", "postgres", "proj", false)
-	if err != nil {
-		t.Fatalf("NormalizeInfraName: %v", err)
-	}
-	if got == "" {
-		t.Error("expected non-empty name")
-	}
-}
-
 func TestDockerRunnerImpl_NormalizeVolumeName(t *testing.T) {
 	r := NewDockerRunner()
 	got, err := r.NormalizeVolumeName("proj", "data")

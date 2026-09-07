@@ -118,13 +118,6 @@ func (r *DockerRunnerImpl) NormalizeContainerName(
 	return dockerpkg.NormalizeContainerName(workspace, service, project, hasExplicitWorkspace)
 }
 
-// NormalizeInfraName normalizes an infra container name
-func (r *DockerRunnerImpl) NormalizeInfraName(
-	workspace string, infra string, project string, hasExplicitWorkspace bool,
-) (string, error) {
-	return dockerpkg.NormalizeInfraName(workspace, infra, project, hasExplicitWorkspace)
-}
-
 // GetContainerNameWithContext returns the container name for a service
 func (r *DockerRunnerImpl) GetContainerNameWithContext(
 	ctx context.Context, composePath string, serviceName string,

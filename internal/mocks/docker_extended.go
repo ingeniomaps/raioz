@@ -156,15 +156,6 @@ func (m *MockDockerRunner) NormalizeContainerName(
 	return "", nil
 }
 
-func (m *MockDockerRunner) NormalizeInfraName(
-	workspace string, infra string, project string, hasExplicitWorkspace bool,
-) (string, error) {
-	if m.NormalizeInfraNameFunc != nil {
-		return m.NormalizeInfraNameFunc(workspace, infra, project, hasExplicitWorkspace)
-	}
-	return "", nil
-}
-
 func (m *MockDockerRunner) GetContainerNameWithContext(
 	ctx context.Context, composePath string, serviceName string,
 ) (string, error) {

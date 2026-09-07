@@ -1,17 +1,15 @@
 package interfaces
 
-// ServiceInfo represents information about a Docker service
+// ServiceInfo represents information about a Docker service.
+//
+// Narrow on purpose: the only consumer copies these three fields into
+// models.ServiceInfo for the global state. Branch, Restarts and Ports
+// never had a producer, and the runtime numbers (uptime, CPU, memory,
+// health) were computed and discarded — the dashboard reads its own.
 type ServiceInfo struct {
-	Status   string
-	Uptime   string
-	CPU      string
-	Memory   string
-	Image    string
-	Commit   string
-	Branch   string
-	Health   string
-	Restarts string
-	Ports    []string
+	Status string
+	Image  string
+	Commit string
 }
 
 // LogsOptions contains options for viewing service logs
@@ -51,19 +49,15 @@ type DockerRunner interface {
 	// Deprecated: use `output.FormatSharedVolumesWarning`.
 	FormatSharedVolumesWarning(sharedVolumes map[string][]string) string
 
-	// NormalizeVolumeName, NormalizeContainerName, NormalizeInfraName
-	// are naming-policy helpers, not Docker operations. They live here
-	// for compatibility; see internal/naming/ for the canonical home.
+	// NormalizeVolumeName and NormalizeContainerName are naming-policy
+	// helpers, not Docker operations. They live here for compatibility;
+	// see internal/naming/ for the canonical home.
 	//
 	// Deprecated: use `naming.NormalizeVolumeName` etc.
 	NormalizeVolumeName(prefix, name string) (string, error)
 	// Deprecated: use `naming.NormalizeContainerName`.
 	NormalizeContainerName(
 		workspace, service, project string, hasExplicitWorkspace bool,
-	) (string, error)
-	// Deprecated: use `naming.NormalizeInfraName`.
-	NormalizeInfraName(
-		workspace, infra, project string, hasExplicitWorkspace bool,
 	) (string, error)
 }
 
