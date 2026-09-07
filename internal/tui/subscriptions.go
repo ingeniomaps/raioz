@@ -26,38 +26,17 @@ func (m Model) pollStats() tea.Cmd {
 		ctx, cancel := context.WithTimeout(m.config.Ctx, 5*time.Second)
 		defer cancel()
 
-		if m.config.YAMLMode {
-			return m.pollStatsYAML(ctx)
-		}
-
-		info, err := m.config.Docker.GetServicesInfoWithContext(
-			ctx, m.config.ComposePath, nil, m.config.Project, nil, nil,
-		)
-		if err != nil {
-			return StatsMsg{Stats: map[string]ServiceStats{}}
-		}
-
-		stats := make(map[string]ServiceStats)
-		for name, si := range info {
-			stats[name] = ServiceStats{
-				CPU:    si.CPU,
-				Memory: si.Memory,
-				Status: si.Status,
-				Health: si.Health,
-				Uptime: si.Uptime,
-			}
-		}
-		return StatsMsg{Stats: stats}
+		return m.queryStats(ctx)
 	}
 }
 
-// pollStatsYAML queries stats for all services in two batched docker
+// queryStats queries stats for all services in two batched docker
 // calls (pre-fix this forked N×2 subprocesses per 2s tick,
 // which throttled on Docker Desktop macOS once N > ~10). One `docker
 // inspect` covers status/health for all containers; one `docker stats
 // --no-stream` covers CPU/mem. Services whose containers don't exist
 // surface as "stopped" without spamming individual inspects.
-func (m Model) pollStatsYAML(ctx context.Context) StatsMsg {
+func (m Model) queryStats(ctx context.Context) StatsMsg {
 	stats := make(map[string]ServiceStats)
 	if len(m.services) == 0 {
 		return StatsMsg{Stats: stats}
@@ -76,9 +55,14 @@ func (m Model) pollStatsYAML(ctx context.Context) StatsMsg {
 
 	// One batched inspect for status + health. Format includes the
 	// container name so the output is self-describing.
+	//
+	// Health is guarded: a container without a healthcheck has no
+	// .State.Health key at all, and dot-access on it aborts the whole
+	// template — one healthcheck-less container used to take the status
+	// of every other service down with it.
 	inspectArgs := append([]string{
 		"inspect", "--format",
-		"{{.Name}}|{{.State.Status}}|{{.State.Health.Status}}",
+		"{{.Name}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}",
 	}, containers...)
 	if out, err := exec.CommandContext(
 		ctx, runtime.Binary(), inspectArgs...,

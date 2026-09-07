@@ -34,8 +34,8 @@ var dashboardCmd = &cobra.Command{
 			return runDashboardYAML(ctx, deps, proj)
 		}
 
-		// Legacy mode
-		return runDashboardLegacy(ctx, deps, cfgPath)
+		// No raioz.yaml on disk: the loader auto-detects the tree.
+		return runDashboardAutoDetect(ctx, deps, cfgPath)
 	},
 }
 
@@ -82,10 +82,8 @@ func runDashboardYAML(
 		Project:   proj.ProjectName,
 		Workspace: proj.Deps.Workspace,
 		Services:  services,
-		Docker:    deps.DockerRunner,
 		Proxy:     deps.ProxyManager,
 		Ctx:       ctx,
-		YAMLMode:  true,
 	}
 
 	model := tui.New(cfg)
@@ -96,7 +94,7 @@ func runDashboardYAML(
 	return nil
 }
 
-func runDashboardLegacy(
+func runDashboardAutoDetect(
 	ctx context.Context,
 	deps *app.Dependencies,
 	cfgPath string,
@@ -143,7 +141,6 @@ func runDashboardLegacy(
 		Project:   cfgDeps.Project.Name,
 		Workspace: cfgDeps.Workspace,
 		Services:  services,
-		Docker:    deps.DockerRunner,
 		Proxy:     deps.ProxyManager,
 		Ctx:       ctx,
 	}

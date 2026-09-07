@@ -34,17 +34,18 @@ type ServiceRow struct {
 }
 
 // Config holds everything the TUI needs to start.
+//
+// There is one mode. The dashboard used to branch on YAMLMode and reach
+// containers through a compose file, but no caller ever set ComposePath
+// and AutoDetect reports SourceFormatYAML, so the compose half ran with
+// an empty path and produced nothing. Containers are addressed by
+// naming.Container() throughout.
 type Config struct {
-	Project     string
-	Workspace   string
-	Services    []ServiceRow
-	ComposePath string
-	Docker      interfaces.DockerRunner
-	Proxy       interfaces.ProxyManager
-	Ctx         context.Context
-	// YAMLMode indicates the project uses YAML orchestration (no compose file).
-	// When true, container operations use naming.Container() directly.
-	YAMLMode bool
+	Project   string
+	Workspace string
+	Services  []ServiceRow
+	Proxy     interfaces.ProxyManager
+	Ctx       context.Context
 }
 
 // Model is the Bubble Tea model for the dashboard.
