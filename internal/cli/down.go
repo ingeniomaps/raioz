@@ -75,15 +75,6 @@ var downCmd = &cobra.Command{
 			ForceStateCleanup: downForceStateCleanup,
 		})
 
-		// Handle local project down command
-		baseDir, _ := deps.Workspace.GetBaseDir()
-		if baseDir != "" {
-			handled, localErr := app.HandleLocalProjectDown(ctx, configPath, baseDir, downErr)
-			if handled {
-				return localErr
-			}
-		}
-
 		logging.LogOperationEnd(ctx, "raioz down", startTime, downErr, "project", projectName)
 
 		return downErr
