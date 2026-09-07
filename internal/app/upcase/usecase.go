@@ -307,6 +307,10 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	// Update global state — best-effort; global state is optional.
 	_ = uc.updateGlobalState(ctx, deps, ws, composePath, serviceNames)
 
+	// Services that declare `health:` get probed before anything downstream
+	// treats the environment as ready — including the project command below.
+	waitForServiceEndpoints(ctx, deps, serviceNames)
+
 	// Wait for services and infra to be healthy before executing project commands
 	// This ensures that project.commands.up runs only after dependencies are ready
 	if hasProjectCommands && (len(serviceNames) > 0 || len(infraNames) > 0) {
