@@ -451,48 +451,6 @@ func TestPrepareDockerResourcesNetworkFails(t *testing.T) {
 
 // --- checkDependencyProjects --------------------------------------------------
 
-func TestCheckDependencyProjectsNoState(t *testing.T) {
-	initI18nUp(t)
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			LoadGlobalStateFunc: func() (*models.GlobalState, error) {
-				return nil, errors.New("no state")
-			},
-		},
-	})
-	deps := &models.Deps{Project: models.Project{Name: "p"}}
-	// Should not error when global state can't be loaded
-	err := uc.checkDependencyProjects(context.Background(), deps)
-	if err != nil {
-		t.Errorf("should be tolerant to state load error: %v", err)
-	}
-}
-
-func TestCheckDependencyProjectsNoMatch(t *testing.T) {
-	initI18nUp(t)
-	uc := NewUseCase(&Dependencies{
-		StateManager: &mocks.MockStateManager{
-			LoadGlobalStateFunc: func() (*models.GlobalState, error) {
-				return &models.GlobalState{
-					Projects: map[string]models.ProjectState{
-						"other": {Name: "other"},
-					},
-				}, nil
-			},
-		},
-	})
-	deps := &models.Deps{
-		Project: models.Project{Name: "p"},
-		Services: map[string]models.Service{
-			"api": {DependsOn: []string{"db"}},
-		},
-	}
-	err := uc.checkDependencyProjects(context.Background(), deps)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
 // --- mergeDeps ----------------------------------------------------------------
 
 // --- checkWorkspaceProjectConflict --------------------------------------------

@@ -133,6 +133,13 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 	actions = append(actions,
 		uc.pruneStaleSharedRefs(ctx, uc.refGCScope(opts.All, workspaceName), opts.DryRun)...)
 
+	// Global-state entries for projects that are no longer running. Only
+	// under --all: without it the user named one project, and `down`
+	// already deregisters that one.
+	if opts.All {
+		actions = append(actions, uc.pruneStaleProjectStates(ctx, opts.DryRun)...)
+	}
+
 	// Display actions
 	if opts.DryRun {
 		output.PrintSectionHeader(i18n.T("output.dry_run_header"))

@@ -91,6 +91,30 @@ Invariants:
 - Both modes are opt-in. Projects without `project:` or
   `siblingProject:` keys behave exactly as before.
 
+## Supersedes the name-collision prompt (removed 2026-09-07)
+
+Before this ADR, `checkDependencyProjects` guessed at the same need:
+it walked every service's `dependsOn`, matched each name against the
+global state, and — when the match happened to carry no services —
+asked whether to replace "the running project" and tried to stop it.
+
+Three things were wrong with it, and this ADR fixes all three by being
+explicit. The trigger was a **name collision against global state**,
+not a declared relationship, and global state accumulates: on the
+maintainer's machine it held 81 projects, 15 of them empty, including
+scratch projects created an hour earlier — any of which could fire the
+prompt for an unrelated dep that shared a name. Its "no services means
+a command-based project" test was `.raioz.json` vocabulary; in YAML an
+empty service list just means a project that only declares
+dependencies. And its stop ran the sibling's `commands.down`, so it
+had been unable to stop anything since ADR-038 without anyone
+noticing.
+
+`dependencies.<name>.project:` (mode A) and `siblingProject:` (mode B)
+are the supported way to depend on a sibling: declared rather than
+guessed, with cycle detection and workspace coherence, and `down`
+never touching the sibling. The old flow and its prompt were removed.
+
 ## Alternatives considered
 
 - **Sibling must export an image** — defeats the point;

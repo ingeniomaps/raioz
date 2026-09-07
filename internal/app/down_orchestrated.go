@@ -213,10 +213,15 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 			WithContext("services", strings.Join(failedStops, ","))
 	}
 
-	// ADR-023: state mirrors reality — drop raioz.root.json when the
-	// teardown is complete. Skipped when leftovers survive so the
-	// stale file is preserved for diagnostics. Resolve / Delete
-	// errors are non-fatal.
+	// ADR-023: state mirrors reality — drop raioz.root.json AND the
+	// project's global-state entry when the teardown is complete.
+	// Skipped when leftovers survive so the stale files are preserved
+	// for diagnostics; a subset stop returned long before here. Errors
+	// on either are non-fatal.
+	//
+	// The global-state entry used to be written by `up` and removed by
+	// nobody, so the map grew one entry per project ever started and
+	// kept them after the directory was gone. `raioz list` reads it.
 	if leftovers := docker.ListContainersByLabels(ctx, map[string]string{
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
@@ -232,6 +237,10 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 				logging.WarnWithContext(ctx, "Failed to remove root config",
 					"project", projectName, "error", err.Error())
 			}
+		}
+		if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
+			logging.WarnWithContext(ctx, "Failed to deregister project from global state",
+				"project", projectName, "error", err.Error())
 		}
 	}
 

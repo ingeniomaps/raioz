@@ -152,11 +152,6 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		return err
 	}
 
-	// Check for dependencies on running projects (before processing services)
-	if err := uc.checkDependencyProjects(ctx, deps); err != nil {
-		return err
-	}
-
 	// Normal flow: process services and infra first
 	// Acquire lock
 	lockInstance, err := uc.acquireLock(ctx, ws)
