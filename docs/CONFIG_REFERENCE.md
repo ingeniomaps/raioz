@@ -235,7 +235,7 @@ and starts with the native tool (go run, npm dev, etc.).
 | `env` | string or list | no | — | Env file paths (relative to project root). |
 | `ports` | string or list | no | auto-detected | Port mappings (e.g., `"3000"`, `"3000:8080"`). |
 | `watch` | bool or string | no | `false` | File watching mode. See [Watch config](#watch-config). |
-| `health` | string | no | — | Health check endpoint path (e.g., `/api/health`). |
+| `health` | string | no | — | Health endpoint path (e.g., `/api/health`). Probed on `127.0.0.1:<port>` after `up` and by `raioz health`; needs `port:` declared, since without it raioz assigns the host port at run time. |
 | `hostname` | string | no | service name | Custom hostname for proxy routing. |
 | `routing` | object | no | — | Proxy routing options. See [Routing config](#routing-config). |
 | `proxy` | object | no | — | Override proxy target/port when detection can't see the service (e.g., `command:` launches its own compose stack). See [Service proxy override](#service-proxy-override). |

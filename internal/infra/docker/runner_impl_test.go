@@ -64,17 +64,6 @@ func TestDockerRunnerImpl_NormalizeContainerName(t *testing.T) {
 	}
 }
 
-func TestDockerRunnerImpl_NormalizeInfraName(t *testing.T) {
-	r := NewDockerRunner()
-	got, err := r.NormalizeInfraName("ws", "postgres", "proj", false)
-	if err != nil {
-		t.Fatalf("NormalizeInfraName: %v", err)
-	}
-	if got == "" {
-		t.Error("expected non-empty name")
-	}
-}
-
 func TestDockerRunnerImpl_NormalizeVolumeName(t *testing.T) {
 	r := NewDockerRunner()
 	got, err := r.NormalizeVolumeName("proj", "data")
@@ -399,16 +388,6 @@ func TestDockerRunnerImpl_ExecInService(t *testing.T) {
 	}
 	r := NewDockerRunner()
 	_ = r.ExecInService(context.Background(), "/nonexistent/path.yml", "api", []string{"ls"}, false)
-}
-
-func TestDockerRunnerImpl_WaitForServicesHealthy(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
-	r := NewDockerRunner()
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately to avoid hanging
-	_ = r.WaitForServicesHealthy(ctx, "/nonexistent/path.yml", []string{"api"}, nil, "proj")
 }
 
 func TestDockerRunnerImpl_GetServicesInfoWithContext(t *testing.T) {

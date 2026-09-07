@@ -90,25 +90,6 @@ func TestRecordUserDecisionPathError(t *testing.T) {
 
 // --- processLocalProject (short-circuit: not local, no commands) --------------
 
-func TestProcessLocalProjectNotLocalNoCommands(t *testing.T) {
-	initI18nUp(t)
-	// Make project look not-local by setting RAIOZ_HOME to contain the config path
-	raiozHome := t.TempDir()
-	t.Setenv("RAIOZ_HOME", raiozHome)
-	wsDir := filepath.Join(raiozHome, "workspaces", "x")
-	if err := os.MkdirAll(wsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	configPath := filepath.Join(wsDir, ".raioz.json")
-
-	uc := NewUseCase(&Dependencies{})
-	deps := &models.Deps{Project: models.Project{Name: "p"}}
-	err := uc.processLocalProject(context.Background(), configPath, deps, "up", nil)
-	if err != nil {
-		t.Errorf("should no-op, got %v", err)
-	}
-}
-
 // --- cleanStaleHostProcesses --------------------------------------------------
 
 func TestCleanStaleHostProcessesNoState(t *testing.T) {

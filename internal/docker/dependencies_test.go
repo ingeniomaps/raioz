@@ -178,35 +178,3 @@ func indexOf(s, substr string) int {
 	}
 	return -1
 }
-
-func TestGetAllServiceNames(t *testing.T) {
-	deps := &models.Deps{
-		Services: map[string]models.Service{
-			"service1": {},
-			"service2": {},
-		},
-		Infra: map[string]models.InfraEntry{
-			"infra1": {Inline: &models.Infra{}},
-			"infra2": {Inline: &models.Infra{}},
-		},
-	}
-
-	names := GetAllServiceNames(deps)
-
-	expected := map[string]bool{
-		"service1": true,
-		"service2": true,
-		"infra1":   true,
-		"infra2":   true,
-	}
-
-	if len(names) != len(expected) {
-		t.Errorf("GetAllServiceNames() returned %d names, want %d", len(names), len(expected))
-	}
-
-	for name := range expected {
-		if !names[name] {
-			t.Errorf("GetAllServiceNames() missing name: %s", name)
-		}
-	}
-}

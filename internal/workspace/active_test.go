@@ -79,29 +79,6 @@ func TestSetActiveWorkspace_Trims(t *testing.T) {
 	}
 }
 
-func TestClearActiveWorkspace(t *testing.T) {
-	setupHome(t)
-
-	_ = SetActiveWorkspace("x")
-	if err := ClearActiveWorkspace(); err != nil {
-		t.Fatalf("ClearActiveWorkspace: %v", err)
-	}
-
-	got, _ := GetActiveWorkspace()
-	if got != "" {
-		t.Errorf("expected empty after clear, got %q", got)
-	}
-}
-
-func TestClearActiveWorkspace_AlreadyCleared(t *testing.T) {
-	setupHome(t)
-
-	// Clear without setting first — should be no-op
-	if err := ClearActiveWorkspace(); err != nil {
-		t.Errorf("ClearActiveWorkspace: %v", err)
-	}
-}
-
 func TestListWorkspaces_Empty(t *testing.T) {
 	setupHome(t)
 

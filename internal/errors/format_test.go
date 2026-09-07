@@ -188,13 +188,6 @@ func TestRuntimeNotDetected(t *testing.T) {
 	}
 }
 
-func TestRuntimeNotInstalled(t *testing.T) {
-	err := RuntimeNotInstalled("go", "go")
-	if err.Code != ErrCodeRuntimeNotInstalled {
-		t.Error("wrong code")
-	}
-}
-
 func TestServiceStartFailed_KnownRuntime(t *testing.T) {
 	inner := stderrors.New("crash")
 	for _, rt := range []string{"compose", "dockerfile", "npm", "go", "make", "python", "rust", "image"} {
@@ -254,40 +247,9 @@ func TestDependencyStartFailed_ComposeBackedHasNoImage(t *testing.T) {
 	}
 }
 
-func TestProxyStartFailed(t *testing.T) {
-	err := ProxyStartFailed(stderrors.New("caddy fail"))
-	if err.Code != ErrCodeProxyStartFailed {
-		t.Error("wrong code")
-	}
-}
-
-func TestPathNotFound(t *testing.T) {
-	err := PathNotFound("svc", "/missing")
-	if err.Code != ErrCodePathNotFound {
-		t.Error("wrong code")
-	}
-	if err.Context["path"] != "/missing" {
-		t.Error("path missing")
-	}
-}
-
-func TestDevSwapFailed(t *testing.T) {
-	err := DevSwapFailed("postgres", "promote", stderrors.New("fail"))
-	if err.Code != ErrCodeDevSwapFailed {
-		t.Error("wrong code")
-	}
-}
-
 func TestPreHookFailed(t *testing.T) {
 	err := PreHookFailed("./fetch-secrets.sh", stderrors.New("fail"))
 	if err.Code != ErrCodePreHookFailed {
-		t.Error("wrong code")
-	}
-}
-
-func TestYAMLParseFailed(t *testing.T) {
-	err := YAMLParseFailed("raioz.yaml", stderrors.New("bad syntax"))
-	if err.Code != ErrCodeYAMLParseFailed {
 		t.Error("wrong code")
 	}
 }

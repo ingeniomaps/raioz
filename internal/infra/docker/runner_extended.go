@@ -37,16 +37,6 @@ func (r *DockerRunnerImpl) ExecInService(
 	return dockerpkg.ExecInService(ctx, composePath, serviceName, command, interactive)
 }
 
-// WaitForServicesHealthy waits for services to become healthy
-func (r *DockerRunnerImpl) WaitForServicesHealthy(
-	ctx context.Context, composePath string, serviceNames []string,
-	infraNames []string, projectName string,
-) error {
-	return dockerpkg.WaitForServicesHealthy(
-		ctx, composePath, serviceNames, infraNames, projectName,
-	)
-}
-
 // ValidatePorts checks if all ports in a project are available
 func (r *DockerRunnerImpl) ValidatePorts(
 	deps *models.Deps, baseDir string, projectName string,
@@ -116,13 +106,6 @@ func (r *DockerRunnerImpl) NormalizeContainerName(
 	workspace string, service string, project string, hasExplicitWorkspace bool,
 ) (string, error) {
 	return dockerpkg.NormalizeContainerName(workspace, service, project, hasExplicitWorkspace)
-}
-
-// NormalizeInfraName normalizes an infra container name
-func (r *DockerRunnerImpl) NormalizeInfraName(
-	workspace string, infra string, project string, hasExplicitWorkspace bool,
-) (string, error) {
-	return dockerpkg.NormalizeInfraName(workspace, infra, project, hasExplicitWorkspace)
 }
 
 // GetContainerNameWithContext returns the container name for a service

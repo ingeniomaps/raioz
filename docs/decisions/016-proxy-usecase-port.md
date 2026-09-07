@@ -61,6 +61,12 @@ Landed in this commit:
   the use cases and the preflight switching.
 - `internal/cli/proxy.go` rewritten to thin wiring.
 
+**Removed 2026-09-06:** `RunPreflight` and its two probes were never
+wired — the follow-ups below stayed open long enough that the code was
+unreachable from `main` and went out with the dead-code sweep. The
+follow-ups now read "implement", not "wire"; `PreflightInput` /
+`PreflightCheck` would need rewriting first.
+
 **Not landed in this ADR** (tracked for follow-up):
 
 - **Wire `RunPreflight` into `raioz doctor`.** Doctor today has

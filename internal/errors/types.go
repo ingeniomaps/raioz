@@ -47,6 +47,11 @@ const (
 	// Sibling-project errors (ADR-008)
 	ErrCodeSiblingDown ErrorCode = "SIBLING_DOWN"
 
+	// Health verdict. Not a failure of raioz — the project answered and
+	// the answer was "no", which `raioz health` reports as a non-zero exit
+	// so a script can branch on it.
+	ErrCodeUnhealthy ErrorCode = "UNHEALTHY"
+
 	// Internal errors
 	ErrCodeInternalError ErrorCode = "INTERNAL_ERROR"
 )

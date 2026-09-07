@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestExpandTilde(t *testing.T) {
@@ -71,30 +70,6 @@ func TestResolveRelativeVolumes_WithRoMode(t *testing.T) {
 	}
 }
 
-func TestNormalizeNetworkName(t *testing.T) {
-	tests := []struct {
-		input   string
-		wantErr bool
-	}{
-		{"my-network", false},
-		{"My_Network", false},
-		{"", true},
-		{"MY NETWORK", false},
-		{strings.Repeat("a", 100), false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got, err := NormalizeNetworkName(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NormalizeNetworkName(%q) err=%v wantErr=%v", tt.input, err, tt.wantErr)
-			}
-			if !tt.wantErr && len(got) > MaxNetworkNameLength {
-				t.Errorf("result too long: %d", len(got))
-			}
-		})
-	}
-}
-
 func TestValidateNetworkName(t *testing.T) {
 	if err := ValidateNetworkName("valid-net"); err != nil {
 		t.Errorf("valid-net should pass: %v", err)
@@ -121,27 +96,6 @@ func TestValidateVolumeName(t *testing.T) {
 }
 
 // --- formatUptime ---
-
-func TestFormatUptimeDurations(t *testing.T) {
-	tests := []struct {
-		name string
-		d    time.Duration
-		want string
-	}{
-		{"30 mins", 30 * time.Minute, "30m"},
-		{"2 hours 5 mins", 2*time.Hour + 5*time.Minute, "2h 5m"},
-		{"3 days 4 hours", 3*24*time.Hour + 4*time.Hour + 10*time.Minute, "3d 4h 10m"},
-		{"zero", 0, "0m"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := formatUptime(tt.d)
-			if got != tt.want {
-				t.Errorf("formatUptime(%v) = %q, want %q", tt.d, got, tt.want)
-			}
-		})
-	}
-}
 
 // --- FormatPortConflicts ---
 

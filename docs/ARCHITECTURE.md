@@ -350,13 +350,11 @@ mount is read-only and `cp` fails with "device or resource busy"). It
 writes to the host path; the bind mount propagates the change into
 the container.
 
-### 6. Clone functions must stay in sync with config structs
-`internal/app/upcase/workspace_project_conflict.go` has
-`cloneService` and `cloneInfraEntry` used by the workspace-merge
-path. Adding a field to `config.Service` or `config.Infra` that
-affects orchestration REQUIRES updating these clones — missing
-fields silently vanish on re-up after any workspace state mismatch.
-Every past regression in this area traced to a missing field.
+### 6. (retired) Clone functions in sync with config structs
+The workspace-merge path this invariant protected was dropped by
+ADR-011 Phase 3; `cloneService` and `cloneInfraEntry` went with it in
+2026-09. Adding a field to `config.Service` or `config.Infra` no
+longer requires a matching clone update. See ADR-006 for the record.
 
 ### 7. Image classification is shared and bare-name-matched
 `proxy.IsNonHTTPImage(image)` in `internal/proxy/filter.go` is the

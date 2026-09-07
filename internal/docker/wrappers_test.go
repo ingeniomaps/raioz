@@ -11,40 +11,6 @@ import (
 	"testing"
 )
 
-func TestStatusWrappers_MissingPath(t *testing.T) {
-	tmp := t.TempDir()
-	missing := filepath.Join(tmp, "does-not-exist.yml")
-
-	// AreServicesRunning returns (false, nil) if path doesn't exist.
-	running, err := AreServicesRunning(missing, []string{"api"})
-	if err != nil {
-		t.Errorf("AreServicesRunning err = %v", err)
-	}
-	if running {
-		t.Error("AreServicesRunning should be false for missing path")
-	}
-
-	// GetServiceNames returns [] for missing file.
-	names, err := GetServiceNames(missing)
-	if err != nil {
-		t.Errorf("GetServiceNames err = %v", err)
-	}
-	if len(names) != 0 {
-		t.Errorf("GetServiceNames = %v, want empty", names)
-	}
-}
-
-func TestStatusWrappers_InvalidPath(t *testing.T) {
-	tmp := t.TempDir()
-	// Create a file so os.Stat succeeds, but with an invalid chars path.
-	// The validator runs *after* os.Stat, so we need a stat-existing path.
-	// Use a path with a dangerous char — it won't exist, so early return will apply.
-	bad := filepath.Join(tmp, "bad;rm.yml")
-	if _, err := GetServiceNames(bad); err != nil && err.Error() == "" {
-		t.Error("unexpected blank error")
-	}
-}
-
 func TestDownWrappers_MissingPath(t *testing.T) {
 	tmp := t.TempDir()
 	missing := filepath.Join(tmp, "nothing.yml")

@@ -31,29 +31,6 @@ func TestSetBinary_Empty(t *testing.T) {
 	SetBinary("docker")
 }
 
-func TestComposeBinary(t *testing.T) {
-	SetBinary("nerdctl")
-	defer SetBinary("docker")
-
-	bin, sub := ComposeBinary()
-	if bin != "nerdctl" || sub != "compose" {
-		t.Errorf("expected nerdctl compose, got %s %s", bin, sub)
-	}
-}
-
-func TestIsDocker(t *testing.T) {
-	SetBinary("docker")
-	if !IsDocker() {
-		t.Error("expected IsDocker=true for docker")
-	}
-
-	SetBinary("podman")
-	if IsDocker() {
-		t.Error("expected IsDocker=false for podman")
-	}
-	SetBinary("docker")
-}
-
 func TestEnvVar(t *testing.T) {
 	// Save and restore
 	old := os.Getenv("RAIOZ_RUNTIME")

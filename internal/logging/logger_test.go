@@ -97,38 +97,6 @@ func TestParseLevel(t *testing.T) {
 	}
 }
 
-func TestIsDebugEnabled(t *testing.T) {
-	t.Run("debug enabled", func(t *testing.T) {
-		Init(LogLevelDebug, false)
-		if !IsDebugEnabled() {
-			t.Error("Expected debug to be enabled")
-		}
-	})
-
-	t.Run("debug disabled", func(t *testing.T) {
-		Init(LogLevelInfo, false)
-		if IsDebugEnabled() {
-			t.Error("Expected debug to be disabled")
-		}
-	})
-}
-
-func TestIsJSONFormat(t *testing.T) {
-	t.Run("JSON enabled", func(t *testing.T) {
-		Init(LogLevelInfo, true)
-		if !IsJSONFormat() {
-			t.Error("Expected JSON format to be enabled")
-		}
-	})
-
-	t.Run("JSON disabled", func(t *testing.T) {
-		Init(LogLevelInfo, false)
-		if IsJSONFormat() {
-			t.Error("Expected JSON format to be disabled")
-		}
-	})
-}
-
 func TestLoggingFunctions(t *testing.T) {
 	Init(LogLevelDebug, false)
 

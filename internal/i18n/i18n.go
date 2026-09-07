@@ -184,14 +184,6 @@ func SavePreference(lang string) error {
 	return nil
 }
 
-// LoadPreference reads the saved language preference from ~/.raioz/config.json.
-// Returns empty string if no preference is saved.
-func LoadPreference() string {
-	mu.RLock()
-	defer mu.RUnlock()
-	return loadPreferenceInternal()
-}
-
 // loadPreferenceInternal reads preference without locking (caller must hold mu).
 func loadPreferenceInternal() string {
 	dir := raiozBaseDir

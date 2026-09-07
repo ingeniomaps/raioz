@@ -105,39 +105,6 @@ func DetectAssistedServiceDrift(rootConfig *RootConfig, ws *workspace.Workspace)
 	return drifts, nil
 }
 
-// FormatDrift formats a ServiceDrift for display
-func FormatDrift(drift ServiceDrift) string {
-	var result string
-	result += fmt.Sprintf("  Service: %s\n", drift.ServiceName)
-	result += fmt.Sprintf("  Config file: %s\n", drift.ServicePath)
-	result += fmt.Sprintf("  Differences (%d):\n", len(drift.Differences))
-	for i, change := range drift.Differences {
-		// Format field name more clearly
-		fieldDisplay := change.Field
-		if change.Type == "service" {
-			fieldDisplay = fmt.Sprintf("service.%s", change.Field)
-		}
-
-		// Format old and new values more clearly
-		oldVal := change.OldValue
-		if oldVal == "" {
-			oldVal = "(empty)"
-		}
-		newVal := change.NewValue
-		if newVal == "" {
-			newVal = "(empty)"
-		}
-
-		result += fmt.Sprintf("    %d. %s\n", i+1, fieldDisplay)
-		result += fmt.Sprintf("       Previous: %s\n", oldVal)
-		result += fmt.Sprintf("       Current:  %s\n", newVal)
-		if i < len(drift.Differences)-1 {
-			result += "\n"
-		}
-	}
-	return result
-}
-
 // FormatDrifts formats a list of ServiceDrift for display
 func FormatDrifts(drifts []ServiceDrift) string {
 	if len(drifts) == 0 {

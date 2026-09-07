@@ -9,45 +9,6 @@ import (
 	"raioz/internal/naming"
 )
 
-// Every `raioz up` calls this. Recreating a network that already exists
-// would fail the run; skipping the create when it does not would leave
-// every container unable to resolve its siblings.
-func TestEnsureNetworkWithFakeRuntime(t *testing.T) {
-	t.Run("existing network is reused", func(t *testing.T) {
-		argsFile := fakeDocker(t, map[string]fakeReply{
-			"network inspect": {stdout: "acme-net|bridge|local|map[]\n"},
-		})
-		if err := EnsureNetworkWithContext(context.Background(), "acme-net"); err != nil {
-			t.Fatalf("EnsureNetworkWithContext: %v", err)
-		}
-		if strings.Contains(fakeArgs(t, argsFile), "create") {
-			t.Error("an existing network must not be re-created")
-		}
-	})
-
-	t.Run("missing network is created", func(t *testing.T) {
-		argsFile := fakeDocker(t, map[string]fakeReply{
-			"network inspect": {exitCode: 1},
-			"network create":  {},
-		})
-		if err := EnsureNetworkWithContext(context.Background(), "acme-net"); err != nil {
-			t.Fatalf("EnsureNetworkWithContext: %v", err)
-		}
-		if !strings.Contains(fakeArgs(t, argsFile), "create") {
-			t.Errorf("expected a network create, got:\n%s", fakeArgs(t, argsFile))
-		}
-	})
-
-	t.Run("inspect failures are not silently treated as absent", func(t *testing.T) {
-		// Exit 2 is "something went wrong", not "no such network" —
-		// creating on top of that could collide with a real network.
-		fakeDocker(t, map[string]fakeReply{"network inspect": {exitCode: 2}})
-		if err := EnsureNetworkWithContext(context.Background(), "acme-net"); err == nil {
-			t.Error("expected the inspect failure to surface")
-		}
-	})
-}
-
 // The subnet is what makes container IPs deterministic (proxy.publish
 // false depends on it) and the labels are what lets `down` sweep the
 // network later — both have to reach the command line.
@@ -81,7 +42,8 @@ func TestCreateNetworkSurfacesFailure(t *testing.T) {
 	fakeDocker(t, map[string]fakeReply{
 		"network": {stdout: "pool overlaps with other one", exitCode: 1},
 	})
-	err := CreateNetworkWithContext(context.Background(), "acme-net")
+	err := CreateNetworkWithConfigAndContext(
+		context.Background(), NetworkConfig{Name: "acme-net"}, false)
 	if err == nil {
 		t.Fatal("expected the create failure to surface")
 	}

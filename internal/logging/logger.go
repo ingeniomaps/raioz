@@ -78,16 +78,6 @@ func parseLevel(level LogLevel) slog.Level {
 	}
 }
 
-// IsDebugEnabled returns true if debug level is enabled
-func IsDebugEnabled() bool {
-	return logLevel == LogLevelDebug
-}
-
-// IsJSONFormat returns true if JSON format is enabled
-func IsJSONFormat() bool {
-	return jsonFormat
-}
-
 // Debug logs a debug message
 func Debug(msg string, args ...any) {
 	if Logger != nil {

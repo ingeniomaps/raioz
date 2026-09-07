@@ -17,22 +17,6 @@ func isolate(t *testing.T) string {
 	return dir
 }
 
-func TestAddRef_Idempotent(t *testing.T) {
-	isolate(t)
-	for range 3 {
-		if err := AddRef("conorbi", "loki", "observability"); err != nil {
-			t.Fatalf("AddRef: %v", err)
-		}
-	}
-	refs, err := Refs("conorbi", "loki")
-	if err != nil {
-		t.Fatalf("Refs: %v", err)
-	}
-	if !slices.Equal(refs, []string{"observability"}) {
-		t.Errorf("refs = %v, want [observability]", refs)
-	}
-}
-
 func TestDropRef_LastConsumerEmpties(t *testing.T) {
 	isolate(t)
 	if err := AddRef("conorbi", "loki", "observability"); err != nil {
@@ -88,16 +72,5 @@ func TestEmptyStateRemovesFile(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, stateFileName)); !os.IsNotExist(err) {
 		t.Errorf("state file should be gone after last DropRef, stat err = %v", err)
-	}
-}
-
-func TestRefs_UnknownWorkspaceOrDep(t *testing.T) {
-	isolate(t)
-	refs, err := Refs("nope", "loki")
-	if err != nil {
-		t.Fatalf("Refs: %v", err)
-	}
-	if len(refs) != 0 {
-		t.Errorf("refs = %v, want empty for unknown workspace", refs)
 	}
 }

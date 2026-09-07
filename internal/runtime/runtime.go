@@ -22,20 +22,9 @@ func Binary() string {
 	return binary
 }
 
-// ComposeBinary returns the compose subcommand.
-// For docker: "docker compose". For podman: "podman compose".
-func ComposeBinary() (string, string) {
-	return binary, "compose"
-}
-
 // SetBinary overrides the container runtime binary.
 func SetBinary(b string) {
 	if b != "" {
 		binary = b
 	}
-}
-
-// IsDocker returns true if the current runtime is Docker.
-func IsDocker() bool {
-	return binary == "docker"
 }

@@ -105,23 +105,6 @@ func SetActiveWorkspace(workspaceName string) error {
 	return nil
 }
 
-// ClearActiveWorkspace removes the active workspace setting
-func ClearActiveWorkspace() error {
-	path, err := GetActiveWorkspacePath()
-	if err != nil {
-		return err
-	}
-
-	if err := os.Remove(path); err != nil {
-		if os.IsNotExist(err) {
-			return nil // Already cleared
-		}
-		return fmt.Errorf("failed to clear active workspace: %w", err)
-	}
-
-	return nil
-}
-
 // ListWorkspaces returns a list of all available workspaces
 func ListWorkspaces() ([]string, error) {
 	baseDir, err := GetBaseDir()

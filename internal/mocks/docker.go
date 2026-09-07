@@ -42,10 +42,6 @@ type MockDockerRunner struct {
 		ctx context.Context, composePath string,
 		serviceName string, command []string, interactive bool,
 	) error
-	WaitForServicesHealthyFunc func(
-		ctx context.Context, composePath string,
-		serviceNames []string, infraNames []string, projectName string,
-	) error
 	ValidatePortsFunc func(
 		deps *models.Deps, baseDir string, projectName string,
 	) ([]interfaces.PortConflict, error)
@@ -59,10 +55,6 @@ type MockDockerRunner struct {
 	NormalizeVolumeNameFunc     func(prefix string, name string) (string, error)
 	NormalizeContainerNameFunc  func(
 		workspace string, service string, project string,
-		hasExplicitWorkspace bool,
-	) (string, error)
-	NormalizeInfraNameFunc func(
-		workspace string, infra string, project string,
 		hasExplicitWorkspace bool,
 	) (string, error)
 	GetContainerNameWithContextFunc   func(ctx context.Context, composePath string, serviceName string) (string, error)

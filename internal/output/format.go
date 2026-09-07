@@ -2,9 +2,7 @@ package output
 
 import (
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"raioz/internal/i18n"
@@ -83,11 +81,6 @@ func PrintServiceCloned(serviceName string) {
 	PrintSuccess(i18n.T("output.cloned", serviceName))
 }
 
-// PrintServiceUsingImage prints a message when a service uses an image.
-func PrintServiceUsingImage(serviceName string) {
-	PrintInfo(i18n.T("output.using_image", serviceName))
-}
-
 // PrintInfraStarted prints a message when infrastructure is started.
 func PrintInfraStarted(infraName string) {
 	PrintSuccess(infraName)
@@ -99,31 +92,9 @@ func PrintWorkspaceCreated() {
 	// Intentionally silent — workspace creation is an internal detail
 }
 
-// PrintGeneratingCompose prints a message when generating compose.
-func PrintGeneratingCompose() {
-	PrintProgress(i18n.T("output.generating_compose"))
-}
-
-// PrintStartingServices prints a message when starting services.
-func PrintStartingServices() {
-	PrintProgress(i18n.T("output.starting_services"))
-}
-
 // PrintProjectStarted prints a success message when project is started.
 func PrintProjectStarted(projectName string) {
 	PrintSuccess(i18n.T("output.project_started", projectName))
-}
-
-// FormatConfigChanges formats configuration changes for display.
-func FormatConfigChanges(changes []string) string {
-	if len(changes) == 0 {
-		return ""
-	}
-	var sb strings.Builder
-	for _, change := range changes {
-		fmt.Fprintf(&sb, "    %s\n", change)
-	}
-	return sb.String()
 }
 
 // PrintProgress prints a progress step message.
@@ -171,54 +142,6 @@ func PrintList(items []string, indent int) {
 // PrintKeyValue prints a key-value pair.
 func PrintKeyValue(key, value string) {
 	fmt.Printf("  %s%s:%s %s\n", dim, key, reset, value)
-}
-
-// tableWriterState holds the state for table formatting.
-type tableWriterState struct {
-	writer *tabwriter.Writer
-}
-
-var globalTableState *tableWriterState
-
-func getTableWriter() *tabwriter.Writer {
-	if globalTableState == nil {
-		globalTableState = &tableWriterState{
-			writer: tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight),
-		}
-	}
-	return globalTableState.writer
-}
-
-// PrintTableHeader prints a table header with separator.
-func PrintTableHeader(headers ...string) {
-	w := getTableWriter()
-	for i, header := range headers {
-		if i > 0 {
-			fmt.Fprint(w, "\t")
-		}
-		fmt.Fprint(w, header)
-	}
-	fmt.Fprintln(w)
-	w.Flush()
-	fmt.Printf("  %s%s%s\n", dim, strings.Repeat("-", 60), reset)
-}
-
-// PrintTableRow prints a table row.
-func PrintTableRow(values ...string) {
-	w := getTableWriter()
-	for i, value := range values {
-		if i > 0 {
-			fmt.Fprint(w, "\t")
-		}
-		fmt.Fprint(w, value)
-	}
-	fmt.Fprintln(w)
-	w.Flush()
-}
-
-// PrintEmptyState prints a message when there's no data.
-func PrintEmptyState(message string) {
-	fmt.Printf("  %s(no %s)%s\n", dim, message, reset)
 }
 
 // PrintPrompt prints a prompt for user input.

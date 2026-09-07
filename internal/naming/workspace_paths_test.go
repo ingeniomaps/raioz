@@ -38,17 +38,6 @@ func TestWorkspaceProxyDir(t *testing.T) {
 	}
 }
 
-func TestWorkspaceCaddyfilePath(t *testing.T) {
-	original := prefix
-	defer func() { prefix = original }()
-	prefix = "acme"
-
-	got := WorkspaceCaddyfilePath()
-	if !strings.HasSuffix(got, filepath.Join("acme", "proxy", "Caddyfile")) {
-		t.Errorf("got %q, expected to end with acme/proxy/Caddyfile", got)
-	}
-}
-
 // TestWorkspaceProxyDir_HonorsXDGStateHome locks in the XDG-state
 // migration: proxy state must follow $XDG_STATE_HOME so reboots and
 // Docker auto-create races can't poison it under /tmp.

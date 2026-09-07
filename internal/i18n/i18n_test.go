@@ -2,7 +2,6 @@ package i18n
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -166,29 +165,6 @@ func TestAvailable(t *testing.T) {
 	}
 	if !hasEn || !hasEs {
 		t.Errorf("expected 'en' and 'es' in available, got %v", langs)
-	}
-}
-
-func TestSaveAndLoadPreference(t *testing.T) {
-	reset()
-	Init("en")
-
-	tmpDir := t.TempDir()
-	SetBaseDir(tmpDir)
-
-	if err := SavePreference("es"); err != nil {
-		t.Fatalf("SavePreference error: %v", err)
-	}
-
-	loaded := LoadPreference()
-	if loaded != "es" {
-		t.Errorf("LoadPreference() = %q, want 'es'", loaded)
-	}
-
-	// Verify file exists
-	configPath := filepath.Join(tmpDir, "config.json")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		t.Error("config.json was not created")
 	}
 }
 

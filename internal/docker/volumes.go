@@ -232,11 +232,6 @@ func NormalizeVolumeNamesInStrings(
 	return normalized, nil
 }
 
-// VolumeExists checks if a named Docker volume exists
-func VolumeExists(name string) (bool, error) {
-	return VolumeExistsWithContext(context.Background(), name)
-}
-
 // VolumeExistsWithContext checks if a named Docker volume exists with context support
 func VolumeExistsWithContext(ctx context.Context, name string) (bool, error) {
 	// Create context with timeout
@@ -259,11 +254,6 @@ func VolumeExistsWithContext(ctx context.Context, name string) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// EnsureVolume ensures that a named volume exists, creating it if necessary
-func EnsureVolume(name string) error {
-	return EnsureVolumeWithContext(context.Background(), name)
 }
 
 // EnsureVolumeWithContext ensures that a named volume exists, creating it if necessary, with context support
@@ -292,11 +282,6 @@ func EnsureVolumeWithContext(ctx context.Context, name string) error {
 	}
 
 	return nil
-}
-
-// RemoveVolume removes a named Docker volume
-func RemoveVolume(name string) error {
-	return RemoveVolumeWithContext(context.Background(), name)
 }
 
 // RemoveVolumeWithContext removes a named Docker volume with context support

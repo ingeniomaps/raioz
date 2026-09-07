@@ -114,10 +114,3 @@ func buildServiceContext(
 		ProjectName:   projectName,
 	}
 }
-
-// isYAMLMode reads SourceFormat (ADR-039). Inline SchemaVersion
-// literal readers elsewhere are tracked by the dual-flow ratchet
-// and will collapse through SelectFlow.
-func isYAMLMode(deps *models.Deps) bool {
-	return deps != nil && deps.SourceFormat == models.SourceFormatYAML
-}

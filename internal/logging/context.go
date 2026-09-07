@@ -191,24 +191,3 @@ func LogOperationEnd(ctx context.Context, operation string, startTime time.Time,
 		logger.Debug("Operation completed", allArgs...)
 	}
 }
-
-// LogCriticalOperation logs a critical operation with full context
-func LogCriticalOperation(ctx context.Context, level LogLevel, msg string, args ...any) {
-	logger := WithLogContext(ctx)
-
-	// Add timestamp
-	allArgs := append([]any{"timestamp", time.Now().Format(time.RFC3339)}, args...)
-
-	switch level {
-	case LogLevelDebug:
-		logger.Debug(msg, allArgs...)
-	case LogLevelInfo:
-		logger.Info(msg, allArgs...)
-	case LogLevelWarn:
-		logger.Warn(msg, allArgs...)
-	case LogLevelError:
-		logger.Error(msg, allArgs...)
-	default:
-		logger.Info(msg, allArgs...)
-	}
-}

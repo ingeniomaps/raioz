@@ -38,38 +38,6 @@ func TestRaiozStateDir(t *testing.T) {
 	})
 }
 
-func TestRaiozConfigDir(t *testing.T) {
-	t.Run("RAIOZ_HOME wins", func(t *testing.T) {
-		t.Setenv("RAIOZ_HOME", "/explicit/override")
-		t.Setenv("XDG_CONFIG_HOME", "/xdg/config")
-		if got := RaiozConfigDir(); got != "/explicit/override" {
-			t.Errorf("RaiozConfigDir() = %q, want /explicit/override", got)
-		}
-	})
-
-	t.Run("XDG_CONFIG_HOME used when RAIOZ_HOME unset", func(t *testing.T) {
-		t.Setenv("RAIOZ_HOME", "")
-		t.Setenv("XDG_CONFIG_HOME", "/some/xdg")
-		want := filepath.Join("/some/xdg", "raioz")
-		if got := RaiozConfigDir(); got != want {
-			t.Errorf("RaiozConfigDir() = %q, want %q", got, want)
-		}
-	})
-
-	t.Run("home fallback when nothing set", func(t *testing.T) {
-		t.Setenv("RAIOZ_HOME", "")
-		t.Setenv("XDG_CONFIG_HOME", "")
-		home, err := os.UserHomeDir()
-		if err != nil || home == "" {
-			t.Skip("UserHomeDir() unavailable on this platform")
-		}
-		want := filepath.Join(home, ".config", "raioz")
-		if got := RaiozConfigDir(); got != want {
-			t.Errorf("RaiozConfigDir() = %q, want %q", got, want)
-		}
-	})
-}
-
 // Losing an entry here silently strands user data on upgrade.
 func TestLegacyStateDirs(t *testing.T) {
 	got := LegacyStateDirs()

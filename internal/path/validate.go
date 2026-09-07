@@ -2,7 +2,6 @@ package path
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -116,28 +115,4 @@ func EnsurePathInBase(baseDir, userPath string) (string, error) {
 	}
 
 	return fullPath, nil
-}
-
-// CheckSymlinkSecurity checks if a path is a symlink that could be dangerous
-// This is a basic check - for production use, consider using os.Readlink to verify
-func CheckSymlinkSecurity(path string) error {
-	// Check if path is a symlink
-	info, err := os.Lstat(path)
-	if err != nil {
-		// If path doesn't exist, that's ok - we'll validate when it's created
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to check symlink: %w", err)
-	}
-
-	// Check if it's a symlink
-	if info.Mode()&os.ModeSymlink != 0 {
-		// For symlinks, we rely on ValidatePathInBase to ensure the target is within baseDir
-		// This is acceptable because ValidatePathInBase resolves to absolute paths
-		// which should handle symlinks correctly
-		return nil
-	}
-
-	return nil
 }

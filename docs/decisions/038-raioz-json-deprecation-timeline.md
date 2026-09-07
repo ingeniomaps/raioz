@@ -78,6 +78,19 @@ the warning itself so users see when the warning becomes an error.
   surface reads `.raioz.json` after that. Unchanged from the
   original plan.
 
+**Cascade removed 2026-09-06.** `project.commands` was the JSON-only
+way to hang up/down/health commands on the project itself; `pre:` /
+`preUp:` / `post:` (ADR-024) is its YAML successor and `migrate yaml`
+never translated it. With `LoadDeps` hard-erroring, `Project.Commands`
+is nil on every path into `up`, so `hasProjectCommands` was constantly
+false and everything behind it unreachable: `local_project.go`,
+`local_project_helpers.go`, `duplicate_project.go`, the
+`WaitForServicesHealthy` chain (port, adapter, mock and a latent
+five-minute stall — it resolved containers through a compose path that
+is empty in YAML mode), and ten i18n keys. `deadcode` could not see any
+of it: the branch is dead by value, not by function. `stopRunningProject`
+kept its deregistration and dropped the stop it could no longer perform.
+
 ### Why "loud one-shot" instead of "loud always"
 
 The JSON loader is also called by `dependency_assist.go` when

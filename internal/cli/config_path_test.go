@@ -114,15 +114,3 @@ func TestResolveConfigPathYAMLPriorityOverJSON(t *testing.T) {
 		t.Errorf("priority: got %q, want raioz.yaml", got)
 	}
 }
-
-func TestIsAutoDetect(t *testing.T) {
-	if !IsAutoDetect(AutoDetectMarker) {
-		t.Errorf("IsAutoDetect(%q) = false, want true", AutoDetectMarker)
-	}
-	if IsAutoDetect("") {
-		t.Error("IsAutoDetect(\"\") = true, want false")
-	}
-	if IsAutoDetect("raioz.yaml") {
-		t.Error("IsAutoDetect(\"raioz.yaml\") = true, want false")
-	}
-}

@@ -90,16 +90,6 @@ func (m *MockDockerRunner) ExecInService(
 	return nil
 }
 
-func (m *MockDockerRunner) WaitForServicesHealthy(
-	ctx context.Context, composePath string, serviceNames []string,
-	infraNames []string, projectName string,
-) error {
-	if m.WaitForServicesHealthyFunc != nil {
-		return m.WaitForServicesHealthyFunc(ctx, composePath, serviceNames, infraNames, projectName)
-	}
-	return nil
-}
-
 func (m *MockDockerRunner) ValidatePorts(
 	deps *models.Deps, baseDir string, projectName string,
 ) ([]interfaces.PortConflict, error) {
@@ -152,15 +142,6 @@ func (m *MockDockerRunner) NormalizeContainerName(
 ) (string, error) {
 	if m.NormalizeContainerNameFunc != nil {
 		return m.NormalizeContainerNameFunc(workspace, service, project, hasExplicitWorkspace)
-	}
-	return "", nil
-}
-
-func (m *MockDockerRunner) NormalizeInfraName(
-	workspace string, infra string, project string, hasExplicitWorkspace bool,
-) (string, error) {
-	if m.NormalizeInfraNameFunc != nil {
-		return m.NormalizeInfraNameFunc(workspace, infra, project, hasExplicitWorkspace)
 	}
 	return "", nil
 }

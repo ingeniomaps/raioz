@@ -127,15 +127,11 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		onlyFilteredDeps = &depsCopy
 	}
 
-	// Check what we have: services, infra, or project commands
-	hasServices := len(deps.Services) > 0
-	hasInfra := len(deps.Infra) > 0
-	hasProjectCommands := deps.Project.Commands != nil && (deps.Project.Commands.Up != "" ||
-		(deps.Project.Commands.Dev != nil && deps.Project.Commands.Dev.Up != "") ||
-		(deps.Project.Commands.Prod != nil && deps.Project.Commands.Prod.Up != ""))
-
-	// If only project commands, skip services/infra processing
-	onlyProjectCommands := !hasServices && !hasInfra && hasProjectCommands
+	// project.commands was the .raioz.json way to hang a command off the
+	// project itself. It has no YAML spelling — `pre:` / `preUp:` / `post:`
+	// (ADR-024) replaced it — and LoadDeps hard-errors on JSON (ADR-038),
+	// so deps.Project.Commands is nil on every path that reaches here. The
+	// branches that read it are gone; see ADR-038.
 
 	// Validation: validate.All, permissions, ports, dependency conflicts
 	err = uc.validate(ctx, deps, ws, opts.DryRun)
@@ -154,37 +150,6 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	// the hook produces are visible to downstream steps. A failure aborts the run.
 	if err := uc.preHookExec(ctx, deps, projectDir); err != nil {
 		return err
-	}
-
-	// If only project commands, execute them directly and return
-	if onlyProjectCommands {
-		if err := uc.deps.EnvManager.WriteGlobalEnvVariables(ws, deps, projectDir); err != nil {
-			return errors.New(
-				errors.ErrCodeWorkspaceError,
-				i18n.T("error.global_env_write"),
-			).WithSuggestion(
-				i18n.T("error.global_env_write_suggestion"),
-			).WithError(err)
-		}
-		// Acquire lock
-		lockInstance, err := uc.acquireLock(ctx, ws)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = lockInstance.Release() }()
-
-		// Execute project command directly
-		err = uc.processLocalProject(ctx, opts.ConfigPath, deps, "up", ws)
-		if err != nil {
-			return err
-		}
-
-		// Post-hook (project-only path): runs after project command succeeds.
-		uc.postHookExec(ctx, deps, projectDir)
-
-		// Final summary (no services/infra)
-		uc.showSummary(ctx, deps, []string{}, []string{}, startTime)
-		return nil
 	}
 
 	// Check for dependencies on running projects (before processing services)
@@ -241,13 +206,6 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		return err
 	}
 	if shouldSkip {
-		// Services are running, but still execute project command if exists
-		if hasProjectCommands {
-			err = uc.processLocalProject(ctx, opts.ConfigPath, deps, "up", ws)
-			if err != nil {
-				logging.WarnWithContext(ctx, "Failed to execute local project command", "error", err.Error())
-			}
-		}
 		// Post-hook still runs on skipped path — user scripts should be idempotent.
 		uc.postHookExec(ctx, deps, projectDir)
 		return nil
@@ -307,28 +265,9 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	// Update global state — best-effort; global state is optional.
 	_ = uc.updateGlobalState(ctx, deps, ws, composePath, serviceNames)
 
-	// Wait for services and infra to be healthy before executing project commands
-	// This ensures that project.commands.up runs only after dependencies are ready
-	if hasProjectCommands && (len(serviceNames) > 0 || len(infraNames) > 0) {
-		output.PrintProgress(i18n.T("up.waiting_healthy_before_cmd"))
-		err := uc.deps.DockerRunner.WaitForServicesHealthy(
-			ctx, composePath, serviceNames, infraNames, deps.Project.Name,
-		)
-		if err != nil {
-			logging.WarnWithContext(ctx, "Failed to wait for services to be healthy", "error", err.Error())
-			output.PrintWarning(i18n.T("up.services_not_healthy_warning"))
-			// Continue anyway - user may want to proceed even if health checks fail
-		}
-	}
-
-	// Execute local project command as final step (if both services and commands exist)
-	if hasProjectCommands {
-		err = uc.processLocalProject(ctx, opts.ConfigPath, deps, "up", ws)
-		if err != nil {
-			// Log but don't fail - local project command is optional
-			logging.WarnWithContext(ctx, "Failed to execute local project command", "error", err.Error())
-		}
-	}
+	// Services that declare `health:` get probed before anything downstream
+	// treats the environment as ready — including the project command below.
+	waitForServiceEndpoints(ctx, deps, serviceNames)
 
 	// Post-hook: runs after everything is up. Failures are warnings, not errors.
 	uc.postHookExec(ctx, deps, projectDir)

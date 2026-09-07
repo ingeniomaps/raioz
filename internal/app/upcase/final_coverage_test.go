@@ -16,117 +16,6 @@ import (
 
 // --- checkServiceHealthDefault / checkServiceHealth ---------------------------
 
-func TestCheckServiceHealthDefaultNoPort(t *testing.T) {
-	svc := models.Service{}
-	ok, err := checkServiceHealthDefault(
-		context.Background(), &workspace.Workspace{Root: "/t"}, "api", svc,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok {
-		t.Error("service with no port should not be healthy by default")
-	}
-}
-
-func TestCheckServiceHealthDefaultInvalidPort(t *testing.T) {
-	svc := models.Service{
-		Docker: &models.DockerConfig{Ports: []string{"nonnumber:80"}},
-	}
-	ok, err := checkServiceHealthDefault(
-		context.Background(), &workspace.Workspace{Root: "/t"}, "api", svc,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok {
-		t.Error("invalid port should return not healthy")
-	}
-}
-
-func TestCheckServiceHealthDefaultClosedPort(t *testing.T) {
-	svc := models.Service{
-		// Use a very high port unlikely to be open
-		Docker: &models.DockerConfig{Ports: []string{"59999:59999"}},
-	}
-	ok, err := checkServiceHealthDefault(
-		context.Background(), &workspace.Workspace{Root: "/t"}, "api", svc,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok {
-		t.Error("closed port should not be healthy")
-	}
-}
-
-func TestCheckServiceHealthNoCustomCommand(t *testing.T) {
-	wm := &mocks.MockWorkspaceManager{
-		GetServicePathFunc: func(
-			ws *workspace.Workspace, n string, svc models.Service,
-		) string {
-			return "/x"
-		},
-	}
-	svc := models.Service{}
-	ok, err := checkServiceHealth(
-		context.Background(), &workspace.Workspace{Root: "/t"},
-		"api", svc, "dev", wm,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok {
-		t.Error("no command + no port → not healthy")
-	}
-}
-
-func TestCheckServiceHealthTrueCommand(t *testing.T) {
-	wm := &mocks.MockWorkspaceManager{
-		GetServicePathFunc: func(
-			ws *workspace.Workspace, n string, svc models.Service,
-		) string {
-			return t.TempDir()
-		},
-	}
-	svc := models.Service{
-		Commands: &models.ServiceCommands{Health: "true"},
-	}
-	ok, err := checkServiceHealth(
-		context.Background(), &workspace.Workspace{Root: "/t"},
-		"api", svc, "dev", wm,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ok {
-		t.Error("true command should be healthy")
-	}
-}
-
-func TestCheckServiceHealthFalseCommand(t *testing.T) {
-	wm := &mocks.MockWorkspaceManager{
-		GetServicePathFunc: func(
-			ws *workspace.Workspace, n string, svc models.Service,
-		) string {
-			return t.TempDir()
-		},
-	}
-	svc := models.Service{
-		Commands: &models.ServiceCommands{Health: "false"},
-	}
-	ok, err := checkServiceHealth(
-		context.Background(), &workspace.Workspace{Root: "/t"},
-		"api", svc, "dev", wm,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok {
-		t.Error("false command should not be healthy")
-	}
-}
-
 // --- detectServiceConflict: no conflict scenarios -----------------------------
 
 func TestDetectServiceConflictNoPreferenceNoComposeNoLocal(t *testing.T) {
@@ -326,64 +215,6 @@ func TestUpdateHostPIDPersists(t *testing.T) {
 
 // --- mergeDeps with volumes ---------------------------------------------------
 
-func TestMergeDepsResolvesVolumes(t *testing.T) {
-	initI18nUp(t)
-	resolveCalls := 0
-	uc := NewUseCase(&Dependencies{
-		DockerRunner: &mocks.MockDockerRunner{
-			ResolveRelativeVolumesFunc: func(
-				volumes []string, projectDir string,
-			) ([]string, error) {
-				resolveCalls++
-				// Prefix each with projectDir to simulate resolution
-				out := make([]string, len(volumes))
-				for i, v := range volumes {
-					out[i] = projectDir + "/" + v
-				}
-				return out, nil
-			},
-		},
-	})
-	oldDeps := &models.Deps{
-		Project:     models.Project{Name: "old"},
-		ProjectRoot: "/old",
-		Services: map[string]models.Service{
-			"shared": {
-				Source: models.SourceConfig{Kind: "image"},
-				Docker: &models.DockerConfig{Volumes: []string{"data:/data"}},
-			},
-		},
-		Infra: map[string]models.InfraEntry{
-			"db": {Inline: &models.Infra{
-				Image:   "postgres",
-				Volumes: []string{"pgdata:/var"},
-			}},
-		},
-	}
-	newDeps := &models.Deps{
-		Project: models.Project{Name: "new"},
-		Services: map[string]models.Service{
-			"shared": {
-				Source: models.SourceConfig{Kind: "image"},
-				Docker: &models.DockerConfig{Volumes: []string{"data2:/data"}},
-			},
-		},
-		Infra: map[string]models.InfraEntry{
-			"db": {Inline: &models.Infra{
-				Image:   "postgres",
-				Volumes: []string{"new:/var"},
-			}},
-		},
-	}
-	merged := uc.mergeDeps(oldDeps, newDeps, "/new")
-	if merged == nil {
-		t.Fatal("merged nil")
-	}
-	if resolveCalls == 0 {
-		t.Error("expected ResolveRelativeVolumes to be called")
-	}
-}
-
 // --- bootstrap: apply overrides path ------------------------------------------
 
 func TestBootstrapOverridesError(t *testing.T) {
@@ -472,26 +303,6 @@ func TestCheckWorkspaceProjectConflictPreferenceReplace(t *testing.T) {
 
 // --- checkAndHandleDuplicateProject: not-local path --------------------------
 
-func TestCheckAndHandleDuplicateProjectNotLocal(t *testing.T) {
-	initI18nUp(t)
-	raiozHome := t.TempDir()
-	t.Setenv("RAIOZ_HOME", raiozHome)
-	// Create a workspace path so it's NOT local
-	wsPath := filepath.Join(raiozHome, "workspaces", "x")
-	if err := os.MkdirAll(wsPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	configPath := filepath.Join(wsPath, ".raioz.json")
-
-	uc := NewUseCase(&Dependencies{})
-	err := uc.checkAndHandleDuplicateProject(
-		context.Background(), "p", configPath,
-	)
-	if err != nil {
-		t.Errorf("should short-circuit when not local, got %v", err)
-	}
-}
-
 // --- processGitRepos: no old deps, no git services → no-op -------------------
 
 func TestProcessGitReposNoServices(t *testing.T) {
@@ -527,48 +338,7 @@ func TestCheckInfraHealthNoContainers(t *testing.T) {
 
 // --- executeLocalProjectCommand empty parts --------------------------------
 
-func TestExecuteLocalProjectCommandWhitespace(t *testing.T) {
-	initI18nUp(t)
-	// Only whitespace → Fields returns empty → error
-	err := executeLocalProjectCommand(context.Background(), t.TempDir(), "   ", "dev")
-	if err == nil {
-		t.Error("whitespace-only command should error")
-	}
-}
-
 // --- mergeDeps simple ProjectRoot fallback verification -----------------------
-
-func TestMergeDepsOldProjectRootUsed(t *testing.T) {
-	initI18nUp(t)
-	got := &models.Deps{}
-	uc := NewUseCase(&Dependencies{
-		DockerRunner: &mocks.MockDockerRunner{
-			ResolveRelativeVolumesFunc: func(
-				volumes []string, projectDir string,
-			) ([]string, error) {
-				got = &models.Deps{ProjectRoot: projectDir}
-				return volumes, nil
-			},
-		},
-	})
-	oldDeps := &models.Deps{
-		Project:     models.Project{Name: "p"},
-		ProjectRoot: "/old-proj",
-		Services: map[string]models.Service{
-			"a": {Docker: &models.DockerConfig{Volumes: []string{"x:/y"}}},
-		},
-		Infra: map[string]models.InfraEntry{},
-	}
-	newDeps := &models.Deps{
-		Project:  models.Project{Name: "p"},
-		Services: map[string]models.Service{},
-		Infra:    map[string]models.InfraEntry{},
-	}
-	uc.mergeDeps(oldDeps, newDeps, "/new")
-	if got.ProjectRoot != "/old-proj" {
-		t.Errorf("expected old project dir for old volumes, got %q", got.ProjectRoot)
-	}
-}
 
 // --- saveState: with existing root config branch ------------------------------
 

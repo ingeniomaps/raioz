@@ -113,18 +113,3 @@ func formatCycle(cycle []string) string {
 
 	return result
 }
-
-// GetAllServiceNames returns all service and infra names that can be dependencies
-func GetAllServiceNames(deps *models.Deps) map[string]bool {
-	names := make(map[string]bool)
-
-	for name := range deps.Services {
-		names[name] = true
-	}
-
-	for name := range deps.Infra {
-		names[name] = true
-	}
-
-	return names
-}

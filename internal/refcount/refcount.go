@@ -209,19 +209,3 @@ func Snapshot(workspace string) (map[string][]string, error) {
 	})
 	return out, err
 }
-
-// Refs returns the projects currently referencing dep in workspace.
-func Refs(workspace, dep string) ([]string, error) {
-	var out []string
-	err := withLock(func() error {
-		s, err := load()
-		if err != nil {
-			return err
-		}
-		if deps := s.Workspaces[workspace]; deps != nil {
-			out = append([]string(nil), deps[dep]...)
-		}
-		return nil
-	})
-	return out, err
-}

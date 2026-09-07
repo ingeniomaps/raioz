@@ -21,18 +21,6 @@ func TestCleanUnusedVolumesWithContext_NotDryRunNotForce(t *testing.T) {
 	}
 }
 
-func TestCleanUnusedImages_Wrapper(t *testing.T) {
-	requireDocker(t)
-	// Exercise the wrapper (calls WithContext)
-	actions, err := CleanUnusedImages(true) // dry run
-	if err != nil {
-		t.Fatalf("dry run err: %v", err)
-	}
-	if len(actions) == 0 {
-		t.Error("expected at least one action")
-	}
-}
-
 func TestCleanUnusedImagesWithContext_DryRun(t *testing.T) {
 	requireDocker(t)
 	actions, err := CleanUnusedImagesWithContext(
@@ -43,17 +31,6 @@ func TestCleanUnusedImagesWithContext_DryRun(t *testing.T) {
 	}
 	if len(actions) == 0 {
 		t.Error("expected at least one action for dry run")
-	}
-}
-
-func TestCleanUnusedNetworks_Wrapper(t *testing.T) {
-	requireDocker(t)
-	actions, err := CleanUnusedNetworks(true)
-	if err != nil {
-		t.Fatalf("dry run err: %v", err)
-	}
-	if len(actions) == 0 {
-		t.Error("expected at least one action")
 	}
 }
 

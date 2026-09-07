@@ -127,17 +127,3 @@ func GetStatePath(ws *Workspace) string {
 func GetComposePath(ws *Workspace) string {
 	return filepath.Join(ws.Root, composeFileName)
 }
-
-func GetEnvDir(ws *Workspace) string {
-	return ws.EnvDir
-}
-
-// GetLocalServicesDir returns the directory for editable services
-func GetLocalServicesDir(ws *Workspace) string {
-	return ws.LocalServicesDir
-}
-
-// GetReadonlyServicesDir returns the directory for readonly services
-func GetReadonlyServicesDir(ws *Workspace) string {
-	return ws.ReadonlyServicesDir
-}

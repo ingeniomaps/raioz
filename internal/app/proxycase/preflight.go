@@ -4,13 +4,6 @@
 // touched.
 package proxycase
 
-import (
-	"context"
-	"net"
-	"os/exec"
-	"strconv"
-)
-
 // PreflightCheck describes the outcome of one pre-launch probe.
 // Severity is a soft signal — the CLI may print warnings without
 // failing — but Pass=false on a "required" check should block the
@@ -36,65 +29,4 @@ type PreflightInput struct {
 	// "letsencrypt"). The mkcert check is required only when this is
 	// "mkcert" or empty.
 	TLSMode string
-}
-
-// RunPreflight executes every proxy preflight probe and returns the
-// results in stable order. Probes are independent: one failing does
-// not short-circuit the rest, so the caller can render the full
-// picture.
-func RunPreflight(_ context.Context, in PreflightInput) []PreflightCheck {
-	out := []PreflightCheck{}
-	out = append(out, checkMkcert(in))
-	if in.Publish {
-		out = append(out, checkHostPortFree(80))
-		out = append(out, checkHostPortFree(443))
-	}
-	return out
-}
-
-// checkMkcert reports whether `mkcert` is on PATH. Required when the
-// proxy is configured for mkcert TLS (the default in local dev); the
-// hint points at the install URL.
-func checkMkcert(in PreflightInput) PreflightCheck {
-	required := in.TLSMode == "" || in.TLSMode == "mkcert"
-	if _, err := exec.LookPath("mkcert"); err != nil {
-		return PreflightCheck{
-			Name:     "mkcert",
-			Pass:     false,
-			Required: required,
-			Message:  "not on PATH",
-			Hint:     "Install mkcert: https://github.com/FiloSottile/mkcert",
-		}
-	}
-	return PreflightCheck{
-		Name:     "mkcert",
-		Pass:     true,
-		Required: required,
-		Message:  "installed",
-	}
-}
-
-// checkHostPortFree probes whether tcp port `port` on localhost can
-// be bound. We use a Listen-then-Close dance instead of asking the
-// kernel for the FD because the goal is "would the proxy succeed?",
-// not "is anyone listening?".
-func checkHostPortFree(port int) PreflightCheck {
-	addr := ":" + strconv.Itoa(port)
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return PreflightCheck{
-			Name:     "host port " + strconv.Itoa(port),
-			Pass:     false,
-			Required: true,
-			Message:  "already in use",
-			Hint:     "Stop whatever is bound to " + addr + ", or set proxy.publish: false in raioz.yaml.",
-		}
-	}
-	_ = ln.Close()
-	return PreflightCheck{
-		Name:     "host port " + strconv.Itoa(port),
-		Pass:     true,
-		Required: true,
-		Message:  "available",
-	}
 }

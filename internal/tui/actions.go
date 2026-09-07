@@ -18,16 +18,8 @@ func (m Model) restartServiceCmd(serviceName string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(m.config.Ctx, 30*time.Second)
 		defer cancel()
 
-		var err error
-		if m.config.YAMLMode {
-			container := naming.Container(m.config.Project, serviceName)
-			cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", container)
-			err = cmd.Run()
-		} else {
-			err = m.config.Docker.RestartServicesWithContext(
-				ctx, m.config.ComposePath, []string{serviceName},
-			)
-		}
+		container := naming.Container(m.config.Project, serviceName)
+		err := exec.CommandContext(ctx, runtime.Binary(), "restart", container).Run()
 		return ActionResultMsg{
 			Service: serviceName,
 			Action:  "restart",
@@ -42,16 +34,8 @@ func (m Model) stopServiceCmd(serviceName string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(m.config.Ctx, 30*time.Second)
 		defer cancel()
 
-		var err error
-		if m.config.YAMLMode {
-			container := naming.Container(m.config.Project, serviceName)
-			cmd := exec.CommandContext(ctx, runtime.Binary(), "stop", container)
-			err = cmd.Run()
-		} else {
-			err = m.config.Docker.StopServiceWithContext(
-				ctx, m.config.ComposePath, serviceName,
-			)
-		}
+		container := naming.Container(m.config.Project, serviceName)
+		err := exec.CommandContext(ctx, runtime.Binary(), "stop", container).Run()
 		return ActionResultMsg{
 			Service: serviceName,
 			Action:  "stop",
@@ -62,16 +46,8 @@ func (m Model) stopServiceCmd(serviceName string) tea.Cmd {
 
 // execInServiceCmd opens an interactive shell in a container.
 func (m Model) execInServiceCmd(serviceName string) tea.Cmd {
-	var c *exec.Cmd
-	if m.config.YAMLMode {
-		container := naming.Container(m.config.Project, serviceName)
-		c = exec.Command(runtime.Binary(), "exec", "-it", container, "sh")
-	} else {
-		c = exec.Command(
-			runtime.Binary(), "compose", "-f", m.config.ComposePath,
-			"exec", serviceName, "sh",
-		)
-	}
+	container := naming.Container(m.config.Project, serviceName)
+	c := exec.Command(runtime.Binary(), "exec", "-it", container, "sh")
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return ActionResultMsg{
 			Service: serviceName,

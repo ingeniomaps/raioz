@@ -107,16 +107,9 @@ func (r *DockerRunnerImpl) GetServicesInfoWithContext(
 	for name, info := range servicesInfo {
 		if info != nil {
 			result[name] = &interfaces.ServiceInfo{
-				Status:   info.Status,
-				Uptime:   info.Uptime,
-				CPU:      info.CPU,
-				Memory:   info.Memory,
-				Image:    info.Image,
-				Commit:   info.Version,
-				Branch:   "", // Not available in docker.ServiceInfo
-				Health:   info.Health,
-				Restarts: "",         // Not available in docker.ServiceInfo
-				Ports:    []string{}, // Not available in docker.ServiceInfo
+				Status: info.Status,
+				Image:  info.Image,
+				Commit: info.Version,
 			}
 		}
 	}

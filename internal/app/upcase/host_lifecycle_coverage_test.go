@@ -29,12 +29,6 @@ func TestKillProcessGracefulNonexistentPID(t *testing.T) {
 
 // --- isProcessRunning --------------------------------------------------------
 
-func TestIsProcessRunningZero(t *testing.T) {
-	if isProcessRunning(0) {
-		t.Error("PID 0 should not be running")
-	}
-}
-
 // --- saveHostPIDs with service names -----------------------------------------
 
 func TestSaveHostPIDsWithServiceNames(t *testing.T) {

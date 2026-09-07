@@ -146,17 +146,6 @@ func TestExtractNamedVolumes(t *testing.T) {
 	}
 }
 
-func TestVolumeExists(t *testing.T) {
-	// Test with non-existent volume
-	exists, err := VolumeExists("nonexistent-volume-12345")
-	if err != nil {
-		t.Fatalf("VolumeExists() error = %v", err)
-	}
-	if exists {
-		t.Error("VolumeExists() should return false for non-existent volume")
-	}
-}
-
 func TestGetVolumeProjects(t *testing.T) {
 	tmpDir := t.TempDir()
 	workspacesDir := filepath.Join(tmpDir, "workspaces")

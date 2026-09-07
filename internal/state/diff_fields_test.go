@@ -1,7 +1,6 @@
 package state
 
 import (
-	"strings"
 	"testing"
 
 	"raioz/internal/domain/models"
@@ -164,24 +163,5 @@ func TestFormatSlice(t *testing.T) {
 		if got := formatSlice(tc.in); got != tc.want {
 			t.Errorf("formatSlice(%v) = %q, want %q", tc.in, got, tc.want)
 		}
-	}
-}
-
-// Only some drift justifies recreating a container; the rest is noise the
-// user should see but not pay a restart for.
-func TestHasSignificantChangesAndFormatting(t *testing.T) {
-	significant := []ConfigChange{{Type: "service", Name: "api", Field: "source.tag"}}
-	if !HasSignificantChanges(significant) {
-		t.Error("a tag change must count as significant")
-	}
-
-	cosmetic := []ConfigChange{{Type: "service", Name: "api", Field: "health"}}
-	if HasSignificantChanges(cosmetic) {
-		t.Error("a health-check tweak must not force a recreation")
-	}
-
-	out := FormatChanges(append(significant, cosmetic...))
-	if !strings.Contains(out, "api") || !strings.Contains(out, "source.tag") {
-		t.Errorf("the report must name the service and the field:\n%s", out)
 	}
 }

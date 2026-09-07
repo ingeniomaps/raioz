@@ -13,11 +13,6 @@ import (
 	"raioz/internal/runtime"
 )
 
-// PreflightCheck performs all preflight checks before executing commands
-func PreflightCheck() error {
-	return PreflightCheckWithContext(context.Background())
-}
-
 // PreflightCheckWithContext performs all preflight checks before executing commands with context support
 func PreflightCheckWithContext(ctx context.Context) error {
 	var checkErrors []error
@@ -130,11 +125,6 @@ func checkDockerRunningWithContext(ctx context.Context) error {
 	return nil
 }
 
-// checkGitInstalled verifies that Git is installed
-func checkGitInstalled() error {
-	return checkGitInstalledWithContext(context.Background())
-}
-
 // checkGitInstalledWithContext verifies that Git is installed with context support
 func checkGitInstalledWithContext(ctx context.Context) error {
 	// Create context with short timeout (version check should be fast)
@@ -190,11 +180,6 @@ func checkDiskSpace() error {
 	}
 
 	return nil
-}
-
-// checkNetworkConnectivity performs a basic network connectivity check
-func checkNetworkConnectivity() error {
-	return checkNetworkConnectivityWithContext(context.Background())
 }
 
 // checkNetworkConnectivityWithContext performs a basic network connectivity check with context support

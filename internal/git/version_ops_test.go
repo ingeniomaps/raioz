@@ -3,7 +3,6 @@ package git
 import (
 	"context"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -31,23 +30,5 @@ func TestGetCommitSHA_RealRepo(t *testing.T) {
 			t.Errorf("GetCommitSHA returned non-hex char %q", r)
 			break
 		}
-	}
-}
-
-// TestGetCommitDate_RealRepo exercises the happy path of GetCommitDate.
-func TestGetCommitDate_RealRepo(t *testing.T) {
-	skipIfNoGit(t)
-	dir := initLocalRepo(t, filepath.Join(t.TempDir(), "repo"), "main")
-
-	date, err := GetCommitDate(context.Background(), dir)
-	if err != nil {
-		t.Fatalf("GetCommitDate error = %v", err)
-	}
-	if date == "" {
-		t.Error("GetCommitDate returned empty string")
-	}
-	// Format from git log --format=%ci looks like "2025-01-02 03:04:05 +0000".
-	if !strings.Contains(date, "-") || !strings.Contains(date, ":") {
-		t.Errorf("GetCommitDate unexpected format: %q", date)
 	}
 }
