@@ -4,6 +4,20 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.1](https://github.com/ingeniomaps/raioz/compare/v0.15.0...v0.15.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **cli:** stop printing every error twice ([bc628ac](https://github.com/ingeniomaps/raioz/commit/bc628aca26c18a8198a6db93900971535863b911))
+* **i18n:** wire the help text that was translated ([335f8fc](https://github.com/ingeniomaps/raioz/commit/335f8fc0591d681704146c83b5eab64945ccd2d2))
+
+
+### Documentation
+
+* **ci:** document the post-release back-merge ([17697a0](https://github.com/ingeniomaps/raioz/commit/17697a082fc9144346368f9ee0be2dc82dc40217))
+* **security:** state that raioz env shows values ([8a7e84b](https://github.com/ingeniomaps/raioz/commit/8a7e84bd839426ab05eb301ddac42689f6e814c1))
+
 ## [0.15.0](https://github.com/ingeniomaps/raioz/compare/v0.14.2...v0.15.0) (2026-09-07)
 
 
