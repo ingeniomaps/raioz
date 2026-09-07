@@ -89,6 +89,37 @@ inspect the partial output without re-running locally.
 
 Rationale and design notes: [ADR-033](decisions/033-goreleaser-pr-dry-run.md).
 
+## Release flow — and the back-merge that closes it
+
+A release is four merges, not two:
+
+1. `develop → main` (PR). Code moves.
+2. release-please opens `chore(main): release X.Y.Z` against `main`.
+3. Merging that PR tags, and the tag fires `release.yml` → goreleaser
+   publishes the archives.
+4. **`main → develop` back-merge.** The release commit — `CHANGELOG.md`
+   and `.release-please-manifest.json` — only ever lands on `main`.
+   Without step 4 `develop` never receives it.
+
+Step 4 is easy to skip because nothing breaks when you do: release-please
+runs on `main` and reads the manifest there, so the next release still
+computes the right version. What rots is `develop`: by v0.15.0 its
+manifest still said `0.11.2` and its `CHANGELOG.md` was missing four
+releases, so anyone reading the branch they actually work on saw a
+version history that stopped three months earlier.
+
+Right after a release `develop` has nothing `main` lacks, so the
+back-merge is a fast-forward:
+
+```bash
+git checkout develop && git fetch origin
+git merge --ff-only origin/main
+git push origin develop
+```
+
+If it refuses to fast-forward, someone pushed to `develop` between the
+PR merge and the back-merge; a normal merge commit is fine there.
+
 ## Adding new coverage
 
 - **A new package with OS-sensitive code** → add it to the
@@ -122,7 +153,8 @@ develop/main merges.
 ## References
 
 - Workflow: [.github/workflows/ci.yml](../.github/workflows/ci.yml).
-- Release pipeline: [.github/workflows/release.yml](../.github/workflows/release.yml).
+- Release pipeline: [.github/workflows/release.yml](../.github/workflows/release.yml),
+  [.github/workflows/release-please.yml](../.github/workflows/release-please.yml).
 - Issues: 050 (Windows gate), 056 (goreleaser dry-run).
 - ADRs: [ADR-030](decisions/030-windows-ci-on-push.md), [ADR-033](decisions/033-goreleaser-pr-dry-run.md).
 - v0.5.1 incident (drove the cross-compile gate):
