@@ -42,10 +42,6 @@ type MockDockerRunner struct {
 		ctx context.Context, composePath string,
 		serviceName string, command []string, interactive bool,
 	) error
-	WaitForServicesHealthyFunc func(
-		ctx context.Context, composePath string,
-		serviceNames []string, infraNames []string, projectName string,
-	) error
 	ValidatePortsFunc func(
 		deps *models.Deps, baseDir string, projectName string,
 	) ([]interfaces.PortConflict, error)

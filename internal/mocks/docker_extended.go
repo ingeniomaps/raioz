@@ -90,16 +90,6 @@ func (m *MockDockerRunner) ExecInService(
 	return nil
 }
 
-func (m *MockDockerRunner) WaitForServicesHealthy(
-	ctx context.Context, composePath string, serviceNames []string,
-	infraNames []string, projectName string,
-) error {
-	if m.WaitForServicesHealthyFunc != nil {
-		return m.WaitForServicesHealthyFunc(ctx, composePath, serviceNames, infraNames, projectName)
-	}
-	return nil
-}
-
 func (m *MockDockerRunner) ValidatePorts(
 	deps *models.Deps, baseDir string, projectName string,
 ) ([]interfaces.PortConflict, error) {

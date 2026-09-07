@@ -3,132 +3,59 @@ package upcase
 import (
 	"context"
 	stderrors "errors"
-	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
 )
 
-// --- stopRunningProject ------------------------------------------------------
-
-func TestStopRunningProjectConfigNotFound(t *testing.T) {
+// stopRunningProject stopped executing anything the day .raioz.json
+// stopped loading. What it still owes the caller is the deregistration.
+func TestStopRunningProjectDeregisters(t *testing.T) {
 	initI18nUp(t)
 
-	removeCalled := false
+	removed := ""
 	uc := NewUseCase(&Dependencies{
 		StateManager: &mocks.MockStateManager{
 			RemoveProjectFunc: func(name string) error {
-				removeCalled = true
+				removed = name
 				return nil
 			},
 		},
 	})
 
-	// Use non-existent workspace directory
-	ps := models.ProjectState{
-		Name:      "myproj",
-		Workspace: "/nonexistent/path",
-	}
-
-	err := uc.stopRunningProject(context.Background(), "myproj", ps)
-	if err == nil {
-		t.Error("expected error when config file not found")
-	}
-	if !removeCalled {
-		t.Error("should still remove from global state even if config not found")
-	}
-}
-
-func TestStopRunningProjectLoadConfigError(t *testing.T) {
-	initI18nUp(t)
-
-	dir := t.TempDir()
-	// Create a .raioz.json file so os.Stat succeeds
-	configPath := filepath.Join(dir, ".raioz.json")
-	if err := os.WriteFile(configPath, []byte("{}"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	removeCalled := false
-	uc := NewUseCase(&Dependencies{
-		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
-				return nil, nil, stderrors.New("parse error")
-			},
-		},
-		StateManager: &mocks.MockStateManager{
-			RemoveProjectFunc: func(name string) error {
-				removeCalled = true
-				return nil
-			},
-		},
-	})
-
-	ps := models.ProjectState{
-		Name:      "myproj",
-		Workspace: dir,
-	}
-
-	err := uc.stopRunningProject(context.Background(), "myproj", ps)
-	if err == nil {
-		t.Error("expected error when config load fails")
-	}
-	if !removeCalled {
-		t.Error("should still remove from global state on config load error")
-	}
-}
-
-func TestStopRunningProjectSuccess(t *testing.T) {
-	initI18nUp(t)
-
-	dir := t.TempDir()
-	raiozHome := t.TempDir()
-	t.Setenv("RAIOZ_HOME", raiozHome)
-
-	// Create a .raioz.json file
-	configPath := filepath.Join(dir, ".raioz.json")
-	if err := os.WriteFile(configPath, []byte("{}"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Put the dir inside RAIOZ_HOME/workspaces to make it NOT local
-	wsDir := filepath.Join(raiozHome, "workspaces", "test")
-	if err := os.MkdirAll(wsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	removeCalled := false
-	uc := NewUseCase(&Dependencies{
-		ConfigLoader: &mocks.MockConfigLoader{
-			LoadDepsFunc: func(path string) (*models.Deps, []string, error) {
-				return &models.Deps{
-					Project: models.Project{Name: "myproj"},
-				}, nil, nil
-			},
-		},
-		StateManager: &mocks.MockStateManager{
-			RemoveProjectFunc: func(name string) error {
-				removeCalled = true
-				return nil
-			},
-		},
-	})
-
-	ps := models.ProjectState{
-		Name:      "myproj",
-		Workspace: dir,
-	}
-
-	err := uc.stopRunningProject(context.Background(), "myproj", ps)
+	err := uc.stopRunningProject(context.Background(), "myproj",
+		models.ProjectState{Name: "myproj", Workspace: "/nonexistent/path"})
 	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !removeCalled {
-		t.Error("RemoveProject should be called")
+	if removed != "myproj" {
+		t.Errorf("removed %q from global state, want %q", removed, "myproj")
 	}
 }
+
+func TestStopRunningProjectSurfacesRemoveFailure(t *testing.T) {
+	initI18nUp(t)
+
+	uc := NewUseCase(&Dependencies{
+		StateManager: &mocks.MockStateManager{
+			RemoveProjectFunc: func(string) error { return stderrors.New("state locked") },
+		},
+	})
+
+	err := uc.stopRunningProject(context.Background(), "myproj",
+		models.ProjectState{Name: "myproj", Workspace: "/nonexistent/path"})
+	if err == nil {
+		t.Fatal("expected the deregistration failure to surface")
+	}
+	if !strings.Contains(err.Error(), "state locked") {
+		t.Errorf("error = %v, want it to carry the cause", err)
+	}
+}
+
+// --- stopRunningProject ------------------------------------------------------
 
 // --- askReplaceRunningProject with saved decisions ---------------------------
 

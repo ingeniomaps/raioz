@@ -123,46 +123,27 @@ func askReplaceRunningProject(
 	}
 }
 
-// stopRunningProject stops a running project by executing its down command
+// stopRunningProject deregisters a project raioz can no longer stop.
+//
+// The stop was the project's `commands.down`, declarable only in
+// .raioz.json — a format LoadDeps hard-errors on since ADR-038. Every
+// path through the old body ended at that error before reaching the
+// command, so the "stopping…"/"stopped" pair it printed was never true.
+// What is left is the half that always worked: dropping the stale
+// global-state entry. Stopping the other project is the user's move,
+// with `raioz down` in its directory.
 func (uc *UseCase) stopRunningProject(
 	ctx context.Context, projectName string, projectState models.ProjectState,
 ) error {
-	// Try to find the .raioz.json in the project workspace
-	configPath := filepath.Join(projectState.Workspace, ".raioz.json")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		// Config file doesn't exist, can't stop it properly
-		logging.WarnWithContext(ctx,
-			"Cannot find .raioz.json for running project",
-			"project", projectName, "workspace", projectState.Workspace)
-		// Remove from global state anyway
-		_ = uc.deps.StateManager.RemoveProject(projectName)
-		return fmt.Errorf("config file not found for project %s", projectName)
-	}
+	logging.WarnWithContext(ctx, "Cannot stop project; deregistering it instead",
+		"project", projectName, "workspace", projectState.Workspace)
+	output.PrintWarning(i18n.T("up.dep.cannot_stop_project", projectName))
 
-	// Load the project's config
-	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
-	if err != nil {
-		logging.WarnWithContext(ctx, "Failed to load config for running project",
-			"project", projectName, "error", err.Error())
-		// Remove from global state anyway
-		_ = uc.deps.StateManager.RemoveProject(projectName)
-		return fmt.Errorf("failed to load config for project %s: %w", projectName, err)
-	}
-
-	// Execute down command using the UseCase
-	output.PrintInfo(i18n.T("up.dep.stopping_project", projectName))
-	if err := uc.processLocalProject(ctx, configPath, deps, "down", nil); err != nil {
-		logging.WarnWithContext(ctx, "Failed to stop running project", "project", projectName, "error", err.Error())
-		// Continue anyway - might already be stopped
-	}
-
-	// Remove from global state
 	if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 		logging.WarnWithContext(ctx, "Failed to remove project from global state",
 			"project", projectName, "error", err.Error())
+		return fmt.Errorf("deregister project %s: %w", projectName, err)
 	}
-
-	output.PrintSuccess(i18n.T("up.dep.project_stopped", projectName))
 	return nil
 }
 

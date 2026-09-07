@@ -390,16 +390,6 @@ func TestDockerRunnerImpl_ExecInService(t *testing.T) {
 	_ = r.ExecInService(context.Background(), "/nonexistent/path.yml", "api", []string{"ls"}, false)
 }
 
-func TestDockerRunnerImpl_WaitForServicesHealthy(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
-	r := NewDockerRunner()
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately to avoid hanging
-	_ = r.WaitForServicesHealthy(ctx, "/nonexistent/path.yml", []string{"api"}, nil, "proj")
-}
-
 func TestDockerRunnerImpl_GetServicesInfoWithContext(t *testing.T) {
 	if !dockerAvailable() {
 		t.Skip("docker not available")

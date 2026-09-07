@@ -37,11 +37,6 @@ type ComposeRunner interface {
 		ctx context.Context, composePath, serviceName string,
 		command []string, interactive bool,
 	) error
-	WaitForServicesHealthy(
-		ctx context.Context, composePath string,
-		serviceNames []string, infraNames []string,
-		projectName string,
-	) error
 
 	GetContainerNameWithContext(
 		ctx context.Context, composePath, serviceName string,

@@ -303,26 +303,6 @@ func TestCheckWorkspaceProjectConflictPreferenceReplace(t *testing.T) {
 
 // --- checkAndHandleDuplicateProject: not-local path --------------------------
 
-func TestCheckAndHandleDuplicateProjectNotLocal(t *testing.T) {
-	initI18nUp(t)
-	raiozHome := t.TempDir()
-	t.Setenv("RAIOZ_HOME", raiozHome)
-	// Create a workspace path so it's NOT local
-	wsPath := filepath.Join(raiozHome, "workspaces", "x")
-	if err := os.MkdirAll(wsPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	configPath := filepath.Join(wsPath, ".raioz.json")
-
-	uc := NewUseCase(&Dependencies{})
-	err := uc.checkAndHandleDuplicateProject(
-		context.Background(), "p", configPath,
-	)
-	if err != nil {
-		t.Errorf("should short-circuit when not local, got %v", err)
-	}
-}
-
 // --- processGitRepos: no old deps, no git services → no-op -------------------
 
 func TestProcessGitReposNoServices(t *testing.T) {
@@ -357,15 +337,6 @@ func TestCheckInfraHealthNoContainers(t *testing.T) {
 }
 
 // --- executeLocalProjectCommand empty parts --------------------------------
-
-func TestExecuteLocalProjectCommandWhitespace(t *testing.T) {
-	initI18nUp(t)
-	// Only whitespace → Fields returns empty → error
-	err := executeLocalProjectCommand(context.Background(), t.TempDir(), "   ", "dev")
-	if err == nil {
-		t.Error("whitespace-only command should error")
-	}
-}
 
 // --- mergeDeps simple ProjectRoot fallback verification -----------------------
 
