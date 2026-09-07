@@ -205,6 +205,20 @@ CI runs that recycle every hour) so children are evicted before
 the next run starts. Without that knob, the 24h default means
 the next meta run blocks for up to a day.
 
+### The TUI mutates without a lock
+
+`raioz dashboard` binds three keys to Docker mutations — `r` restart,
+`s` stop, `e` exec — that shell out directly by container name
+(`internal/tui/actions.go`). They take **neither** lock. A restart
+pressed while `raioz up --watch` is rebuilding the same service is a
+race with no arbiter.
+
+This is the one writer this document does not cover, and it is
+deliberate rather than an oversight: each action is single-container
+and user-initiated, and the worst case is losing the race and
+re-running the command. ADR-044 states the accepted risk and caps the
+dashboard at these three; a fourth action needs the lock design first.
+
 ### Failure mode — parent SIGKILL and stale project lock
 
 `internal/lock/lock.go` uses `O_EXCL` + PID file (not `flock`) for
