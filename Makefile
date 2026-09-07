@@ -1,5 +1,5 @@
 .PHONY: help lint format test test-coverage check-coverage check-coverage-file build install clean
-.PHONY: check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint check ci
+.PHONY: check-lines check-length check-i18n check-i18n-source check-i18n-unused check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint check ci
 .PHONY: integration-test generate mock security
 
 # Find flags shared by check-lines and check-length
@@ -111,6 +111,9 @@ check-i18n-source: ## Verify output.Print* calls use i18n.T() (issue 058)
 	@echo "Checking i18n source discipline..."
 	@./scripts/check-i18n-source.sh
 
+check-i18n-unused: ## Verify no catalog key is unreferenced
+	@./scripts/check-i18n-unused.sh
+
 check-configs: ## Run the raioz.yaml schema corpus
 	@echo "Checking config corpus..."
 	@go test -run TestConfigCorpus -count=1 ./internal/config/ \
@@ -142,7 +145,7 @@ check-errorlint: ## Ratchet down errorlint violations (issue 083)
 	@echo "Checking errorlint baseline..."
 	@./scripts/lint-errorlint.sh
 
-check: format check-lines check-length check-i18n check-i18n-source check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint lint test ## Run all checks
+check: format check-lines check-length check-i18n check-i18n-source check-i18n-unused check-labels check-configs check-since check-cli-layering check-app-infra-imports check-dual-flow check-install check-errorlint lint test ## Run all checks
 
 integration-test: build ## Run E2E integration tests (requires Docker)
 	@echo "Running integration tests..."

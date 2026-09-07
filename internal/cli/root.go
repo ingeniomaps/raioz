@@ -24,9 +24,15 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:          "raioz",
-	Short:        "Raioz local microservices orchestrator",
-	SilenceUsage: true, // Don't show usage/help on execution errors
+	Use:   "raioz",
+	Short: "Raioz local microservices orchestrator",
+	// Don't show usage/help on execution errors.
+	SilenceUsage: true,
+	// Execute below prints the error itself, formatted with its code,
+	// context and suggestion. Cobra's own one-line "Error: <msg>" was
+	// printing the same sentence again, immediately above the useful
+	// version, on every failing command.
+	SilenceErrors: true,
 }
 
 // Execute is the CLI entrypoint. Wraps the cobra root command in a

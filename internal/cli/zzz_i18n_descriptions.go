@@ -216,4 +216,11 @@ func setI18nDescriptions() {
 	// --- dashboard ---
 	dashboardCmd.Short = i18n.T("cmd.dashboard.short")
 	dashboardCmd.Long = i18n.T("cmd.dashboard.long")
+
+	// --- env / clone ---
+	// Both were translated and never wired here, so their help stayed
+	// English under --lang es while the Spanish sat unused in the catalog.
+	envCmd.Long = i18n.T("cmd.env.long")
+	cloneCmd.Flags().Lookup("branch").Usage = i18n.T("cmd.clone.flag.branch")
+	cloneCmd.Flags().Lookup("no-up").Usage = i18n.T("cmd.clone.flag.no_up")
 }
