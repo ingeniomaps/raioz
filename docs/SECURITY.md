@@ -316,6 +316,33 @@ yamls, see `raioz up --audit-siblings` (issue 031).
 > silently. The meta router/sub-projects are audited at the
 > meta layer (see `internal/app/meta_audit.go`).
 
+### `raioz env` prints values verbatim — on purpose
+
+`raioz env <service>` resolves a service's environment and prints
+every key with its value, unredacted. There is no `--mask`, and
+adding one by default is a **non-goal**.
+
+The command exists to answer "what does this service actually
+receive" — the question you ask when a service is authenticating
+with the wrong password, or when a discovery variable resolved to
+the wrong host. Redacted output answers none of that; it would
+leave `POSTGRES_PASSWORD=****` next to the exact bug the operator
+opened the command to find. Every value it prints already sits in
+plaintext in the operator's own `.env` files, two directories away
+from `cat`, so redaction protects nothing that is not already
+readable by whoever runs the command. `docker compose config`
+takes the same position for the same reason.
+
+This is consistent with the audit log below, not in tension with
+it: raioz never *persists* values, and prints them only when a
+human asks in their own terminal.
+
+The residual risk is the one the operator controls — scrollback,
+screen sharing, pasting output into an issue, a chat, or a CI log.
+Treat `raioz env` output like `.env` itself: fine on your machine,
+never in a paste buffer. A future `--mask` for the screen-sharing
+case would be an opt-in flag, never the default.
+
 ### Audit log
 
 `audit.log` (ADR-020 / ADR-022) records project names, service
