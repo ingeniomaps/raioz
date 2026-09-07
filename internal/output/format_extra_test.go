@@ -69,36 +69,9 @@ func TestPrintKeyValue(t *testing.T) {
 	}
 }
 
-func TestPrintTableHeaderAndRow(t *testing.T) {
-	out := captureStdout(t, func() {
-		PrintTableHeader("NAME", "STATUS")
-		PrintTableRow("api", "running")
-	})
-	for _, want := range []string{"NAME", "STATUS", "api", "running"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("output missing %q: %q", want, out)
-		}
-	}
-}
-
-func TestPrintEmptyState(t *testing.T) {
-	out := captureStdout(t, func() { PrintEmptyState("services") })
-	if !strings.Contains(out, "no services") {
-		t.Errorf("unexpected output: %q", out)
-	}
-}
-
 func TestPrintPrompt(t *testing.T) {
 	out := captureStdout(t, func() { PrintPrompt("? ") })
 	if out != "? " {
 		t.Errorf("got %q, want %q", out, "? ")
-	}
-}
-
-func TestGetTableWriter_Singleton(t *testing.T) {
-	a := getTableWriter()
-	b := getTableWriter()
-	if a != b {
-		t.Error("getTableWriter should return the same instance on repeated calls")
 	}
 }

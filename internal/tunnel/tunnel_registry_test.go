@@ -175,18 +175,6 @@ func TestManager_List_FiltersDeadPIDs(t *testing.T) {
 	}
 }
 
-func TestManager_Start_NoBackend(t *testing.T) {
-	// If neither cloudflared nor bore is installed, Start should fail.
-	if HasBackend() {
-		t.Skip("tunnel backend is installed; skipping no-backend test")
-	}
-	m := newTestManager(t)
-	_, err := m.Start(nil, "api", 8080)
-	if err == nil {
-		t.Error("expected error when no backend is available")
-	}
-}
-
 func TestManager_StopAll_EmptyRegistry(t *testing.T) {
 	m := newTestManager(t)
 	// No tunnels saved — should not panic
@@ -297,25 +285,6 @@ func TestCloudflaredURLRegex(t *testing.T) {
 			got := cloudflaredURLRegex.FindString(tt.line)
 			if got != tt.want {
 				t.Errorf("got %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormatURL_MoreCases(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"https://foo.com", "foo.com"},
-		{"http://foo.com", "http://foo.com"}, // only https stripped
-		{"", ""},
-		{"plain.example", "plain.example"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			if got := FormatURL(tt.input); got != tt.want {
-				t.Errorf("FormatURL(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

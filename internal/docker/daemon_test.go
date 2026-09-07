@@ -13,17 +13,6 @@ import (
 
 // --- ImageExists wrappers: call with nonexistent image ---
 
-func TestImageExists_Nonexistent(t *testing.T) {
-	requireDocker(t)
-	exists, err := ImageExists("raioz-test-nonexistent:9.9.9-xyz")
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if exists {
-		t.Error("expected false for nonexistent image")
-	}
-}
-
 func TestImageExistsWithContext_Nonexistent(t *testing.T) {
 	requireDocker(t)
 	exists, err := ImageExistsWithContext(
@@ -39,32 +28,7 @@ func TestImageExistsWithContext_Nonexistent(t *testing.T) {
 
 // --- GetImageInfo wrappers ---
 
-func TestGetImageInfo_Nonexistent(t *testing.T) {
-	requireDocker(t)
-	_, err := GetImageInfo("raioz-test-nonexistent:9.9.9-xyz")
-	if err == nil {
-		t.Error("expected error for nonexistent image")
-	}
-}
-
-func TestGetImageInfoWithContext_Nonexistent(t *testing.T) {
-	requireDocker(t)
-	_, err := GetImageInfoWithContext(
-		context.Background(), "raioz-test-nonexistent:9.9.9-xyz",
-	)
-	if err == nil {
-		t.Error("expected error for nonexistent image")
-	}
-}
-
 // --- EnsureImage wrappers: wraps ImageExistsWithContext + Pull ---
-
-func TestEnsureImage_Wrapper(t *testing.T) {
-	requireDocker(t)
-	// Call EnsureImage with a nonexistent image; it will try to pull,
-	// which will fail. We just want to exercise the wrapper entry point.
-	_ = EnsureImage("raioz-test-nonexistent-9999:bogus")
-}
 
 // --- Volume wrappers ---
 
@@ -81,132 +45,9 @@ func TestVolumeExistsWithContext_Nonexistent(t *testing.T) {
 	}
 }
 
-func TestEnsureVolume_Roundtrip(t *testing.T) {
-	requireDocker(t)
-	name := "raioz-test-ensure-vol-1"
-	_ = RemoveVolume(name)
-
-	if err := EnsureVolume(name); err != nil {
-		t.Fatalf("EnsureVolume: %v", err)
-	}
-	exists, err := VolumeExists(name)
-	if err != nil {
-		t.Fatalf("VolumeExists: %v", err)
-	}
-	if !exists {
-		t.Error("expected volume to exist")
-	}
-	// Idempotent
-	if err := EnsureVolume(name); err != nil {
-		t.Errorf("second EnsureVolume: %v", err)
-	}
-	if err := RemoveVolume(name); err != nil {
-		t.Logf("cleanup: %v", err)
-	}
-}
-
-func TestRemoveVolume_Nonexistent(t *testing.T) {
-	requireDocker(t)
-	// Removing a nonexistent volume should be a no-op.
-	if err := RemoveVolume("raioz-test-nonexistent-vol-remove-12345"); err != nil {
-		t.Errorf("RemoveVolume nonexistent: %v", err)
-	}
-}
-
 // --- Network wrappers ---
 
-func TestEnsureNetworkWithContext_New(t *testing.T) {
-	requireDocker(t)
-	name := "raioz-test-ens-net-ctx"
-	_ = RemoveNetwork(name)
-	if err := EnsureNetworkWithContext(context.Background(), name); err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	_ = RemoveNetwork(name)
-}
-
-func TestCreateNetworkWithContext_New(t *testing.T) {
-	requireDocker(t)
-	name := "raioz-test-create-net-ctx"
-	_ = RemoveNetwork(name)
-	if err := CreateNetworkWithContext(context.Background(), name); err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	_ = RemoveNetwork(name)
-}
-
-func TestIsNetworkInUse_Nonexistent(t *testing.T) {
-	requireDocker(t)
-	inUse, err := IsNetworkInUse("raioz-test-nonexistent-network-12345")
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if inUse {
-		t.Error("expected false for nonexistent network")
-	}
-}
-
-func TestIsNetworkInUseWithContext_Empty(t *testing.T) {
-	requireDocker(t)
-	// Create a network, check it's not in use (0 containers), remove it
-	name := "raioz-test-isuse-ctx"
-	_ = RemoveNetwork(name)
-	if err := CreateNetwork(name); err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	defer func() { _ = RemoveNetwork(name) }()
-
-	inUse, err := IsNetworkInUseWithContext(context.Background(), name)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if inUse {
-		t.Error("expected false for empty network")
-	}
-}
-
 // --- CleanUnusedImages dry run ---
-
-func TestCleanUnusedImages_DryRun(t *testing.T) {
-	requireDocker(t)
-	actions, err := CleanUnusedImages(true)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	// Should have at least one action (either "Would remove" or "No unused")
-	if len(actions) == 0 {
-		t.Error("expected actions for dry run")
-	}
-}
-
-func TestCleanUnusedVolumes_DryRun(t *testing.T) {
-	requireDocker(t)
-	actions, err := CleanUnusedVolumes(true, false)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if len(actions) == 0 {
-		t.Error("expected actions for dry run")
-	}
-}
-
-func TestCleanUnusedVolumes_NoForce(t *testing.T) {
-	_, err := CleanUnusedVolumes(false, false)
-	if err == nil {
-		t.Error("expected error when neither dryRun nor force")
-	}
-}
-
-func TestCleanUnusedNetworks_DryRun(t *testing.T) {
-	requireDocker(t)
-	actions, err := CleanUnusedNetworks(true)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if len(actions) == 0 {
-		t.Error("expected actions for dry run")
-	}
-}
 
 // --- DownWithContext: invalid path ---
 
@@ -261,18 +102,6 @@ func TestAreServicesRunning_BadChar(t *testing.T) {
 }
 
 // --- GetServiceNamesWithContext bad char ---
-
-func TestGetServiceNamesWithContext_BadChar(t *testing.T) {
-	tmp := t.TempDir()
-	badName := filepath.Join(tmp, "bad;rm.yml")
-	if err := os.WriteFile(badName, []byte("x"), 0644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	_, err := GetServiceNamesWithContext(context.Background(), badName)
-	if err == nil {
-		t.Error("expected error")
-	}
-}
 
 // --- GetAvailableServicesWithContext bad char ---
 

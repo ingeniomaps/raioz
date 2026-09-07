@@ -140,15 +140,3 @@ func SetServicePreference(ws *workspace.Workspace, pref ServicePreference) error
 
 	return SaveServicePreferences(ws, prefs)
 }
-
-// RemoveServicePreference removes a preference for a service in the workspace
-func RemoveServicePreference(ws *workspace.Workspace, serviceName string) error {
-	prefs, err := LoadServicePreferences(ws)
-	if err != nil {
-		return err
-	}
-
-	delete(prefs.Preferences, serviceName)
-
-	return SaveServicePreferences(ws, prefs)
-}

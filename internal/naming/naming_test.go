@@ -27,13 +27,6 @@ func TestContainer_CustomPrefix(t *testing.T) {
 	}
 }
 
-func TestNetwork(t *testing.T) {
-	got := Network("myapp")
-	if got != "myapp-net" {
-		t.Errorf("expected myapp-net, got %s", got)
-	}
-}
-
 func TestProxyContainer(t *testing.T) {
 	SetPrefix("raioz")
 	defer SetPrefix("")
@@ -133,16 +126,6 @@ func TestTempDir_Isolated(t *testing.T) {
 	}
 	if !strings.Contains(dir1, "raioz-project-a") {
 		t.Errorf("expected project name in temp dir, got %s", dir1)
-	}
-}
-
-func TestCaddyfilePath(t *testing.T) {
-	SetPrefix("raioz")
-	defer SetPrefix("")
-
-	got := CaddyfilePath("myapp")
-	if !strings.HasSuffix(got, "Caddyfile") {
-		t.Errorf("expected Caddyfile suffix, got %s", got)
 	}
 }
 

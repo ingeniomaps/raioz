@@ -45,48 +45,9 @@ func TestGetServicesInfoWithContext_NotRunning(t *testing.T) {
 
 // --- PullImage wrapper (calls WithContext): just exercise wrapper ---
 
-func TestPullImage_Wrapper(t *testing.T) {
-	requireDocker(t)
-	// Use an obviously-invalid image name so the wrapper returns quickly
-	// with an error. This still exercises the wrapper code path.
-	_ = PullImage("raioz-test-invalid-image-that-does-not-exist-xyz:bogus")
-}
-
 // --- GetAvailableServices for a valid compose file ---
 
-func TestGetAvailableServices_Valid(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	services, err := GetAvailableServices(compose)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	found := false
-	for _, s := range services {
-		if s == "svc1" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("svc1 not in services: %v", services)
-	}
-}
-
 // --- GetServiceNames for a valid compose file ---
-
-func TestGetServiceNames_Valid(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	names, err := GetServiceNames(compose)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if len(names) == 0 {
-		t.Error("expected at least one service name")
-	}
-}
 
 // --- GetServicesStatus for a valid compose file (no running services) ---
 
@@ -118,14 +79,6 @@ func TestAreServicesRunning_Valid(t *testing.T) {
 }
 
 // --- ViewLogs with valid compose, no --follow ---
-
-func TestViewLogs_Valid(t *testing.T) {
-	requireDocker(t)
-	tmp := t.TempDir()
-	compose := mkValidCompose(t, tmp)
-	// May return an error if service is not running, but exercises the path
-	_ = ViewLogs(compose, LogsOptions{Tail: 5})
-}
 
 // A container that exists but is not running used to be reported as
 // "running" because the status was inferred from the container name alone.

@@ -35,8 +35,3 @@ func ResolveConfigPath(path string) string {
 	}
 	return abs
 }
-
-// IsAutoDetect returns true if the config path signals zero-config mode.
-func IsAutoDetect(path string) bool {
-	return path == AutoDetectMarker
-}

@@ -121,24 +121,6 @@ func NormalizeInfraName(workspace, infra string, project string, hasExplicitWork
 	return NormalizeContainerName(workspace, infra, project, hasExplicitWorkspace)
 }
 
-// NormalizeNetworkName normalizes a network name
-// Networks already use network (root level), but we can add prefix if needed
-// For now, we keep the existing format but normalize it
-func NormalizeNetworkName(networkName string) (string, error) {
-	name, err := NormalizeName(networkName)
-	if err != nil {
-		return "", err
-	}
-
-	// Truncate if necessary
-	if len(name) > MaxNetworkNameLength {
-		name = name[:MaxNetworkNameLength]
-		name = strings.TrimSuffix(name, "-")
-	}
-
-	return name, nil
-}
-
 // ValidateName validates that a name follows Docker naming conventions
 func ValidateName(name string, maxLength int) error {
 	if name == "" {

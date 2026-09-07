@@ -54,65 +54,6 @@ func TestGetAuditLogPath(t *testing.T) {
 	}
 }
 
-func TestLog_BasicEvent(t *testing.T) {
-	path := setupAuditHome(t)
-
-	err := Log(EventTypeConfigChanged, map[string]interface{}{"key": "value"}, "test message")
-	if err != nil {
-		t.Fatalf("Log: %v", err)
-	}
-
-	events := readEvents(t, path)
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-	if events[0].Type != EventTypeConfigChanged {
-		t.Errorf("wrong type: %s", events[0].Type)
-	}
-	if events[0].Message != "test message" {
-		t.Errorf("wrong message: %s", events[0].Message)
-	}
-	if events[0].Details["key"] != "value" {
-		t.Errorf("wrong details: %+v", events[0].Details)
-	}
-}
-
-func TestLog_Appends(t *testing.T) {
-	path := setupAuditHome(t)
-
-	if err := Log(EventTypeDevPromoted, nil, "first"); err != nil {
-		t.Fatalf("Log 1: %v", err)
-	}
-	if err := Log(EventTypeDevReverted, nil, "second"); err != nil {
-		t.Fatalf("Log 2: %v", err)
-	}
-
-	events := readEvents(t, path)
-	if len(events) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(events))
-	}
-}
-
-func TestLogDependencyAdded(t *testing.T) {
-	path := setupAuditHome(t)
-
-	err := LogDependencyAdded(context.Background(), "postgres", "auto-detect", "found in docker-compose")
-	if err != nil {
-		t.Fatalf("LogDependencyAdded: %v", err)
-	}
-
-	events := readEvents(t, path)
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-	if events[0].Type != EventTypeDependencyAdded {
-		t.Errorf("wrong type: %s", events[0].Type)
-	}
-	if events[0].Details["service"] != "postgres" {
-		t.Errorf("expected service=postgres, got %+v", events[0].Details)
-	}
-}
-
 func TestLogDevPromoted(t *testing.T) {
 	path := setupAuditHome(t)
 
@@ -141,23 +82,6 @@ func TestLogDevReverted(t *testing.T) {
 	events := readEvents(t, path)
 	if events[0].Type != EventTypeDevReverted {
 		t.Errorf("wrong type: %s", events[0].Type)
-	}
-}
-
-func TestLogConfigChanged(t *testing.T) {
-	path := setupAuditHome(t)
-
-	err := LogConfigChanged(context.Background(), "workspace1", []string{"added api", "removed worker"})
-	if err != nil {
-		t.Fatalf("LogConfigChanged: %v", err)
-	}
-
-	events := readEvents(t, path)
-	if events[0].Type != EventTypeConfigChanged {
-		t.Errorf("wrong type: %s", events[0].Type)
-	}
-	if events[0].Details["workspace"] != "workspace1" {
-		t.Errorf("expected workspace=workspace1")
 	}
 }
 
@@ -206,31 +130,6 @@ func TestLogDriftDetected(t *testing.T) {
 	}
 }
 
-func TestLog_TimestampIsSet(t *testing.T) {
-	path := setupAuditHome(t)
-
-	if err := Log(EventTypeConfigChanged, nil, ""); err != nil {
-		t.Fatalf("Log: %v", err)
-	}
-
-	events := readEvents(t, path)
-	if events[0].Timestamp.IsZero() {
-		t.Error("expected non-zero timestamp")
-	}
-}
-
-func TestLog_InvalidBaseDir(t *testing.T) {
-	// Set RAIOZ_HOME to something unwritable (if not root)
-	if os.Geteuid() == 0 {
-		t.Skip("running as root")
-	}
-	t.Setenv("RAIOZ_HOME", "/root/should-fail-raioz-audit")
-
-	err := Log(EventTypeConfigChanged, nil, "")
-	// Likely error — but some environments may succeed
-	_ = err
-}
-
 func TestRotation_NoOpUnderCap(t *testing.T) {
 	path := setupAuditHome(t)
 	if err := os.WriteFile(path, []byte("seed-event\n"), 0644); err != nil {
@@ -271,27 +170,6 @@ func TestRotation_TriggersWhenOverCap(t *testing.T) {
 	}
 	if info.Size() == 0 {
 		t.Errorf("rotated file should carry the original contents")
-	}
-}
-
-func TestLogAppendsAfterRotation(t *testing.T) {
-	path := setupAuditHome(t)
-	if err := os.WriteFile(path, bytes.Repeat([]byte{'x'}, int(maxAuditSize)+1), 0644); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-
-	if err := Log(EventTypeDependencyAdded, map[string]interface{}{"k": "v"}, "msg"); err != nil {
-		t.Fatalf("Log: %v", err)
-	}
-
-	// Pre-existing content moved to .1
-	if _, err := os.Stat(path + ".1"); err != nil {
-		t.Errorf("expected rotated file at %s.1: %v", path, err)
-	}
-	// New event lives in a fresh file at the original path
-	events := readEvents(t, path)
-	if len(events) != 1 || events[0].Type != EventTypeDependencyAdded {
-		t.Errorf("expected exactly one new event of type DependencyAdded, got %+v", events)
 	}
 }
 

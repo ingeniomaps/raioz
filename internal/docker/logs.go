@@ -19,11 +19,6 @@ type LogsOptions struct {
 	Services []string
 }
 
-// ViewLogs displays logs for services using docker compose logs
-func ViewLogs(composePath string, opts LogsOptions) error {
-	return ViewLogsWithContext(context.Background(), composePath, opts)
-}
-
 // ViewLogsWithContext displays logs for services using docker compose logs with context support
 func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptions) error {
 	// Check if compose file exists (probe the first file — composePath may be
@@ -90,11 +85,6 @@ func ViewLogsWithContext(ctx context.Context, composePath string, opts LogsOptio
 		return fmt.Errorf("docker compose logs: %w", err)
 	}
 	return nil
-}
-
-// GetAvailableServices returns list of available services from compose
-func GetAvailableServices(composePath string) ([]string, error) {
-	return GetAvailableServicesWithContext(context.Background(), composePath)
 }
 
 // GetAvailableServicesWithContext returns list of available services from compose with context support

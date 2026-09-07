@@ -1,14 +1,8 @@
 package docker
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
-
-	exectimeout "raioz/internal/exec"
-	"raioz/internal/runtime"
 )
 
 // AreServicesRunning checks if all required services are already running
@@ -30,48 +24,4 @@ func AreServicesRunning(composePath string, serviceNames []string) (bool, error)
 	}
 
 	return true, nil
-}
-
-// GetServiceNames extracts all service and infra names from compose
-func GetServiceNames(composePath string) ([]string, error) {
-	return GetServiceNamesWithContext(context.Background(), composePath)
-}
-
-// GetServiceNamesWithContext extracts all service and infra names from compose with context support
-func GetServiceNamesWithContext(ctx context.Context, composePath string) ([]string, error) {
-	if _, err := os.Stat(PrimaryComposeFile(composePath)); os.IsNotExist(err) {
-		return []string{}, nil
-	}
-
-	// Validate path to prevent command injection
-	if err := ValidateComposePath(composePath); err != nil {
-		return nil, fmt.Errorf("invalid compose path: %w", err)
-	}
-
-	// Create context with timeout
-	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerStatusTimeout)
-	defer cancel()
-
-	// Use docker compose config to get service names
-	namesArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
-	namesArgs = append(namesArgs, "config", "--services")
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), namesArgs...)
-	output, err := cmd.Output()
-	if err != nil {
-		if exectimeout.IsTimeoutError(timeoutCtx, err) {
-			return nil, fmt.Errorf("docker compose config timed out after %v", exectimeout.DockerStatusTimeout)
-		}
-		return nil, fmt.Errorf("failed to get service names: %w", err)
-	}
-
-	var names []string
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			names = append(names, line)
-		}
-	}
-
-	return names, nil
 }

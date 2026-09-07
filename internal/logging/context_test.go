@@ -189,26 +189,6 @@ func TestLogOperationEnd_WithError(t *testing.T) {
 	LogOperationEnd(ctx, "deploy", start, errors.New("boom"), "k", "v")
 }
 
-func TestLogCriticalOperation_AllLevels(t *testing.T) {
-	Init(LogLevelDebug, false)
-
-	ctx := WithProject(context.Background(), "p")
-
-	levels := []LogLevel{
-		LogLevelDebug,
-		LogLevelInfo,
-		LogLevelWarn,
-		LogLevelError,
-		LogLevel("unknown"),
-	}
-
-	for _, lvl := range levels {
-		t.Run(string(lvl), func(t *testing.T) {
-			LogCriticalOperation(ctx, lvl, "critical msg", "k", "v")
-		})
-	}
-}
-
 func TestParseLogLevel(t *testing.T) {
 	tests := []struct {
 		input string

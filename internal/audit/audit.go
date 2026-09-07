@@ -80,12 +80,6 @@ func GetAuditLogPath() (string, error) {
 	return filepath.Join(baseDir, auditLogFileName), nil
 }
 
-// Log writes an audit log entry. Convenience for call sites without
-// a ctx; LogWithContext is preferred — it stamps the correlation ID.
-func Log(eventType EventType, details map[string]interface{}, message string) error {
-	return LogWithContext(context.Background(), eventType, details, message)
-}
-
 // LogWithContext writes an audit log entry, sourcing the correlation
 // ID from the ctx (via logging.GetRequestID). Recursive raioz
 // invocations inherit the same ID from RAIOZ_CORRELATION_ID, so
@@ -175,17 +169,6 @@ func rotateIfOverCap(path string, capBytes int64) {
 	_ = os.Rename(path, rotated)
 }
 
-// LogDependencyAdded logs when a dependency is added via dependency assist.
-func LogDependencyAdded(ctx context.Context, serviceName, source, reason string) error {
-	details := map[string]interface{}{
-		"service": serviceName,
-		"source":  source,
-		"reason":  reason,
-	}
-	message := fmt.Sprintf("Dependency added: %s (source: %s)", serviceName, source)
-	return LogWithContext(ctx, EventTypeDependencyAdded, details, message)
-}
-
 // LogDevPromoted logs when a dependency is promoted to local development.
 func LogDevPromoted(ctx context.Context, depName, localPath, originalImage string) error {
 	details := map[string]interface{}{
@@ -205,19 +188,6 @@ func LogDevReverted(ctx context.Context, depName, originalImage string) error {
 	}
 	message := fmt.Sprintf("Dev reverted: %s -> %s", depName, originalImage)
 	return LogWithContext(ctx, EventTypeDevReverted, details, message)
-}
-
-// LogConfigChanged logs when configuration root is changed.
-func LogConfigChanged(ctx context.Context, workspaceName string, changes []string) error {
-	details := map[string]interface{}{
-		"workspace": workspaceName,
-		"changes":   changes,
-	}
-	message := fmt.Sprintf(
-		"Configuration changed in workspace: %s (%d changes)",
-		workspaceName, len(changes),
-	)
-	return LogWithContext(ctx, EventTypeConfigChanged, details, message)
 }
 
 // LogConflictResolved logs when a conflict is resolved.

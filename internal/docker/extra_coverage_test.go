@@ -9,19 +9,6 @@ import (
 
 // --- ConnectContainerToNetwork: bad container ---
 
-func TestConnectContainerToNetwork_NotFound(t *testing.T) {
-	requireDocker(t)
-	err := ConnectContainerToNetwork(
-		context.Background(),
-		"raioz-test-nonexistent-container-xyz",
-		"raioz-test-nonexistent-net-xyz",
-		[]string{"alias1"},
-	)
-	if err == nil {
-		t.Error("expected error for nonexistent container/network")
-	}
-}
-
 // --- CleanProjectWithContext: valid file, actual clean (will call docker) ---
 
 func TestCleanProjectWithContext_ValidCompose(t *testing.T) {

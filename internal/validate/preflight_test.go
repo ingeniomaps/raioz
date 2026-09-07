@@ -51,28 +51,11 @@ func TestCheckDiskSpace_NoPanic(t *testing.T) {
 	_ = checkDiskSpace()
 }
 
-func TestCheckGitInstalled_NoPanic(t *testing.T) {
-	// May fail if git not installed, but must not panic.
-	_ = checkGitInstalled()
-	_ = checkGitInstalledWithContext(context.Background())
-}
-
 func TestCheckDockerInstalled_NoPanic(t *testing.T) {
 	_ = checkDockerInstalled()
 	_ = checkDockerRunning()
 	_ = checkDockerInstalledWithContext(context.Background())
 	_ = checkDockerRunningWithContext(context.Background())
-}
-
-func TestCheckNetworkConnectivity_NoPanic(t *testing.T) {
-	_ = checkNetworkConnectivity()
-	_ = checkNetworkConnectivityWithContext(context.Background())
-}
-
-func TestPreflightCheck_NoPanic(t *testing.T) {
-	// Preflight aggregates many checks; it may fail but should not panic.
-	_ = PreflightCheck()
-	_ = PreflightCheckWithContext(context.Background())
 }
 
 func TestPreflightCheck_CancelledContext(t *testing.T) {

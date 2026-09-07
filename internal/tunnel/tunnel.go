@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
 	"raioz/internal/logging"
@@ -230,20 +229,4 @@ func (m *Manager) saveAll(tunnels []Info) {
 		return
 	}
 	_ = os.WriteFile(m.registryPath, data, 0600)
-}
-
-// DetectBackend returns the name of the available backend, or error.
-func DetectBackend() (string, error) {
-	return detectBackend()
-}
-
-// HasBackend returns true if a tunnel backend is available.
-func HasBackend() bool {
-	_, err := detectBackend()
-	return err == nil
-}
-
-// FormatURL returns a clean display URL. Trims protocol if present.
-func FormatURL(url string) string {
-	return strings.TrimPrefix(url, "https://")
 }

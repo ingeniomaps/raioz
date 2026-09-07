@@ -41,18 +41,6 @@ func RuntimeNotDetected(serviceName, path string) *RaiozError {
 		)
 }
 
-// RuntimeNotInstalled creates an error when a required runtime tool is missing.
-func RuntimeNotInstalled(runtime, command string) *RaiozError {
-	return New(ErrCodeRuntimeNotInstalled,
-		"Runtime '"+runtime+"' requires '"+command+"' which is not installed",
-	).WithContext("runtime", runtime).
-		WithContext("command", command).
-		WithSuggestion(
-			"Install " + command + " and make sure it's in your PATH.\n" +
-				"  Run 'raioz doctor' to check all requirements.",
-		)
-}
-
 // ServiceStartFailed creates an error when a service fails to start.
 func ServiceStartFailed(serviceName, runtime string, err error) *RaiozError {
 	suggestions := map[string]string{
@@ -111,44 +99,6 @@ func DependencyStartFailed(name, image string, err error) *RaiozError {
 	return e
 }
 
-// ProxyStartFailed creates an error when Caddy proxy fails to start.
-func ProxyStartFailed(err error) *RaiozError {
-	return New(ErrCodeProxyStartFailed,
-		"Failed to start Caddy proxy",
-	).WithError(err).
-		WithSuggestion(
-			"Check that Docker is running and port 80/443 are free.\n" +
-				"  Try: docker pull caddy:latest\n" +
-				"  Try: raioz proxy stop && raioz up",
-		)
-}
-
-// PathNotFound creates an error when a service path doesn't exist.
-func PathNotFound(serviceName, path string) *RaiozError {
-	return New(ErrCodePathNotFound,
-		"Path for service '"+serviceName+"' does not exist: "+path,
-	).WithContext("service", serviceName).
-		WithContext("path", path).
-		WithSuggestion(
-			"Check that the path is correct in raioz.yaml.\n" +
-				"  Paths are relative to the raioz.yaml directory.",
-		)
-}
-
-// DevSwapFailed creates an error for raioz dev failures.
-func DevSwapFailed(name, action string, err error) *RaiozError {
-	return New(ErrCodeDevSwapFailed,
-		"Failed to "+action+" '"+name+"'",
-	).WithContext("dependency", name).
-		WithContext("action", action).
-		WithError(err).
-		WithSuggestion(
-			"Check that the local path exists and has a valid project structure.\n" +
-				"  Run 'raioz dev --list' to see active dev overrides.\n" +
-				"  Run 'raioz dev --reset " + name + "' to revert to the image.",
-		)
-}
-
 // PreHookFailed creates an error when a pre-hook command fails.
 func PreHookFailed(command string, err error) *RaiozError {
 	return New(ErrCodePreHookFailed,
@@ -174,17 +124,5 @@ func PreUpHookFailed(command string, err error) *RaiozError {
 				"(use the published host:port, or run the bootstrap inside a container)\n" +
 				"  - The dep didn't actually come up — check 'raioz status'\n" +
 				"  - The command works locally but is missing env vars — re-export them in the hook",
-		)
-}
-
-// YAMLParseFailed creates an error for YAML parsing failures.
-func YAMLParseFailed(path string, err error) *RaiozError {
-	return New(ErrCodeYAMLParseFailed,
-		"Failed to parse "+path,
-	).WithError(err).
-		WithSuggestion(
-			"Check YAML syntax in " + path + ".\n" +
-				"  Common issues: wrong indentation, missing colons, tabs instead of spaces.\n" +
-				"  Validate with: cat " + path + " | python3 -c 'import yaml,sys; yaml.safe_load(sys.stdin)'",
 		)
 }

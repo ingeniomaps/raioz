@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"raioz/internal/domain/models"
 	raiozErrors "raioz/internal/errors"
@@ -116,37 +115,6 @@ func SaveGlobalState(state *GlobalState) error {
 	return nil
 }
 
-// GetActiveProjects returns a list of active project names
-func GetActiveProjects() ([]string, error) {
-	state, err := LoadGlobalState()
-	if err != nil {
-		return nil, err
-	}
-	return state.ActiveProjects, nil
-}
-
-// GetProjectState returns the state of a specific project
-func GetProjectState(projectName string) (*ProjectState, error) {
-	state, err := LoadGlobalState()
-	if err != nil {
-		return nil, err
-	}
-
-	projectState, exists := state.Projects[projectName]
-	if !exists {
-		return nil, raiozErrors.New(
-			raiozErrors.ErrCodeStateLoadError,
-			fmt.Sprintf("project '%s' not found in global state", projectName),
-		).WithContext("project", projectName).
-			WithSuggestion(
-				"Run 'raioz up' first to register the project " +
-					"in the global state",
-			)
-	}
-
-	return &projectState, nil
-}
-
 // UpdateProjectState updates the state of a project in the global state
 func UpdateProjectState(projectName string, projectState ProjectState) error {
 	state, err := LoadGlobalState()
@@ -192,28 +160,6 @@ func RemoveProject(projectName string) error {
 	state.ActiveProjects = newActiveProjects
 
 	return SaveGlobalState(state)
-}
-
-// UpdateLastExecution updates the last execution timestamp for a project
-func UpdateLastExecution(projectName string) error {
-	state, err := LoadGlobalState()
-	if err != nil {
-		return err
-	}
-
-	projectState, exists := state.Projects[projectName]
-	if !exists {
-		// Create new project state if it doesn't exist
-		projectState = ProjectState{
-			Name:          projectName,
-			LastExecution: time.Now(),
-			Services:      []ServiceState{},
-		}
-	} else {
-		projectState.LastExecution = time.Now()
-	}
-
-	return UpdateProjectState(projectName, projectState)
 }
 
 // BuildServiceStates builds ServiceState list from deps and service info

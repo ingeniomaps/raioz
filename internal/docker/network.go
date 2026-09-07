@@ -26,23 +26,6 @@ type NetworkInfo struct {
 	CreatedBy string
 }
 
-// EnsureNetwork ensures that a Docker network exists, creating it if necessary
-// If the network exists but is not external, it will be reused (idempotent)
-func EnsureNetwork(name string) error {
-	return EnsureNetworkWithConfig(NetworkConfig{Name: name}, false)
-}
-
-// EnsureNetworkWithConfig ensures that a Docker network exists, creating it if necessary
-// If askConfirmation is true, prompts the user before creating the network
-func EnsureNetworkWithConfig(config NetworkConfig, askConfirmation bool) error {
-	return EnsureNetworkWithConfigAndContext(context.Background(), config, askConfirmation)
-}
-
-// EnsureNetworkWithContext ensures that a Docker network exists, creating it if necessary, with context support
-func EnsureNetworkWithContext(ctx context.Context, name string) error {
-	return EnsureNetworkWithConfigAndContext(ctx, NetworkConfig{Name: name}, false)
-}
-
 // EnsureNetworkWithConfigAndContext ensures that a Docker network exists,
 // creating it if necessary, with context support.
 // If askConfirmation is true, prompts the user before creating the network.
@@ -95,11 +78,6 @@ func askNetworkCreationConfirmation(config NetworkConfig) (bool, error) {
 
 	response = strings.TrimSpace(strings.ToLower(response))
 	return response == "yes" || response == "y", nil
-}
-
-// NetworkExists checks if a Docker network exists and returns its info
-func NetworkExists(name string) (bool, *NetworkInfo, error) {
-	return NetworkExistsWithContext(context.Background(), name)
 }
 
 // NetworkExistsWithContext checks if a Docker network exists and returns its info with context support
@@ -160,22 +138,6 @@ type NetworkConfig struct {
 	Labels map[string]string
 }
 
-// CreateNetwork creates a new Docker network with bridge driver
-func CreateNetwork(name string) error {
-	return CreateNetworkWithConfig(NetworkConfig{Name: name}, false)
-}
-
-// CreateNetworkWithConfig creates a new Docker network with optional subnet
-// If askConfirmation is true, prompts the user before creating the network
-func CreateNetworkWithConfig(config NetworkConfig, askConfirmation bool) error {
-	return CreateNetworkWithConfigAndContext(context.Background(), config, askConfirmation)
-}
-
-// CreateNetworkWithContext creates a new Docker network with bridge driver with context support
-func CreateNetworkWithContext(ctx context.Context, name string) error {
-	return CreateNetworkWithConfigAndContext(ctx, NetworkConfig{Name: name}, false)
-}
-
 // CreateNetworkWithConfigAndContext creates a new Docker network with optional subnet and context support
 // If askConfirmation is true, prompts the user before creating the network
 func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig, askConfirmation bool) error {
@@ -215,25 +177,6 @@ func CreateNetworkWithConfigAndContext(ctx context.Context, config NetworkConfig
 		return fmt.Errorf("failed to create network '%s': %w (output: %s)", config.Name, err, string(output))
 	}
 	return nil
-}
-
-// RemoveNetwork removes a Docker network
-func RemoveNetwork(name string) error {
-	cmd := exec.Command(runtime.Binary(), "network", "rm", name)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// If network is in use, that's ok - we don't want to force remove
-		if strings.Contains(string(output), "network is in use") {
-			return fmt.Errorf("network '%s' is in use by other containers", name)
-		}
-		return fmt.Errorf("failed to remove network '%s': %w (output: %s)", name, err, string(output))
-	}
-	return nil
-}
-
-// IsNetworkInUse checks if a network is being used by any containers
-func IsNetworkInUse(name string) (bool, error) {
-	return IsNetworkInUseWithContext(context.Background(), name)
 }
 
 // IsNetworkInUseWithContext checks if a network is being used by any containers with context support
@@ -357,32 +300,4 @@ func RemoveLabeledNetworks(ctx context.Context, labels map[string]string) ([]str
 		}
 	}
 	return removed, nil
-}
-
-// ConnectContainerToNetwork attaches a running container to a Docker network.
-// If the container is already connected, this is a no-op.
-func ConnectContainerToNetwork(ctx context.Context, containerName, networkName string, aliases []string) error {
-	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerNetworkTimeout)
-	defer cancel()
-
-	args := []string{"network", "connect"}
-	for _, alias := range aliases {
-		args = append(args, "--alias", alias)
-	}
-	args = append(args, networkName, containerName)
-
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Already connected is not an error
-		if strings.Contains(string(output), "already exists") {
-			return nil
-		}
-		if exectimeout.IsTimeoutError(timeoutCtx, err) {
-			return fmt.Errorf("network connect timed out after %v", exectimeout.DockerNetworkTimeout)
-		}
-		return fmt.Errorf("failed to connect %s to network %s: %w (%s)",
-			containerName, networkName, err, string(output))
-	}
-	return nil
 }

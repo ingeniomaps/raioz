@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"raioz/internal/domain/models"
-	"raioz/internal/i18n"
-	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
@@ -196,26 +194,4 @@ func diagnoseContainerError(logs, serviceName string) []string {
 	}
 
 	return suggestions
-}
-
-// checkHostServiceHealth verifies host services started successfully.
-func checkHostServiceHealth(ctx context.Context, serviceName, logPath string) {
-	// Read log file for errors
-	cmd := exec.CommandContext(ctx, "tail", "-n", "5", logPath)
-	out, err := cmd.Output()
-	if err != nil {
-		return
-	}
-
-	logs := strings.TrimSpace(string(out))
-	lower := strings.ToLower(logs)
-
-	// Check for common host service errors
-	if strings.Contains(lower, "address already in use") {
-		output.PrintWarning(fmt.Sprintf("%s: port already in use", serviceName))
-		output.PrintInfo(i18n.T("output.previous_instance_hint"))
-	} else if strings.Contains(lower, "error") || strings.Contains(lower, "fatal") ||
-		strings.Contains(lower, "panic") {
-		logging.Warn("Host service may have errors", "service", serviceName)
-	}
 }

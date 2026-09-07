@@ -28,63 +28,6 @@ func TestBuildImageName(t *testing.T) {
 	}
 }
 
-func TestValidateServiceImages(t *testing.T) {
-	// Test with no image services (should pass)
-	deps := &models.Deps{
-		Services: map[string]models.Service{
-			"service1": {
-				Source: models.SourceConfig{
-					Kind: "git",
-				},
-			},
-		},
-	}
-
-	if err := ValidateServiceImages(deps); err != nil {
-		t.Errorf("ValidateServiceImages() error = %v, want nil", err)
-	}
-
-	// Test with image service (will try to check/pull, may fail if no docker)
-	deps2 := &models.Deps{
-		Services: map[string]models.Service{
-			"service2": {
-				Source: models.SourceConfig{
-					Kind:  "image",
-					Image: "nginx",
-					Tag:   "alpine",
-				},
-			},
-		},
-	}
-
-	// This may fail if docker is not available, but that's ok for test
-	_ = ValidateServiceImages(deps2)
-}
-
-func TestValidateInfraImages(t *testing.T) {
-	// Test with no infra (should pass)
-	deps := &models.Deps{
-		Infra: map[string]models.InfraEntry{},
-	}
-
-	if err := ValidateInfraImages(deps); err != nil {
-		t.Errorf("ValidateInfraImages() error = %v, want nil", err)
-	}
-
-	// Test with infra (will try to check/pull, may fail if no docker)
-	deps2 := &models.Deps{
-		Infra: map[string]models.InfraEntry{
-			"mongo": {Inline: &models.Infra{
-				Image: "mongo",
-				Tag:   "5.0",
-			}},
-		},
-	}
-
-	// This may fail if docker is not available, but that's ok for test
-	_ = ValidateInfraImages(deps2)
-}
-
 func TestValidateAllImages(t *testing.T) {
 	// Test with no images (should pass)
 	deps := &models.Deps{

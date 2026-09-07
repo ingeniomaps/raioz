@@ -64,27 +64,6 @@ func ResolveYAMLProject(deps *Dependencies, configPath string) *YAMLProject {
 	}
 }
 
-// ContainerPrefix returns the naming prefix for this project's containers.
-func (p *YAMLProject) ContainerPrefix() string {
-	return fmt.Sprintf("raioz-%s-", p.ProjectName)
-}
-
-// ListRunningContainers returns names of running containers for this project.
-func (p *YAMLProject) ListRunningContainers(ctx context.Context) []string {
-	cmd := exec.CommandContext(ctx, runtime.Binary(), "ps",
-		"--filter", "name="+p.ContainerPrefix(),
-		"--format", "{{.Names}}")
-	out, err := cmd.Output()
-	if err != nil {
-		return nil
-	}
-	names := strings.TrimSpace(string(out))
-	if names == "" {
-		return nil
-	}
-	return strings.Split(names, "\n")
-}
-
 // resolveInfraContainerName picks the right container name for a dependency
 // based on workspace-sharing rules and user-supplied `name:` overrides,
 // falling back to the legacy per-project form when neither applies.

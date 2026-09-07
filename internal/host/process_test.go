@@ -231,25 +231,6 @@ func findChildSleepPID(t *testing.T, leaderPID int) int {
 	return 0
 }
 
-func TestStopServiceWrapper(t *testing.T) {
-	// Deprecated wrapper, just exercise it with a sleeping process
-	skipIfNoBinary(t, "sleep")
-
-	cmd := exec.Command("sleep", "30")
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start: %v", err)
-	}
-	pid := cmd.Process.Pid
-	t.Cleanup(func() {
-		_ = cmd.Process.Kill()
-	})
-	time.Sleep(50 * time.Millisecond)
-
-	if err := StopService(context.Background(), pid); err != nil {
-		t.Errorf("StopService() error = %v", err)
-	}
-}
-
 func TestStartServiceLocalBackground(t *testing.T) {
 	skipIfNoBinary(t, "sleep")
 

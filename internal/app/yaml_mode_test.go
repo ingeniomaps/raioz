@@ -111,13 +111,6 @@ func TestResolveYAMLProject_AutoFindEmpty(t *testing.T) {
 	}
 }
 
-func TestYAMLProject_ContainerPrefix(t *testing.T) {
-	p := &YAMLProject{ProjectName: "myapp"}
-	if got := p.ContainerPrefix(); got != "raioz-myapp-" {
-		t.Errorf("expected 'raioz-myapp-', got %q", got)
-	}
-}
-
 func TestYAMLProject_ContainerStatus_Stopped(t *testing.T) {
 	// No container will exist — expect "stopped"
 	p := &YAMLProject{ProjectName: "zzz-test-nonexistent-proj"}
@@ -132,13 +125,5 @@ func TestYAMLProject_ContainerStats_Stopped(t *testing.T) {
 	cpu, mem := p.ContainerStats(context.Background(), "noservice")
 	if cpu != "-" || mem != "-" {
 		t.Errorf("expected ('-', '-') for nonexistent container, got (%q, %q)", cpu, mem)
-	}
-}
-
-func TestYAMLProject_ListRunningContainers_Empty(t *testing.T) {
-	p := &YAMLProject{ProjectName: "zzz-test-nonexistent-proj-list"}
-	names := p.ListRunningContainers(context.Background())
-	if len(names) != 0 {
-		t.Errorf("expected empty list, got %v", names)
 	}
 }

@@ -22,11 +22,6 @@ type CleanupOptions struct {
 	Force    bool
 }
 
-// CleanProject cleans up stopped services and resources for a project
-func CleanProject(composePath string, dryRun bool) ([]string, error) {
-	return CleanProjectWithContext(context.Background(), composePath, dryRun)
-}
-
 // CleanProjectWithContext cleans up stopped services and resources for a project with context support
 func CleanProjectWithContext(ctx context.Context, composePath string, dryRun bool) ([]string, error) {
 	var actions []string
@@ -66,11 +61,6 @@ func CleanProjectWithContext(ctx context.Context, composePath string, dryRun boo
 
 	actions = append(actions, fmt.Sprintf("Cleaned compose file: %s", composePath))
 	return actions, nil
-}
-
-// CleanUnusedImages removes unused Docker images
-func CleanUnusedImages(dryRun bool) ([]string, error) {
-	return CleanUnusedImagesWithContext(context.Background(), dryRun)
 }
 
 // CleanUnusedImagesWithContext removes unused Docker images with context support
@@ -118,11 +108,6 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 
 	actions = append(actions, "Removed unused images")
 	return actions, nil
-}
-
-// CleanUnusedVolumes lists or removes unused Docker volumes
-func CleanUnusedVolumes(dryRun bool, force bool) ([]string, error) {
-	return CleanUnusedVolumesWithContext(context.Background(), dryRun, force)
 }
 
 // CleanUnusedVolumesWithContext lists or removes unused Docker volumes with context support
@@ -174,11 +159,6 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 
 	actions = append(actions, "Removed unused volumes")
 	return actions, nil
-}
-
-// CleanUnusedNetworks removes unused Docker networks
-func CleanUnusedNetworks(dryRun bool) ([]string, error) {
-	return CleanUnusedNetworksWithContext(context.Background(), dryRun)
 }
 
 // CleanUnusedNetworksWithContext removes unused Docker networks with context support
@@ -254,11 +234,6 @@ func GetAllProjectWorkspaces(baseDir string) ([]string, error) {
 	}
 
 	return workspaces, nil
-}
-
-// CleanAllProjects cleans all stopped projects
-func CleanAllProjects(baseDir string, dryRun bool) ([]string, error) {
-	return CleanAllProjectsWithContext(context.Background(), baseDir, dryRun)
 }
 
 // CleanAllProjectsWithContext cleans all stopped projects with context support

@@ -72,12 +72,6 @@ func DepContainer(project, dep, nameOverride string) string {
 	return Container(project, dep)
 }
 
-// Network returns the network name for a project.
-// Format: {project}-net (or {workspace}-net if workspace is set)
-func Network(projectOrWorkspace string) string {
-	return projectOrWorkspace + "-net"
-}
-
 // ProxyContainer returns the proxy container name.
 // Format: {prefix}-proxy-{project}
 func ProxyContainer(project string) string {
@@ -186,17 +180,6 @@ func WorkspaceProxyDirFor(workspace string) string {
 		workspace = DefaultPrefix
 	}
 	return filepath.Join(stateBaseDir(), workspace, "proxy")
-}
-
-// WorkspaceCaddyfilePath returns the path to the shared Caddyfile for the
-// current workspace.
-func WorkspaceCaddyfilePath() string {
-	return filepath.Join(WorkspaceProxyDir(), "Caddyfile")
-}
-
-// CaddyfilePath returns the Caddyfile path for a project.
-func CaddyfilePath(project string) string {
-	return filepath.Join(ProxyDir(project), "Caddyfile")
 }
 
 // LegacyWorkspaceProxyDir returns the pre-XDG location of the shared proxy

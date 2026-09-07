@@ -18,11 +18,6 @@ import (
 // short enough that callers waiting on the port don't hang.
 const stopShutdownDeadline = 5 * time.Second
 
-// StopService stops a running host process by PID
-func StopService(ctx context.Context, pid int) error {
-	return StopServiceWithCommandAndPath(ctx, pid, "", "")
-}
-
 // StopServiceWithCommand stops a running host process, optionally using a custom stop command first
 // Deprecated: Use StopServiceWithCommandAndPath instead
 func StopServiceWithCommand(ctx context.Context, pid int, stopCommand string) error {

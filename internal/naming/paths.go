@@ -31,22 +31,6 @@ func PortsLockFile() string {
 	return filepath.Join(RaiozStateDir(), "ports.lock")
 }
 
-// RaiozConfigDir returns the directory for user-authored preferences.
-// XDG separates "state" (rebuildable) from "config" (user-authored);
-// callers that store the latter use this instead of RaiozStateDir.
-func RaiozConfigDir() string {
-	if home := os.Getenv("RAIOZ_HOME"); home != "" {
-		return home
-	}
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "raioz")
-	}
-	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		return filepath.Join(home, ".config", "raioz")
-	}
-	return filepath.Join(os.TempDir(), "raioz")
-}
-
 // LegacyStateDirs are the locations earlier raioz versions wrote to.
 // MigrateLegacyStateDirs walks this list once on upgrade.
 func LegacyStateDirs() []string {

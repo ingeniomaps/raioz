@@ -2,8 +2,6 @@ package upcase
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -108,56 +106,6 @@ func TestResolveDepPublishPorts_MultipleMappings(t *testing.T) {
 }
 
 // --- serviceBindError / depBindError -----------------------------------------
-
-func TestServiceBindError_Explicit(t *testing.T) {
-	alloc := PortAllocation{Name: "web", Port: 3000, Explicit: true}
-	err := serviceBindError(alloc)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, "web") || !strings.Contains(msg, "3000") {
-		t.Errorf("error should mention service and port, got: %s", msg)
-	}
-}
-
-func TestServiceBindError_Implicit(t *testing.T) {
-	alloc := PortAllocation{Name: "api", Port: 8080, Explicit: false}
-	err := serviceBindError(alloc)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, "api") || !strings.Contains(msg, "8080") {
-		t.Errorf("error should mention service and port, got: %s", msg)
-	}
-}
-
-func TestDepBindError_Explicit(t *testing.T) {
-	alloc := DepPortAllocation{Name: "pg", Explicit: true}
-	m := DepPortMapping{HostPort: 5432, ContainerPort: 5432}
-	err := depBindError(alloc, m)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, "pg") || !strings.Contains(msg, "5432") {
-		t.Errorf("error should mention dep and port, got: %s", msg)
-	}
-}
-
-func TestDepBindError_Auto(t *testing.T) {
-	alloc := DepPortAllocation{Name: "redis", Explicit: false}
-	m := DepPortMapping{HostPort: 6379, ContainerPort: 6379}
-	err := depBindError(alloc, m)
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, "redis") || !strings.Contains(msg, "6379") {
-		t.Errorf("error should mention dep and port, got: %s", msg)
-	}
-}
 
 // --- applyPortChange ---------------------------------------------------------
 
@@ -347,33 +295,3 @@ func TestPrintConflictBanner_External(t *testing.T) {
 }
 
 // --- checkHostServiceHealth --------------------------------------------------
-
-func TestCheckHostServiceHealth_AddressInUse(t *testing.T) {
-	dir := t.TempDir()
-	logPath := filepath.Join(dir, "svc.log")
-	os.WriteFile(logPath, []byte("listen tcp :3000: bind: address already in use\n"), 0644)
-
-	// Should not panic, prints warning
-	checkHostServiceHealth(t.Context(), "web", logPath)
-}
-
-func TestCheckHostServiceHealth_ErrorInLogs(t *testing.T) {
-	dir := t.TempDir()
-	logPath := filepath.Join(dir, "svc.log")
-	os.WriteFile(logPath, []byte("Error: cannot connect to database\n"), 0644)
-
-	checkHostServiceHealth(t.Context(), "api", logPath)
-}
-
-func TestCheckHostServiceHealth_CleanLogs(t *testing.T) {
-	dir := t.TempDir()
-	logPath := filepath.Join(dir, "svc.log")
-	os.WriteFile(logPath, []byte("Server started successfully\nListening on :8080\n"), 0644)
-
-	checkHostServiceHealth(t.Context(), "api", logPath)
-}
-
-func TestCheckHostServiceHealth_MissingFile(t *testing.T) {
-	// Non-existent log file should not panic
-	checkHostServiceHealth(t.Context(), "ghost", "/tmp/nonexistent-log-12345.log")
-}

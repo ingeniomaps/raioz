@@ -144,23 +144,3 @@ func TestIsServiceNameAndGetServiceNames(t *testing.T) {
 		t.Errorf("got %v, want %v", names, want)
 	}
 }
-
-func TestResolveAbsolutePath(t *testing.T) {
-	tests := []struct {
-		name        string
-		composePath string
-		target      string
-		want        string
-	}{
-		{"absolute target unchanged", "/tmp/docker-compose.yml", "/etc/passwd", "/etc/passwd"},
-		{"relative resolved against compose dir", "/srv/app/compose.yml", "data", "/srv/app/data"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ResolveAbsolutePath(tt.composePath, tt.target)
-			if got != tt.want {
-				t.Errorf("got %q, want %q", got, tt.want)
-			}
-		})
-	}
-}

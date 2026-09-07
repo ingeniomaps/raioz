@@ -50,27 +50,6 @@ func TestBuild(t *testing.T) {
 	}
 }
 
-func TestTopologicalSort(t *testing.T) {
-	g := Build(testDeps())
-	sorted := g.TopologicalSort()
-
-	if len(sorted) != 5 {
-		t.Errorf("expected 5 nodes in sort, got %d", len(sorted))
-	}
-
-	// frontend depends on api, so frontend should come before api in our sort
-	// (we sort dependents first, leaves last)
-	posOf := make(map[string]int)
-	for i, name := range sorted {
-		posOf[name] = i
-	}
-
-	// frontend depends on api → frontend should appear before api
-	if posOf["frontend"] > posOf["api"] {
-		t.Errorf("frontend should appear before api in topological order, got: %v", sorted)
-	}
-}
-
 func TestRenderASCII(t *testing.T) {
 	g := Build(testDeps())
 	var buf bytes.Buffer

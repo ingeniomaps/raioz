@@ -97,23 +97,6 @@ func TestGetServicePreference_NotFound(t *testing.T) {
 	}
 }
 
-func TestRemoveServicePreference(t *testing.T) {
-	ws := testWorkspace(t)
-
-	// Add, then remove
-	pref := ServicePreference{ServiceName: "api", Preference: "local"}
-	_ = SetServicePreference(ws, pref)
-
-	if err := RemoveServicePreference(ws, "api"); err != nil {
-		t.Fatalf("RemoveServicePreference: %v", err)
-	}
-
-	got, _ := GetServicePreference(ws, "api")
-	if got != nil {
-		t.Error("preference should be removed")
-	}
-}
-
 func TestSaveServicePreferences_NoWorkspaceRoot(t *testing.T) {
 	ws := &workspace.Workspace{Root: ""}
 	err := SaveServicePreferences(ws, &ServicePreferences{})

@@ -158,14 +158,6 @@ func validatePathSafety(cfg *RaiozConfig, baseDir string) error {
 	return nil
 }
 
-// checkInsidePath runs the full H2 check: system blocklist AND
-// containment within baseDir. Equivalent to checkInsideRoot with
-// root == baseDir — the classic per-repo containment used when no
-// workspaceRoot is declared. Empty rawPath is a no-op.
-func checkInsidePath(rawPath, baseDir, field string) error {
-	return checkInsideRoot(rawPath, baseDir, baseDir, field)
-}
-
 // checkInsideRoot runs the full H2 check: system blocklist AND
 // containment within root. rawPath is resolved relative to baseDir
 // (where the yaml lives) but contained against root (which equals

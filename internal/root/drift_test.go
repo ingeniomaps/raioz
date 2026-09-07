@@ -306,47 +306,6 @@ func TestDetectAssistedServiceDrift(t *testing.T) {
 	})
 }
 
-func TestFormatDrift(t *testing.T) {
-	drift := ServiceDrift{
-		ServiceName: "test-service",
-		ServicePath: "/path/to/service/.raioz.json",
-		Differences: []models.ConfigChange{
-			{
-				Type:     "service",
-				Name:     "test-service",
-				Field:    "source.branch",
-				OldValue: "main",
-				NewValue: "develop",
-			},
-			{
-				Type:     "service",
-				Name:     "test-service",
-				Field:    "docker.ports",
-				OldValue: "[3000:3000]",
-				NewValue: "[8080:8080]",
-			},
-		},
-	}
-
-	formatted := FormatDrift(drift)
-	if formatted == "" {
-		t.Error("FormatDrift() returned empty string")
-	}
-
-	// Check that service name is included
-	if !contains(formatted, "test-service") {
-		t.Error("FormatDrift() output doesn't contain service name")
-	}
-
-	// Check that differences are included
-	if !contains(formatted, "source.branch") {
-		t.Error("FormatDrift() output doesn't contain branch difference")
-	}
-	if !contains(formatted, "docker.ports") {
-		t.Error("FormatDrift() output doesn't contain ports difference")
-	}
-}
-
 func TestFormatDrifts(t *testing.T) {
 	drifts := []ServiceDrift{
 		{

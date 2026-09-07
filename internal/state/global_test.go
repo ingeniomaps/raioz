@@ -81,55 +81,6 @@ func TestSaveAndLoadGlobalState(t *testing.T) {
 	}
 }
 
-func TestGetActiveProjects(t *testing.T) {
-	setupGlobalHome(t)
-
-	state := &GlobalState{
-		ActiveProjects: []string{"a", "b"},
-		Projects:       map[string]ProjectState{},
-	}
-	if err := SaveGlobalState(state); err != nil {
-		t.Fatalf("SaveGlobalState: %v", err)
-	}
-
-	active, err := GetActiveProjects()
-	if err != nil {
-		t.Fatalf("GetActiveProjects: %v", err)
-	}
-	if len(active) != 2 {
-		t.Errorf("expected 2, got %d", len(active))
-	}
-}
-
-func TestGetProjectState_Found(t *testing.T) {
-	setupGlobalHome(t)
-
-	state := &GlobalState{
-		ActiveProjects: []string{"p1"},
-		Projects: map[string]ProjectState{
-			"p1": {Name: "p1"},
-		},
-	}
-	SaveGlobalState(state)
-
-	got, err := GetProjectState("p1")
-	if err != nil {
-		t.Fatalf("GetProjectState: %v", err)
-	}
-	if got.Name != "p1" {
-		t.Errorf("got %+v", got)
-	}
-}
-
-func TestGetProjectState_NotFound(t *testing.T) {
-	setupGlobalHome(t)
-
-	_, err := GetProjectState("nonexistent")
-	if err == nil {
-		t.Error("expected error")
-	}
-}
-
 func TestUpdateProjectState_New(t *testing.T) {
 	setupGlobalHome(t)
 
@@ -201,40 +152,6 @@ func TestRemoveProject(t *testing.T) {
 		if name == "p1" {
 			t.Error("p1 should not be in ActiveProjects")
 		}
-	}
-}
-
-func TestUpdateLastExecution_New(t *testing.T) {
-	setupGlobalHome(t)
-
-	if err := UpdateLastExecution("newproj"); err != nil {
-		t.Fatalf("UpdateLastExecution: %v", err)
-	}
-
-	got, err := GetProjectState("newproj")
-	if err != nil {
-		t.Fatalf("GetProjectState: %v", err)
-	}
-	if got.LastExecution.IsZero() {
-		t.Error("expected non-zero LastExecution")
-	}
-}
-
-func TestUpdateLastExecution_Existing(t *testing.T) {
-	setupGlobalHome(t)
-
-	_ = UpdateProjectState("p1", ProjectState{
-		Name:          "p1",
-		LastExecution: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
-	})
-
-	if err := UpdateLastExecution("p1"); err != nil {
-		t.Fatalf("UpdateLastExecution: %v", err)
-	}
-
-	got, _ := GetProjectState("p1")
-	if got.LastExecution.Year() == 2020 {
-		t.Error("LastExecution should have been updated")
 	}
 }
 

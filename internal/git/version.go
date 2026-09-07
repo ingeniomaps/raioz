@@ -34,23 +34,3 @@ func GetCommitSHA(ctx context.Context, repoPath string) (string, error) {
 	}
 	return sha, nil
 }
-
-// GetCommitDate returns the commit date of the current HEAD
-func GetCommitDate(ctx context.Context, repoPath string) (string, error) {
-	if _, err := os.Stat(filepath.Join(repoPath, ".git")); os.IsNotExist(err) {
-		return "", fmt.Errorf("not a git repository: %s", repoPath)
-	}
-
-	cmd := exec.CommandContext(ctx, "git", "log", "-1", "--format=%ci", "HEAD")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		if exectimeout.IsTimeoutError(ctx, err) {
-			return "", exectimeout.HandleTimeoutError(ctx, err, "git log", exectimeout.DefaultTimeout)
-		}
-		return "", fmt.Errorf("failed to get commit date: %w", err)
-	}
-
-	date := strings.TrimSpace(string(output))
-	return date, nil
-}

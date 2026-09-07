@@ -3,7 +3,6 @@ package production
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -118,14 +117,4 @@ func (pc *ProductionConfig) GetServiceNames() []string {
 		names = append(names, name)
 	}
 	return names
-}
-
-// ResolveAbsolutePath resolves a path relative to the compose file's directory
-func ResolveAbsolutePath(composeFilePath, targetPath string) string {
-	if filepath.IsAbs(targetPath) {
-		return targetPath
-	}
-
-	composeDir := filepath.Dir(composeFilePath)
-	return filepath.Join(composeDir, targetPath)
 }

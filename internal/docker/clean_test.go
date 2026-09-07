@@ -6,35 +6,6 @@ import (
 	"testing"
 )
 
-func TestCleanProject(t *testing.T) {
-	// Create a temporary directory
-	tmpDir, err := os.MkdirTemp("", "raioz-test-")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	composePath := filepath.Join(tmpDir, "docker-compose.yml")
-
-	// Test with non-existent compose file (dry-run)
-	actions, err := CleanProject(composePath, true)
-	if err != nil {
-		t.Errorf("CleanProject() error = %v", err)
-	}
-	if len(actions) != 0 {
-		t.Errorf("CleanProject() should return empty actions for missing file")
-	}
-
-	// Test with non-existent compose file (actual clean)
-	actions, err = CleanProject(composePath, false)
-	if err != nil {
-		t.Errorf("CleanProject() error = %v", err)
-	}
-	if len(actions) != 0 {
-		t.Errorf("CleanProject() should return empty actions for missing file")
-	}
-}
-
 func TestGetAllProjectWorkspaces(t *testing.T) {
 	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "raioz-test-")
