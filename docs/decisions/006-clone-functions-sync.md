@@ -1,7 +1,18 @@
 # ADR-006: Clone functions mirror config structs explicitly
 
-- **Status:** Accepted
+- **Status:** Superseded (2026-09-06) — the code it governs no longer exists
 - **Date:** 2026-05-12 (retroactively documented)
+
+> **Superseded.** ADR-011 Phase 3 dropped the workspace-merge prompt:
+> `checkWorkspaceProjectConflict` became a stub that always returns
+> `Proceed`, which left `mergeDeps` and its helpers — `cloneService`
+> and `cloneInfraEntry` among them — unreachable. The invariant below
+> outlived its subject by four months and kept charging every
+> contributor a grep after each struct change, for clones that could
+> not run. The functions were deleted; this ADR is kept as the record
+> of why they existed. If the merge prompt ever returns, its clones
+> need this decision again — preferably in the generated form the
+> "Alternatives considered" section already favours.
 
 ## Context
 
