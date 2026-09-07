@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.2](https://github.com/ingeniomaps/raioz/compare/v0.15.1...v0.15.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **state:** stop the global project map growing ([ca0efb6](https://github.com/ingeniomaps/raioz/commit/ca0efb6f2ff65b43ba7c6f27afda7725ce9b7cb2))
+
 ## [0.15.1](https://github.com/ingeniomaps/raioz/compare/v0.15.0...v0.15.1) (2026-09-07)
 
 
