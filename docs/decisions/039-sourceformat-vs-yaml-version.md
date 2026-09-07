@@ -70,17 +70,21 @@ Stamped at every load site:
 
 - `internal/config/yaml_bridge.go::ToDeps` → `SourceFormatYAML`
 - `internal/config/auto_detect.go::AutoDetect` → `SourceFormatYAML`
-- `internal/config/deps.go::LoadDeps` → `SourceFormatLegacyJSON`
+- `internal/config/deps.go::LoadDepsForMigration` → `SourceFormatLegacyJSON`
 - `internal/testing/helpers.go::CreateMinimalTestDeps` → `SourceFormatLegacyJSON`
-- `internal/app/initcase/config.go::BuildDepsConfig` → `SourceFormatLegacyJSON`
 - `internal/production/migrate.go` → `SourceFormatLegacyJSON`
 
-Preserved in every clone (per ADR-006):
+Preserved in every clone:
 
 - `internal/config/deps.go::FilterByProfile` / `FilterByProfiles`
 - `internal/config/filter.go::FilterByFeatureFlags`
 - `internal/config/ignore_filter.go::FilterIgnoredServices`
-- `internal/app/upcase/workspace_project_conflict.go::merge`
+
+> **List corrected 2026-09-07.** `LoadDeps` was named here as a
+> stamper; ADR-038 turned it into a hard error and the stamping moved
+> to `LoadDepsForMigration`. `internal/app/initcase/config.go` and
+> `workspace_project_conflict.go::merge` were deleted with the
+> `.raioz.json` cascade — see ADR-038 and ADR-006 (superseded).
 
 ### Reader migration policy
 

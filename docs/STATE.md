@@ -16,6 +16,7 @@ and how is it protected" in 30 seconds.
 | `audit.log` (+ `.1` rotation tail) | `<RaiozStateDir>/` | per-machine, append-only JSONL | Forensic history of lifecycle / dev / sibling / drift events | ADR-020, ADR-022, ADR-027 |
 | `routes/<project>.json` | `<WorkspaceProxyDir>/routes/` | per-project per-workspace | Persisted proxy route entries; merged into the workspace's `Caddyfile` | ADR-005 |
 | `shared-deps.json` | `<RaiozStateDir>/` | per-machine, keyed by workspace→dep | Refcount of which projects consume each shared dependency; gates last-consumer teardown | ADR-050 |
+| `state.json` (GlobalState) | `<RaiozStateDir>/` | per-machine, keyed by project name | Which projects are up, with each one's services, mode, image and version. Read by `raioz list` | ADR-011 |
 | `cert.pem` + `cert-key.pem` | `~/.raioz/certs/<domain>/` | per-domain (machine) | mkcert-issued local TLS cert + private key | ADR-003 |
 
 Plus transient artifacts (not "state" in the sense of "raioz
@@ -72,6 +73,7 @@ below.
 | `audit.log` | `internal/audit/audit.go::Log` / `LogWithContext` | every event in the OBSERVABILITY.md matrix that's currently emitted (lifecycle up/down/restart, dev promote/revert, sibling deferred, drift, conflict resolved, service assisted) |
 | `routes/<project>.json` | `internal/proxy/routes_persist.go::SaveProjectRoutes` | `raioz up`'s `startProxy` after `AddRoute` for every service |
 | `shared-deps.json` | `internal/refcount/refcount.go::AddRef` | `raioz up`'s `registerSharedDepRefs` — one ref per dispatched shared dep |
+| `state.json` | `internal/state/global.go::UpdateProjectState` | `raioz up`'s `updateGlobalState` — best-effort, once per up |
 | `Caddyfile` | `internal/proxy/caddyfile.go::generateCaddyfile` | indirect — every `Reload` and the first `Start` |
 | certs | `internal/proxy/certs.go::EnsureCerts` | proxy `Start` when `tlsMode == mkcert` and the SAN-validated cert is missing |
 | `logs/<project>/<service>.log` | `internal/orchestrate/host_runner.go::Start` (`raioz up`) and `internal/host/process.go::StartService` (`raioz restart`) | every host service launch — truncated, not appended |
@@ -91,6 +93,7 @@ nobody was writing sat there holding a stale successful startup.
 | `audit.log` | `internal/audit/audit.go::rotateIfOverCap` | size > 10 MiB → renamed to `audit.log.1` (overwriting any prior `.1`) | Never deleted outright; tail is recoverable |
 | `routes/<project>.json` | `internal/proxy/routes_persist.go::RemoveProjectRoutes` | `raioz down`'s `stopProxy` | Last project out of the workspace also stops the Caddy container itself (ADR-005) |
 | `shared-deps.json` | `internal/refcount/refcount.go::DropRef` (`save` removes the file when empty) | `raioz down` drops the leaving project's ref; the file is deleted once no workspace has any ref left | A shared dep is torn down only when its ref set empties (ADR-050) |
+| `state.json` entry | `internal/state/global.go::RemoveProject` | `raioz down` (orchestrated) when `len(leftovers) == 0`, alongside `raioz.root.json`; and `raioz clean --all`'s `pruneStaleProjectStates` for every project whose liveness probe says it is not running | Until 2026-09 nothing deleted these: the map grew one entry per project ever started and kept it after the directory was gone (81 on the maintainer's machine). The prune keeps any entry whose probe *fails* — an unreachable daemon must not read as a deleted project |
 | `Caddyfile` | regenerated, not deleted | every `Reload` — old content overwritten | If the last project leaves the workspace the file remains until the workspace dir is cleaned manually |
 | certs | manual (`rm -rf ~/.raioz/certs/<domain>`) | n/a — raioz never deletes user-trusted CAs | Per-domain isolation makes manual cleanup safe (ADR-003) |
 | `logs/<project>/<service>.log` | nobody | n/a | Truncated on each launch, so a file never grows past one run's output. The per-project directory outlives the project — deleting it is a manual `rm -rf` |
