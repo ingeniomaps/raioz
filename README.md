@@ -382,7 +382,7 @@ services:                       # local code you edit
     dependsOn: [postgres, redis]
     watch: true
     health: /api/health
-    ports: ["3000"]
+    port: 3000                  # health: is probed on this port
     env: .env.api
     routing:
       ws: true                  # WebSocket support

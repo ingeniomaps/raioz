@@ -235,7 +235,7 @@ silently every release that adds a command (issue 025).
 `dev` (hot-swap dep→local), `env` (show service env vars), `graph` (visualize deps), `snapshot` (backup volumes), `tunnel` (expose to internet), `proxy` (manage Caddy), `dashboard` (interactive TUI), `hosts` (print `/etc/hosts` line for `proxy.publish:false` setups), `switch` (stop colliding sibling projects + up cwd, with confirmation; `--yes` skips prompt, `--keep` excludes projects)
 
 ### Management
-`list`, `version`, `lang`, `ignore`, `volumes`, `compare`, `ci`, `health`, `migrate`, `ports`, `yaml` (migrate config)
+`list`, `version`, `lang`, `ignore`, `volumes`, `compare`, `ci`, `health` (per-service/dep verdict; the declared `health:` endpoint outranks inference, and a non-zero exit makes it scriptable), `migrate`, `ports`, `yaml` (migrate config)
 
 ## Dependencies
 
