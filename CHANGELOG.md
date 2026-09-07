@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.3](https://github.com/ingeniomaps/raioz/compare/v0.15.2...v0.15.3) (2026-09-07)
+
+
+### Documentation
+
+* catch the docs up with what the code does ([a85745d](https://github.com/ingeniomaps/raioz/commit/a85745d7655072c15298f262eba49fe5f205f17e))
+
 ## [0.15.2](https://github.com/ingeniomaps/raioz/compare/v0.15.1...v0.15.2) (2026-09-07)
 
 
