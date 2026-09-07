@@ -2,12 +2,11 @@ package upcase
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"sort"
 	"time"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -19,15 +18,12 @@ const (
 	endpointProbeDeadline = 30 * time.Second
 	// endpointProbeInterval is the gap between rounds.
 	endpointProbeInterval = time.Second
-	// endpointProbeTimeout bounds a single request so a service that
-	// accepts the connection and then hangs cannot stall the round.
-	endpointProbeTimeout = 2 * time.Second
 )
 
 // endpointProbe is the HTTP probe waitForServiceEndpoints consults.
 // Package var so tests decide the answer without binding a socket —
 // same seam as hostStatusPortProbe in the status path.
-var endpointProbe = probeHealthEndpoint
+var endpointProbe = host.ProbeHTTP
 
 // waitForServiceEndpoints polls the `health:` endpoint each service
 // declares until it answers or the deadline passes.
@@ -62,7 +58,7 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 		}
 		targets = append(targets, target{
 			name: name,
-			url:  healthURL(svc.Port, svc.HealthEndpoint),
+			url:  host.HealthURL(svc.Port, svc.HealthEndpoint),
 		})
 	}
 
@@ -104,35 +100,6 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 	for _, name := range sortedNames(keysOf(pending)) {
 		output.PrintWarning(i18n.T("up.health_endpoint_timeout", name, pending[name]))
 	}
-}
-
-// healthURL builds the probe address. The endpoint is taken as declared;
-// a missing leading slash is the user's typo to see, not ours to guess.
-func healthURL(port int, endpoint string) string {
-	if len(endpoint) > 0 && endpoint[0] != '/' {
-		endpoint = "/" + endpoint
-	}
-	return fmt.Sprintf("http://127.0.0.1:%d%s", port, endpoint)
-}
-
-// probeHealthEndpoint reports whether the endpoint answered without a
-// server-side error. Any 2xx/3xx counts: a service that redirects its
-// health path to a dashboard is still up, and raioz is not the judge of
-// what the body should say.
-func probeHealthEndpoint(ctx context.Context, url string) bool {
-	reqCtx, cancel := context.WithTimeout(ctx, endpointProbeTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
-	if err != nil {
-		return false
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return false
-	}
-	defer func() { _ = resp.Body.Close() }()
-	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
 
 func sortedNames(names []string) []string {
