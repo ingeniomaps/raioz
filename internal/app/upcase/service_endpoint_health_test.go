@@ -59,9 +59,10 @@ func TestWaitForServiceEndpoints_ProbesDeclaredEndpoint(t *testing.T) {
 	}
 }
 
-// A service without `port:` has no address to probe. Silence would put the
-// user back where the field started, so it says so.
-func TestWaitForServiceEndpoints_WarnsWithoutPort(t *testing.T) {
+// A service without `port:` cannot be probed, and saying so on every up
+// would be noise: declaring health: without port: is the common shape for
+// anything reached through the proxy. It goes to the debug log instead.
+func TestWaitForServiceEndpoints_QuietWithoutPort(t *testing.T) {
 	i18n.Init("en")
 	seen := stubEndpointProbe(t, func(string) bool { return true })
 
@@ -72,8 +73,8 @@ func TestWaitForServiceEndpoints_WarnsWithoutPort(t *testing.T) {
 	if len(*seen) != 0 {
 		t.Errorf("probed %v, want no probe without a port", *seen)
 	}
-	if !strings.Contains(out, "api") || !strings.Contains(out, "port") {
-		t.Errorf("output = %q, want a warning naming the service and the missing port", out)
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("output = %q, want silence on stdout", out)
 	}
 }
 

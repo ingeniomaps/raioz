@@ -3,11 +3,13 @@ package upcase
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
+	"raioz/internal/logging"
 	"raioz/internal/output"
 )
 
@@ -36,8 +38,15 @@ var endpointProbe = host.ProbeHTTP
 // identical from here and the user may well want the rest of the stack.
 //
 // Only services that also declare `port:` can be probed: without it raioz
-// allocates the host port at run time and there is no address to hit. That
-// case warns once, with the fix in the message, instead of staying silent.
+// allocates the host port at run time and there is no address to hit.
+//
+// That case is logged at debug, not warned. Declaring `health:` without
+// `port:` is the common shape — a service behind the proxy is reached at
+// its hostname, not on loopback — so warning about it would put a line on
+// every `up` of most projects to say raioz is doing nothing, which is
+// noise, not news. `raioz health` still names it on the service's row,
+// where the user is asking about health and the reason for a weaker
+// signal is on topic.
 func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceNames []string) {
 	type target struct {
 		name string
@@ -62,8 +71,9 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 		})
 	}
 
-	for _, name := range unprobeable {
-		output.PrintWarning(i18n.T("up.health_endpoint_needs_port", name))
+	if len(unprobeable) > 0 {
+		logging.DebugWithContext(ctx, "health: declared without port:, not probing",
+			"services", strings.Join(unprobeable, ","))
 	}
 	if len(targets) == 0 {
 		return

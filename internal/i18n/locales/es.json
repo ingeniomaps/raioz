@@ -461,7 +461,6 @@
   "up.waiting_health_endpoints": "Probando %d endpoint(s) de salud declarados...",
   "up.health_endpoint_ok": "%s respondió su endpoint de salud",
   "up.health_endpoint_timeout": "%s no respondió %s a tiempo — puede seguir arrancando",
-  "up.health_endpoint_needs_port": "el servicio '%s' declara health: pero no port:, así que raioz no puede probarlo",
   "up.service_disabled_skipping": "Servicio %s deshabilitado, omitiendo",
   "up.skipped_disabled_services": "Se omitieron %d servicio(s) deshabilitado(s): %v",
   "up.generating_compose": "Generando configuración de Docker Compose",
@@ -865,7 +864,7 @@
   "warning.watcher_failed": "El file watcher no pudo iniciar: %s",
   "output.press_ctrlc": "Presioná Ctrl+C para parar",
   "health.nothing_declared": "no hay servicios ni dependencias declarados — nada que chequear",
-  "health.all_healthy": "los %d están saludables",
+  "health.all_healthy": "todos saludables (%d)",
   "health.some_unhealthy": "%d de %d no están saludables",
   "health.some_unhealthy_suggestion": "corré `raioz status` para el detalle, o `raioz logs <nombre>` del que esté caído",
   "health.endpoint_needs_port": "health: declarado sin port:, no se puede probar"

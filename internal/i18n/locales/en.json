@@ -461,7 +461,6 @@
   "up.waiting_health_endpoints": "Probing %d declared health endpoint(s)...",
   "up.health_endpoint_ok": "%s answered its health endpoint",
   "up.health_endpoint_timeout": "%s did not answer %s in time — it may still be starting",
-  "up.health_endpoint_needs_port": "service '%s' declares health: but no port:, so raioz cannot probe it",
   "up.service_disabled_skipping": "Service %s is disabled, skipping",
   "up.skipped_disabled_services": "Skipped %d disabled service(s): %v",
   "up.generating_compose": "Generating Docker Compose configuration",
@@ -865,7 +864,7 @@
   "warning.watcher_failed": "File watcher failed to start: %s",
   "output.press_ctrlc": "Press Ctrl+C to stop",
   "health.nothing_declared": "no services or dependencies declared — nothing to check",
-  "health.all_healthy": "all %d healthy",
+  "health.all_healthy": "all healthy (%d)",
   "health.some_unhealthy": "%d of %d not healthy",
   "health.some_unhealthy_suggestion": "run `raioz status` for detail, or `raioz logs <name>` for the one that is down",
   "health.endpoint_needs_port": "health: declared without port:, cannot probe"
