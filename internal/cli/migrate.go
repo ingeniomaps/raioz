@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"raioz/internal/config"
 	"raioz/internal/errors"
@@ -116,14 +118,50 @@ func migratedToYAMLConfig(m *production.MigratedProject, project, network string
 		}
 	}
 	for name, dep := range m.Dependencies {
+		expose, publish := publishFromComposePorts(dep.Ports)
 		cfg.Deps[name] = config.YAMLDependency{
 			Image:   dep.Image,
-			Ports:   config.YAMLStringSlice(dep.Ports),
+			Expose:  expose,
+			Publish: publish,
 			Volumes: config.YAMLStringSlice(dep.Volumes),
 			Env:     config.YAMLStringSlice(dep.EnvFiles),
 		}
 	}
 	return cfg
+}
+
+// publishFromComposePorts turns compose `ports:` entries into raioz's
+// `expose:` (container side) and `publish:` (host side). "8080:80" pins
+// host 8080 to container 80; a bare "80" lets raioz pick the host port.
+// Pins and bare entries cannot be mixed in one `publish:`, so a mix
+// publishes them all on ports raioz picks.
+func publishFromComposePorts(ports []string) (config.YAMLIntSlice, config.YAMLPublish) {
+	var expose, hostPorts []int
+	pinned := true
+	for _, spec := range ports {
+		parts := strings.Split(strings.Split(spec, "/")[0], ":")
+		container, err := strconv.Atoi(parts[len(parts)-1])
+		if err != nil {
+			continue
+		}
+		expose = append(expose, container)
+		if len(parts) < 2 {
+			pinned = false
+			continue
+		}
+		if host, err := strconv.Atoi(parts[len(parts)-2]); err == nil {
+			hostPorts = append(hostPorts, host)
+		} else {
+			pinned = false
+		}
+	}
+	if len(expose) == 0 {
+		return nil, config.YAMLPublish{}
+	}
+	if pinned && len(hostPorts) == len(expose) {
+		return expose, config.YAMLPublish{Set: true, Ports: hostPorts}
+	}
+	return expose, config.YAMLPublish{Set: true, Auto: true}
 }
 
 func init() {

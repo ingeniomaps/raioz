@@ -134,7 +134,7 @@ services:                   # what I'm developing (always local)
 dependencies:               # what I need running (Docker images)
   postgres:
     image: postgres:16
-    ports: ["5432"]
+    publish: 5432           # host port; the container side comes from the image
     env: .env.postgres
     # name: my-pg           # optional literal container name override
   redis:

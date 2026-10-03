@@ -82,8 +82,8 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 			continue
 		}
 		yamlDep := config.YAMLDependency{
-			Image: dep.Image,
-			Ports: config.YAMLStringSlice{dep.Port},
+			Image:   dep.Image,
+			Publish: config.YAMLPublish{Set: true, Auto: true},
 		}
 		// Auto-detect .env.{name} file (e.g., .env.postgres)
 		envFile := ".env." + dep.Name
@@ -203,8 +203,8 @@ func (uc *InitScanUseCase) scanRootCompose(dir string, cfg *config.RaiozConfig) 
 				continue
 			}
 			cfg.Deps[dep.Name] = config.YAMLDependency{
-				Image: dep.Image,
-				Ports: config.YAMLStringSlice{dep.Port},
+				Image:   dep.Image,
+				Publish: config.YAMLPublish{Set: true, Auto: true},
 			}
 			output.PrintInfo(fmt.Sprintf("  %s → %s (from %s)", dep.Name, dep.Image, dep.Source))
 		}

@@ -50,7 +50,7 @@ services:
 dependencies:
   postgres:
     image: postgres:16
-    ports: ["5432"]
+    publish: 5432
     env: .env.postgres
     volumes: ["pgdata:/var/lib/postgresql/data"]
 

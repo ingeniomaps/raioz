@@ -112,7 +112,7 @@ services:
 dependencies:
   postgres:
     image: postgres:16
-    ports: ["5432"]
+    publish: 5432
     env: .env.postgres
 
   redis:
@@ -399,7 +399,7 @@ services:                       # local code you edit
 dependencies:                   # Docker images
   postgres:
     image: postgres:16
-    ports: ["5432"]
+    publish: 5432
     env: .env.postgres
     # name: my-pg               # optional literal container name override
 
