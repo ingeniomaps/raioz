@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -43,9 +44,10 @@ func (uc *RestartUseCase) RestartYAML(
 	services := opts.Services
 	if len(services) == 0 {
 		if !opts.All {
-			output.PrintWarning(
-				"No services specified. Use service names or --all")
-			return nil
+			return errors.New(
+				errors.ErrCodeInvalidField,
+				i18n.T("error.restart_no_services"),
+			)
 		}
 		services = collectYAMLServiceNames(proj)
 		if opts.IncludeInfra {
@@ -196,7 +198,7 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 				cmd.Stdin = os.Stdin
 			}
 			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("exec in service dir: %w", err)
+				return execError("exec in service dir", err)
 			}
 			return nil
 		}
@@ -223,9 +225,31 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker exec: %w", err)
+		return execError("docker exec", err)
 	}
 	return nil
+}
+
+// ExitCodeError is an error that asks the process to exit with a specific
+// code: the one the command the user ran through raioz exited with. A
+// script calling `raioz exec svc test ...` needs that code, not a flat 1.
+type ExitCodeError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitCodeError) Error() string { return e.Err.Error() }
+func (e *ExitCodeError) Unwrap() error { return e.Err }
+
+// execError wraps a failed command, keeping its exit code when it ran and
+// exited by itself.
+func execError(what string, err error) error {
+	wrapped := fmt.Errorf("%s: %w", what, err)
+	var exit *exec.ExitError
+	if stderrors.As(err, &exit) && exit.ExitCode() > 0 {
+		return &ExitCodeError{Code: exit.ExitCode(), Err: wrapped}
+	}
+	return wrapped
 }
 
 // isHostProcessAlive checks if a process with the given PID is running.

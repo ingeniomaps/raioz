@@ -114,9 +114,10 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 		cmd := exec.CommandContext(ctx, "tail", "-f", logPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		if err := cmd.Run(); err != nil && ctx.Err() == nil {
 			return fmt.Errorf("tail -f %q: %w", logPath, err)
 		}
+		// Interrupted by the user: that is how following ends.
 		return nil
 	}
 

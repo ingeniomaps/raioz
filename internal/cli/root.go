@@ -2,12 +2,14 @@ package cli
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"raioz/internal/app"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -49,6 +51,10 @@ func Execute() {
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		// Format error with context if it's a RaiozError
 		fmt.Print(errors.FormatError(err))
+		var exit *app.ExitCodeError
+		if stderrors.As(err, &exit) {
+			os.Exit(exit.Code)
+		}
 		os.Exit(1)
 	}
 }

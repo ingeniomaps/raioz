@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"testing"
 
 	"raioz/internal/domain/models"
@@ -74,6 +76,8 @@ func TestCheckYAML_UnknownDependsOn(t *testing.T) {
 	}
 }
 
+// Asked to restart nothing, restart says so and fails: a script that got
+// its argument list wrong must not read that as a successful restart.
 func TestRestartYAML_Empty(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
@@ -81,8 +85,20 @@ func TestRestartYAML_Empty(t *testing.T) {
 		Deps:        &models.Deps{},
 	}
 	uc := &RestartUseCase{}
-	if err := uc.RestartYAML(context.Background(), proj, RestartOptions{}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := uc.RestartYAML(context.Background(), proj, RestartOptions{}); err == nil {
+		t.Fatal("expected an error when no service and no --all are given")
+	}
+}
+
+// exec hands back the exit code of the command it ran.
+func TestExecError_KeepsExitCode(t *testing.T) {
+	failing := exec.Command("sh", "-c", "exit 3").Run()
+	var exit *ExitCodeError
+	if err := execError("docker exec", failing); !errors.As(err, &exit) || exit.Code != 3 {
+		t.Errorf("got %v, want an ExitCodeError with code 3", err)
+	}
+	if err := execError("docker exec", errors.New("not started")); errors.As(err, &exit) {
+		t.Errorf("a command that never ran has no exit code to keep: %v", err)
 	}
 }
 
