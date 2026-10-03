@@ -46,6 +46,9 @@ func (uc *UseCase) processOrchestration(
 	// concurrent `raioz up` in different workspaces can't race on the
 	// same host port. allocatePortsLocked drops the lock before the
 	// sibling dispatch phase (see its doc for the deadlock it avoids).
+	for _, name := range inferDepExpose(ctx, deps) {
+		output.PrintWarning(i18n.T("up.publish_without_expose", name))
+	}
 	portAllocs, err := allocatePortsLocked(ctx, deps, detections, configPath)
 	if err != nil {
 		return nil, err

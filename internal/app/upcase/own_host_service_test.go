@@ -283,3 +283,50 @@ func TestApplyProxyURL(t *testing.T) {
 		}
 	})
 }
+
+// `publish:` without `expose:` used to map the host port onto the same
+// number inside the container, where nothing listens.
+func TestInferDepExpose(t *testing.T) {
+	prev := imageExposedPortFn
+	imageExposedPortFn = func(_ context.Context, image string) (int, error) {
+		if strings.HasPrefix(image, "redis") {
+			return 6379, nil
+		}
+		return 0, nil
+	}
+	t.Cleanup(func() { imageExposedPortFn = prev })
+
+	deps := &models.Deps{
+		Project: models.Project{Name: "rzc"},
+		Infra: map[string]models.InfraEntry{
+			"pinned":   {Inline: &models.Infra{Image: "redis", Tag: "7", Publish: &models.PublishSpec{Ports: []int{36402}}}},
+			"auto":     {Inline: &models.Infra{Image: "redis", Tag: "7", Publish: &models.PublishSpec{Auto: true}}},
+			"declared": {Inline: &models.Infra{Image: "redis", Tag: "7", Expose: []int{9999}, Publish: &models.PublishSpec{Ports: []int{36403}}}},
+			"mystery":  {Inline: &models.Infra{Image: "scratchy", Tag: "1", Publish: &models.PublishSpec{Auto: true}}},
+			"internal": {Inline: &models.Infra{Image: "redis", Tag: "7"}},
+		},
+	}
+
+	unresolved := inferDepExpose(context.Background(), deps)
+
+	if len(unresolved) != 1 || unresolved[0] != "mystery" {
+		t.Errorf("unresolved = %v, want [mystery]", unresolved)
+	}
+	for name, want := range map[string][]int{"pinned": {6379}, "auto": {6379}, "declared": {9999}, "internal": nil} {
+		got := deps.Infra[name].Inline.Expose
+		if len(got) != len(want) || (len(want) > 0 && got[0] != want[0]) {
+			t.Errorf("%s expose = %v, want %v", name, got, want)
+		}
+	}
+
+	result, err := AllocateHostPorts(deps, BuildDetectionMap(deps))
+	if err != nil {
+		t.Fatalf("AllocateHostPorts: %v", err)
+	}
+	if m := result.Deps["pinned"].Mappings; len(m) != 1 || m[0].HostPort != 36402 || m[0].ContainerPort != 6379 {
+		t.Errorf("pinned mapping = %+v, want 36402→6379", m)
+	}
+	if m := result.Deps["auto"].Mappings; len(m) != 1 || m[0].ContainerPort != 6379 {
+		t.Errorf("auto mapping = %+v, want something→6379", m)
+	}
+}

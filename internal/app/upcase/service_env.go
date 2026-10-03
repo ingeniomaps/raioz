@@ -55,6 +55,7 @@ func ComputedServiceEnv(
 	if !ok {
 		return nil
 	}
+	inferDepExpose(ctx, deps)
 	portAllocs, err := AllocateHostPortsOwned(deps, detections, runningHostPorts(projectDir))
 	if err != nil {
 		// Discovery still works without the allocation; only PORT and the
@@ -62,6 +63,9 @@ func ComputedServiceEnv(
 		logging.WarnWithContext(ctx, "Port allocation failed while recomputing service env",
 			"service", name, "error", err.Error())
 		portAllocs = nil
+	}
+	if portAllocs != nil {
+		reuseRunningDepHostPorts(ctx, deps, portAllocs)
 	}
 	applyPortAllocs(detections, portAllocs)
 	endpoints := buildEndpoints(ctx, lookup, deps, detections, portAllocs)

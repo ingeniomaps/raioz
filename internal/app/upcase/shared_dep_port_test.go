@@ -49,7 +49,7 @@ func TestReuseSharedDepHostPorts(t *testing.T) {
 	t.Run("pins to live port when shared dep already published", func(t *testing.T) {
 		stubPublishedHostPort(t, map[string]int{"shared-redis": 6379})
 		deps, result := sharedDepResult(false, 6380) // allocator bumped to 6380
-		reuseSharedDepHostPorts(context.Background(), deps, result)
+		reuseRunningDepHostPorts(context.Background(), deps, result)
 		if got := result.Deps["redis"].Mappings[0].HostPort; got != 6379 {
 			t.Errorf("HostPort = %d, want 6379 (reused live port)", got)
 		}
@@ -58,7 +58,7 @@ func TestReuseSharedDepHostPorts(t *testing.T) {
 	t.Run("leaves explicit pin untouched", func(t *testing.T) {
 		stubPublishedHostPort(t, map[string]int{"shared-redis": 6379})
 		deps, result := sharedDepResult(true, 6380)
-		reuseSharedDepHostPorts(context.Background(), deps, result)
+		reuseRunningDepHostPorts(context.Background(), deps, result)
 		if got := result.Deps["redis"].Mappings[0].HostPort; got != 6380 {
 			t.Errorf("HostPort = %d, want 6380 (explicit pin preserved)", got)
 		}
@@ -67,13 +67,16 @@ func TestReuseSharedDepHostPorts(t *testing.T) {
 	t.Run("no live container leaves allocation untouched", func(t *testing.T) {
 		stubPublishedHostPort(t, map[string]int{}) // returns 0 → not running
 		deps, result := sharedDepResult(false, 6380)
-		reuseSharedDepHostPorts(context.Background(), deps, result)
+		reuseRunningDepHostPorts(context.Background(), deps, result)
 		if got := result.Deps["redis"].Mappings[0].HostPort; got != 6380 {
 			t.Errorf("HostPort = %d, want 6380 (no live port to reuse)", got)
 		}
 	})
 
-	t.Run("per-project dep is never rewritten", func(t *testing.T) {
+	// A per-project dep is pinned to its live port too: a repeated up or
+	// an env recompute finds that port busy with the dep itself and would
+	// otherwise hand services a port nobody serves.
+	t.Run("per-project dep keeps its live port", func(t *testing.T) {
 		prev := naming.GetPrefix()
 		naming.SetPrefix(naming.DefaultPrefix) // no workspace → not shared
 		t.Cleanup(func() { naming.SetPrefix(prev) })
@@ -91,9 +94,9 @@ func TestReuseSharedDepHostPorts(t *testing.T) {
 		result := &PortAllocResult{Deps: map[string]DepPortAllocation{
 			"redis": {Name: "redis", Mappings: []DepPortMapping{{HostPort: 6380, ContainerPort: 6379}}},
 		}}
-		reuseSharedDepHostPorts(context.Background(), deps, result)
-		if got := result.Deps["redis"].Mappings[0].HostPort; got != 6380 {
-			t.Errorf("HostPort = %d, want 6380 (per-project dep not shared)", got)
+		reuseRunningDepHostPorts(context.Background(), deps, result)
+		if got := result.Deps["redis"].Mappings[0].HostPort; got != 6379 {
+			t.Errorf("HostPort = %d, want 6379 (the port the running dep publishes)", got)
 		}
 	})
 }
