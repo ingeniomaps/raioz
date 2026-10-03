@@ -224,7 +224,7 @@ func runStopCommand(
 	ctx context.Context,
 	serviceName, command, projectDir, servicePath string,
 ) bool {
-	parts := strings.Fields(command)
+	parts := host.SplitCommand(command)
 	if len(parts) == 0 {
 		return false
 	}

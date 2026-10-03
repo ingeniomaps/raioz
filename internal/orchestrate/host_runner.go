@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
@@ -119,7 +118,8 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	if command == "" {
 		command = svc.Detection.StartCommand
 	}
-	if command == "" {
+	parts := host.SplitCommand(command)
+	if len(parts) == 0 {
 		return fmt.Errorf(
 			"no start command detected for '%s'. "+
 				"Add a dev script to package.json, "+
@@ -132,7 +132,6 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	logging.InfoWithContext(ctx, "Starting host service",
 		"service", svc.Name, "command", command, "path", svc.Path)
 
-	parts := strings.Fields(command)
 	// exec.Command (no ctx) by design — see Start's doc comment.
 	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = svc.Path
@@ -249,7 +248,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 // Otherwise, falls back to SIGTERM-then-SIGKILL of the tracked PID.
 func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) error {
 	// Custom stop command path
-	if svc.StopCommand != "" {
+	if stopParts := host.SplitCommand(svc.StopCommand); len(stopParts) > 0 {
 		// ADR-025: drain an in-progress launcher build before stop:.
 		if r.isLauncher(svc.Name) {
 			drainLauncherBeforeStop(ctx, svc)
@@ -257,8 +256,7 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 		logging.InfoWithContext(ctx, "Running custom stop command",
 			"service", svc.Name, "command", svc.StopCommand, "path", svc.Path)
 
-		parts := strings.Fields(svc.StopCommand)
-		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		cmd := exec.CommandContext(ctx, stopParts[0], stopParts[1:]...)
 		cmd.Dir = svc.Path
 
 		cmd.Env = os.Environ()

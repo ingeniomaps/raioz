@@ -239,7 +239,7 @@ and starts with the native tool (go run, npm dev, etc.).
 | `hostname` | string | no | service name | Custom hostname for proxy routing. |
 | `routing` | object | no | — | Proxy routing options. See [Routing config](#routing-config). |
 | `proxy` | object | no | — | Override proxy target/port when detection can't see the service (e.g., `command:` launches its own compose stack). See [Service proxy override](#service-proxy-override). |
-| `command` | string | no | — | User-supplied launch command. Overrides runtime auto-detection. |
+| `command` | string | no | — | User-supplied launch command. Overrides runtime auto-detection. Split into arguments the way a shell does (quotes and `\` keep spaces together) but **not** run by a shell: for `&&`, pipes or variables write `sh -c "..."`. Same for `stop`. |
 | `stop` | string | no | — | User-supplied stop command, paired with `command`. Falls back to SIGTERM on the PID if absent. |
 | `profiles` | string or list | no | — | Profile tags for selective startup (`raioz up --profile X`). |
 | `git` | string | no | — | Git repository URL. Raioz clones it to `path`. |

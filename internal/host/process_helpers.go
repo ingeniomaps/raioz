@@ -47,19 +47,10 @@ func resolveEnvVars(
 	return envVars, nil
 }
 
-// parseCommand parses a command string into command and arguments
-// Uses shell-like parsing: splits by spaces, handles quoted strings
+// parseCommand parses a command string into command and arguments,
+// honoring quotes (see SplitCommand).
 func parseCommand(cmdStr string) []string {
-	if cmdStr == "" {
-		return nil
-	}
-
-	parts := strings.Fields(cmdStr)
-	if len(parts) == 0 {
-		return nil
-	}
-
-	return parts
+	return SplitCommand(cmdStr)
 }
 
 // createVolumeSymlinks creates symbolic links for host services

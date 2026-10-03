@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -178,7 +178,7 @@ func (uc *DownUseCase) runDownCommand(
 	output.PrintInfo(i18n.T("output.executing_project_down_cmd", downCommand))
 	logging.InfoWithContext(ctx, "Executing project down command", "command", downCommand, "projectDir", projectDir)
 
-	cmdParts := strings.Fields(downCommand)
+	cmdParts := host.SplitCommand(downCommand)
 	if len(cmdParts) == 0 {
 		return
 	}

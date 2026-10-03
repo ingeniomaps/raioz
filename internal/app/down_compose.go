@@ -6,13 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"sort"
 
 	"raioz/internal/detect"
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
@@ -151,7 +151,7 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 			"service", name, "command", stopCmd)
 		output.PrintInfo(i18n.T("output.stopping_via", name, stopCmd))
 
-		parts := strings.Fields(stopCmd)
+		parts := host.SplitCommand(stopCmd)
 		if len(parts) == 0 {
 			continue
 		}
