@@ -238,6 +238,7 @@ and starts with the native tool (go run, npm dev, etc.).
 | `watch` | bool or string | no | `false` | File watching mode. See [Watch config](#watch-config). |
 | `health` | string | no | — | Health endpoint path (e.g., `/api/health`). Probed on `127.0.0.1:<port>` after `up` and by `raioz health`; needs `port:` declared, since without it raioz assigns the host port at run time. |
 | `hostname` | string | no | service name | Custom hostname for proxy routing. |
+| `resources` | object | no | root `resources`, else no cap | Memory/CPU cap for the service's container. Only for a service raioz builds from a Dockerfile; on a host or compose service it has no effect and raioz warns. See [Resource limits](#resource-limits). |
 | `routing` | object | no | — | Proxy routing options. See [Routing config](#routing-config). |
 | `proxy` | object | no | — | Override proxy target/port when detection can't see the service (e.g., `command:` launches its own compose stack). See [Service proxy override](#service-proxy-override). |
 | `command` | string | no | — | User-supplied launch command. Overrides runtime auto-detection. Split into arguments the way a shell does (quotes and `\` keep spaces together) but **not** run by a shell: for `&&`, pipes or variables write `sh -c "..."`. Same for `stop`. |
@@ -488,12 +489,12 @@ When `publish: false`, use `raioz hosts` to print the `/etc/hosts` line mapping 
 
 ## Resource limits
 
-raioz starts two kinds of container on its own: the proxy and every
-`image:` dependency. By default none of them has a memory or CPU cap.
-`resources:` declares one:
+raioz creates three kinds of container on its own: the proxy, every
+`image:` dependency, and every service it builds from a Dockerfile. By
+default none of them has a memory or CPU cap. `resources:` declares one:
 
 ```yaml
-resources:            # default for the proxy and every image dependency
+resources:            # default for everything raioz creates a container for
   memory: 256m
   cpus: 1
 
@@ -501,6 +502,12 @@ proxy:
   domain: acme.dev
   resources:          # replaces the default for the proxy
     memory: 128m
+
+services:
+  api:
+    path: ./api       # has a Dockerfile
+    resources:        # replaces the default for this service
+      memory: 512m
 
 dependencies:
   postgres:
@@ -525,9 +532,11 @@ dependencies:
 - A workspace-shared proxy or dependency has one container for several
   projects: the last project to run `up` sets its cap. Declare the same
   value in each to keep it stable.
-- Not covered: `compose:` dependencies (set `mem_limit`/`cpus` in the
-  compose file — raioz rejects `resources:` there), services built from
-  a Dockerfile or compose, and host services, which are not containers.
+- Not covered: anything raioz does not create the container for. A
+  `compose:` dependency sets `mem_limit`/`cpus` in its own file (raioz
+  rejects `resources:` there); a compose service and a host service that
+  declare `resources:` get a warning, because the cap has no effect on
+  them.
 
 ## Network config
 

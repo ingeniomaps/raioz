@@ -1,9 +1,9 @@
-# 28-resources — `resources:` at the three places it is accepted.
+# 28-resources — `resources:` at the four places it is accepted.
 #
 # The root block is the default cap for every container raioz creates
 # (each `image:` dependency and the proxy); a block on `proxy:` or on a
-# dependency replaces it. Locks all three so the inheritance keeps a
-# shape to parse.
+# dependency replaces it, and so does one on a service raioz builds from
+# a Dockerfile. Locks all four so the inheritance keeps a shape to parse.
 
 version: "1"
 project: resources
@@ -16,6 +16,13 @@ proxy:
   domain: resources.test
   resources:
     memory: 128m
+
+services:
+  api:
+    path: ./api
+    resources:
+      memory: 512m
+      cpus: 2
 
 dependencies:
   redis:

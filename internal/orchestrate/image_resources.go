@@ -26,20 +26,30 @@ func applyResourceLimits(service map[string]any, res *models.Resources) {
 	}
 }
 
-// limitUpdateArgs is the `docker update` argument list that applies res to
-// a running container, or nil when there is nothing to apply.
-func limitUpdateArgs(container string, res *models.Resources) []string {
+// resourceRunArgs is the flag list that caps a container, for `docker run`
+// and `docker update` alike; nil when there is nothing to cap.
+func resourceRunArgs(res *models.Resources) []string {
 	if res.IsZero() {
 		return nil
 	}
-	args := []string{"update"}
+	var args []string
 	if res.Memory != "" {
 		args = append(args, "--memory", res.Memory, "--memory-swap", res.Memory)
 	}
 	if res.CPUs > 0 {
 		args = append(args, "--cpus", res.CPUsString())
 	}
-	return append(args, container)
+	return args
+}
+
+// limitUpdateArgs is the `docker update` argument list that applies res to
+// a running container, or nil when there is nothing to apply.
+func limitUpdateArgs(container string, res *models.Resources) []string {
+	flags := resourceRunArgs(res)
+	if flags == nil {
+		return nil
+	}
+	return append(append([]string{"update"}, flags...), container)
 }
 
 // updateRunningLimits applies a dependency's cap to its container when

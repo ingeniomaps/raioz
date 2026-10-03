@@ -31,6 +31,11 @@ type Service struct {
 	// can't introspect.
 	ProxyOverride *ServiceProxyOverride `json:"proxyOverride,omitempty"`
 
+	// Resources caps the container raioz creates for the service (a
+	// Dockerfile service). Resolved against the root default at load time;
+	// nil = no cap. Ignored by runners that do not create the container.
+	Resources *Resources `json:"resources,omitempty"`
+
 	// Port is the explicit host port the user declared in raioz.yaml (`port:`).
 	// 0 means "unset — let raioz infer and allocate". See the allocator in
 	// internal/app/upcase/port_alloc.go for precedence rules.

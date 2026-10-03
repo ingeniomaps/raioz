@@ -87,3 +87,55 @@ func TestResources_Rejected(t *testing.T) {
 		})
 	}
 }
+
+func TestResources_Services(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "api", "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "raioz.yaml")
+	body := `version: "1"
+project: res
+resources:
+  memory: 128m
+services:
+  api:
+    path: ./api
+    resources:
+      memory: 512m
+  worker:
+    path: ./api
+  host:
+    path: ./api
+    command: ./run
+    resources:
+      cpus: 1
+`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	deps, warnings, err := LoadDepsFromYAML(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if got := deps.Services["api"].Resources; got == nil || got.Memory != "512m" {
+		t.Errorf("a service's own block is kept, got %+v", got)
+	}
+	if got := deps.Services["worker"].Resources; got == nil || got.Memory != "128m" {
+		t.Errorf("a service without a block takes the root default, got %+v", got)
+	}
+
+	var flagged []string
+	for _, w := range warnings {
+		if strings.Contains(w, "resources") {
+			flagged = append(flagged, w)
+		}
+	}
+	if len(flagged) != 1 || !strings.Contains(flagged[0], "host") {
+		t.Errorf("only the host service that declares resources is flagged, got %v", flagged)
+	}
+}

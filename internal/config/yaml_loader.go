@@ -85,6 +85,9 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 		// reject unknown `runtime:` values at load time so
 		// the user sees the problem before runtime when the service
 		// would silently classify as Unknown.
+		if err := svc.Resources.Validate(); err != nil {
+			return fmt.Errorf("services.%s.resources in %s: %w", name, path, err)
+		}
 		shim := Service{Source: SourceConfig{Runtime: svc.Runtime}}
 		if err := ValidateServiceRuntime(shim); err != nil {
 			return fmt.Errorf("service '%s' in %s: %w", name, path, err)

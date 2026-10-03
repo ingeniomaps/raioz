@@ -33,6 +33,7 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		return err
 	}
 	if reused {
+		updateRunningLimits(ctx, svc.ContainerName, svc.Resources)
 		return nil
 	}
 
@@ -82,6 +83,8 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 	if runtime.Supports(runtime.HostGatewayAlias) {
 		args = append(args, "--add-host=host.docker.internal:host-gateway")
 	}
+
+	args = append(args, resourceRunArgs(svc.Resources)...)
 
 	// Add port mappings
 	for _, port := range svc.Ports {

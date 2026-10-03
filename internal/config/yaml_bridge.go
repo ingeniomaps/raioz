@@ -94,6 +94,7 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 		if err != nil {
 			return nil, fmt.Errorf("service '%s': %w", name, err)
 		}
+		service.Resources = svc.Resources.OrDefault(cfg.Resources)
 		deps.Services[name] = service
 	}
 
@@ -363,6 +364,7 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 		warnings = append(warnings, systemVolumeWarnings(cfg, filepath.Dir(absPath))...)
 	}
 	warnings = append(warnings, authWarnings(cfg)...)
+	warnings = append(warnings, serviceResourceWarnings(cfg)...)
 
 	// Strict re-parse on the raw bytes for unknown-field detection. Any
 	// read error here is purely diagnostic — the lenient load already

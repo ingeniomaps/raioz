@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -65,5 +66,15 @@ func TestLimitUpdateArgs(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("limitUpdateArgs = %v, want %v", got, want)
 		}
+	}
+}
+
+func TestResourceRunArgs(t *testing.T) {
+	if got := resourceRunArgs(nil); got != nil {
+		t.Errorf("no block, no flags; got %v", got)
+	}
+	got := strings.Join(resourceRunArgs(&models.Resources{Memory: "1g", CPUs: 2}), " ")
+	if got != "--memory 1g --memory-swap 1g --cpus 2" {
+		t.Errorf("resourceRunArgs = %q", got)
 	}
 }

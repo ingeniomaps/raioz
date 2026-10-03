@@ -180,11 +180,16 @@ type YAMLService struct {
 	Health          string          `yaml:"health,omitempty"`          // since: v0.1.0
 	Hostname        string          `yaml:"hostname,omitempty"`        // since: v0.1.0
 	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"` // since: v0.3.0
-	Routing         *RoutingConfig  `yaml:"routing,omitempty"`         // since: v0.1.0
-	Profiles        YAMLStringSlice `yaml:"profiles,omitempty"`        // since: v0.1.0
-	Git             string          `yaml:"git,omitempty"`             // since: v0.1.0
-	Branch          string          `yaml:"branch,omitempty"`          // since: v0.1.0
-	Auth            string          `yaml:"auth,omitempty"`            // since: v0.7.0
+
+	// Resources caps the service's memory and CPU when raioz creates its
+	// container — a service run from a Dockerfile. It does not reach a
+	// host process, nor a compose stack (which sets its own limits).
+	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
+	Routing   *RoutingConfig    `yaml:"routing,omitempty"`   // since: v0.1.0
+	Profiles  YAMLStringSlice   `yaml:"profiles,omitempty"`  // since: v0.1.0
+	Git       string            `yaml:"git,omitempty"`       // since: v0.1.0
+	Branch    string            `yaml:"branch,omitempty"`    // since: v0.1.0
+	Auth      string            `yaml:"auth,omitempty"`      // since: v0.7.0
 
 	// Command overrides auto-detection: raioz runs this command verbatim on the
 	// host via HostRunner, passing env vars from `env` as process environment.
