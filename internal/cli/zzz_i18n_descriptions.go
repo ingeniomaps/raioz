@@ -220,7 +220,12 @@ func setI18nDescriptions() {
 	// --- env / clone ---
 	// Both were translated and never wired here, so their help stayed
 	// English under --lang es while the Spanish sat unused in the catalog.
+	envCmd.Short = i18n.T("cmd.env.short")
 	envCmd.Long = i18n.T("cmd.env.long")
+	cloneCmd.Short = i18n.T("cmd.clone.short")
+	hostsCmd.Short = i18n.T("cmd.hosts.short")
+	switchCmd.Short = i18n.T("cmd.switch.short")
+	yamlCmd.Short = i18n.T("cmd.yaml.short")
 	cloneCmd.Flags().Lookup("branch").Usage = i18n.T("cmd.clone.flag.branch")
 	cloneCmd.Flags().Lookup("no-up").Usage = i18n.T("cmd.clone.flag.no_up")
 }

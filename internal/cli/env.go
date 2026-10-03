@@ -14,7 +14,7 @@ import (
 
 var envCmd = &cobra.Command{
 	Use:   "env <service>",
-	Short: i18n.T("cmd.env.short"),
+	Short: "Show the environment variables of a service",
 	Long: "Display all environment variables that a service would receive,\n" +
 		"including variables from .env files and auto-injected service discovery variables.\n\n" +
 		"Example:\n  raioz env api\n  raioz env frontend -f raioz.yaml",
