@@ -70,8 +70,10 @@ func TestPrepareDockerResourcesWithVolumes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if volumesCreated != 2 {
-		t.Errorf("expected 2 volumes created, got %d", volumesCreated)
+	// Only the service volume: a dependency's volume belongs to its own
+	// compose project, which creates it.
+	if volumesCreated != 1 {
+		t.Errorf("expected 1 volume created, got %d", volumesCreated)
 	}
 }
 
@@ -101,8 +103,8 @@ func TestPrepareDockerResourcesVolumeExtractError(t *testing.T) {
 		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
-		Infra: map[string]models.InfraEntry{
-			"db": {Inline: &models.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Volumes: []string{"data:/var"}}},
 		},
 	}
 
@@ -141,8 +143,8 @@ func TestPrepareDockerResourcesVolumeNormalizeError(t *testing.T) {
 		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
-		Infra: map[string]models.InfraEntry{
-			"db": {Inline: &models.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Volumes: []string{"data:/var"}}},
 		},
 	}
 
@@ -184,8 +186,8 @@ func TestPrepareDockerResourcesVolumeEnsureError(t *testing.T) {
 		SourceFormat:  models.SourceFormatYAML,
 		Project:       models.Project{Name: "p"},
 		Network:       models.NetworkConfig{Name: "net"},
-		Infra: map[string]models.InfraEntry{
-			"db": {Inline: &models.Infra{Image: "postgres", Volumes: []string{"data:/var"}}},
+		Services: map[string]models.Service{
+			"api": {Docker: &models.DockerConfig{Volumes: []string{"data:/var"}}},
 		},
 	}
 

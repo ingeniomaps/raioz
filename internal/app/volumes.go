@@ -35,6 +35,10 @@ type VolumeInfo struct {
 	Name    string
 	InUseBy []string // other projects using this volume
 	Source  string   // "service" or "infra"
+	// Declared is the name written in raioz.yaml (`cachedata` in
+	// `cachedata:/data`). Name is the Docker volume behind it, which
+	// carries the dependency's compose-project prefix.
+	Declared string
 }
 
 // VolumesUseCase handles the "volumes" use case
@@ -206,7 +210,6 @@ func (uc *VolumesUseCase) collectVolumes(
 ) ([]VolumeInfo, error) {
 	var serviceVolumes []string
 	var infraVolumes []string
-	workspaceName := projectName
 
 	// ADR-011 Phase 2: the state-first/config-fallback was a vestige of
 	// when state could store volumes that diverged from raioz.yaml. With
@@ -214,7 +217,6 @@ func (uc *VolumesUseCase) collectVolumes(
 	// declared volumes.
 	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
 	if deps != nil {
-		workspaceName = deps.GetWorkspaceName()
 		serviceVolumes, infraVolumes = extractVolumesFromDeps(deps)
 	}
 	_ = ws
@@ -244,20 +246,22 @@ func (uc *VolumesUseCase) collectVolumes(
 		}
 	}
 
-	// Infra volumes normalized with workspace name
-	infraNamed, err := uc.deps.DockerRunner.ExtractNamedVolumes(infraVolumes)
-	if err != nil {
-		return nil, errors.New(errors.ErrCodeDockerNotRunning, i18n.T("error.volumes_extract_infra")).WithError(err)
-	}
-	for _, volName := range infraNamed {
-		normalized, err := uc.deps.DockerRunner.NormalizeVolumeName(workspaceName, volName)
-		if err != nil {
-			logging.WarnWithContext(ctx, "Failed to normalize infra volume", "volume", volName, "error", err.Error())
-			continue
-		}
-		if !seen[normalized] {
-			seen[normalized] = true
-			volumes = append(volumes, VolumeInfo{Name: normalized, Source: "infra"})
+	// Infra volumes: the Docker volume each dependency actually mounts.
+	if deps != nil {
+		for _, depName := range sortedKeysInfra(deps.Infra) {
+			entry := deps.Infra[depName]
+			if entry.Inline == nil {
+				continue
+			}
+			for _, spec := range entry.Inline.Volumes {
+				name, named, _ := depVolume(ctx, deps.Project.Name, depName, spec)
+				if !named || seen[name] {
+					continue
+				}
+				seen[name] = true
+				declared, _, _ := strings.Cut(spec, ":")
+				volumes = append(volumes, VolumeInfo{Name: name, Source: "infra", Declared: declared})
+			}
 		}
 	}
 
@@ -284,7 +288,14 @@ func (uc *VolumesUseCase) collectVolumes(
 func (uc *VolumesUseCase) filterSpecificVolumes(
 	volumes []VolumeInfo, names []string,
 ) (toRemove []VolumeInfo, inUse []VolumeInfo, err error) {
+	// Either name selects a volume: the Docker one, or the one written in
+	// raioz.yaml.
 	volMap := make(map[string]VolumeInfo)
+	for _, vol := range volumes {
+		if vol.Declared != "" {
+			volMap[vol.Declared] = vol
+		}
+	}
 	for _, vol := range volumes {
 		volMap[vol.Name] = vol
 	}

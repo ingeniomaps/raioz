@@ -98,6 +98,10 @@ func showComposeServiceLogs(
 	return nil
 }
 
+// depVolume resolves a dependency's `volumes:` entry to its Docker volume.
+// Here for the same ADR-029 reason as serviceContainerIP below.
+var depVolume = docker.DepVolume
+
 // serviceContainerIP resolves the address of a service's container. It
 // lives here so the app-layer docker import stays on this ADR-029 baseline
 // file, and is a package var so tests can answer without a docker daemon.
