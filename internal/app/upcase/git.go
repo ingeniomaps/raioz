@@ -3,7 +3,9 @@ package upcase
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"raioz/internal/domain/interfaces"
@@ -211,6 +213,12 @@ func (uc *UseCase) cloneIntoDeclaredPath(
 	target := svc.Source.Path
 	if _, err := os.Stat(target); err == nil && !forceReclone {
 		output.PrintInfo(i18n.T("up.git.path_present", name))
+		// Left as it is, but not in silence: the service is about to run
+		// from a branch other than the one raioz.yaml asks for.
+		if current := currentBranchFn(ctx, target); svc.Source.Branch != "" &&
+			current != "" && current != svc.Source.Branch {
+			output.PrintWarning(i18n.T("up.git.branch_differs", name, current, svc.Source.Branch))
+		}
 		return nil
 	}
 
@@ -225,4 +233,18 @@ func (uc *UseCase) cloneIntoDeclaredPath(
 	}
 	output.PrintProgressDone(i18n.T("up.git.cloned", name))
 	return nil
+}
+
+// currentBranchFn returns the branch checked out in dir, or "" when dir is
+// not a git work tree (or HEAD is detached). A package var so tests need no
+// repository.
+var currentBranchFn = func(ctx context.Context, dir string) string {
+	out, err := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	if branch := strings.TrimSpace(string(out)); branch != "HEAD" {
+		return branch
+	}
+	return ""
 }

@@ -69,3 +69,9 @@ func TestStopGitServicesBeforeReclone(t *testing.T) {
 		t.Error("a service that is not re-cloned keeps its PID")
 	}
 }
+
+func TestCurrentBranchFn_NotARepo(t *testing.T) {
+	if got := currentBranchFn(context.Background(), t.TempDir()); got != "" {
+		t.Errorf("a directory that is not a work tree has no branch, got %q", got)
+	}
+}

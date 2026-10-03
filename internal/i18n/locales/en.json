@@ -831,5 +831,6 @@
   "ports.col_service": "SERVICE",
   "ports.col_runs_as": "RUNS AS",
   "ports.col_alternative": "ALTERNATIVE",
-  "flag.up.host": "Host address a published proxy binds 80/443 on (default 127.0.0.1; 0.0.0.0 shares it on the network)"
+  "flag.up.host": "Host address a published proxy binds 80/443 on (default 127.0.0.1; 0.0.0.0 shares it on the network)",
+  "up.git.branch_differs": "%s: the working copy is on branch '%s' but raioz.yaml declares '%s'. It is left as it is; switch branches yourself, or use --force-reclone to replace it"
 }
