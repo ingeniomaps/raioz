@@ -31,6 +31,7 @@ func (m *Manager) Configure(cfg interfaces.ProxyConfig) {
 	if cfg.Publish != nil {
 		m.publish = *cfg.Publish
 	}
+	m.resources = cfg.Resources
 }
 
 // caddyTLSValue maps the vendor-neutral TLSMode enum onto the Caddy
@@ -56,4 +57,18 @@ func (m *Manager) IsPublished() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.publish
+}
+
+// resolveContainerIP picks the IP the proxy should bind to, applying the
+// precedence rules: explicit > derived-from-subnet > none (auto-assign).
+// An invalid user IP is rejected with a descriptive error so the problem
+// surfaces before docker run.
+func (m *Manager) resolveContainerIP() (string, error) {
+	if m.containerIP != "" {
+		if err := ValidateProxyIP(m.containerIP, m.networkSubnet); err != nil {
+			return "", err
+		}
+		return m.containerIP, nil
+	}
+	return DefaultProxyIP(m.networkSubnet), nil
 }

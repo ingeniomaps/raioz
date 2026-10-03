@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
@@ -53,6 +54,8 @@ type Manager struct {
 	// parallelism — each workspace's proxy lives entirely on its own
 	// subnet without fighting over the host port pool.
 	publish bool
+	// resources caps the container's memory and CPU; nil = no cap.
+	resources *models.Resources
 }
 
 // isWorkspaceShared reports whether the proxy is in shared (workspace-scoped)
@@ -95,20 +98,6 @@ func NewManager(certsDir string) *Manager {
 func (m *Manager) ContainerIP() string {
 	ip, _ := m.resolveContainerIP()
 	return ip
-}
-
-// resolveContainerIP picks the IP the proxy should bind to, applying the
-// precedence rules: explicit > derived-from-subnet > none (auto-assign).
-// An invalid user IP is rejected with a descriptive error so the problem
-// surfaces before docker run.
-func (m *Manager) resolveContainerIP() (string, error) {
-	if m.containerIP != "" {
-		if err := ValidateProxyIP(m.containerIP, m.networkSubnet); err != nil {
-			return "", err
-		}
-		return m.containerIP, nil
-	}
-	return DefaultProxyIP(m.networkSubnet), nil
 }
 
 // ContainerName returns the proxy container name.
@@ -155,6 +144,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 			// fall through to the create path below
 		} else {
 			logging.InfoWithContext(ctx, "Proxy already running", "container", containerName)
+			m.updateResourceLimits(ctx, containerName)
 			return m.Reload(ctx)
 		}
 	}
@@ -215,6 +205,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		"-v", caddyfilePath + ":/etc/caddy/Caddyfile:ro",
 		"-v", m.caddyVolume() + ":/data",
 	}
+	args = append(args, resourceArgs(m.resources)...)
 	if runtime.Supports(runtime.HostGatewayAlias) {
 		args = append(args, "--add-host=host.docker.internal:host-gateway")
 	}

@@ -69,6 +69,10 @@ type Infra struct {
 	// empty).
 	HostnameAliases []string `json:"hostnameAliases,omitempty"`
 
+	// Resources caps the container's memory and CPU. Already resolved
+	// against the root default at load time; nil = no cap.
+	Resources *Resources `json:"resources,omitempty"`
+
 	// Project is the path to a sibling raioz project that owns this dep
 	// (mode A of ADR-008). When set, raioz brings the sibling up via
 	// recursive `raioz up` in its cwd if it's not already running, and

@@ -40,6 +40,11 @@ type RaiozConfig struct {
 	Services      map[string]YAMLService    `yaml:"services,omitempty"`      // since: v0.1.0
 	Deps          map[string]YAMLDependency `yaml:"dependencies,omitempty"`  // since: v0.1.0
 
+	// Resources is the default memory/CPU cap for every container raioz
+	// creates itself: each `image:` dependency and the proxy. A block on
+	// the dependency or on `proxy:` replaces it. Unset = no cap.
+	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
+
 	// Router replaces raioz's internal Caddy with a sibling raioz project
 	// acting as the workspace's edge router. When set, raioz brings the
 	// router project up first, polls its `health:`, then starts consumers;
@@ -332,6 +337,10 @@ type YAMLDependency struct {
 	// listens on. Both fields optional; raioz falls back to detection for
 	// whichever is left out.
 	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"` // since: v0.1.1
+
+	// Resources caps this dependency's memory and CPU. Only for `image:`
+	// dependencies — a `compose:` one sets its limits in its own file.
+	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
 
 	// Project points at a sibling raioz project that *is* this dependency
 	// (mode A of ADR-008). Path is relative to this raioz.yaml. When

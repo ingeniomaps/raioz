@@ -2,6 +2,8 @@ package interfaces
 
 import (
 	"context"
+
+	"raioz/internal/domain/models"
 )
 
 // ProxyRoute defines how traffic reaches a service through the proxy.
@@ -38,7 +40,9 @@ type ProxyConfig struct {
 	NetworkSubnet string  // CIDR; empty → Docker auto-assigns
 	ContainerIP   string  // empty + NetworkSubnet → derive <base>.1.1
 	Publish       *bool   // nil → default (true); *false → no host binding
-	ProjectDir    string  // abs path to the project dir; persisted into the
+	// Resources caps the proxy container's memory and CPU; nil → no cap.
+	Resources  *models.Resources
+	ProjectDir string // abs path to the project dir; persisted into the
 	// route file so the down flow's orphan GC can probe the project's
 	// host-side liveness (ADR-005). Empty → liveness unknown, never pruned.
 }

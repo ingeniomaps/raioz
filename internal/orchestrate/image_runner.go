@@ -56,6 +56,7 @@ func (r *ImageRunner) Start(ctx context.Context, svc interfaces.ServiceContext) 
 	if state, _ := r.docker.GetContainerStatusByName(ctx, svc.ContainerName); state == "running" {
 		logging.InfoWithContext(ctx, "Dependency already running, reusing",
 			"name", svc.Name, "container", svc.ContainerName)
+		updateRunningLimits(ctx, svc.ContainerName, svc.Resources)
 		return nil
 	}
 
@@ -202,6 +203,7 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 	if len(svc.Ports) > 0 {
 		service["ports"] = svc.Ports
 	}
+	applyResourceLimits(service, svc.Resources)
 
 	namedVolumeMap, err := applyDepVolumes(svc, service)
 	if err != nil {

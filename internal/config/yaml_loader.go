@@ -84,9 +84,26 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 		}
 	}
 
+	if err := cfg.Resources.Validate(); err != nil {
+		return fmt.Errorf("resources in %s: %w", path, err)
+	}
+	if cfg.Proxy != nil {
+		if err := cfg.Proxy.Resources.Validate(); err != nil {
+			return fmt.Errorf("proxy.resources in %s: %w", path, err)
+		}
+	}
+
 	for name, dep := range cfg.Deps {
 		if err := validateSiblingDependency(name, dep, path); err != nil {
 			return err
+		}
+		if err := dep.Resources.Validate(); err != nil {
+			return fmt.Errorf("dependencies.%s.resources in %s: %w", name, path, err)
+		}
+		if !dep.Resources.IsZero() && len(dep.Compose) > 0 {
+			return fmt.Errorf(
+				"dependencies.%s in %s: 'resources:' only applies to 'image:' dependencies; "+
+					"set mem_limit/cpus in the compose file instead", name, path)
 		}
 		// `project:` makes the sibling the runtime; `image:`/`compose:`
 		// would be ignored, so the validator above already rejects them.

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 func TestContainerName(t *testing.T) {
@@ -328,6 +329,30 @@ func TestWriteFallbackBlock(t *testing.T) {
 				if !strings.Contains(got, w) {
 					t.Errorf("block %q is missing %q", got, w)
 				}
+			}
+		})
+	}
+}
+
+func TestResourceArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		res  *models.Resources
+		want string
+	}{
+		{"no block", nil, ""},
+		{"empty block", &models.Resources{}, ""},
+		{"memory closes swap too", &models.Resources{Memory: "256m"}, "--memory 256m --memory-swap 256m"},
+		{"cpus", &models.Resources{CPUs: 1.5}, "--cpus 1.5"},
+		{
+			"both", &models.Resources{Memory: "1g", CPUs: 2},
+			"--memory 1g --memory-swap 1g --cpus 2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := strings.Join(resourceArgs(tt.res), " "); got != tt.want {
+				t.Errorf("resourceArgs = %q, want %q", got, tt.want)
 			}
 		})
 	}

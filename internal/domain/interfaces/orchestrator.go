@@ -60,6 +60,10 @@ type ServiceContext struct {
 	// cwd, not the project root. Empty when the runner doesn't need
 	// path resolution (services already track their own path).
 	ProjectDir string
+
+	// Resources caps the container's memory and CPU. Set for image-mode
+	// dependencies that declare (or inherit) `resources:`; nil = no cap.
+	Resources *models.Resources
 }
 
 // Orchestrator defines operations for starting and stopping services

@@ -28,6 +28,10 @@ type ProxyConfig struct {
 	// Docker traffic through a VM whose bridge IPs aren't reachable from
 	// the host, so publish:false is functionally broken there.
 	Publish *bool `yaml:"publish,omitempty"` // since: v0.1.0
+
+	// Resources caps the proxy container's memory and CPU. Unset falls
+	// back to the root `resources:` block, then to no cap.
+	Resources *Resources `yaml:"resources,omitempty"` // since: v0.16.0
 }
 
 // UnmarshalYAML implements yaml.Unmarshaler for ProxyConfig to support both bool and object.

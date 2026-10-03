@@ -68,6 +68,7 @@ dependencies:
 | `project` | string | yes | — | Project name. Used for Docker resource naming. Lowercase, hyphens, max 63 chars. |
 | `workspace` | string | no | — | Groups projects on same Docker network. When set, resources use `{workspace}-` prefix instead of `raioz-`. |
 | `workspaceRoot` | string | no | the yaml's own dir | Widens the path-safety containment boundary (ADR-036 H2). By default every path in the yaml must resolve inside the yaml's directory; in a multi-repo workspace where the `raioz.yaml` lives in a sub-repo and services point at sibling repos via `../`, declare `workspaceRoot:` (relative to this yaml, e.g. `..`) to move the boundary there. Paths stay HARD-contained against the declared root; the root itself may not be a system dir. See [Multi-repo workspaces](#multi-repo-workspaces). |
+| `resources` | object | no | no cap | Default memory/CPU cap for every container raioz creates itself: each `image:` dependency and the proxy. A `resources:` block on a dependency or on `proxy:` replaces it. See [Resource limits](#resource-limits). |
 | `network` | string or object | no | auto-derived | Pin Docker network name and/or subnet. See [Network config](#network-config). |
 | `proxy` | bool or object | no | `false` | Enable Caddy reverse proxy with HTTPS. See [Proxy config](#proxy-config). |
 | `pre` | string or list | no | — | Commands to run before anything else (env rendering, secrets fetch). Failure aborts `up`. |
@@ -303,6 +304,7 @@ Exactly one of `image`, `compose`, or `project` is required.
 | `project` | string | one of | — | Path to a sibling raioz project's directory. The sibling IS this dep — raioz brings it up via `raioz up` recursively when not already running, and never tumba it on `raioz down`. Mutually exclusive with `image`/`compose`. See [Sibling raioz projects](#sibling-raioz-projects-as-deps). |
 | `siblingProject` | string | no | — | Fallback marker: pair with `image:`/`compose:` and raioz skips the local declaration when the sibling project is active. Mutually exclusive with `project`. Useful for CI or contributors without the sibling repo cloned. |
 | `requiredHostname` | string | no | — | Assert the sibling's raioz.yaml declares this hostname before deferring to it. Only valid alongside `project:` or `siblingProject:`. |
+| `resources` | object | no | root `resources`, else no cap | Memory/CPU cap for this dependency's container. Only for `image:` dependencies; a `compose:` one sets `mem_limit`/`cpus` in its own file. See [Resource limits](#resource-limits). |
 | `name` | string | no | auto-derived | Literal container name override. Use when external tooling (IDEs, backup scripts) expects a specific name. Without it, the name is `{workspace}-{dep}` (workspace mode) or `{prefix}-{project}-{dep}` (standalone). |
 | `ports` | string or list | no | — | Port mappings (e.g., `"5432"`, `"5432:5432"`). |
 | `env` | string or list | no | — | Env file paths for the container. |
@@ -476,12 +478,56 @@ proxy:
 | `tls` | string | `mkcert` | TLS provider: `mkcert` (local) or `letsencrypt`. |
 | `ip` | string | `<subnet>.1.1` when `network.subnet` is set, else Docker-assigned | Pin the Caddy container's IP. Deterministic so scripts and `/etc/hosts` entries stay stable. Requires `network.subnet` — Docker won't honor `--ip` without a user-defined subnet. |
 | `publish` | bool | `true` | Bind host ports 80/443 (default). Set `false` to reach the proxy only via its container IP — lets multiple workspaces run in parallel without port contention. Requires a deterministic `ip` or `network.subnet`. **Linux-only**; on macOS/Windows, Docker routes through a VM whose bridge IPs aren't reachable from the host. |
+| `resources` | object | root `resources`, else no cap | Memory/CPU cap for the proxy container. See [Resource limits](#resource-limits). |
 
 Result: each service gets `https://{service}.{domain}` (e.g., `https://api.acme.localhost`).
 
 When `publish: false`, use `raioz hosts` to print the `/etc/hosts` line mapping every proxied hostname to the proxy container IP.
 
 ---
+
+## Resource limits
+
+raioz starts two kinds of container on its own: the proxy and every
+`image:` dependency. By default none of them has a memory or CPU cap.
+`resources:` declares one:
+
+```yaml
+resources:            # default for the proxy and every image dependency
+  memory: 256m
+  cpus: 1
+
+proxy:
+  domain: acme.dev
+  resources:          # replaces the default for the proxy
+    memory: 128m
+
+dependencies:
+  postgres:
+    image: postgres:16
+    resources:        # replaces the default for this dependency
+      memory: 1g
+      cpus: 0.5
+  redis:
+    image: redis:7    # takes the root default
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `memory` | string | A Docker size: a number with an optional `b`/`k`/`m`/`g` unit (`256m`, `1g`). Applied as the memory limit **and** the memory+swap limit, so the container cannot spill into swap. |
+| `cpus` | number | How many CPUs the container may use (`0.5`, `2`). |
+
+- A block replaces the default whole: a dependency that declares only
+  `cpus` does not inherit the root `memory`.
+- A cap added while the container is running is applied in place on the
+  next `raioz up` (`docker update`), without restarting it. Removing a
+  block takes effect when the container is next created.
+- A workspace-shared proxy or dependency has one container for several
+  projects: the last project to run `up` sets its cap. Declare the same
+  value in each to keep it stable.
+- Not covered: `compose:` dependencies (set `mem_limit`/`cpus` in the
+  compose file — raioz rejects `resources:` there), services built from
+  a Dockerfile or compose, and host services, which are not containers.
 
 ## Network config
 

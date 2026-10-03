@@ -66,6 +66,7 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 	if cfg.Proxy != nil && cfg.Proxy.Enabled {
 		deps.Proxy = true
 		deps.ProxyConfig = cfg.Proxy
+		deps.ProxyConfig.Resources = cfg.Proxy.Resources.OrDefault(cfg.Resources)
 	}
 
 	// Convert pre / preUp / post hooks
@@ -97,6 +98,9 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 	// Convert dependencies to infra entries
 	for name, dep := range cfg.Deps {
 		entry := yamlDependencyToInfra(dep)
+		if entry.Inline != nil && len(dep.Compose) == 0 {
+			entry.Inline.Resources = dep.Resources.OrDefault(cfg.Resources)
+		}
 		deps.Infra[name] = entry
 	}
 
