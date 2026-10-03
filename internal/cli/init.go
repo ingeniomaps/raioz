@@ -7,7 +7,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var initOutputPath string
+var (
+	initOutputPath string
+	initForce      bool
+)
 
 var initCmd = &cobra.Command{
 	Use:          "init",
@@ -23,6 +26,7 @@ var initCmd = &cobra.Command{
 		useCase := app.NewInitScanUseCase()
 		return useCase.Execute(app.InitScanOptions{
 			OutputPath: initOutputPath,
+			Force:      initForce,
 		})
 	},
 }
@@ -33,4 +37,5 @@ func init() {
 		"output", "o", "raioz.yaml",
 		"Output path for generated config",
 	)
+	initCmd.Flags().BoolVar(&initForce, "force", false, "Overwrite the output file if it exists")
 }

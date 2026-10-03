@@ -9,6 +9,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/domain/models"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 
@@ -20,6 +21,8 @@ type InitScanOptions struct {
 	Dir        string
 	OutputPath string
 	Project    string
+	// Force lets init replace an existing output file.
+	Force bool
 }
 
 // InitScanUseCase handles auto-scanning a directory to generate raioz.yaml.
@@ -128,6 +131,14 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 	outPath := opts.OutputPath
 	if outPath == "" {
 		outPath = filepath.Join(dir, "raioz.yaml")
+	}
+
+	// A raioz.yaml is hand-edited; never replace one unasked.
+	if _, statErr := os.Stat(outPath); statErr == nil && !opts.Force {
+		return errors.New(
+			errors.ErrCodeInvalidConfig,
+			i18n.T("error.migrate_output_exists", outPath),
+		).WithSuggestion(i18n.T("error.migrate_output_exists_suggestion"))
 	}
 
 	data, err := yaml.Marshal(cfg)
