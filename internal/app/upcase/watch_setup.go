@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
@@ -116,11 +117,22 @@ func startWatcher(
 	//      `sh -c` wrapper (not the process group), orphaning grandchildren.
 	//      HostRunner.Stop does the right thing — group SIGTERM with polling
 	//      and SIGKILL fallback — so we let it drive the teardown instead.
-	stopAllServicesForShutdown(ctx, deps, dispatcher, detections, networkName)
+	//
+	// `ctx` itself is the command's context, and Ctrl+C is exactly what
+	// cancels it (ADR-026): handed down as is, every docker call of the
+	// teardown died at birth and the dependencies stayed up. The teardown
+	// runs on a context that outlives the signal, bounded by its own
+	// deadline.
+	stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+	stopAllServicesForShutdown(stopCtx, deps, dispatcher, detections, networkName)
+	stopCancel()
 
 	cancel()
 	w.Close()
 }
+
+// shutdownTimeout bounds the Ctrl+C teardown of a watch session.
+const shutdownTimeout = 90 * time.Second
 
 // stopAllServicesForShutdown tears down every service and dependency that was
 // started by processOrchestration. Called from the watch-mode Ctrl+C handler
