@@ -115,11 +115,21 @@ func proxiedHostnamesFromConfig(deps *models.Deps) []string {
 
 	var hosts []string
 	for name, svc := range deps.Services {
+		// `proxy: false` opts the service out of routing: no route, so
+		// no hostname to map.
+		if svc.ProxyOverride != nil && svc.ProxyOverride.Disabled {
+			continue
+		}
 		host := name
 		if svc.Hostname != "" {
 			host = svc.Hostname
 		}
 		hosts = append(hosts, host+"."+domain)
+		for _, alias := range svc.HostnameAliases {
+			if alias != "" {
+				hosts = append(hosts, alias+"."+domain)
+			}
+		}
 	}
 	for name, entry := range deps.Infra {
 		if entry.Inline == nil {

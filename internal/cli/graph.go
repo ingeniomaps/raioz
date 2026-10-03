@@ -3,7 +3,9 @@ package cli
 import (
 	"os"
 
+	"raioz/internal/errors"
 	"raioz/internal/graph"
+	"raioz/internal/i18n"
 
 	"github.com/spf13/cobra"
 )
@@ -31,8 +33,13 @@ var graphCmd = &cobra.Command{
 			graph.RenderDOT(g, os.Stdout)
 		case "json":
 			return graph.RenderJSON(g, os.Stdout)
-		default:
+		case "ascii", "":
 			graph.RenderASCII(g, os.Stdout)
+		default:
+			return errors.New(
+				errors.ErrCodeInvalidField,
+				i18n.T("error.graph_unknown_format", graphFormat),
+			)
 		}
 		return nil
 	},
