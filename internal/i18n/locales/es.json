@@ -834,5 +834,9 @@
   "flag.up.host": "Dirección del host donde el proxy publicado enlaza 80/443 (por defecto 127.0.0.1; 0.0.0.0 lo comparte en la red)",
   "up.git.branch_differs": "%s: la copia de trabajo está en la rama '%s' pero raioz.yaml declara '%s'. Se deja como está; cambia de rama a mano, o usa --force-reclone para reemplazarla",
   "snapshot.stopping_for_create": "Deteniendo %s mientras se copian sus volúmenes",
-  "warning.service_resources_no_effect": "el servicio %q declara `resources:` pero corre como %s: el tope sólo aplica a un servicio que raioz construye desde un Dockerfile"
+  "warning.service_resources_no_effect": "el servicio %q declara `resources:` pero corre como %s: el tope sólo aplica a un servicio que raioz construye desde un Dockerfile",
+  "error.proxy_ip_invalid": "proxy.ip %s no se puede usar",
+  "error.proxy_ip_invalid_suggestion": "Debe ser una dirección dentro de network.subnet. Declara la subred, o quita proxy.ip para que raioz derive <subred>.1.1",
+  "error.proxy_unpublished_needs_ip": "proxy.publish: false necesita una dirección de proxy predecible",
+  "error.proxy_unpublished_needs_ip_suggestion": "Un proxy que no publica sólo se alcanza por la IP de su contenedor. Declara network.subnet (raioz deriva <subred>.1.1) o proxy.ip"
 }

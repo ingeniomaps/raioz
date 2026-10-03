@@ -834,5 +834,9 @@
   "flag.up.host": "Host address a published proxy binds 80/443 on (default 127.0.0.1; 0.0.0.0 shares it on the network)",
   "up.git.branch_differs": "%s: the working copy is on branch '%s' but raioz.yaml declares '%s'. It is left as it is; switch branches yourself, or use --force-reclone to replace it",
   "snapshot.stopping_for_create": "Stopping %s while their volumes are copied",
-  "warning.service_resources_no_effect": "service %q declares `resources:` but runs as %s: the cap only applies to a service raioz builds from a Dockerfile"
+  "warning.service_resources_no_effect": "service %q declares `resources:` but runs as %s: the cap only applies to a service raioz builds from a Dockerfile",
+  "error.proxy_ip_invalid": "proxy.ip %s cannot be used",
+  "error.proxy_ip_invalid_suggestion": "It must be an address inside network.subnet. Declare the subnet, or drop proxy.ip to let raioz derive <subnet>.1.1",
+  "error.proxy_unpublished_needs_ip": "proxy.publish: false needs a predictable proxy address",
+  "error.proxy_unpublished_needs_ip_suggestion": "A proxy that does not publish is reached only through its container IP. Declare network.subnet (raioz derives <subnet>.1.1) or proxy.ip"
 }

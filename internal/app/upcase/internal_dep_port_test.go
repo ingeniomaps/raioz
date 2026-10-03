@@ -91,3 +91,31 @@ func TestComposeDepPort(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckProxyAddress(t *testing.T) {
+	off := false
+	tests := []struct {
+		name    string
+		subnet  string
+		cfg     *models.ProxyConfig
+		wantErr bool
+	}{
+		{"published without a subnet is fine", "", &models.ProxyConfig{}, false},
+		{"unpublished with a subnet", "10.9.0.0/16", &models.ProxyConfig{Publish: &off}, false},
+		{"unpublished without any address source", "", &models.ProxyConfig{Publish: &off}, true},
+		{"explicit ip inside the subnet", "10.9.0.0/16", &models.ProxyConfig{Publish: &off, IP: "10.9.1.1"}, false},
+		{"explicit ip outside the subnet", "10.9.0.0/16", &models.ProxyConfig{IP: "10.99.0.1"}, true},
+		{"explicit ip without a subnet", "", &models.ProxyConfig{IP: "10.9.1.1"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deps := &models.Deps{Proxy: true, ProxyConfig: tt.cfg}
+			if tt.subnet != "" {
+				deps.Network = models.NetworkConfig{Name: "n", Subnet: tt.subnet, IsObject: true}
+			}
+			if err := checkProxyAddress(deps); (err != nil) != tt.wantErr {
+				t.Errorf("checkProxyAddress = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

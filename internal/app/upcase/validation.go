@@ -8,6 +8,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/netutil"
 	"raioz/internal/output"
 	"raioz/internal/proxy"
 )
@@ -134,6 +135,9 @@ func CheckProxyRequirements(deps *models.Deps) error {
 	if !deps.Proxy {
 		return nil
 	}
+	if err := checkProxyAddress(deps); err != nil {
+		return err
+	}
 
 	tlsMode := "mkcert" // default — matches proxy.NewManager
 	if deps.ProxyConfig != nil && deps.ProxyConfig.TLS != "" {
@@ -152,4 +156,36 @@ func CheckProxyRequirements(deps *models.Deps) error {
 		errors.ErrCodeInvalidConfig,
 		i18n.T("error.proxy_mkcert_missing"),
 	).WithSuggestion(i18n.T("error.proxy_mkcert_missing_suggestion"))
+}
+
+// checkProxyAddress validates what the proxy needs to be reachable, before
+// anything starts: found at proxy start it failed `up` with every
+// dependency and service already running.
+//
+//   - an explicit `proxy.ip` must sit inside `network.subnet`;
+//   - a proxy that does not publish is reached only through its container
+//     IP, so that IP must be knowable — from `proxy.ip` or the subnet.
+func checkProxyAddress(deps *models.Deps) error {
+	cfg := deps.ProxyConfig
+	if cfg == nil {
+		return nil
+	}
+	subnet := deps.Network.GetSubnet()
+	if cfg.IP != "" {
+		if err := netutil.ValidateProxyIP(cfg.IP, subnet); err != nil {
+			return errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("error.proxy_ip_invalid", cfg.IP),
+			).WithError(err).WithSuggestion(i18n.T("error.proxy_ip_invalid_suggestion"))
+		}
+		return nil
+	}
+	unpublished := cfg.Publish != nil && !*cfg.Publish
+	if unpublished && netutil.DefaultProxyIP(subnet) == "" {
+		return errors.New(
+			errors.ErrCodeInvalidConfig,
+			i18n.T("error.proxy_unpublished_needs_ip"),
+		).WithSuggestion(i18n.T("error.proxy_unpublished_needs_ip_suggestion"))
+	}
+	return nil
 }
