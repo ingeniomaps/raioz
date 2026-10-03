@@ -25,9 +25,25 @@ func withPrefix(t *testing.T, p string) {
 // TestMain initializes i18n once for the whole package — assertProxyDirWritable
 // formats its error via i18n.T, and an uninitialized catalog returns the key
 // literally, breaking suggestion-content assertions.
+//
+// It also points the state dirs at a throwaway directory: naming.ProxyDir
+// resolves through them, and a test that forgets to redirect them would
+// otherwise leave proxy directories in the developer's real
+// ~/.local/state.
 func TestMain(m *testing.M) {
 	i18n.Init("en")
-	os.Exit(m.Run())
+	stateDir, err := os.MkdirTemp("", "raioz-proxy-test-")
+	if err != nil {
+		panic("create temp state dir: " + err.Error())
+	}
+	for _, v := range []string{"RAIOZ_HOME", "XDG_STATE_HOME"} {
+		if err := os.Setenv(v, stateDir); err != nil {
+			panic("set " + v + ": " + err.Error())
+		}
+	}
+	code := m.Run()
+	_ = os.RemoveAll(stateDir)
+	os.Exit(code)
 }
 
 // TestAssertProxyDirWritable_HappyPath sets up a workspace-shared manager
