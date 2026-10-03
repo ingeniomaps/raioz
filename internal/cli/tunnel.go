@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 
+	"raioz/internal/app"
 	"raioz/internal/app/tunnelcase"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
@@ -20,11 +21,17 @@ var tunnelCmd = &cobra.Command{
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		deps := newDependencies()
+		// Without --port the tunnel points at the service's own port from
+		// raioz.yaml; 3000 is only the guess for a name raioz does not know.
 		port := tunnelPort
 		if port == 0 {
-			port = defaultTunnelPort
+			if declared, ok := app.ServiceHostPort(deps, ResolveConfigPath(""), args[0]); ok {
+				port = declared
+			} else {
+				port = defaultTunnelPort
+			}
 		}
-		deps := newDependencies()
 		uc := tunnelcase.StartUseCase{Deps: &tunnelcase.Dependencies{TunnelManager: deps.TunnelManager}}
 		info, err := uc.Execute(cmd.Context(), tunnelcase.StartOptions{
 			ServiceName: args[0],
