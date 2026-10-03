@@ -157,6 +157,14 @@ func (m *Manager) Restore(project, name string) error {
 		return fmt.Errorf("invalid snapshot metadata: %w", err)
 	}
 
+	// Whatever mounts these volumes is stopped for the duration and started
+	// again afterwards, restore succeeded or not.
+	resume, err := quiesce(snap.Volumes)
+	if err != nil {
+		return fmt.Errorf("failed to stop the containers using the volumes: %w", err)
+	}
+	defer resume()
+
 	for _, vol := range snap.Volumes {
 		archivePath := filepath.Join(dir, vol.ArchiveFile)
 		if err := importVolume(vol.VolumeName, archivePath); err != nil {
@@ -245,7 +253,11 @@ func exportVolume(volumeName, archivePath string) error {
 }
 
 // importVolume restores a tar.gz into a Docker volume.
-func importVolume(volumeName, archivePath string) error {
+// importVolume is a package var so tests can fail it without asking the
+// daemon to mount (and thereby create) a volume.
+var importVolume = importVolumeWithDocker
+
+func importVolumeWithDocker(volumeName, archivePath string) error {
 	cmd := exec.Command(runtime.Binary(), "run", "--rm",
 		"-v", volumeName+":/data",
 		"-v", filepath.Dir(archivePath)+":/backup:ro",

@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -272,9 +273,15 @@ func TestRestore_ImportVolumeFails(t *testing.T) {
 	}
 	writeFakeSnapshot(t, dir, "proj", "snap", vols)
 
-	err := m.Restore("proj", "snap")
-	if err == nil {
-		t.Skip("unexpected success — docker may have accepted missing archive; skipping")
+	// No daemon: mounting a volume that does not exist would create it for
+	// real on the developer's machine.
+	stubDocker(t, nil, "")
+	prev := importVolume
+	importVolume = func(string, string) error { return errors.New("no such archive") }
+	t.Cleanup(func() { importVolume = prev })
+
+	if err := m.Restore("proj", "snap"); err == nil {
+		t.Error("a volume that cannot be imported must fail the restore")
 	}
 }
 
