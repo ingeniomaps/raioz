@@ -98,6 +98,10 @@ func showComposeServiceLogs(
 	return nil
 }
 
+// withCleanScope limits clean's prunes to resources carrying the given
+// labels. Here for the same ADR-029 reason as the helpers below.
+var withCleanScope = docker.WithCleanScope
+
 // depVolume resolves a dependency's `volumes:` entry to its Docker volume.
 // Here for the same ADR-029 reason as serviceContainerIP below.
 var depVolume = docker.DepVolume

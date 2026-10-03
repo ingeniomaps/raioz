@@ -239,7 +239,7 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 		},
 	}
 
-	declareTopLevelVolumes(compose, namedVolumeMap)
+	declareTopLevelVolumes(compose, namedVolumeMap, svc)
 	return r.writeCompose(svc, compose)
 }
 

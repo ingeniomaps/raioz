@@ -42,10 +42,17 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		"service", svc.Name, "path", svc.Path, "image", imageName)
 
 	// Build
-	buildCmd := exec.CommandContext(ctx, runtime.Binary(), "build",
-		"-t", imageName,
-		"-f", svc.Detection.Dockerfile,
-		svc.Path)
+	// The image carries the raioz labels too: every rebuild leaves the
+	// previous one dangling, and `raioz clean --images` can only tell
+	// those apart from the rest of the daemon's images by label.
+	buildArgs := []string{"build", "-t", imageName, "-f", svc.Detection.Dockerfile}
+	buildArgs = append(buildArgs, labelArgs(map[string]string{
+		naming.LabelManaged: "true",
+		naming.LabelProject: svc.ProjectName,
+		naming.LabelService: svc.Name,
+	})...)
+	buildArgs = append(buildArgs, svc.Path)
+	buildCmd := exec.CommandContext(ctx, runtime.Binary(), buildArgs...)
 	buildCmd.Dir = svc.Path
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker build failed: %w\n%s", err, string(output))

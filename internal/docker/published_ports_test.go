@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"reflect"
 	"testing"
 )
@@ -21,6 +22,31 @@ func TestParsePublishedHostPorts(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := parsePublishedHostPorts(tc.column); !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// The prune helpers never run unscoped: with no scope given they are
+// limited to what raioz created, not let loose on the whole daemon.
+func TestCleanFilterArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		ctx  context.Context
+		want []string
+	}{
+		{"no scope falls back to raioz-managed", context.Background(),
+			[]string{"--filter", "label=com.raioz.managed=true"}},
+		{"project scope", WithCleanScope(context.Background(), map[string]string{
+			"com.raioz.managed": "true", "com.raioz.project": "bencha",
+		}), []string{"--filter", "label=com.raioz.managed=true", "--filter", "label=com.raioz.project=bencha"}},
+		{"empty scope is not no scope", WithCleanScope(context.Background(), map[string]string{}),
+			[]string{"--filter", "label=com.raioz.managed=true"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := cleanFilterArgs(tc.ctx); !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("got %v, want %v", got, tc.want)
 			}
 		})

@@ -10,6 +10,7 @@ import (
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 )
 
@@ -53,12 +54,18 @@ func (uc *CleanUseCase) Execute(ctx context.Context, opts CleanOptions) error {
 			}
 			workspaceName = deps.Workspace
 		case projectName == "":
-			return errors.New(
-				errors.ErrCodeInvalidConfig,
-				i18n.T("error.no_project"),
-			).WithSuggestion(i18n.T("error.no_project_suggestion"))
+			return noProjectError(uc.deps, opts.ConfigPath)
 		}
 	}
+
+	// What the prune flags may remove: raioz's own resources, and unless
+	// --all asked for every project, only this project's. Never the
+	// daemon's unlabelled ones — those belong to someone else.
+	scope := map[string]string{naming.LabelManaged: "true"}
+	if !opts.All && projectName != "" {
+		scope[naming.LabelProject] = projectName
+	}
+	ctx = withCleanScope(ctx, scope)
 
 	var actions []string
 
