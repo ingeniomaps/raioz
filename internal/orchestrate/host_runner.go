@@ -136,11 +136,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = svc.Path
 
-	// Merge env vars with current environment
-	cmd.Env = os.Environ()
-	for k, v := range svc.EnvVars {
-		cmd.Env = append(cmd.Env, k+"="+v)
-	}
+	cmd.Env = hostProcessEnv(svc)
 
 	// Redirect output to log file (persists after raioz up exits)
 	logDir := naming.LogDir(svc.ProjectName)
