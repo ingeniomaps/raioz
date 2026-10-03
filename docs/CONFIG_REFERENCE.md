@@ -847,7 +847,7 @@ duration-typed vars and exits non-zero if any are malformed
 
 | Var | Default | Effect |
 |-----|---------|--------|
-| `RAIOZ_LOG_LEVEL` | `error` | slog level: `debug`, `info`, `warn`, `error`. |
+| `RAIOZ_LOG_LEVEL` | `off` (`error` in CI) | slog level: `debug`, `info`, `warn`, `error`, `off`. Failures always reach the terminal as a formatted error; the structured line on stderr is opt-in. |
 | `RAIOZ_LOG_JSON` | `false` (auto-`true` in CI) | Emit structured JSON logs instead of text. CI detection looks at `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `JENKINS_URL`, `TRAVIS`, `CIRCLECI`, `CONTINUOUS_INTEGRATION`. |
 
 ### Launcher pattern (ADR-025)

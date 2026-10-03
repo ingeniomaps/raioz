@@ -64,7 +64,7 @@
   "flag.json": "Salida en formato JSON",
   "flag.lang": "Sobreescribir idioma de la interfaz (en, es)",
   "flag.prune_shared": "También detener infra si ningún otro proyecto activo la usa",
-  "flag.log_level": "Establecer nivel de log (debug, info, warn, error)",
+  "flag.log_level": "Establecer nivel de log (debug, info, warn, error, off)",
   "flag.log_json": "Salida de logs en formato JSON",
   "flag.down.file": "Ruta al archivo de configuración (cualquier nombre/ruta)",
   "flag.ci.keep": "Mantener entorno efímero después de la ejecución CI (para depuración)",

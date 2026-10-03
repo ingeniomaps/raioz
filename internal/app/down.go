@@ -65,20 +65,22 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		return uc.downOtherProjectsOnly(ctx, opts)
 	}
 
-	// Try orchestrated down for YAML projects first
-	if err := uc.downOrchestrated(ctx, opts); err != nil {
-		return err
-	}
-	// Check if it was handled (YAML project)
+	// What the loader has to say about the config comes first: printed
+	// after the teardown it reads as something `down` just caused.
 	configPath := opts.ConfigPath
 	if configPath == "" {
 		configPath = resolveDownConfigPath()
 	}
-	flow, deps, warnings, err := SelectFlow(uc.deps.ConfigLoader, configPath)
+	flow, deps, warnings, flowErr := SelectFlow(uc.deps.ConfigLoader, configPath)
 	for _, w := range warnings {
 		output.PrintWarning(w)
 	}
-	if err == nil && flow == FlowYAML {
+
+	// Try orchestrated down for YAML projects first
+	if err := uc.downOrchestrated(ctx, opts); err != nil {
+		return err
+	}
+	if flowErr == nil && flow == FlowYAML {
 		return nil // Already handled by downOrchestrated
 	}
 

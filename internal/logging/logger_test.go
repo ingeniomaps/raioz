@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"log/slog"
 	"os"
 	"testing"
 )
@@ -208,4 +209,49 @@ func TestLoggingWithNilLogger(t *testing.T) {
 	Info("test")
 	Warn("test")
 	Error("test")
+}
+
+func TestLogLevelOff(t *testing.T) {
+	for _, in := range []string{"off", "none", "silent", " OFF "} {
+		if got := ParseLogLevel(in); got != LogLevelOff {
+			t.Errorf("ParseLogLevel(%q) = %q, want off", in, got)
+		}
+	}
+	if parseLevel(LogLevelOff) <= slog.LevelError {
+		t.Error("off must sit above error, or failures still print")
+	}
+}
+
+func TestInitFromEnv_DefaultLevel(t *testing.T) {
+	prevLevel, prevJSON := logLevel, jsonFormat
+	t.Cleanup(func() { Init(prevLevel, prevJSON) })
+
+	ciVars := []string{
+		"CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "TRAVIS", "CIRCLECI", "CONTINUOUS_INTEGRATION",
+	}
+	tests := []struct {
+		name string
+		ci   bool
+		env  string
+		want LogLevel
+	}{
+		{"terminal stays quiet", false, "", LogLevelOff},
+		{"ci keeps errors", true, "", LogLevelError},
+		{"explicit level wins", false, "debug", LogLevelDebug},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, v := range ciVars {
+				t.Setenv(v, "")
+			}
+			if tt.ci {
+				t.Setenv("CI", "true")
+			}
+			t.Setenv("RAIOZ_LOG_LEVEL", tt.env)
+			InitFromEnv()
+			if logLevel != tt.want {
+				t.Errorf("level = %q, want %q", logLevel, tt.want)
+			}
+		})
+	}
 }

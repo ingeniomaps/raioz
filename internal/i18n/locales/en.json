@@ -64,7 +64,7 @@
   "flag.json": "Output in JSON format",
   "flag.lang": "Override display language (en, es)",
   "flag.prune_shared": "Also stop infra if no other active projects use it",
-  "flag.log_level": "Set log level (debug, info, warn, error)",
+  "flag.log_level": "Set log level (debug, info, warn, error, off)",
   "flag.log_json": "Output logs in JSON format",
   "flag.down.file": "Path to config file (any name/path)",
   "flag.ci.keep": "Keep ephemeral environment after CI run (for debugging)",

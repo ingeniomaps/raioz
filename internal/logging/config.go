@@ -37,6 +37,8 @@ func ParseLogLevel(level string) LogLevel {
 		return LogLevelWarn
 	case "error":
 		return LogLevelError
+	case "off", "none", "silent":
+		return LogLevelOff
 	default:
 		return LogLevelInfo
 	}
@@ -46,10 +48,13 @@ func ParseLogLevel(level string) LogLevel {
 func InitFromEnv() {
 	levelStr := os.Getenv("RAIOZ_LOG_LEVEL")
 	if levelStr == "" {
-		// Default to error level to avoid cluttering user output
-		// Structured logs are sent to stderr, user-friendly messages use output.Print*
-		// Users can use --log-level debug or --log-level info if they need detailed logs
-		levelStr = "error"
+		// A person at a terminal gets the failure once, formatted by the
+		// CLI; the structured copy on stderr is for --log-level and for CI,
+		// where logs are collected rather than read live.
+		levelStr = string(LogLevelOff)
+		if IsCI() {
+			levelStr = string(LogLevelError)
+		}
 	}
 
 	jsonFormat := IsCI() || os.Getenv("RAIOZ_LOG_JSON") == "true"

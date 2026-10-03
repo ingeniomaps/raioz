@@ -54,8 +54,9 @@ variants that pull request-scoped fields out of `context.Context`.
   error.
 
 **Never user-facing.** Logs go to stderr. The default level is
-`info` and 99% of users never see them — assume nobody reads logs
-unless they're already debugging.
+`off` at a terminal (`error` in CI) and 99% of users never see them —
+assume nobody reads logs unless they're already debugging. Raise it
+with `--log-level` or `RAIOZ_LOG_LEVEL`.
 
 ```go
 logging.InfoWithContext(ctx, "Starting host service",

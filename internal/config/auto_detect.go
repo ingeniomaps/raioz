@@ -5,12 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"raioz/internal/detect"
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
+
+// autoDetectReported records the directories whose detection was already
+// printed in this process.
+var autoDetectReported sync.Map
 
 // AutoDetect scans a directory and generates a Deps config in memory
 // without requiring a raioz.yaml file. This enables zero-config `raioz up`.
@@ -22,8 +27,22 @@ func AutoDetect(dir string) (*Deps, error) {
 
 	projectName := filepath.Base(absDir)
 
-	output.PrintInfo(i18n.T("output.auto_detect_start"))
-	fmt.Println()
+	// A command may load the config several times; what was detected is
+	// reported the first time only.
+	_, reported := autoDetectReported.LoadOrStore(absDir, struct{}{})
+	say := func(msg string) {
+		if !reported {
+			output.PrintInfo(msg)
+		}
+	}
+	blank := func() {
+		if !reported {
+			fmt.Println()
+		}
+	}
+
+	say(i18n.T("output.auto_detect_start"))
+	blank()
 
 	services := make(map[string]Service)
 	infra := make(map[string]InfraEntry)
@@ -57,7 +76,7 @@ func AutoDetect(dir string) (*Deps, error) {
 		}
 
 		services[name] = svc
-		output.PrintInfo(fmt.Sprintf("  %s → %s (%s)", name, result.Runtime, result.StartCommand))
+		say(fmt.Sprintf("  %s → %s (%s)", name, result.Runtime, result.StartCommand))
 	}
 
 	// If no subdirectory services, check root
@@ -70,7 +89,7 @@ func AutoDetect(dir string) (*Deps, error) {
 					Path: absDir,
 				},
 			}
-			output.PrintInfo(fmt.Sprintf("  . → %s (%s)", rootResult.Runtime, rootResult.StartCommand))
+			say(fmt.Sprintf("  . → %s (%s)", rootResult.Runtime, rootResult.StartCommand))
 		}
 	}
 
@@ -88,7 +107,7 @@ func AutoDetect(dir string) (*Deps, error) {
 			infraEntry.Env = &EnvValue{Files: []string{envFile}}
 		}
 		infra[dep.Name] = InfraEntry{Inline: infraEntry}
-		output.PrintInfo(fmt.Sprintf("  %s → %s (from %s)", dep.Name, dep.Image, dep.Source))
+		say(fmt.Sprintf("  %s → %s (from %s)", dep.Name, dep.Image, dep.Source))
 	}
 
 	// Wire dependsOn from inferred links
@@ -111,9 +130,9 @@ func AutoDetect(dir string) (*Deps, error) {
 		)
 	}
 
-	fmt.Println()
-	output.PrintInfo(fmt.Sprintf("Auto-detected %d services, %d dependencies", len(services), len(infra)))
-	fmt.Println()
+	blank()
+	say(fmt.Sprintf("Auto-detected %d services, %d dependencies", len(services), len(infra)))
+	blank()
 
 	return &Deps{
 		SchemaVersion: "2.0",

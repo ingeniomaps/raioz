@@ -71,7 +71,7 @@ func init() {
 	logging.InitFromEnv()
 
 	// Add global flags
-	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "", "Set log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "", "Set log level (debug, info, warn, error, off)")
 	rootCmd.PersistentFlags().BoolVar(&logJSON, "log-json", false, "Output logs in JSON format")
 	rootCmd.PersistentFlags().StringVar(&langFlag, "lang", "", "Override display language (en, es)")
 
