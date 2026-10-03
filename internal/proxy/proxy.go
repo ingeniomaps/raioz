@@ -204,9 +204,10 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		return fmt.Errorf("failed to generate Caddyfile: %w", err)
 	}
 
-	// Build docker run args. When publish is off we omit the -p flags
-	// entirely — Caddy still listens on 80/443 inside the container, and
-	// callers reach it via the container's network IP.
+	m.ensureDataVolume(ctx)
+
+	// Build docker run args. When publish is off we omit the -p flags:
+	// Caddy still listens on 80/443 inside, reachable by its network IP.
 	args := []string{"run", "-d",
 		"--name", containerName,
 		"--network", networkName,
