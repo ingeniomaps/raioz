@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"raioz/internal/app/upcase"
+	"raioz/internal/config"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
@@ -13,9 +15,12 @@ import (
 )
 
 // restartHostService stops and re-launches a single host service. Used by
-// RestartYAML to handle services declared with `command:` / `commands:`
-// . Workflow:
+// RestartYAML to handle every service that runs on the host — declared
+// `command:` / `commands:` or an auto-detected host runtime. Workflow:
 //
+//  0. Resolve the command to relaunch with — the declared one, or the one
+//     up inferred for an auto-detected runtime. None means nothing is
+//     stopped.
 //  1. Look up the running PID in .raioz.state.json. Run the user's
 //     `stop:` command first when declared (typical for launchers like
 //     `make dev-docker` whose grandchildren can't be killed by PID).
@@ -33,12 +38,28 @@ func (uc *RestartUseCase) restartHostService(
 		return fmt.Errorf("service %q not declared in raioz.yaml", name)
 	}
 
+	// Resolve the relaunch command before touching the running process: a
+	// service that cannot be relaunched must not be stopped first.
+	if svc.Source.Command == "" {
+		svc.Source.Command = detectedHostCommand(svc)
+	}
+	if svc.Source.Command == "" {
+		return fmt.Errorf("no command to relaunch %q: declare `command:` in raioz.yaml", name)
+	}
+
 	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
 	localState, _ := state.LoadLocalState(projectDir)
 	pid := 0
 	if localState != nil {
 		pid = localState.HostPIDs[name]
 	}
+
+	// The service comes back on the env up gave it: without the recompute
+	// it would lose PORT and every discovery var. Worked out before the
+	// stop, while the process can still tell which port it holds.
+	startCtx := host.WithExtraEnv(ctx, upcase.ComputedServiceEnv(
+		ctx, uc.deps.DiscoveryManager, containerLookup(), proj.Deps, projectDir, name,
+	))
 
 	// Stop step.
 	stopCommand := ""
@@ -68,7 +89,7 @@ func (uc *RestartUseCase) restartHostService(
 	// Start step.
 	ws := &interfaces.Workspace{Root: projectDir}
 	processInfo, err := uc.deps.HostRunner.StartService(
-		ctx, ws, proj.Deps, name, svc, projectDir,
+		startCtx, ws, proj.Deps, name, svc, projectDir,
 	)
 	if err != nil {
 		return fmt.Errorf("relaunch failed: %w", err)
@@ -97,4 +118,19 @@ func (uc *RestartUseCase) restartHostService(
 			"service", name, "error", err.Error())
 	}
 	return nil
+}
+
+// detectedHostCommand returns the command up launched for a host service
+// that declares none: the same ResolveServiceDetection up runs, preferring
+// the dev command over the start one as orchestrate.HostRunner does. Empty
+// when detection does not place the service on the host.
+func detectedHostCommand(svc models.Service) string {
+	det := config.ResolveServiceDetection(svc, svc.Source.Path)
+	if !det.IsHost() {
+		return ""
+	}
+	if det.DevCommand != "" {
+		return det.DevCommand
+	}
+	return det.StartCommand
 }

@@ -38,6 +38,12 @@ func resolveEnvVars(
 		envVars = append(envVars, lines...)
 	}
 
+	// Later entries win in the child's env, so the computed vars go after
+	// the file — the order up applies.
+	for k, v := range ExtraEnv(ctx) {
+		envVars = append(envVars, k+"="+v)
+	}
+
 	return envVars, nil
 }
 

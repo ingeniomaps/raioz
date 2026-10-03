@@ -238,9 +238,15 @@ func collectYAMLDepNames(proj *YAMLProject) []string {
 }
 
 // isYAMLHostService reports whether the named entry in a YAML project runs
-// as a host process — i.e. has a `command:` or `commands:` block, no Docker.
-// Used to pick the right restart path. Returns false for unknown names so
-// the docker fallback can produce its own (admittedly ugly) error.
+// as a host process. Used to pick the right restart path. Returns false for
+// unknown names so the docker fallback can produce its own (admittedly
+// ugly) error.
+//
+// A declared `command:` / `commands:` is not the only signal: a host
+// runtime auto-detected from the directory (`runtime: npm`, a bare
+// package.json) declares no command, yet `up` launched it on the host.
+// Classify it with the same ResolveServiceDetection that up and status
+// use, so the three commands agree on where the service runs.
 func isYAMLHostService(proj *YAMLProject, name string) bool {
 	svc, ok := proj.Deps.Services[name]
 	if !ok {
@@ -249,7 +255,11 @@ func isYAMLHostService(proj *YAMLProject, name string) bool {
 	if svc.Docker != nil {
 		return false
 	}
-	return svc.Source.Command != "" || svc.Commands != nil
+	if svc.Source.Command != "" || svc.Commands != nil {
+		return true
+	}
+	det := config.ResolveServiceDetection(svc, svc.Source.Path)
+	return det.IsHost()
 }
 
 // ExecYAML runs a command in a container of a YAML orchestrated project.
