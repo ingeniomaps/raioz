@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -135,5 +136,28 @@ func TestServiceVerdict_DockerServiceEndpointOnContainerAddress(t *testing.T) {
 	}
 	if v.detail != "http://10.213.0.8:3000/health" {
 		t.Errorf("detail = %q, want the address that answered", v.detail)
+	}
+}
+
+// --json prints the same facts as the table, as JSON and nothing else.
+func TestStatusJSON(t *testing.T) {
+	initI18nForTest(t)
+	proj := dockerServiceProject(t)
+
+	out := captureStdout(t, func() {
+		if err := NewStatusUseCase(&Dependencies{}).statusJSON(context.Background(), proj, nil); err != nil {
+			t.Fatalf("statusJSON: %v", err)
+		}
+	})
+
+	var report statusReport
+	if err := json.Unmarshal([]byte(out), &report); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out)
+	}
+	if report.Project != "rzb1" || len(report.Services) != 1 {
+		t.Fatalf("report = %+v", report)
+	}
+	if svc := report.Services[0]; svc.Name != "site" || svc.Runtime != "compose" || svc.Status != statusRunning {
+		t.Errorf("service = %+v, want site/compose/running", svc)
 	}
 }

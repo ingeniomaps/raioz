@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
@@ -20,116 +19,17 @@ import (
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
-	"raioz/internal/state"
 )
 
 // StatusYAML shows status for a YAML orchestrated project. When `filter` is
 // non-empty, only services / dependencies in that list are reported and any
 // unknown name returns an error so the user notices the typo.
 func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filter []string) error {
-	if err := validateStatusFilter(proj, filter); err != nil {
+	report, err := uc.collectStatus(ctx, proj, filter)
+	if err != nil {
 		return err
 	}
-	want := filterSet(filter)
-
-	fmt.Println()
-	output.PrintSectionHeader(proj.ProjectName)
-
-	// Dependencies
-	visibleInfra := countMatching(proj.Deps.Infra, want)
-	if visibleInfra > 0 {
-		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", visibleInfra))
-		for name, entry := range proj.Deps.Infra {
-			if !inFilter(want, name) {
-				continue
-			}
-			status := formatContainerStatus(proj.ContainerState(ctx, name))
-			cpu, mem := proj.ContainerStats(ctx, name)
-			image := ""
-			if entry.Inline != nil {
-				image = entry.Inline.Image
-				if entry.Inline.Tag != "" {
-					image += ":" + entry.Inline.Tag
-				}
-			}
-			fmt.Printf("    %-18s %-10s %-8s %-10s %s\n", name, status, cpu, mem, image)
-		}
-	}
-
-	// Services
-	visibleSvc := countMatchingSvc(proj.Deps.Services, want)
-	if visibleSvc > 0 {
-		output.PrintSubsection(fmt.Sprintf("Services (%d)", visibleSvc))
-
-		projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
-		localState, _ := state.LoadLocalState(projectDir)
-
-		for name, svc := range proj.Deps.Services {
-			if !inFilter(want, name) {
-				continue
-			}
-			// Honor yaml overrides (command:, compose:) before scanning disk.
-			result := config.ResolveServiceDetection(svc, svc.Source.Path)
-			runtime := string(result.Runtime)
-			if runtime == "" {
-				runtime = "unknown"
-			}
-
-			// Priority 0: when the user declared `proxy.target`, THAT
-			// container is the source of truth — bypass the PID/compose
-			// heuristics that go false-negative for launchers that exit
-			// 0 after `docker run -d`.
-			status := statusStopped
-			pidInfo := ""
-			if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
-				if st, ok := dockerStateProbe(ctx, svc.ProxyOverride.Target); ok {
-					// Verbatim, restart count included. Collapsing every
-					// non-running state into "stopped" hid `restarting`,
-					// and reporting the status alone hid the crash loop
-					// that spends most of its cycle in `running`.
-					status = formatContainerStatus(st)
-					goto print
-				}
-			}
-
-			// A compose / Dockerfile service is a container: Docker is the
-			// source of truth, and there is no PID to look at.
-			if result.IsDocker() {
-				status = formatContainerStatus(proj.ContainerState(ctx, name))
-				goto print
-			}
-
-			// Fallback: process alive via saved PID. A live PID is not
-			// the same as a live service — see hostServiceStatus.
-			if localState != nil {
-				if pid, ok := localState.HostPIDs[name]; ok && pid > 0 {
-					if isHostProcessAlive(pid) {
-						status = hostServiceStatus(ctx, svc.Port)
-						pidInfo = fmt.Sprintf("pid:%d", pid)
-					}
-				}
-			}
-		print:
-
-			// Check if it has a dev override
-			devLabel := ""
-			if localState != nil && localState.IsDevOverridden(name) {
-				devLabel = " (dev)"
-			}
-
-			fmt.Printf("    %-18s %-10s %-10s %-10s%s\n", name, runtime, status, pidInfo, devLabel)
-		}
-	}
-
-	// Proxy
-	if proj.Deps.Proxy && uc.deps.ProxyManager != nil {
-		running, _ := uc.deps.ProxyManager.Status(ctx)
-		if running {
-			output.PrintInfo(i18n.T("output.proxy_running"))
-		}
-	}
-
-	fmt.Println()
+	printStatusReport(report)
 	return nil
 }
 

@@ -53,5 +53,8 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 			i18n.T("error.no_project_suggestion"),
 		)
 	}
+	if opts.JSON {
+		return uc.statusJSON(ctx, proj, opts.Services)
+	}
 	return uc.StatusYAML(ctx, proj, opts.Services)
 }
