@@ -297,6 +297,9 @@ func TestDockerRunnerImpl_EnsureNetworkWithConfigAndContext(t *testing.T) {
 		t.Skip("docker not available")
 	}
 	r := NewDockerRunner()
+	// The call creates a real network on the developer's daemon: take it
+	// away again, or every test run leaves one behind.
+	t.Cleanup(func() { _ = exec.Command("docker", "network", "rm", "raioz-test-net").Run() })
 	_ = r.EnsureNetworkWithConfigAndContext(context.Background(), "raioz-test-net", "", nil, false)
 }
 
@@ -305,6 +308,8 @@ func TestDockerRunnerImpl_EnsureVolumeWithContext(t *testing.T) {
 		t.Skip("docker not available")
 	}
 	r := NewDockerRunner()
+	// Same as the network above: the volume is real.
+	t.Cleanup(func() { _ = exec.Command("docker", "volume", "rm", "raioz-test-vol").Run() })
 	_ = r.EnsureVolumeWithContext(context.Background(), "raioz-test-vol")
 }
 
