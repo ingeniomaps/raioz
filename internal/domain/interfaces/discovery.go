@@ -18,6 +18,12 @@ type ServiceEndpoint struct {
 	// only reachable from inside the Docker network.
 	HostPort int
 
+	// ContainerOnly marks a Port that exists only inside the Docker
+	// network: a dependency with no host binding. A caller in a container
+	// gets <NAME>_PORT / <NAME>_URL from it; a caller on the host gets
+	// neither, because localhost:<Port> is not this endpoint.
+	ContainerOnly bool
+
 	// Scheme is the URL scheme a caller uses to build <DEP>_URL (e.g.
 	// "redis", "postgresql", "http"). Empty is treated as "http". Set
 	// from the dependency image so non-HTTP datastores get a scheme their

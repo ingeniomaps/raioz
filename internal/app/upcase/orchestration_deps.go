@@ -1,6 +1,7 @@
 package upcase
 
 import (
+	"context"
 	"fmt"
 
 	"raioz/internal/domain/interfaces"
@@ -75,5 +76,38 @@ func applyInlineDepEndpoint(
 	if len(entry.Inline.Ports) > 0 && entry.Inline.Publish == nil && !allocated {
 		ep.Port = parseFirstPort(entry.Inline.Ports[0])
 		ep.HostPort = ep.Port
+	}
+}
+
+// applyInternalDepPort gives a dependency with no host binding the port it
+// listens on inside the Docker network, so a caller in a container gets
+// <DEP>_PORT and <DEP>_URL and not only <DEP>_HOST. The port is the
+// declared `expose:`, else what the image itself exposes; it is marked
+// ContainerOnly so host callers are not handed a localhost address that
+// reaches nothing.
+func applyInternalDepPort(
+	ctx context.Context, ep *interfaces.ServiceEndpoint, name string, deps *models.Deps,
+) {
+	entry, ok := deps.Infra[name]
+	if !ok || entry.Inline == nil || ep.Port > 0 || ep.HostPort > 0 {
+		return
+	}
+	inline := entry.Inline
+	port := 0
+	switch {
+	case len(inline.Expose) > 0:
+		port = inline.Expose[0]
+	case inline.Image != "":
+		image := inline.Image
+		if inline.Tag != "" {
+			image += ":" + inline.Tag
+		}
+		if p, err := imageExposedPortFn(ctx, image); err == nil {
+			port = p
+		}
+	}
+	if port > 0 {
+		ep.Port = port
+		ep.ContainerOnly = true
 	}
 }

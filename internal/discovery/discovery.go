@@ -71,6 +71,9 @@ func (m *Manager) GenerateEnvVars(
 		if !isServiceDocker && targetIsDocker && ep.HostPort > 0 {
 			port = ep.HostPort
 		}
+		if !isServiceDocker && ep.ContainerOnly {
+			port = 0
+		}
 
 		scheme := ep.Scheme
 		if scheme == "" {
