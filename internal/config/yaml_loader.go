@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"raioz/internal/i18n"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -268,9 +270,7 @@ func unknownFieldWarnings(path string, data []byte) []string {
 	base := filepath.Base(path)
 	warnings := make([]string, 0, len(typeErr.Errors))
 	for _, msg := range typeErr.Errors {
-		warnings = append(warnings, fmt.Sprintf(
-			"%s: %s — field ignored. Check for typos or fields from a newer raioz version.",
-			base, msg))
+		warnings = append(warnings, i18n.T("warning.unknown_field", base, msg))
 	}
 	return warnings
 }

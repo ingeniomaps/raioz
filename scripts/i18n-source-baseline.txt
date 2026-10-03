@@ -12,7 +12,7 @@
 # Run `make check-i18n-source` to verify. To regenerate the live
 # numbers (only after migrating a file completely):
 #
-#   grep -rEn 'output\.Print[A-Z][a-zA-Z]*\("[A-Z]' internal \
+#   grep -rEn 'output\.Print[A-Z][a-zA-Z]*\((fmt\.Sprintf\()?"[A-Za-z]' internal \
 #       --include="*.go" | grep -v _test.go | cut -d: -f1 \
 #       | sort | uniq -c | sort -rn
 #

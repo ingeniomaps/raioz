@@ -58,8 +58,7 @@ func auditSiblingYAMLs(deps *models.Deps) error {
 	if len(scanned) == 0 {
 		output.PrintInfo(i18n.T("up.audit_siblings_none"))
 	} else {
-		output.PrintInfo(fmt.Sprintf(
-			"audit-siblings: scanned %d yaml(s) — %v", len(scanned), scanned))
+		output.PrintInfo(i18n.T("up.audit_siblings_scanned", len(scanned), scanned))
 	}
 	return nil
 }

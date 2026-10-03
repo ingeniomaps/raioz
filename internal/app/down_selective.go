@@ -173,10 +173,7 @@ func stopSelectiveDep(
 	// Mode B deferred: image+siblingProject and last `up` deferred
 	// because the sibling was active. The local image was never started.
 	if localState != nil && localState.IsDeferred(name) {
-		output.PrintInfo(fmt.Sprintf(
-			"%s: deferred to sibling at up time — nothing to tear down here",
-			name,
-		))
+		output.PrintInfo(i18n.T("down.selective_deferred", name))
 		return
 	}
 
@@ -194,9 +191,7 @@ func stopSelectiveDep(
 				"dep", name, "error", err.Error())
 		}
 		if len(remaining) > 0 {
-			output.PrintInfo(fmt.Sprintf(
-				"%s: shared with sibling projects, leaving it up", name,
-			))
+			output.PrintInfo(i18n.T("down.selective_shared_kept", name))
 			return
 		}
 	}

@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"strings"
 
 	"raioz/internal/app/upcase"
 	"raioz/internal/config"
@@ -20,9 +19,13 @@ func CheckYAML(proj *YAMLProject) error {
 	// What the loader noticed is shown. An ignored field also fails the
 	// check — it is a typo the user asked check to find; the rest
 	// (unpinned image, legacy `ports:`) is advice.
+	unknown := make(map[string]bool)
+	for _, w := range config.UnknownFields(proj.ConfigPath) {
+		unknown[w] = true
+	}
 	for _, warning := range proj.Warnings {
 		output.PrintWarning(warning)
-		if strings.Contains(warning, "field ignored") {
+		if unknown[warning] {
 			issues++
 		}
 	}

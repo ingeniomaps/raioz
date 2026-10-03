@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"raioz/internal/i18n"
 )
 
 // YAMLToDeps converts a RaiozConfig (from raioz.yaml) to the existing Deps structure.
@@ -313,12 +315,7 @@ func yamlDeprecationWarnings(cfg *RaiozConfig) []string {
 			continue
 		}
 		warnings = append(warnings,
-			fmt.Sprintf(
-				"dependency '%s' uses legacy `ports:`; consider migrating to "+
-					"`publish:` (host-side opt-in) and `expose:` (container-side "+
-					"declaration) for clearer semantics",
-				name,
-			),
+			i18n.T("warning.legacy_ports", name),
 		)
 	}
 	return warnings

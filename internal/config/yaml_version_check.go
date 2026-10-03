@@ -1,9 +1,10 @@
 package config
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
+
+	"raioz/internal/i18n"
 )
 
 // schemaVersionWarnings returns advisory warnings about the schema
@@ -21,39 +22,20 @@ func schemaVersionWarnings(cfg *RaiozConfig) []string {
 		return nil
 	}
 	if cfg.Version == "" {
-		return []string{
-			"no 'version:' field declared in raioz.yaml; add `version: \"" +
-				CurrentSchemaVersion + "\"` to lock the schema your config " +
-				"targets — see docs/CONFIG_REFERENCE.md#versioning",
-		}
+		return []string{i18n.T("warning.version_missing", CurrentSchemaVersion)}
 	}
 	cmp, ok := compareSchemaVersion(cfg.Version, CurrentSchemaVersion)
 	if !ok {
-		return []string{fmt.Sprintf(
-			"raioz.yaml declares version: %q which is not a recognized "+
-				"schema number (expected an integer like %q). This binary "+
-				"will load the config as if version: %q — see "+
-				"docs/CONFIG_REFERENCE.md#versioning",
-			cfg.Version, CurrentSchemaVersion, CurrentSchemaVersion,
-		)}
+		return []string{i18n.T("warning.version_malformed",
+			cfg.Version, CurrentSchemaVersion, CurrentSchemaVersion)}
 	}
 	switch {
 	case cmp == 0:
 		return nil
 	case cmp > 0:
-		return []string{fmt.Sprintf(
-			"raioz.yaml declares version: %q but this binary supports "+
-				"version: %q. Fields introduced in newer schema versions "+
-				"will be ignored. Update raioz to a newer release.",
-			cfg.Version, CurrentSchemaVersion,
-		)}
+		return []string{i18n.T("warning.version_newer", cfg.Version, CurrentSchemaVersion)}
 	default:
-		return []string{fmt.Sprintf(
-			"raioz.yaml declares version: %q but this binary expects "+
-				"version: %q. Field semantics may have changed across the "+
-				"bump. Run `raioz migrate yaml` to update the file.",
-			cfg.Version, CurrentSchemaVersion,
-		)}
+		return []string{i18n.T("warning.version_older", cfg.Version, CurrentSchemaVersion)}
 	}
 }
 

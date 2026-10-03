@@ -3,7 +3,6 @@ package production
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"raioz/internal/domain/models"
 )
@@ -262,98 +261,4 @@ func compareInfra(local *models.Deps, prod *ProductionConfig, result *Comparison
 			}
 		}
 	}
-}
-
-// FormatComparisonResult formats a comparison result as a readable string
-func FormatComparisonResult(result *ComparisonResult) string {
-	var sb strings.Builder
-
-	if len(result.Errors) > 0 {
-		sb.WriteString("\n❌ Errors:\n")
-		for _, err := range result.Errors {
-			fmt.Fprintf(&sb, "  • %s\n", err)
-		}
-	}
-
-	if len(result.ServiceDifferences) > 0 {
-		sb.WriteString("\n📊 Service Differences:\n")
-		for _, diff := range result.ServiceDifferences {
-			fmt.Fprintf(&sb, "\n  Service: %s\n", diff.ServiceName)
-
-			if diff.InLocalOnly {
-				sb.WriteString("    ⚠️  Only in local configuration\n")
-			}
-			if diff.InProductionOnly {
-				sb.WriteString("    ℹ️  Only in production configuration\n")
-			}
-
-			if diff.ImageMismatch != nil {
-				sb.WriteString("    Image mismatch:\n")
-				fmt.Fprintf(&sb, "      Local:      %s\n", diff.ImageMismatch.Local)
-				fmt.Fprintf(&sb, "      Production: %s\n", diff.ImageMismatch.Production)
-				if diff.ImageMismatch.LocalTag != diff.ImageMismatch.ProdTag {
-					fmt.Fprintf(&sb, "      Tag mismatch: %s vs %s\n",
-						diff.ImageMismatch.LocalTag, diff.ImageMismatch.ProdTag)
-				}
-			}
-
-			if diff.PortMismatch != nil {
-				sb.WriteString("    Port mismatch:\n")
-				fmt.Fprintf(&sb, "      Local:      %v\n", diff.PortMismatch.Local)
-				fmt.Fprintf(&sb, "      Production: %v\n", diff.PortMismatch.Production)
-			}
-
-			if diff.DependsMismatch != nil {
-				sb.WriteString("    ⚠️  Dependencies mismatch:\n")
-				fmt.Fprintf(&sb, "      Local:      %v\n", diff.DependsMismatch.Local)
-				fmt.Fprintf(&sb, "      Production: %v\n", diff.DependsMismatch.Production)
-			}
-
-			if diff.VolumeMismatch != nil {
-				sb.WriteString("    Volumes mismatch:\n")
-				fmt.Fprintf(&sb, "      Local:      %v\n", diff.VolumeMismatch.Local)
-				fmt.Fprintf(&sb, "      Production: %v\n", diff.VolumeMismatch.Production)
-			}
-		}
-	}
-
-	if len(result.InfraDifferences) > 0 {
-		sb.WriteString("\n🏗️  Infrastructure Differences:\n")
-		for _, diff := range result.InfraDifferences {
-			fmt.Fprintf(&sb, "\n  Infrastructure: %s\n", diff.InfraName)
-
-			if diff.InLocalOnly {
-				sb.WriteString("    ⚠️  Only in local configuration\n")
-			}
-			if diff.InProductionOnly {
-				sb.WriteString("    ℹ️  Only in production configuration\n")
-			}
-
-			if diff.ImageMismatch != nil {
-				sb.WriteString("    Image mismatch:\n")
-				fmt.Fprintf(&sb, "      Local:      %s\n", diff.ImageMismatch.Local)
-				fmt.Fprintf(&sb, "      Production: %s\n", diff.ImageMismatch.Production)
-			}
-
-			if diff.PortMismatch != nil {
-				sb.WriteString("    Port mismatch:\n")
-				fmt.Fprintf(&sb, "      Local:      %v\n", diff.PortMismatch.Local)
-				fmt.Fprintf(&sb, "      Production: %v\n", diff.PortMismatch.Production)
-			}
-		}
-	}
-
-	if len(result.Warnings) > 0 {
-		sb.WriteString("\n⚠️  Warnings:\n")
-		for _, warning := range result.Warnings {
-			fmt.Fprintf(&sb, "  • %s\n", warning)
-		}
-	}
-
-	if len(result.ServiceDifferences) == 0 && len(result.InfraDifferences) == 0 &&
-		len(result.Errors) == 0 && len(result.Warnings) == 0 {
-		sb.WriteString("\n✅ No differences found. Local configuration matches production.\n")
-	}
-
-	return sb.String()
 }

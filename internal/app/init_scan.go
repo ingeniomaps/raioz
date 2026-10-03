@@ -154,10 +154,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 		return fmt.Errorf("failed to write %s: %w", outPath, err)
 	}
 
-	output.PrintSuccess(fmt.Sprintf(
-		"Generated %s with %d services and %d dependencies",
-		outPath, len(cfg.Services), len(cfg.Deps),
-	))
+	output.PrintSuccess(i18n.T("init.generated", outPath, len(cfg.Services), len(cfg.Deps)))
 	return nil
 }
 
