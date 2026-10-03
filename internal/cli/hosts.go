@@ -99,6 +99,10 @@ func resolveProxyIPForHosts(deps *models.Deps) (string, error) {
 	if ip := netutil.DefaultProxyIP(deps.Network.GetSubnet()); ip != "" {
 		return ip, nil
 	}
+	// A proxy that publishes its ports is reached on the host itself.
+	if deps.ProxyConfig == nil || deps.ProxyConfig.Publish == nil || *deps.ProxyConfig.Publish {
+		return "127.0.0.1", nil
+	}
 	return "", fmt.Errorf("%s", i18n.T("error.hosts_no_proxy_ip"))
 }
 
