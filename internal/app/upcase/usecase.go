@@ -284,7 +284,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		case opts.Watch:
 			// File-watch services with `watch: true` and auto-restart.
 			startWatcher(ctx, deps, orchResult.dispatcher, orchResult.detections,
-				orchResult.networkName, projectDir)
+				orchResult.networkName, projectDir, uc.serviceEnvFor(ctx, deps, projectDir))
 		}
 	}
 

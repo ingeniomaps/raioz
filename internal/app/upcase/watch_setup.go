@@ -38,6 +38,7 @@ func startWatcher(
 	detections DetectionMap,
 	networkName string,
 	projectDir string,
+	envFor func(serviceName string) map[string]string,
 ) {
 	servicePaths := make(map[string]string)
 	nativeWatch := make(map[string]bool)
@@ -73,7 +74,7 @@ func startWatcher(
 		return
 	}
 
-	onRestart := buildRestartCallback(ctx, deps, dispatcher, detections, networkName, projectDir)
+	onRestart := buildRestartCallback(ctx, deps, dispatcher, detections, networkName, projectDir, envFor)
 
 	w, err := watch.New(watch.Config{
 		ServicePaths: servicePaths,
@@ -190,6 +191,7 @@ func buildRestartCallback(
 	detections DetectionMap,
 	networkName string,
 	projectDir string,
+	envFor func(serviceName string) map[string]string,
 ) watch.RestartFunc {
 	return func(serviceName string) {
 		logging.Info("File change detected, restarting", "service", serviceName)
@@ -207,9 +209,18 @@ func buildRestartCallback(
 		// the host process rebinds the same port on every reload. Without
 		// this, a service that moved from 3000→3001 would regress to 3000
 		// on the next file-change restart and clash with whoever took 3000.
-		var restartEnv map[string]string
+		//
+		// The rest of the env is recomputed: a reload that dropped the
+		// discovery vars would bring the service back unable to reach
+		// its dependencies.
+		restartEnv := map[string]string{}
+		if envFor != nil {
+			for k, v := range envFor(serviceName) {
+				restartEnv[k] = v
+			}
+		}
 		if !det.IsDocker() && det.Port > 0 {
-			restartEnv = map[string]string{"PORT": strconv.Itoa(det.Port)}
+			restartEnv["PORT"] = strconv.Itoa(det.Port)
 		}
 
 		svcCtx := buildServiceContext(
@@ -227,6 +238,7 @@ func buildRestartCallback(
 		if svc.ProxyOverride != nil {
 			svcCtx.ProxyTarget = svc.ProxyOverride.Target
 		}
+		applyServiceEnv(&svcCtx, svc.Env, projectDir)
 
 		if err := dispatcher.Restart(ctx, svcCtx); err != nil {
 			output.PrintWarning(fmt.Sprintf("[watch] failed: %s: %s", serviceName, err))

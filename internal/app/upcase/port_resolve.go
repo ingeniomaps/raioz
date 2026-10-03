@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -12,8 +13,10 @@ import (
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
+	"raioz/internal/state"
 )
 
 // publishedHostPortFn reads a container's live published host port. Declared
@@ -37,6 +40,61 @@ func isOwnContainer(occ docker.PortOccupant, deps *models.Deps, activeWorkspace 
 	}
 	return occ.Workspace != "" && occ.Workspace == activeWorkspace &&
 		isDeclaredDep(deps, occ.Service)
+}
+
+// ownHostServicePIDFn is a package var so tests can stand in for the
+// state file and /proc.
+var ownHostServicePIDFn = ownHostServicePID
+
+// ownHostServicePID returns the PID recorded for the service in conflict
+// when that process is the one holding the port, 0 otherwise. The up flow
+// leaves host processes of a just-upped project alone (see
+// cleanStaleHostProcesses); without this the bind check would then report
+// the project's own service as a foreign occupant.
+//
+// Where the port owner cannot be read (non-Linux) a live recorded PID is
+// taken as enough: the alternative is refusing every repeated up there.
+func ownHostServicePID(c PortBindConflict, configPath string) int {
+	if c.Kind != "service" || configPath == "" {
+		return 0
+	}
+	projectDir, err := filepath.Abs(filepath.Dir(configPath))
+	if err != nil {
+		return 0
+	}
+	localState, err := state.LoadLocalState(projectDir)
+	if err != nil || localState == nil {
+		return 0
+	}
+	pid := localState.HostPIDs[c.Name]
+	if pid <= 0 || !host.IsProcessAlive(pid) {
+		return 0
+	}
+	if held, known := host.ProcessGroupListensOn(pid, c.Port); known && !held {
+		return 0
+	}
+	return pid
+}
+
+// runningHostPorts builds the hostPortOwner for a project: the ports each
+// recorded host service is listening on right now. Nil when there is no
+// state to read, which leaves the allocator on its plain bump-upward path.
+func runningHostPorts(projectDir string) hostPortOwner {
+	if projectDir == "" {
+		return nil
+	}
+	localState, err := state.LoadLocalState(projectDir)
+	if err != nil || localState == nil || len(localState.HostPIDs) == 0 {
+		return nil
+	}
+	return func(service string) []int {
+		pid := localState.HostPIDs[service]
+		if pid <= 0 || !host.IsProcessAlive(pid) {
+			return nil
+		}
+		ports, _ := host.GroupListeningPorts(pid)
+		return ports
+	}
 }
 
 // isDeclaredDep reports whether name matches a dependency declared by this
@@ -76,6 +134,16 @@ func resolvePortBindConflicts(
 		// same-project leftover or a workspace-shared dep we declare — it
 		// will be reused when the run proceeds, so it is not a conflict.
 		if isOwnContainer(occ, deps, activeWorkspace) {
+			continue
+		}
+
+		// Same reasoning for a host service an earlier up of this project
+		// left running: the port is busy because the service is up.
+		if pid := ownHostServicePIDFn(c, configPath); pid > 0 {
+			if result.RunningHost == nil {
+				result.RunningHost = make(map[string]int)
+			}
+			result.RunningHost[c.Name] = pid
 			continue
 		}
 

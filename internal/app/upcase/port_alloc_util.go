@@ -42,6 +42,25 @@ func findFreePort(wanted int, taken map[int]string, owner string) (int, error) {
 	}
 }
 
+// heldPort returns the port a running service already serves on: the
+// lowest one at or above wanted that nothing else in this run claimed —
+// which is what the bump-upward search gave it when it started. 0 when the
+// service is not running or holds no such port.
+func heldPort(owned hostPortOwner, name string, wanted int, taken map[int]string) int {
+	if owned == nil {
+		return 0
+	}
+	for _, port := range owned(name) {
+		if port < wanted {
+			continue
+		}
+		if _, clash := taken[port]; !clash {
+			return port
+		}
+	}
+	return 0
+}
+
 // sortedKeys returns the keys of a map[string]T sorted alphabetically.
 // Small helper so the allocator's determinism story stays obvious.
 func sortedKeys[T any](m map[string]T) []string {

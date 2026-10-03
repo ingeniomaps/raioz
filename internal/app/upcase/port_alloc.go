@@ -80,6 +80,10 @@ type DepPortMapping struct {
 type PortAllocResult struct {
 	Services map[string]PortAllocation
 	Deps     map[string]DepPortAllocation
+	// RunningHost maps a host service to the PID already serving its port:
+	// an earlier up of this project started it and it is still healthy, so
+	// this run adopts it instead of starting a second copy.
+	RunningHost map[string]int
 }
 
 // AllocateHostPorts walks services AND dependencies, classifies them, resolves
@@ -108,6 +112,22 @@ func AllocateHostPorts(
 	deps *models.Deps,
 	detections DetectionMap,
 ) (*PortAllocResult, error) {
+	return AllocateHostPortsOwned(deps, detections, nil)
+}
+
+// hostPortOwner returns the ports a service's already-running process
+// listens on, sorted ascending; nil when it is not running.
+type hostPortOwner func(service string) []int
+
+// AllocateHostPortsOwned is AllocateHostPorts for a project that may
+// already be up. A service that holds a port keeps it: without `owned` the
+// implicit pass would find that port busy, bump to the next free one and
+// have the caller start a second copy of the service there.
+func AllocateHostPortsOwned(
+	deps *models.Deps,
+	detections DetectionMap,
+	owned hostPortOwner,
+) (*PortAllocResult, error) {
 	result := &PortAllocResult{
 		Services: map[string]PortAllocation{},
 		Deps:     map[string]DepPortAllocation{},
@@ -126,7 +146,7 @@ func AllocateHostPorts(
 	if err := allocExplicitDeps(deps, depNames, taken, result); err != nil {
 		return nil, err
 	}
-	if err := allocImplicitServices(deps, detections, svcNames, taken, result); err != nil {
+	if err := allocImplicitServices(deps, detections, svcNames, taken, result, owned); err != nil {
 		return nil, err
 	}
 	if err := allocAutoDeps(deps, depNames, taken, result); err != nil {
@@ -220,6 +240,7 @@ func allocImplicitServices(
 	svcNames []string,
 	taken map[int]string,
 	result *PortAllocResult,
+	owned hostPortOwner,
 ) error {
 	for _, name := range svcNames {
 		if _, done := result.Services[name]; done {
@@ -235,9 +256,12 @@ func allocImplicitServices(
 			continue
 		}
 		owner := fmt.Sprintf("service '%s'", name)
-		final, err := findFreePort(wanted, taken, owner)
-		if err != nil {
-			return err
+		final := heldPort(owned, name, wanted, taken)
+		if final == 0 {
+			var err error
+			if final, err = findFreePort(wanted, taken, owner); err != nil {
+				return err
+			}
 		}
 		taken[final] = owner
 		result.Services[name] = PortAllocation{

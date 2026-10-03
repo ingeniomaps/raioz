@@ -87,6 +87,13 @@ func (d *Dispatcher) GetHostPID(serviceName string) int {
 	return d.host.GetPID(serviceName)
 }
 
+// AdoptHostPID hands the dispatcher a host service that is already
+// running, so Stop/Restart and the PID bookkeeping treat it as their own
+// instead of starting a second copy next to it.
+func (d *Dispatcher) AdoptHostPID(serviceName string, pid int) {
+	d.host.SetPID(serviceName, pid)
+}
+
 // selectRunner resolves the runner for a runtime via the package-init
 // registry (ADR-019). Each runner-file registers in its
 // init(); the registry is exhaustive-checked by

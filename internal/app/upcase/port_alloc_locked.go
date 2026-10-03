@@ -2,6 +2,7 @@ package upcase
 
 import (
 	"context"
+	"path/filepath"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
@@ -25,7 +26,7 @@ func allocatePortsLocked(
 	}
 	defer release()
 
-	portAllocs, err := AllocateHostPorts(deps, detections)
+	portAllocs, err := AllocateHostPortsOwned(deps, detections, runningHostPorts(projectDirOf(configPath)))
 	if err != nil {
 		return nil, err
 	}
@@ -85,4 +86,16 @@ func reuseSharedDepHostPorts(ctx context.Context, deps *models.Deps, result *Por
 			result.Deps[name] = alloc
 		}
 	}
+}
+
+// projectDirOf returns the directory holding the config, "" when unknown.
+func projectDirOf(configPath string) string {
+	if configPath == "" {
+		return ""
+	}
+	dir, err := filepath.Abs(filepath.Dir(configPath))
+	if err != nil {
+		return ""
+	}
+	return dir
 }

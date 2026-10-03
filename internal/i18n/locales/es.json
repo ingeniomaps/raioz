@@ -353,6 +353,7 @@
   "up.waiting_infra_healthy": "Esperando que la infraestructura esté saludable...",
   "up.infra_healthy": "La infraestructura está saludable y lista",
   "up.host_env_file_skipped": "%s: no se pudo cargar el archivo env %s, se omite",
+  "up.service_already_running": "%s (%s) ya estaba corriendo, se deja como está",
   "up.starting_services": "Iniciando servicios de aplicación (%d)...",
   "up.services_started": "Servicios de aplicación iniciados (%d)",
   "up.verifying_images": "Verificando y descargando imágenes Docker",

@@ -50,23 +50,7 @@ func (uc *UseCase) processOrchestration(
 		return nil, err
 	}
 
-	for name, alloc := range portAllocs.Services {
-		det := detections[name]
-		det.Port = alloc.Port
-		detections[name] = det
-	}
-	// For published deps, write the *first* host mapping into detection.Port
-	// so the proxy/discovery path can reach the dependency from the host.
-	// Container→container traffic still uses the DNS name + container port,
-	// handled by the discovery package.
-	for name, alloc := range portAllocs.Deps {
-		if len(alloc.Mappings) == 0 {
-			continue
-		}
-		det := detections[name]
-		det.Port = alloc.Mappings[0].HostPort
-		detections[name] = det
-	}
+	applyPortAllocs(detections, portAllocs)
 
 	// Create dispatcher
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)
@@ -324,6 +308,16 @@ func buildEndpoints(
 	}
 
 	return endpoints
+}
+
+// serviceEnvFor returns the per-service env recompute the file watcher
+// uses on every reload.
+func (uc *UseCase) serviceEnvFor(
+	ctx context.Context, deps *models.Deps, projectDir string,
+) func(string) map[string]string {
+	return func(name string) map[string]string {
+		return ComputedServiceEnv(ctx, uc.deps.DiscoveryManager, docker.NewLookup(), deps, projectDir, name)
+	}
 }
 
 // orderedServiceNames is defined in orchestration_order.go (topological sort
