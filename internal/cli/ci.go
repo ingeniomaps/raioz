@@ -22,8 +22,8 @@ var (
 
 var ciCmd = &cobra.Command{
 	Use:   "ci",
-	Short: "CI-optimized command for continuous integration",
-	Long:  "Optimized command for CI/CD pipelines with fast validations and JSON output.",
+	Short: "Validate the project and pull its images, with JSON output",
+	Long:  "Validate raioz.yaml and pull the dependency images. Starts nothing; prints a JSON report.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath := ResolveConfigPath(configPath)
 
@@ -32,13 +32,8 @@ var ciCmd = &cobra.Command{
 
 		result, err := ciUseCase.Execute(app.CIOptions{
 			ConfigPath:   configPath,
-			Keep:         ciKeep,
-			Ephemeral:    ciEphemeral,
-			JobID:        ciJobID,
-			SkipBuild:    ciSkipBuild,
 			SkipPull:     ciSkipPull,
 			OnlyValidate: ciOnlyValidate,
-			ForceReclone: ciForceReclone,
 		})
 		if err != nil {
 			return err
@@ -69,5 +64,11 @@ func init() {
 	ciCmd.Flags().BoolVar(&ciSkipPull, "skip-pull", false, "Skip pulling Docker images")
 	ciCmd.Flags().BoolVar(&ciOnlyValidate, "only-validate", false, "Only run validations, skip all setup")
 	ciCmd.Flags().BoolVar(&ciForceReclone, "force-reclone", false, "Force re-clone of all git repositories")
+	// ci validates and pulls; it never started anything. These flags
+	// promised an ephemeral environment that was not built — they stay
+	// accepted so a pipeline that passes them keeps working, and say so.
+	for _, name := range []string{"keep", "ephemeral", "job-id", "skip-build", "force-reclone"} {
+		_ = ciCmd.Flags().MarkDeprecated(name, "it has no effect: ci validates and pulls images, it does not start anything")
+	}
 	// Note: ciCmd is added to rootCmd in root.go init() to avoid circular dependencies
 }

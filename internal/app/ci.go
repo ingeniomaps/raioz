@@ -35,13 +35,8 @@ type ValidationResult struct {
 // CIOptions contains options for the CI use case
 type CIOptions struct {
 	ConfigPath   string
-	Keep         bool
-	Ephemeral    bool
-	JobID        string
-	SkipBuild    bool
 	SkipPull     bool
 	OnlyValidate bool
-	ForceReclone bool
 }
 
 // CIUseCase handles the "ci" use case
@@ -203,6 +198,6 @@ func (uc *CIUseCase) executeYAML(
 	}
 
 	result.Success = true
-	result.Message = "CI run completed successfully"
+	result.Message = "Validation and image pull completed; nothing was started"
 	return result, nil
 }
