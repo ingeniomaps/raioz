@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -357,6 +358,9 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 	warnings := schemaVersionWarnings(cfg)
 	warnings = append(warnings, yamlDeprecationWarnings(cfg)...)
 	warnings = append(warnings, imagePinningWarnings(cfg)...)
+	if absPath, absErr := filepath.Abs(path); absErr == nil {
+		warnings = append(warnings, systemVolumeWarnings(cfg, filepath.Dir(absPath))...)
+	}
 	warnings = append(warnings, authWarnings(cfg)...)
 
 	// Strict re-parse on the raw bytes for unknown-field detection. Any
