@@ -149,24 +149,25 @@ func DepComposePath(project, dep string) string {
 	return filepath.Join(DepsDir(project), dep, "docker-compose.yml")
 }
 
-// ProxyDir returns the proxy config directory for a project.
+// ProxyDir returns the proxy config directory for a project:
+// `<RaiozStateDir>/proxies/{prefix}-{project}/`.
 //
-// Lives under XDG_STATE_HOME (default ~/.local/state/raioz/) instead of
-// /tmp on purpose: tmpfs hosts wipe /tmp on reboot, leaving Caddy
-// containers with --restart unless-stopped to re-create the bind-mount
-// source as a root-owned directory. From that moment every `raioz up`
-// fails with a cryptic "is a directory" until `sudo rm -rf` cleans the
-// trap. Helper LegacyProxyDir lets cleanup find the
-// pre-XDG path so the migration is automatic on next down.
+// Under the raioz state dir and not /tmp on purpose: tmpfs hosts wipe
+// /tmp on reboot, leaving Caddy containers with --restart unless-stopped
+// to re-create the bind-mount source as a root-owned directory. From that
+// moment every `raioz up` fails with a cryptic "is a directory" until
+// `sudo rm -rf` cleans the trap.
+//
+// See proxyDirFor for the directory an older raioz used and when it is
+// still returned.
 func ProxyDir(project string) string {
-	return filepath.Join(stateBaseDir(), prefix+"-"+project, "proxy")
+	return proxyDirFor(prefix + "-" + project)
 }
 
-// WorkspaceProxyDir returns the workspace-shared proxy config directory.
-// Format: $XDG_STATE_HOME/raioz/{workspace}/proxy/. Lives outside the
-// per-project temp tree so the directory survives individual project
-// teardowns and is the single source of truth for the shared Caddyfile.
-// See ProxyDir for why this is no longer under /tmp.
+// WorkspaceProxyDir returns the workspace-shared proxy config directory,
+// `<RaiozStateDir>/proxies/{workspace}/`. It lives outside the per-project
+// temp tree so the directory survives individual project teardowns and is
+// the single source of truth for the shared Caddyfile.
 func WorkspaceProxyDir() string {
 	return WorkspaceProxyDirFor(prefix)
 }
@@ -179,7 +180,25 @@ func WorkspaceProxyDirFor(workspace string) string {
 	if workspace == "" {
 		workspace = DefaultPrefix
 	}
-	return filepath.Join(stateBaseDir(), workspace, "proxy")
+	return proxyDirFor(workspace)
+}
+
+// proxyDirFor resolves the proxy directory for one scope (a workspace, or
+// `{prefix}-{project}`).
+//
+// Raioz used to keep it at `<state base>/{scope}/proxy`, a sibling of the
+// raioz state dir rather than something inside it (ADR-022). That
+// directory is the bind-mount source of a proxy that may be running right
+// now, so it cannot simply move: a Caddyfile written to the new place
+// would never reach the container mounted on the old one. While the old
+// directory exists it stays the answer; the `down` that stops the proxy
+// removes it, and the next `up` lands in the new location.
+func proxyDirFor(scope string) string {
+	legacy := filepath.Join(stateBaseDir(), scope, "proxy")
+	if info, err := os.Stat(legacy); err == nil && info.IsDir() {
+		return legacy
+	}
+	return filepath.Join(RaiozStateDir(), "proxies", scope)
 }
 
 // LegacyWorkspaceProxyDir returns the pre-XDG location of the shared proxy

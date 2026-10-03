@@ -41,10 +41,11 @@ reads it later"):
 ├── workspaces/
 │   └── <project>/
 │       └── raioz.root.json            ← drift-detection snapshot
-└── <workspace>/
-    ├── Caddyfile                      ← regenerated each Reload
-    └── routes/
-        └── <project>.json             ← one persisted route block per project
+└── proxies/
+    └── <workspace>/                   ← or raioz-<network> without a workspace
+        ├── Caddyfile                  ← regenerated each Reload
+        └── routes/
+            └── <project>.json         ← one persisted route block per project
 
 <project>/                             ← user's project directory (cwd)
 └── .raioz.state.json                  ← LocalState — runtime overrides
@@ -58,8 +59,12 @@ reads it later"):
 
 `naming.RaiozStateDir()` resolves to (in order): `RAIOZ_HOME` →
 `$XDG_STATE_HOME/raioz` → `~/.local/state/raioz` (ADR-022).
-`WorkspaceProxyDir()` returns `<RaiozStateDir>/<workspace>/` for
-workspace-shared mode (ADR-005). The cert dir sits at the
+`WorkspaceProxyDir()` returns `<RaiozStateDir>/proxies/<workspace>/`
+for workspace-shared mode (ADR-005). Older releases kept it beside the
+state dir, at `~/.local/state/<workspace>/proxy/`; because that
+directory is the bind-mount source of a proxy that may still be
+running, raioz keeps using it while it exists, and the `down` that
+stops that proxy removes it — the next `up` lands in the new place. The cert dir sits at the
 legacy `~/.raioz/certs/` and is not migrated; the migrator
 moves runtime state, not crypto material. See "Open question"
 below.
