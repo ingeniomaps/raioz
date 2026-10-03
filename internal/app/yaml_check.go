@@ -98,6 +98,6 @@ func CheckYAML(proj *YAMLProject) error {
 	// non-zero exit code, and avoid the "no state found" hint that implies
 	// everything is fine. The actual issue list has already been printed
 	// above — the error here is just the signal.
-	output.PrintWarning(fmt.Sprintf("%d issue(s) found", issues))
+	output.PrintWarning(i18n.T("check.issues_found", issues))
 	return fmt.Errorf("%d check issue(s) found", issues)
 }

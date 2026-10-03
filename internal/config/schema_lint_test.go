@@ -199,3 +199,33 @@ func TestLintConfigPath(t *testing.T) {
 		t.Error("a missing file must surface an error")
 	}
 }
+
+// A meta config declares projects, not services: the lint walks it instead
+// of rejecting it for having no service.
+func TestLintConfigPath_Meta(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := filepath.Join(dir, "raioz.yaml")
+	body := "version: \"1\"\nkind: meta\nworkspace: demo\nprojects:\n  - path: ./api\n"
+	if err := os.WriteFile(meta, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	findings, cfg, err := LintConfigPath(meta)
+	if err != nil {
+		t.Fatalf("LintConfigPath on a meta config: %v", err)
+	}
+	if cfg == nil || cfg.Kind != "meta" || len(findings) == 0 {
+		t.Fatalf("meta config not linted: cfg=%+v findings=%d", cfg, len(findings))
+	}
+
+	empty := filepath.Join(dir, "empty.yaml")
+	if err := os.WriteFile(empty, []byte("kind: meta\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := LintConfigPath(empty); err == nil {
+		t.Error("a meta config without projects must surface an error")
+	}
+}

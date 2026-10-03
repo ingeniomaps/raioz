@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"raioz/internal/app"
+	"raioz/internal/config"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/state"
@@ -36,6 +37,16 @@ var checkCmd = &cobra.Command{
 				return resolveErr
 			}
 			configPath = resolved
+		}
+
+		// A meta config has no services of its own: check what it names.
+		if path := ResolveConfigPath(configPath); path != AutoDetectMarker {
+			if meta, isMeta, metaErr := config.LoadMetaConfig(path); isMeta {
+				if metaErr != nil {
+					return errors.New(errors.ErrCodeInvalidConfig, metaErr.Error())
+				}
+				return app.CheckMeta(meta)
+			}
 		}
 
 		deps := newDependencies()

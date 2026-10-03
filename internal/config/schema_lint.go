@@ -2,10 +2,13 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // LintFinding is one observation about a field used in a raioz.yaml file.
@@ -208,7 +211,7 @@ func makeFinding(path, since, declared string) LintFinding {
 // it in one call. Used by the `raioz yaml lint` subcommand; tests prefer
 // the lower-level LintConfig for finer control.
 func LintConfigPath(path string) ([]LintFinding, *RaiozConfig, error) {
-	cfg, err := LoadYAML(path)
+	cfg, err := loadForLint(path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -217,4 +220,29 @@ func LintConfigPath(path string) ([]LintFinding, *RaiozConfig, error) {
 		return nil, cfg, fmt.Errorf("extract schema metadata: %w", err)
 	}
 	return LintConfig(cfg, metas, cfg.Version), cfg, nil
+}
+
+// loadForLint loads the config a lint walks. A meta config declares no
+// services, so the project loader would reject it; it is validated as what
+// it is and its fields are linted like any other file's.
+func loadForLint(path string) (*RaiozConfig, error) {
+	_, isMeta, err := LoadMetaConfig(path)
+	if !isMeta {
+		return LoadYAML(path)
+	}
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read config file %s: %w", path, err)
+	}
+	if err := ScanForSecrets(data); err != nil {
+		return nil, err
+	}
+	var cfg RaiozConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("invalid YAML in %s: %w", path, err)
+	}
+	return &cfg, nil
 }
