@@ -152,7 +152,7 @@ func StopServiceWithContext(ctx context.Context, composePath string, serviceName
 	rmCtx, rmCancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 	defer rmCancel()
 	rmArgs := append([]string{"compose"}, ComposeFileArgs(composePath)...)
-	rmArgs = append(rmArgs, "rm", "-f", serviceName)
+	rmArgs = append(rmArgs, "rm", "-f", "-v", serviceName)
 	rmCmd := exec.CommandContext(rmCtx, runtime.Binary(), rmArgs...)
 	rmCmd.Stdout = os.Stdout
 	rmCmd.Stderr = os.Stderr
@@ -181,9 +181,10 @@ func DownWithContext(ctx context.Context, composePath string) error {
 		timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, exectimeout.DockerComposeDownTimeout)
 		defer cancel()
 
-		downArgs := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
-		downArgs = append(downArgs, ComposeFileArgs(composePath)...)
-		downArgs = append(downArgs, "down")
+		baseArgs := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
+		baseArgs = append(baseArgs, ComposeFileArgs(composePath)...)
+		removeAnonymousVolumes(timeoutCtx, baseArgs, composeCommandEnv(timeoutCtx))
+		downArgs := append(append([]string{}, baseArgs...), "down")
 		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), downArgs...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -323,4 +324,34 @@ func ListContainersByLabelsErr(ctx context.Context, labels map[string]string) ([
 		}
 	}
 	return names, nil
+}
+
+// removeAnonymousVolumes stops and removes a compose project's containers
+// together with their anonymous volumes, ahead of the `down` that removes
+// the rest. `down` alone leaves one orphaned volume behind per container
+// whose image declares a VOLUME (redis, postgres, caddy…), and nothing ever
+// reattaches or removes them: they only pile up. `rm -v` takes anonymous
+// volumes and nothing else — a named volume, the data, is never touched.
+//
+// Best-effort: if it fails, `down` still removes the containers.
+func removeAnonymousVolumes(ctx context.Context, composeArgs, env []string) {
+	args := append(append([]string{}, composeArgs...), "rm", "-f", "-s", "-v")
+	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
+	if env != nil {
+		cmd.Env = env
+	}
+	_ = cmd.Run()
+}
+
+// ComposeDownProject tears a compose project down by name alone — compose
+// resolves it from the labels the engine stamped at up time — taking the
+// containers' anonymous volumes with it.
+func ComposeDownProject(ctx context.Context, project string) ([]byte, error) {
+	removeAnonymousVolumes(ctx, []string{"compose", "-p", project}, nil)
+	args := []string{"compose", "-p", project, "down", "--remove-orphans"}
+	out, err := exec.CommandContext(ctx, runtime.Binary(), args...).CombinedOutput()
+	if err != nil {
+		return out, fmt.Errorf("compose down %s: %w", project, err)
+	}
+	return out, nil
 }

@@ -15,7 +15,6 @@ import (
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/refcount"
-	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
 
@@ -200,9 +199,7 @@ func stopSelectiveDep(
 	// Tear down by `-p` alone: compose resolves the project from the engine
 	// labels, so the original -f fragments (TMPDIR-bound, possibly gone) are
 	// not needed. Reconstructing them and swallowing the error leaked deps.
-	args := []string{"compose", "-p", projName, "down", "--remove-orphans"}
-	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := composeDownByName(ctx, projName); err != nil {
 		logging.WarnWithContext(ctx, "Dependency teardown failed",
 			"dep", name, "project", projName,
 			"error", err.Error(), "output", string(out))

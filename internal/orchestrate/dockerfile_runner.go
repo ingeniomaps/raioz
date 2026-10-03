@@ -163,7 +163,7 @@ func (r *DockerfileRunner) reconcileExisting(ctx context.Context, containerName 
 
 	logging.InfoWithContext(ctx, "Removing stale container",
 		"container", containerName, "state", state, "managed", managed == "true")
-	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", containerName)
 	if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
 		return false, fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
 	}
@@ -176,7 +176,7 @@ func (r *DockerfileRunner) Stop(ctx context.Context, svc interfaces.ServiceConte
 	stopCmd := exec.CommandContext(ctx, runtime.Binary(), "stop", svc.ContainerName)
 	_ = stopCmd.Run()
 
-	rmCmd := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", svc.ContainerName)
+	rmCmd := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", svc.ContainerName)
 	_ = rmCmd.Run()
 
 	return nil

@@ -203,3 +203,8 @@ func buildStopCmdEnv(svc models.Service) []string {
 	}
 	return env
 }
+
+// composeDownByName tears a dependency's compose project down by its name,
+// anonymous volumes included. Declared here (this file already imports
+// internal/docker) and as a package var so tests can run without a daemon.
+var composeDownByName = docker.ComposeDownProject

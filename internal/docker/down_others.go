@@ -97,7 +97,7 @@ func StopProjectContainers(ctx context.Context, projectName string) ([]string, e
 	// `docker rm -f` stops + removes in one shot, mirroring what `compose
 	// down` does for these containers. Pass everything in one invocation
 	// so partial failures still report correctly.
-	rmArgs := append([]string{"rm", "-f"}, names...)
+	rmArgs := append([]string{"rm", "-f", "-v"}, names...)
 	rmCmd := exec.CommandContext(timeoutCtx, runtime.Binary(), rmArgs...)
 	if out, err := rmCmd.CombinedOutput(); err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {

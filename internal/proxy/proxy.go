@@ -287,7 +287,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 	stop := exec.CommandContext(ctx, runtime.Binary(), "stop", containerName)
 	_ = stop.Run()
 
-	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", containerName)
 	_ = rm.Run()
 
 	return nil
@@ -381,7 +381,7 @@ func (m *Manager) removeStaleContainer(ctx context.Context, containerName string
 	}
 	logging.InfoWithContext(ctx, "Removing stale proxy container",
 		"container", containerName, "state", state)
-	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", containerName)
 	if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
 		return fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
 	}

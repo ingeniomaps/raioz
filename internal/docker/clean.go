@@ -48,6 +48,7 @@ func CleanProjectWithContext(ctx context.Context, composePath string, dryRun boo
 	defer cancel()
 
 	// Remove stopped containers, networks, and images created by compose
+	removeAnonymousVolumes(timeoutCtx, []string{"compose", "-f", composePath}, nil)
 	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "down", "--remove-orphans")
 	output, err := cmd.CombinedOutput()
 	if err != nil {

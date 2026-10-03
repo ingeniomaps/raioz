@@ -257,7 +257,7 @@ func stopAndRemoveContainer(ctx context.Context, name, source string) {
 			"name", name, "source", source,
 			"error", err.Error(), "output", strings.TrimSpace(string(out)))
 	}
-	rmOut, rmErr := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", name).CombinedOutput()
+	rmOut, rmErr := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", name).CombinedOutput()
 	if rmErr != nil && !strings.Contains(string(rmOut), "No such container") {
 		logging.Warn("docker rm failed",
 			"name", name, "source", source,

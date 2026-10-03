@@ -162,7 +162,7 @@ func TestDockerfileRunner_Start_RemovesStoppedContainer(t *testing.T) {
 	}
 
 	got := readFakeDockerArgs(t, argsFile)
-	if !strings.Contains(got, "rm -f raioz-proj-api") {
+	if !strings.Contains(got, "rm -f -v raioz-proj-api") {
 		t.Errorf("expected stale container removal; got: %q", got)
 	}
 	if !strings.Contains(got, "run -d --name raioz-proj-api") {
@@ -208,7 +208,7 @@ func TestDockerfileRunner_Start_ReplacesUnmanagedRunningContainer(t *testing.T) 
 	}
 
 	got := readFakeDockerArgs(t, argsFile)
-	if !strings.Contains(got, "rm -f raioz-proj-api") {
+	if !strings.Contains(got, "rm -f -v raioz-proj-api") {
 		t.Errorf("unlabeled container must be replaced, not reused; got: %q", got)
 	}
 	if !strings.Contains(got, "run -d --name raioz-proj-api") {
