@@ -204,3 +204,35 @@ func TestFormatComparisonResult(t *testing.T) {
 		t.Errorf("formatted output must show the production value:\n%s", out)
 	}
 }
+
+// A raioz.yaml service declares what it needs with `dependsOn:`, and what
+// it needs lives under `dependencies:`. Neither may be read as a
+// difference with a production file that says the same thing.
+func TestCompareConfigsYAMLDependencies(t *testing.T) {
+	local := localDeps(map[string]models.Service{
+		"back": {
+			Source:    models.SourceConfig{Kind: "local", Command: "go run ."},
+			DependsOn: []string{"postgres"},
+		},
+	}, map[string]models.InfraEntry{
+		"postgres": {Inline: &models.Infra{Image: "postgres", Tag: "16"}},
+	})
+	prod := &ProductionConfig{Services: map[string]ProductionService{
+		"back":     {Image: "registry/back:1.4.0", DependsOn: []any{"postgres"}},
+		"postgres": {Image: "postgres:16"},
+	}}
+
+	result := CompareConfigs(local, prod)
+
+	for _, diff := range result.ServiceDifferences {
+		if diff.DependsMismatch != nil {
+			t.Errorf("%s: dependsOn matches production, got %+v", diff.ServiceName, diff.DependsMismatch)
+		}
+		if diff.ServiceName == "postgres" {
+			t.Errorf("postgres is a local dependency, not a production-only service: %+v", diff)
+		}
+	}
+	if len(result.InfraDifferences) != 0 {
+		t.Errorf("postgres:16 on both sides is no difference, got %+v", result.InfraDifferences)
+	}
+}

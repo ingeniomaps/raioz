@@ -255,7 +255,7 @@
   "error.config_load_production": "Failed to load production config from %s",
   "error.json_encode": "Failed to encode JSON output",
   "error.compare_critical": "Critical differences found between local and production configurations",
-  "error.compare_critical_suggestion": "Review the differences above and update your .raioz.json to match production",
+  "error.compare_critical_suggestion": "Review the differences above and update your raioz.yaml to match production",
   "error.logs_not_running": "Project is not running (no state file found)",
   "error.logs_view_failed": "Failed to view logs",
   "lang.current": "Current language: %s",

@@ -255,7 +255,7 @@
   "error.config_load_production": "Error al cargar la configuración de producción desde %s",
   "error.json_encode": "Error al codificar la salida JSON",
   "error.compare_critical": "Se encontraron diferencias críticas entre la configuración local y de producción",
-  "error.compare_critical_suggestion": "Revisa las diferencias anteriores y actualiza tu .raioz.json para coincidir con producción",
+  "error.compare_critical_suggestion": "Revisa las diferencias anteriores y actualiza tu raioz.yaml para coincidir con producción",
   "error.logs_not_running": "El proyecto no está corriendo (no se encontró archivo de estado)",
   "error.logs_view_failed": "Error al ver los logs",
   "lang.current": "Idioma actual: %s",
