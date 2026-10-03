@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"raioz/internal/docker"
+	"raioz/internal/i18n"
 )
 
 // snapshotNameRE is what a snapshot may be called. The name becomes a
@@ -16,7 +17,7 @@ var snapshotNameRE = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 func validateName(kind, name string) error {
 	if !snapshotNameRE.MatchString(name) || strings.Contains(name, "..") {
-		return fmt.Errorf("invalid %s name %q: use letters, digits, '.', '_' and '-'", kind, name)
+		return fmt.Errorf("%s", i18n.T("error.snapshot_invalid_name", kind, name))
 	}
 	return nil
 }

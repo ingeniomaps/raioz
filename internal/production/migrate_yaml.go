@@ -3,6 +3,8 @@ package production
 import (
 	"fmt"
 	"sort"
+
+	"raioz/internal/i18n"
 )
 
 // MigratedService is a compose service that becomes a raioz service: it
@@ -51,9 +53,7 @@ func MigrateCompose(prod *ProductionConfig) *MigratedProject {
 	for _, name := range names {
 		svc := prod.Services[name]
 		if len(svc.Environment) > 0 {
-			out.Warnings = append(out.Warnings, fmt.Sprintf(
-				"%s: %d inline environment value(s) not migrated — raioz.yaml references env files, "+
-					"move them to one and list it under `env:`", name, len(svc.Environment)))
+			out.Warnings = append(out.Warnings, i18n.T("migrate.note_inline_env", name, len(svc.Environment)))
 		}
 
 		if context := buildContext(svc.Build); context != "" {
@@ -63,9 +63,8 @@ func MigrateCompose(prod *ProductionConfig) *MigratedProject {
 				EnvFiles:  svc.EnvFile,
 			}
 			if len(svc.Ports) > 0 {
-				out.Warnings = append(out.Warnings, fmt.Sprintf(
-					"%s: ports %v not migrated — declare `port:` if the service needs a fixed one",
-					name, NormalizePorts(svc.Ports)))
+				out.Warnings = append(out.Warnings,
+					i18n.T("migrate.note_service_ports", name, NormalizePorts(svc.Ports)))
 			}
 			continue
 		}

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
@@ -118,12 +119,12 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 		images := strings.Split(strings.TrimSpace(string(output)), "\n")
 		for _, img := range images {
 			if img != "" {
-				actions = append(actions, fmt.Sprintf("Would remove image: %s", img))
+				actions = append(actions, i18n.T("clean.would_remove_image", img))
 			}
 		}
 
 		if len(images) == 0 || images[0] == "" {
-			actions = append(actions, "No unused images found")
+			actions = append(actions, i18n.T("clean.no_unused_images"))
 		}
 
 		return actions, nil
@@ -140,7 +141,7 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 		return actions, fmt.Errorf("failed to prune images: %w (output: %s)", err, string(output))
 	}
 
-	actions = append(actions, "Removed unused images")
+	actions = append(actions, i18n.T("clean.removed_images"))
 	return actions, nil
 }
 
@@ -167,12 +168,12 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 		volumes := strings.Split(strings.TrimSpace(string(output)), "\n")
 		for _, vol := range volumes {
 			if vol != "" {
-				actions = append(actions, fmt.Sprintf("Would remove volume: %s", vol))
+				actions = append(actions, i18n.T("clean.would_remove_volume", vol))
 			}
 		}
 
 		if len(volumes) == 0 || volumes[0] == "" {
-			actions = append(actions, "No unused volumes found")
+			actions = append(actions, i18n.T("clean.no_unused_volumes"))
 		}
 
 		return actions, nil
@@ -196,7 +197,7 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 		return actions, fmt.Errorf("failed to prune volumes: %w (output: %s)", err, string(output))
 	}
 
-	actions = append(actions, "Removed unused volumes")
+	actions = append(actions, i18n.T("clean.removed_volumes"))
 	return actions, nil
 }
 
@@ -234,11 +235,11 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 			if len(fields) != 2 || fields[1] != "0" {
 				continue
 			}
-			actions = append(actions, fmt.Sprintf("Would remove network: %s", fields[0]))
+			actions = append(actions, i18n.T("clean.would_remove_network", fields[0]))
 		}
 
 		if len(actions) == 0 {
-			actions = append(actions, "No unused networks found")
+			actions = append(actions, i18n.T("clean.no_unused_networks"))
 		}
 
 		return actions, nil
@@ -255,7 +256,7 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 		return actions, fmt.Errorf("failed to prune networks: %w (output: %s)", err, string(output))
 	}
 
-	actions = append(actions, "Removed unused networks")
+	actions = append(actions, i18n.T("clean.removed_networks"))
 	return actions, nil
 }
 

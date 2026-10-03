@@ -242,7 +242,7 @@ func (uc *DevUseCase) resetOverride(
 ) error {
 	override, ok := localState.GetDevOverride(name)
 	if !ok {
-		return fmt.Errorf("'%s' is not in dev mode", name)
+		return fmt.Errorf("%s", i18n.T("error.dev_not_in_dev_mode", name))
 	}
 
 	output.PrintInfo(i18n.T("output.dev_resetting", name, override.OriginalImage))

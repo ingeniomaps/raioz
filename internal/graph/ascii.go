@@ -5,6 +5,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	"raioz/internal/i18n"
 )
 
 // RenderASCII writes an ASCII representation of the graph.
@@ -35,7 +37,7 @@ func RenderASCII(g *Graph, w io.Writer) {
 
 	if len(deps) > 0 {
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "  Dependencies:")
+		fmt.Fprintln(w, "  "+i18n.T("graph.dependencies"))
 		for _, name := range deps {
 			fmt.Fprintf(w, "    [%s]\n", name)
 		}

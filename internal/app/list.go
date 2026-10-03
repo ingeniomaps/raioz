@@ -194,25 +194,25 @@ func (uc *ListUseCase) applyFilters(globalState *models.GlobalState, opts ListOp
 
 func formatTime(t time.Time) string {
 	if t.IsZero() {
-		return "never"
+		return i18n.T("time.never")
 	}
 	now := time.Now()
 	diff := now.Sub(t)
 
 	if diff < time.Minute {
-		return "just now"
+		return i18n.T("time.just_now")
 	}
 	if diff < time.Hour {
 		minutes := int(diff.Minutes())
-		return fmt.Sprintf("%d minute(s) ago", minutes)
+		return i18n.T("time.minutes_ago", minutes)
 	}
 	if diff < 24*time.Hour {
 		hours := int(diff.Hours())
-		return fmt.Sprintf("%d hour(s) ago", hours)
+		return i18n.T("time.hours_ago", hours)
 	}
 	if diff < 7*24*time.Hour {
 		days := int(diff.Hours() / 24)
-		return fmt.Sprintf("%d day(s) ago", days)
+		return i18n.T("time.days_ago", days)
 	}
 
 	return t.Format("2006-01-02 15:04:05")

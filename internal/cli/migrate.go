@@ -52,7 +52,7 @@ var migrateCmd = &cobra.Command{
 		if err != nil {
 			return errors.New(
 				errors.ErrCodeInvalidConfig,
-				fmt.Sprintf("Failed to load compose file from %s", migrateComposePath),
+				i18n.T("error.migrate_compose_load", migrateComposePath),
 			).WithError(err).WithContext("compose_path", migrateComposePath)
 		}
 

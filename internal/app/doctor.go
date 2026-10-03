@@ -166,7 +166,7 @@ func (uc *DoctorUseCase) checkBuildInfo() DoctorCheck {
 	return DoctorCheck{
 		Name:    "Build info",
 		Status:  "ok",
-		Message: "release build with version metadata",
+		Message: i18n.T("doctor.release_build"),
 	}
 }
 
@@ -227,7 +227,7 @@ func (uc *DoctorUseCase) checkEnvironment() DoctorCheck {
 	return DoctorCheck{
 		Name:    name,
 		Status:  "ok",
-		Message: fmt.Sprintf("no overrides (%d duration var(s) at default)", len(statuses)),
+		Message: i18n.T("doctor.env_no_overrides", len(statuses)),
 	}
 }
 

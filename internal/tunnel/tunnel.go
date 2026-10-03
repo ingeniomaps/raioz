@@ -190,9 +190,7 @@ func detectBackend() (string, error) {
 	if _, err := exec.LookPath("bore"); err == nil {
 		return "bore", nil
 	}
-	return "", fmt.Errorf("no tunnel backend found. Install cloudflared or bore:\n" +
-		"  brew install cloudflare/cloudflare/cloudflared\n" +
-		"  cargo install bore-cli")
+	return "", fmt.Errorf("%s", i18n.T("error.tunnel_no_backend"))
 }
 
 func (m *Manager) save(info *Info) {

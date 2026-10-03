@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"raioz/internal/i18n"
 )
 
 // secretKeyPattern matches env-var keys that LOOK like they carry a
@@ -62,7 +64,7 @@ func PrintSpawnEnv(w io.Writer) {
 	sort.Strings(envs)
 
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "=== Env raioz would inherit on sub-spawn ===")
+	fmt.Fprintln(w, i18n.T("doctor.spawn_env_header"))
 	for _, kv := range envs {
 		eq := strings.IndexByte(kv, '=')
 		if eq < 0 {
