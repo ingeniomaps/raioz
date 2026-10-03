@@ -761,5 +761,9 @@
   "warning.version_newer": "raioz.yaml declares version: %q but this binary supports version: %q. Fields introduced in newer schema versions will be ignored. Update raioz to a newer release.",
   "warning.version_older": "raioz.yaml declares version: %q but this binary expects version: %q. Field semantics may have changed across the bump. Run `raioz migrate yaml` to update the file.",
   "warning.unknown_field": "%s: %s — field ignored. Check for typos or fields from a newer raioz version.",
-  "warning.legacy_ports": "dependency '%s' uses legacy `ports:`; consider migrating to `publish:` (host-side opt-in) and `expose:` (container-side declaration) for clearer semantics"
+  "warning.legacy_ports": "dependency '%s' uses legacy `ports:`; consider migrating to `publish:` (host-side opt-in) and `expose:` (container-side declaration) for clearer semantics",
+  "up.git.stopping_for_reclone": "Stopping %s before re-cloning it",
+  "snapshot.stopping_for_restore": "Stopping %s while their volumes are restored",
+  "snapshot.restarted_after_restore": "Started again: %s",
+  "snapshot.restart_failed": "Could not start %s again: %v. Run 'raioz up' to bring them back"
 }

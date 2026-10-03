@@ -761,5 +761,9 @@
   "warning.version_newer": "raioz.yaml declara version: %q pero este binario soporta version: %q. Los campos de versiones de esquema más nuevas se ignorarán. Actualiza raioz.",
   "warning.version_older": "raioz.yaml declara version: %q pero este binario espera version: %q. El significado de los campos pudo cambiar entre versiones. Corre `raioz migrate yaml` para actualizar el archivo.",
   "warning.unknown_field": "%s: %s — campo ignorado. Revisa si es un error de tipeo o un campo de una versión más nueva de raioz.",
-  "warning.legacy_ports": "la dependencia '%s' usa `ports:` (legacy); conviene migrar a `publish:` (puerto en el host, opcional) y `expose:` (puerto del contenedor) para que la intención quede clara"
+  "warning.legacy_ports": "la dependencia '%s' usa `ports:` (legacy); conviene migrar a `publish:` (puerto en el host, opcional) y `expose:` (puerto del contenedor) para que la intención quede clara",
+  "up.git.stopping_for_reclone": "Deteniendo %s antes de re-clonarlo",
+  "snapshot.stopping_for_restore": "Deteniendo %s mientras se restauran sus volúmenes",
+  "snapshot.restarted_after_restore": "Arrancados de nuevo: %s",
+  "snapshot.restart_failed": "No se pudo volver a arrancar %s: %v. Corre 'raioz up' para levantarlos"
 }

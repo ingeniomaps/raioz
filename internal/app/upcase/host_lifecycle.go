@@ -7,7 +7,9 @@ import (
 
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/output"
 	"raioz/internal/state"
 )
 
@@ -179,4 +181,45 @@ func persistHostPIDs(
 // isProcessAlive checks if a process with the given PID is running.
 func isProcessAlive(pid int) bool {
 	return host.IsProcessAlive(pid)
+}
+
+// stopHostServiceFn stops one host service by PID. A package var so tests
+// can observe the call without a real process.
+var stopHostServiceFn = host.StopServiceWithCommandAndPath
+
+// stopGitServicesBeforeReclone stops every running host service whose
+// directory `--force-reclone` is about to delete. A process left alive
+// keeps its port with a working directory that no longer exists: the same
+// run then fails against it, raioz stops recognizing the PID as the
+// service, and no later `down` can reach it.
+func stopGitServicesBeforeReclone(ctx context.Context, deps *models.Deps, projectDir string) {
+	localState, err := state.LoadLocalState(projectDir)
+	if err != nil || localState == nil || len(localState.HostPIDs) == 0 {
+		return
+	}
+	stopped := false
+	for name, svc := range deps.Services {
+		pid, tracked := localState.HostPIDs[name]
+		if svc.Source.Kind != "git" || !tracked || pid <= 0 {
+			continue
+		}
+		if !isProcessAlive(pid) || !pidIsService(pid, deps, projectDir, name) {
+			continue
+		}
+		output.PrintInfo(i18n.T("up.git.stopping_for_reclone", name))
+		var stopCommand string
+		if svc.Commands != nil {
+			stopCommand = svc.Commands.Down
+		}
+		if err := stopHostServiceFn(ctx, pid, stopCommand, svc.Source.Path); err != nil {
+			logging.WarnWithContext(ctx, "Could not stop service before re-clone",
+				"service", name, "pid", pid, "error", err.Error())
+			continue
+		}
+		delete(localState.HostPIDs, name)
+		stopped = true
+	}
+	if stopped {
+		_ = state.SaveLocalState(projectDir, localState)
+	}
 }

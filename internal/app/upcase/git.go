@@ -92,6 +92,10 @@ func (uc *UseCase) processGitRepos(
 		}
 	}
 
+	if forceReclone {
+		stopGitServicesBeforeReclone(ctx, deps, projectDir)
+	}
+
 	// Clone repos for services
 	var disabledServices []string
 	for name, svc := range deps.Services {
