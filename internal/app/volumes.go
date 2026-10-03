@@ -337,6 +337,11 @@ func (uc *VolumesUseCase) removeVolumes(ctx context.Context, volumes []VolumeInf
 	}
 	if failedCount > 0 {
 		output.PrintWarning(i18n.T("output.volumes_removed_failed", failedCount))
+		// What was asked for did not happen; the exit code says so.
+		return errors.New(
+			errors.ErrCodeVolumeError,
+			i18n.T("output.volumes_removed_failed", failedCount),
+		).WithSuggestion(i18n.T("error.volumes_in_use_suggestion"))
 	}
 	return nil
 }
