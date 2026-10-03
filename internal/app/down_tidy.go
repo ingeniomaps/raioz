@@ -9,6 +9,7 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
+	"raioz/internal/root"
 	"raioz/internal/state"
 )
 
@@ -71,4 +72,37 @@ func removeIfHoldsNoFile(dir string) {
 		return
 	}
 	_ = os.RemoveAll(dir)
+}
+
+// dropWorkspaceState removes the project's state once it is fully down
+// (ADR-023): `raioz.root.json`, plus what tidyAfterDown covers.
+//
+// The directory is the one `up` wrote to — named after the workspace when
+// the project declares one, not after the project. Projects of a workspace
+// share it, so it is left alone while another of them still has
+// containers; the project's own leftovers go either way.
+func (uc *DownUseCase) dropWorkspaceState(
+	ctx context.Context, deps *models.Deps, projectName, projectDir string,
+	localState *models.LocalState, keepDepFiles bool,
+) {
+	shared := deps.Workspace != "" && otherWorkspaceProjectsActive(ctx, deps.Workspace, projectName)
+	if shared {
+		tidyAfterDown(ctx, projectName, projectDir, "", localState, keepDepFiles)
+		return
+	}
+	ws, err := uc.deps.Workspace.Resolve(deps.GetWorkspaceName())
+	switch {
+	case err != nil:
+		logging.WarnWithContext(ctx, "Skipping root cleanup: workspace resolve failed",
+			"project", projectName, "error", err.Error())
+		return
+	case ws == nil:
+		// Mocks (and lenient real impls) can return (nil, nil).
+		return
+	}
+	if err := root.Delete(ws); err != nil {
+		logging.WarnWithContext(ctx, "Failed to remove root config",
+			"project", projectName, "error", err.Error())
+	}
+	tidyAfterDown(ctx, projectName, projectDir, uc.deps.Workspace.GetRoot(ws), localState, keepDepFiles)
 }

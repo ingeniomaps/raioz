@@ -16,7 +16,6 @@ import (
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
-	"raioz/internal/root"
 	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
@@ -225,20 +224,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
 	}); len(leftovers) == 0 {
-		switch ws, err := uc.deps.Workspace.Resolve(projectName); {
-		case err != nil:
-			logging.WarnWithContext(ctx, "Skipping root cleanup: workspace resolve failed",
-				"project", projectName, "error", err.Error())
-		case ws == nil:
-			// Mocks (and lenient real impls) can return (nil, nil).
-		default:
-			if err := root.Delete(ws); err != nil {
-				logging.WarnWithContext(ctx, "Failed to remove root config",
-					"project", projectName, "error", err.Error())
-			}
-			tidyAfterDown(ctx, projectName, projectDir, uc.deps.Workspace.GetRoot(ws),
-				localState, len(keptDeps) > 0)
-		}
+		uc.dropWorkspaceState(ctx, deps, projectName, projectDir, localState, len(keptDeps) > 0)
 		if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 			logging.WarnWithContext(ctx, "Failed to deregister project from global state",
 				"project", projectName, "error", err.Error())
