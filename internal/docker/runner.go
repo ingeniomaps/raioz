@@ -187,7 +187,11 @@ func DownWithContext(ctx context.Context, composePath string) error {
 		downArgs := append(append([]string{}, baseArgs...), "down")
 		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), downArgs...)
 		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		// The containers are already gone, so compose often has nothing
+		// left to remove and says so; that line is noise, not a warning.
+		stderr := &dropLineWriter{w: os.Stderr, drop: "No resource found to remove"}
+		defer stderr.Flush()
+		cmd.Stderr = stderr
 		cmd.Env = composeCommandEnv(timeoutCtx)
 
 		err := cmd.Run()
@@ -340,6 +344,14 @@ func removeAnonymousVolumes(ctx context.Context, composeArgs, env []string) {
 	if env != nil {
 		cmd.Env = env
 	}
+	// Shown like the `down` it precedes: this is where the user sees each
+	// container stop and go.
+	stdout := &dropLineWriter{w: os.Stdout, drop: "Going to remove"}
+	defer stdout.Flush()
+	cmd.Stdout = stdout
+	stderr := &dropLineWriter{w: os.Stderr, drop: "No stopped containers"}
+	defer stderr.Flush()
+	cmd.Stderr = stderr
 	_ = cmd.Run()
 }
 
