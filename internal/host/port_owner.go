@@ -23,3 +23,16 @@ func GroupListeningPorts(pgid int) (ports []int, known bool) {
 	}
 	return groupListeningPorts(pgid)
 }
+
+// ProcessRunsIn reports whether pid's working directory is dir or below
+// it. A PID outlives the process that had it; before treating a recorded
+// PID as "the service is up", this tells it apart from an unrelated
+// process that was handed the same number.
+//
+// known is false where it cannot be read (non-Linux, permission denied).
+func ProcessRunsIn(pid int, dir string) (within, known bool) {
+	if pid <= 0 || dir == "" {
+		return false, false
+	}
+	return processRunsIn(pid, dir)
+}

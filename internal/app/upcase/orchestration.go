@@ -28,13 +28,14 @@ func (uc *UseCase) processOrchestration(
 	configPath string,
 	routerOff bool,
 ) (*orchestrationResult, error) {
-	// Step 0 — kill stale host processes from a previous run, scoped
-	// to the services this `up` touches (full or `--only` subset).
+	// Step 0 — find the host services an earlier up left running, scoped
+	// to the services this `up` touches (full or `--only` subset). They
+	// are adopted, not restarted.
 	scope := make(map[string]struct{}, len(deps.Services))
 	for name := range deps.Services {
 		scope[name] = struct{}{}
 	}
-	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name, scope)
+	alreadyRunning := runningHostServices(ctx, projectDir, deps, scope)
 
 	// Step 1: Detect runtimes
 	output.PrintProgress(i18n.T("up.detecting_runtimes"))
@@ -51,6 +52,12 @@ func (uc *UseCase) processOrchestration(
 	}
 
 	applyPortAllocs(detections, portAllocs)
+	for name, pid := range alreadyRunning {
+		if portAllocs.RunningHost == nil {
+			portAllocs.RunningHost = make(map[string]int)
+		}
+		portAllocs.RunningHost[name] = pid
+	}
 
 	// Create dispatcher
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)

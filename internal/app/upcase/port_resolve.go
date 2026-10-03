@@ -48,9 +48,9 @@ var ownHostServicePIDFn = ownHostServicePID
 
 // ownHostServicePID returns the PID recorded for the service in conflict
 // when that process is the one holding the port, 0 otherwise. The up flow
-// leaves host processes of a just-upped project alone (see
-// cleanStaleHostProcesses); without this the bind check would then report
-// the project's own service as a foreign occupant.
+// never stops a running host service (see runningHostServices); without
+// this the bind check would report the project's own service as a foreign
+// occupant.
 //
 // Where the port owner cannot be read (non-Linux) a live recorded PID is
 // taken as enough: the alternative is refusing every repeated up there.

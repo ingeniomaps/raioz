@@ -4,6 +4,7 @@ package host
 
 import (
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -160,4 +161,16 @@ func socketInodes(pid int) []string {
 		}
 	}
 	return inodes
+}
+
+func processRunsIn(pid int, dir string) (within, known bool) {
+	cwd, err := os.Readlink("/proc/" + strconv.Itoa(pid) + "/cwd")
+	if err != nil {
+		return false, false
+	}
+	clean := filepath.Clean(dir)
+	if resolved, err := filepath.EvalSymlinks(clean); err == nil {
+		clean = resolved
+	}
+	return cwd == clean || strings.HasPrefix(cwd, clean+string(filepath.Separator)), true
 }
