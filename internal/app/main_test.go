@@ -19,6 +19,9 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	os.Setenv("RAIOZ_HOME", home)
+	// A test that clears RAIOZ_HOME falls back to the XDG base; keep that
+	// off the real state dir too.
+	os.Setenv("XDG_STATE_HOME", home)
 	downProjectFn = func(context.Context, string) error {
 		return errors.New("downProjectFn is disabled in tests; stub it")
 	}
