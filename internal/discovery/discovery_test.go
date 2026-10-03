@@ -258,3 +258,25 @@ func TestGenerateEnvVars_EmptySchemeDefaultsToHTTP(t *testing.T) {
 		t.Errorf("WEB_URL = %q, want http://localhost:8080", vars["WEB_URL"])
 	}
 }
+
+func TestGenerateEnvVars_ProxyURL(t *testing.T) {
+	m := NewManager()
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"web":   {Name: "web", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3000},
+		"hw":    {Name: "hw", Runtime: models.RuntimeNPM, Host: "localhost", ProxyURL: "https://hello.acme.dev"},
+		"redis": {Name: "redis", Runtime: models.RuntimeImage, Host: "redis", Unrouted: true},
+		"plain": {Name: "plain", Runtime: models.RuntimeNPM, Host: "localhost"},
+	}
+
+	vars := m.GenerateEnvVars("web", models.RuntimeNPM, endpoints, true)
+
+	if got := vars["HW_HTTPS_URL"]; got != "https://hello.acme.dev" {
+		t.Errorf("HW_HTTPS_URL = %q, want the proxy URL", got)
+	}
+	if got, ok := vars["REDIS_HTTPS_URL"]; ok {
+		t.Errorf("REDIS_HTTPS_URL = %q, want none for an unrouted endpoint", got)
+	}
+	if got := vars["PLAIN_HTTPS_URL"]; got != "https://plain.localhost" {
+		t.Errorf("PLAIN_HTTPS_URL = %q, want the localhost fallback", got)
+	}
+}

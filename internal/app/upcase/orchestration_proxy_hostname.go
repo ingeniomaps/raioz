@@ -1,6 +1,9 @@
 package upcase
 
-import "raioz/internal/domain/models"
+import (
+	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
+)
 
 // resolveHostnameAndAliases returns the proxy hostname override and the
 // alias list for name, honoring the "service first, dep (infra) last"
@@ -26,4 +29,32 @@ func resolveHostnameAndAliases(deps *models.Deps, name string) (string, []string
 		}
 	}
 	return hostname, aliases
+}
+
+// applyProxyURL records on the endpoint where the proxy serves it, so the
+// <NAME>_HTTPS_URL raioz injects is the address that actually resolves:
+// the declared `hostname:` under the proxy's domain, and nothing at all
+// for an entry the proxy does not route.
+func applyProxyURL(ep *interfaces.ServiceEndpoint, deps *models.Deps, name string) {
+	if !deps.Proxy {
+		return
+	}
+	if !shouldProxy(deps, name) {
+		ep.Unrouted = true
+		return
+	}
+	domain := "localhost"
+	if deps.ProxyConfig != nil {
+		if deps.ProxyConfig.Mode == "path" {
+			return // path mode has no per-service hostname
+		}
+		if deps.ProxyConfig.Domain != "" {
+			domain = deps.ProxyConfig.Domain
+		}
+	}
+	hostname, _ := resolveHostnameAndAliases(deps, name)
+	if hostname == "" {
+		hostname = name
+	}
+	ep.ProxyURL = "https://" + hostname + "." + domain
 }

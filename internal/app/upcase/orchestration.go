@@ -303,6 +303,7 @@ func buildEndpoints(
 		// URL scheme + legacy `ports:` fallback for inline infra deps. The
 		// allocator (above) is authoritative for ports it could map.
 		applyInlineDepEndpoint(&ep, name, deps, portAllocs)
+		applyProxyURL(&ep, deps, name)
 
 		endpoints[name] = ep
 	}

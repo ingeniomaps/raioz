@@ -89,8 +89,12 @@ func (m *Manager) GenerateEnvVars(
 		// the bundled Caddy is suppressed and *.localhost no longer
 		// resolves to anything raioz controls — emitting the URL would
 		// be misleading.
-		if proxyEnabled && !routerActiveSuppressesURL() {
-			vars[envPrefix+"_HTTPS_URL"] = fmt.Sprintf("https://%s.localhost", name)
+		if proxyEnabled && !ep.Unrouted && !routerActiveSuppressesURL() {
+			httpsURL := ep.ProxyURL
+			if httpsURL == "" {
+				httpsURL = fmt.Sprintf("https://%s.localhost", name)
+			}
+			vars[envPrefix+"_HTTPS_URL"] = httpsURL
 		}
 	}
 

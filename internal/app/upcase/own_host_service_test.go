@@ -235,3 +235,51 @@ func TestWaitForServiceEndpoints_ContainerAddress(t *testing.T) {
 		t.Errorf("container address never probed, got %q", answered)
 	}
 }
+
+// <NAME>_HTTPS_URL has to be an address that resolves: the declared
+// hostname under the proxy's domain, and none for an unrouted entry.
+func TestApplyProxyURL(t *testing.T) {
+	deps := &models.Deps{
+		Proxy:       true,
+		ProxyConfig: &models.ProxyConfig{Domain: "rzbench.test"},
+		Services: map[string]models.Service{
+			"hostweb": {Hostname: "hw"},
+			"api":     {},
+			"quiet":   {ProxyOverride: &models.ServiceProxyOverride{Disabled: true}},
+		},
+		Infra: map[string]models.InfraEntry{
+			"redis": {Inline: &models.Infra{Image: "redis", Tag: "7-alpine"}},
+			"docs":  {Inline: &models.Infra{Image: "nginx", Tag: "alpine"}},
+		},
+	}
+
+	tests := []struct {
+		name         string
+		wantURL      string
+		wantUnrouted bool
+	}{
+		{"hostweb", "https://hw.rzbench.test", false},
+		{"api", "https://api.rzbench.test", false},
+		{"docs", "https://docs.rzbench.test", false},
+		{"redis", "", true},
+		{"quiet", "", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var ep interfaces.ServiceEndpoint
+			applyProxyURL(&ep, deps, tc.name)
+			if ep.ProxyURL != tc.wantURL || ep.Unrouted != tc.wantUnrouted {
+				t.Errorf("got url=%q unrouted=%v, want url=%q unrouted=%v",
+					ep.ProxyURL, ep.Unrouted, tc.wantURL, tc.wantUnrouted)
+			}
+		})
+	}
+
+	t.Run("proxy off leaves the endpoint alone", func(t *testing.T) {
+		var ep interfaces.ServiceEndpoint
+		applyProxyURL(&ep, &models.Deps{}, "api")
+		if ep.ProxyURL != "" || ep.Unrouted {
+			t.Errorf("got %+v, want it untouched", ep)
+		}
+	})
+}

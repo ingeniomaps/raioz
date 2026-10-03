@@ -23,6 +23,17 @@ type ServiceEndpoint struct {
 	// from the dependency image so non-HTTP datastores get a scheme their
 	// client can actually parse instead of a useless http:// URL.
 	Scheme string
+
+	// ProxyURL is the HTTPS address the workspace proxy serves this
+	// endpoint on — its `hostname:` (or name) under the proxy's domain.
+	// Empty means the caller did not work it out; <NAME>_HTTPS_URL then
+	// falls back to https://<name>.localhost.
+	ProxyURL string
+
+	// Unrouted marks an endpoint the proxy has no route for (a database
+	// image, a service with `proxy: false`). No <NAME>_HTTPS_URL is
+	// emitted for it: the address would resolve to nothing.
+	Unrouted bool
 }
 
 // DiscoveryManager generates service discovery environment variables
