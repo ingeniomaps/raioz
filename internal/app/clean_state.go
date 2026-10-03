@@ -3,8 +3,10 @@ package app
 import (
 	"context"
 
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/state"
 )
 
 // pruneStaleProjectStates drops global-state entries for projects that are
@@ -17,9 +19,10 @@ import (
 // entries on the maintainer's machine, 15 of them for scratch projects.
 //
 // Liveness is the criterion, not age: an entry earns its place by having
-// containers. A probe that fails keeps the entry, because "the daemon did
-// not answer" and "the project is gone" must not lead to the same
-// deletion — the same rule classifyRefs follows for shared-dep refs.
+// something running — a container or a host process (projectStateIsLive).
+// A probe that fails keeps the entry, because "the daemon did not answer"
+// and "the project is gone" must not lead to the same deletion — the same
+// rule classifyRefs follows for shared-dep refs.
 //
 // Only runs under `--all`, where the user asked to tidy everything rather
 // than one project.
@@ -35,7 +38,7 @@ func (uc *CleanUseCase) pruneStaleProjectStates(ctx context.Context, dryRun bool
 
 	var actions []string
 	for name, project := range globalState.Projects {
-		active, probeErr := uc.deps.DockerRunner.IsProjectActive(ctx, project.Workspace, name)
+		active, probeErr := uc.projectStateIsLive(ctx, name, project)
 		if probeErr != nil {
 			logging.WarnWithContext(ctx, "Liveness probe failed; keeping project state",
 				"project", name, "workspace", project.Workspace, "error", probeErr.Error())
@@ -57,4 +60,24 @@ func (uc *CleanUseCase) pruneStaleProjectStates(ctx context.Context, dryRun bool
 		actions = append(actions, i18n.T("clean.deregistered_project", name))
 	}
 	return actions
+}
+
+// projectStateIsLive reports whether a registered project still has
+// anything running. Containers are one half: a project made of host
+// services has none, so its recorded PIDs count too. The container probe
+// is asked by project alone — the state records the project's own name as
+// workspace when it declares none, and no container carries that label.
+func (uc *CleanUseCase) projectStateIsLive(
+	ctx context.Context, name string, project models.ProjectState,
+) (bool, error) {
+	if project.Path != "" {
+		if ls, err := state.LoadLocalState(project.Path); err == nil && ls != nil {
+			for _, pid := range ls.HostPIDs {
+				if pid > 0 && processAlive(pid) {
+					return true, nil
+				}
+			}
+		}
+	}
+	return uc.deps.DockerRunner.IsProjectActive(ctx, "", name)
 }
