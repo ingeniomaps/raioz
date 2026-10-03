@@ -228,6 +228,8 @@
   "error.config_invalid_suggestion": "Fix the config and run the command again.",
   "error.graph_unknown_format": "unknown graph format '%s' (use ascii, dot or json)",
   "error.restart_no_services": "no services to restart: name them, or pass --all",
+  "error.ignore_unknown_service": "'%s' is not a service of this project",
+  "error.ignore_unknown_service_suggestion": "Services declared here: %s",
   "error.no_project": "Could not determine project name. Please provide --file or --project flag.",
   "error.workspace_resolve": "Failed to resolve workspace",
   "error.workspace_resolve_suggestion": "Check that the project name is correct. Verify workspace directories exist and are accessible.",

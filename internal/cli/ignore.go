@@ -24,7 +24,7 @@ var ignoreAddCmd = &cobra.Command{
 		deps := newDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
 		for _, svc := range args {
-			if err := useCase.Add(svc, configPath); err != nil {
+			if err := useCase.Add(svc, ResolveConfigPath(configPath)); err != nil {
 				return err
 			}
 		}
@@ -44,7 +44,7 @@ var ignoreRemoveCmd = &cobra.Command{
 		deps := newDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
 		for _, svc := range args {
-			if err := useCase.Remove(svc); err != nil {
+			if err := useCase.Remove(svc, ResolveConfigPath(configPath)); err != nil {
 				return err
 			}
 		}
@@ -60,7 +60,7 @@ var ignoreListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		deps := newDependencies()
 		useCase := app.NewIgnoreUseCase(deps)
-		return useCase.List()
+		return useCase.List(ResolveConfigPath(configPath))
 	},
 }
 

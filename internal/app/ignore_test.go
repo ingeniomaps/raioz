@@ -116,7 +116,7 @@ func TestIgnoreRemoveNotIgnored(t *testing.T) {
 	var buf bytes.Buffer
 	uc.Out = &buf
 
-	err := uc.Remove("not-ignored")
+	err := uc.Remove("not-ignored", "")
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestIgnoreListEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	uc.Out = &buf
 
-	err := uc.List()
+	err := uc.List("")
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestIgnoreFullCycle(t *testing.T) {
 
 	// List
 	buf.Reset()
-	uc.List()
+	uc.List("")
 	output := buf.String()
 	if !strings.Contains(output, "svc1") || !strings.Contains(output, "svc2") {
 		t.Errorf("list should show both services\ngot: %s", output)
@@ -168,14 +168,14 @@ func TestIgnoreFullCycle(t *testing.T) {
 
 	// Remove
 	buf.Reset()
-	uc.Remove("svc1")
+	uc.Remove("svc1", "")
 	if !strings.Contains(buf.String(), "svc1") {
 		t.Errorf("remove should mention service\ngot: %s", buf.String())
 	}
 
 	// List again
 	buf.Reset()
-	uc.List()
+	uc.List("")
 	output = buf.String()
 	if strings.Contains(output, "svc1") {
 		t.Errorf("svc1 should be removed\ngot: %s", output)

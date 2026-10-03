@@ -7,7 +7,7 @@ import (
 // FilterIgnoredServices filters out services that are in the ignore list
 // Returns filtered deps and list of ignored service names
 func FilterIgnoredServices(deps *Deps) (*Deps, []string, error) {
-	ignoredServices, err := ignore.GetIgnoredServices()
+	ignoredServices, err := ignore.ForProject(deps.Project.Name)
 	if err != nil {
 		return nil, nil, err
 	}

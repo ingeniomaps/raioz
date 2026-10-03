@@ -74,7 +74,7 @@ func (uc *UseCase) applyFilters(deps *models.Deps, profile string, only []string
 	}
 
 	// Filter ignored services (must check dependencies before filtering)
-	ignoredServiceNames, err := ignore.GetIgnoredServices()
+	ignoredServiceNames, err := ignore.ForProject(deps.Project.Name)
 	if err != nil {
 		return nil, errors.New(
 			errors.ErrCodeWorkspaceError,
