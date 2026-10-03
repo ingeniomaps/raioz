@@ -78,3 +78,27 @@ func TestResourceRunArgs(t *testing.T) {
 		t.Errorf("resourceRunArgs = %q", got)
 	}
 }
+
+// Without a workspace nothing is shared: a dependency with a literal
+// container name still carries its project's label.
+func TestImageRunner_GenerateCompose_LiteralNameKeepsProjectLabel(t *testing.T) {
+	naming.SetPrefix("")
+	svc := makeImageSvc()
+	svc.ProjectName = "literal-" + t.Name()
+	svc.ContainerName = "my-own-name"
+	t.Cleanup(func() { os.RemoveAll(naming.TempDir(svc.ProjectName)) })
+
+	path, err := (&ImageRunner{}).generateCompose(svc)
+	if err != nil {
+		t.Fatalf("generateCompose: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	var parsed map[string]any
+	if err := yaml.Unmarshal(data, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	labels := parsed["services"].(map[string]any)[svc.Name].(map[string]any)["labels"].(map[string]any)
+	if labels[naming.LabelProject] != svc.ProjectName {
+		t.Errorf("project label = %v, want %s", labels[naming.LabelProject], svc.ProjectName)
+	}
+}

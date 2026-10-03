@@ -174,8 +174,13 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 	// `raioz down` of any single project does NOT sweep them — only the last
 	// project leaving the workspace tumba the dep. See stopDependencyComposeProjects
 	// in down_orchestrated.go for the matching teardown logic.
+	//
+	// Only a workspace makes a dependency shared. Without one, a dependency
+	// with a literal `name:` still belongs to its project: left unlabelled
+	// it belonged to nobody, and `ports`, `list` and every label-based
+	// sweep lost track of whose it was.
 	labelProject := svc.ProjectName
-	if naming.WorkspaceName() != "" || svc.ContainerName != naming.Container(svc.ProjectName, svc.Name) {
+	if naming.WorkspaceName() != "" {
 		labelProject = ""
 	}
 
