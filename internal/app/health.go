@@ -105,7 +105,17 @@ func (uc *HealthUseCase) reportHealth(ctx context.Context, proj *YAMLProject) er
 func (uc *HealthUseCase) collectHealth(ctx context.Context, proj *YAMLProject) []healthVerdict {
 	var out []healthVerdict
 
+	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
+	localState, _ := state.LoadLocalState(projectDir)
+
 	for _, name := range sortedKeysInfra(proj.Deps.Infra) {
+		if dep, owned := siblingOwnedDependency(name, proj.Deps.Infra[name], projectDir, localState); owned {
+			out = append(out, healthVerdict{
+				name: name, kind: "dependency", status: dep.Status,
+				healthy: dep.Status == statusRunning, detail: dep.Image,
+			})
+			continue
+		}
 		st := proj.ContainerState(ctx, name)
 		v := healthVerdict{
 			name:    name,
@@ -122,8 +132,6 @@ func (uc *HealthUseCase) collectHealth(ctx context.Context, proj *YAMLProject) [
 		out = append(out, v)
 	}
 
-	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
-	localState, _ := state.LoadLocalState(projectDir)
 	for _, name := range sortedKeysServices(proj.Deps.Services) {
 		out = append(out, uc.serviceVerdict(ctx, proj, name, proj.Deps.Services[name], localState))
 	}

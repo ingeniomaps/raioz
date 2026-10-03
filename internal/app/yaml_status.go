@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"raioz/internal/config"
+	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -69,11 +70,8 @@ func (uc *StatusUseCase) collectStatus(
 			continue
 		}
 		entry := proj.Deps.Infra[name]
-		// A dependency that is another raioz project (ADR-008 mode A) has
-		// no container of its own: it is up when that project is.
-		if entry.Inline != nil && entry.Inline.Project != "" {
-			report.Dependencies = append(report.Dependencies,
-				siblingDependencyStatus(name, entry.Inline.Project, projectDir))
+		if dep, owned := siblingOwnedDependency(name, entry, projectDir, localState); owned {
+			report.Dependencies = append(report.Dependencies, dep)
 			continue
 		}
 		st := proj.ContainerState(ctx, name)
@@ -197,6 +195,28 @@ func (uc *StatusUseCase) statusJSON(ctx context.Context, proj *YAMLProject, filt
 		return fmt.Errorf("encode status: %w", err)
 	}
 	return nil
+}
+
+// siblingOwnedDependency reports a dependency that another raioz project
+// serves, and whether name is one. It has no container of its own, so it is
+// up when that project is — not "stopped" because no container matches.
+//
+//   - mode A (`project:`): always the sibling's (ADR-008).
+//   - mode B (`siblingProject:` + image): only when the last `up` deferred
+//     to the sibling; otherwise the local image runs and is probed as usual.
+func siblingOwnedDependency(
+	name string, entry models.InfraEntry, projectDir string, localState *models.LocalState,
+) (dependencyStatus, bool) {
+	if entry.Inline == nil {
+		return dependencyStatus{}, false
+	}
+	switch {
+	case entry.Inline.Project != "":
+		return siblingDependencyStatus(name, entry.Inline.Project, projectDir), true
+	case entry.Inline.SiblingProject != "" && localState != nil && localState.IsDeferred(name):
+		return siblingDependencyStatus(name, entry.Inline.SiblingProject, projectDir), true
+	}
+	return dependencyStatus{}, false
 }
 
 // siblingDependencyStatus reports a sibling-project dependency: running

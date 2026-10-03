@@ -134,6 +134,11 @@ func proxiedHostnamesFromConfig(deps *models.Deps) []string {
 		if entry.Inline == nil {
 			continue
 		}
+		// A sibling project routes its own hostnames; this project's
+		// proxy has no entry under the dependency's name.
+		if entry.Inline.Project != "" {
+			continue
+		}
 		if entry.Inline.Routing == nil && netutil.IsNonHTTPImage(entry.Inline.Image) {
 			continue
 		}
