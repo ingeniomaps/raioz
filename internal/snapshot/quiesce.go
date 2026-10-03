@@ -32,12 +32,13 @@ var containerAction = func(action string, containers []string) error {
 }
 
 // quiesce stops every running container that mounts one of the volumes and
-// returns the function that starts them again.
+// returns the function that starts them again. noticeKey is the message
+// that names them ("...while their volumes are restored / copied").
 //
 // A restore under a live container is not a restore: the engine holds the
 // data in memory and writes it back over the restored files the next time
 // it flushes or shuts down, and the command would still report success.
-func quiesce(volumes []VolumeSnapshot) (resume func(), err error) {
+func quiesce(volumes []VolumeSnapshot, noticeKey string) (resume func(), err error) {
 	seen := map[string]bool{}
 	var containers []string
 	for _, vol := range volumes {
@@ -57,7 +58,7 @@ func quiesce(volumes []VolumeSnapshot) (resume func(), err error) {
 	}
 	sort.Strings(containers)
 
-	output.PrintInfo(i18n.T("snapshot.stopping_for_restore", strings.Join(containers, ", ")))
+	output.PrintInfo(i18n.T(noticeKey, strings.Join(containers, ", ")))
 	if err := containerAction("stop", containers); err != nil {
 		return nil, err
 	}

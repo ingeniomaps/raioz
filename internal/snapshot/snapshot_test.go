@@ -231,11 +231,20 @@ func TestCreate_ExportVolumeFails(t *testing.T) {
 	dir := t.TempDir()
 	m := NewManager(dir)
 
+	stubDocker(t, nil, "")
+	prevExport, prevResolve := exportVolume, volumeResolver
+	exportVolume = func(string, string) error { return errors.New("no such volume") }
+	volumeResolver = func(_, _, spec string) (string, bool, error) { return spec, true, nil }
+	t.Cleanup(func() { exportVolume, volumeResolver = prevExport, prevResolve })
+
 	_, err := m.Create("proj", "snap", map[string]string{
 		"definitely-not-a-real-volume-raioz-test": "svc",
 	})
 	if err == nil {
-		t.Skip("unexpected success — docker may have created a volume; skipping")
+		t.Fatal("a volume that cannot be exported must fail the snapshot")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "proj", "snap")); !os.IsNotExist(statErr) {
+		t.Error("a failed snapshot must not leave its directory behind")
 	}
 }
 

@@ -107,6 +107,20 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 		CreatedAt: time.Now(),
 	}
 
+	// Copy with the engines stopped, for the reason restore does: a
+	// database holds part of its state in memory, and files read under it
+	// are a copy of a moment that never existed on disk.
+	using := make([]VolumeSnapshot, 0, len(targets))
+	for _, t := range targets {
+		using = append(using, VolumeSnapshot{VolumeName: t.volume})
+	}
+	resume, err := quiesce(using, "snapshot.stopping_for_create")
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, fmt.Errorf("failed to stop the containers using the volumes: %w", err)
+	}
+	defer resume()
+
 	for _, t := range targets {
 		volumeName, serviceName, archiveFile := t.volume, t.service, t.archive
 		archivePath := filepath.Join(dir, archiveFile)
@@ -163,7 +177,7 @@ func (m *Manager) Restore(project, name string) error {
 
 	// Whatever mounts these volumes is stopped for the duration and started
 	// again afterwards, restore succeeded or not.
-	resume, err := quiesce(snap.Volumes)
+	resume, err := quiesce(snap.Volumes, "snapshot.stopping_for_restore")
 	if err != nil {
 		return fmt.Errorf("failed to stop the containers using the volumes: %w", err)
 	}
@@ -243,7 +257,11 @@ func (m *Manager) Delete(project, name string) error {
 }
 
 // exportVolume creates a tar.gz of a Docker volume's contents.
-func exportVolume(volumeName, archivePath string) error {
+// exportVolume is a package var for the same reason importVolume is: a test
+// that asks the daemon to mount a volume creates it for real.
+var exportVolume = exportVolumeWithDocker
+
+func exportVolumeWithDocker(volumeName, archivePath string) error {
 	cmd := exec.Command(runtime.Binary(), "run", "--rm",
 		"-v", volumeName+":/data:ro",
 		"-v", filepath.Dir(archivePath)+":/backup",

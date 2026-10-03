@@ -30,7 +30,7 @@ func TestQuiesce(t *testing.T) {
 	t.Run("stops each user once and starts it again", func(t *testing.T) {
 		calls := stubDocker(t, map[string][]string{"pg": {"db"}, "shared": {"db", "cache"}}, "")
 
-		resume, err := quiesce(vols)
+		resume, err := quiesce(vols, "snapshot.stopping_for_restore")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -44,7 +44,7 @@ func TestQuiesce(t *testing.T) {
 
 	t.Run("nothing running, nothing touched", func(t *testing.T) {
 		calls := stubDocker(t, nil, "")
-		resume, err := quiesce(vols)
+		resume, err := quiesce(vols, "snapshot.stopping_for_restore")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -56,7 +56,7 @@ func TestQuiesce(t *testing.T) {
 
 	t.Run("a failed stop aborts the restore", func(t *testing.T) {
 		stubDocker(t, map[string][]string{"pg": {"db"}}, "stop")
-		if _, err := quiesce(vols); err == nil {
+		if _, err := quiesce(vols, "snapshot.stopping_for_restore"); err == nil {
 			t.Error("restoring under a container that would not stop must fail")
 		}
 	})
