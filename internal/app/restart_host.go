@@ -70,7 +70,8 @@ func (uc *RestartUseCase) restartHostService(
 		// Run via custom stop. Errors here are logged and we proceed —
 		// the stop command may still have done its job (e.g. compose
 		// down inside a Makefile target that surfaced a warning).
-		if err := uc.deps.HostRunner.StopServiceWithCommand(ctx, pid, stopCommand); err != nil {
+		stopDir := stopCommandDir(svc, projectDir)
+		if err := uc.deps.HostRunner.StopServiceWithCommandAndPath(ctx, pid, stopCommand, stopDir); err != nil {
 			logging.WarnWithContext(ctx, "Custom stop command returned error",
 				"service", name, "error", err.Error())
 		}

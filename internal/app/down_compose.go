@@ -148,7 +148,7 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 			continue
 		}
 		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-		cmd.Dir = projectDir
+		cmd.Dir = stopCommandDir(svc, projectDir)
 		cmd.Env = buildStopCmdEnv(svc)
 
 		if out, err := cmd.CombinedOutput(); err != nil {
@@ -160,6 +160,23 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 	}
 	sort.Strings(failed)
 	return failed
+}
+
+// stopCommandDir is where a service's `stop:` runs: the service's own
+// path, the directory `command:` ran in. Running it at the project root
+// broke `stop: make stop` for every service that does not live there.
+func stopCommandDir(svc models.Service, projectDir string) string {
+	path := svc.Source.Path
+	if path == "" || path == "." {
+		return projectDir
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(projectDir, path)
+	}
+	if info, err := os.Stat(path); err != nil || !info.IsDir() {
+		return projectDir
+	}
+	return path
 }
 
 // Seeds the env from os.Environ() so the child sees PATH/DOCKER_HOST/

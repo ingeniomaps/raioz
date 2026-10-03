@@ -120,7 +120,7 @@ func TestRestartHostService_NoCommandStopsNothing(t *testing.T) {
 
 	var stopped, launched bool
 	hostRunner := &mocks.MockHostRunner{
-		StopServiceWithCommandFunc: func(_ context.Context, _ int, _ string) error {
+		StopServiceWithCommandAndPathFunc: func(_ context.Context, _ int, _, _ string) error {
 			stopped = true
 			return nil
 		},
@@ -188,4 +188,57 @@ func TestRestartHostService_RelaunchesWithComputedEnv(t *testing.T) {
 	if got["API_URL"] == "" {
 		t.Errorf("API_URL missing from the relaunch env: %v", got)
 	}
+}
+
+// `stop:` runs where `command:` ran — the service's path, not the project
+// root, or `stop: make stop` finds no Makefile.
+func TestStopCommandRunsInServicePath(t *testing.T) {
+	projectDir := t.TempDir()
+	svcDir := filepath.Join(projectDir, "stack")
+	if err := os.MkdirAll(svcDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("down", func(t *testing.T) {
+		deps := &models.Deps{Services: map[string]models.Service{"stack": {
+			Source:   models.SourceConfig{Kind: "local", Path: svcDir},
+			Commands: &models.ServiceCommands{Down: "touch stopped.marker"},
+		}}}
+		if failed := runCustomStopCommands(context.Background(), deps, projectDir); len(failed) != 0 {
+			t.Fatalf("stop failed for %v", failed)
+		}
+		if _, err := os.Stat(filepath.Join(svcDir, "stopped.marker")); err != nil {
+			t.Errorf("stop did not run in the service path: %v", err)
+		}
+	})
+
+	t.Run("restart", func(t *testing.T) {
+		var gotDir string
+		hostRunner := &mocks.MockHostRunner{
+			StopServiceWithCommandAndPathFunc: func(_ context.Context, _ int, _, dir string) error {
+				gotDir = dir
+				return nil
+			},
+			StartServiceFunc: func(_ context.Context, _ *workspace.Workspace, _ *models.Deps,
+				_ string, _ models.Service, _ string,
+			) (*host.ProcessInfo, error) {
+				return &host.ProcessInfo{}, nil
+			},
+		}
+		uc := NewRestartUseCase(&Dependencies{HostRunner: hostRunner})
+		proj := &YAMLProject{
+			ProjectName: "rzc",
+			ConfigPath:  filepath.Join(projectDir, "raioz.yaml"),
+			Deps: &models.Deps{Services: map[string]models.Service{"stack": {
+				Source:   models.SourceConfig{Kind: "local", Path: svcDir, Command: "make start"},
+				Commands: &models.ServiceCommands{Down: "make stop"},
+			}}},
+		}
+		if err := uc.restartHostService(context.Background(), proj, "stack"); err != nil {
+			t.Fatalf("restartHostService: %v", err)
+		}
+		if gotDir != svcDir {
+			t.Errorf("stop ran in %q, want %q", gotDir, svcDir)
+		}
+	})
 }
