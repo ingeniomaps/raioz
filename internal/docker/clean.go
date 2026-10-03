@@ -220,20 +220,24 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 			return actions, fmt.Errorf("failed to list unused networks: %w", err)
 		}
 
-		networks := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, net := range networks {
-			if net != "" {
-				// Get network name
-				cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect", "-f", "{{.Name}}", net)
-				nameOutput, err := cmd2.Output()
-				if err == nil {
-					netName := strings.TrimSpace(string(nameOutput))
-					actions = append(actions, fmt.Sprintf("Would remove network: %s", netName))
-				}
+		// `dangling=true` is not a promise that nothing is attached: a
+		// network with containers on it showed up here and was announced
+		// as removable, though the prune below would have left it alone.
+		for _, net := range strings.Fields(string(output)) {
+			cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect",
+				"-f", "{{.Name}} {{len .Containers}}", net)
+			described, err := cmd2.Output()
+			if err != nil {
+				continue
 			}
+			fields := strings.Fields(string(described))
+			if len(fields) != 2 || fields[1] != "0" {
+				continue
+			}
+			actions = append(actions, fmt.Sprintf("Would remove network: %s", fields[0]))
 		}
 
-		if len(networks) == 0 || networks[0] == "" {
+		if len(actions) == 0 {
 			actions = append(actions, "No unused networks found")
 		}
 
