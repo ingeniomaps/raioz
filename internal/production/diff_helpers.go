@@ -2,7 +2,10 @@ package production
 
 import (
 	"sort"
+	"strconv"
 	"strings"
+
+	"raioz/internal/domain/models"
 )
 
 // Helper functions for comparison
@@ -75,4 +78,39 @@ func isInfraService(name string) bool {
 		}
 	}
 	return false
+}
+
+// localInfraPorts renders a dependency's port mapping in the `host:container`
+// form production uses, so the two can be compared.
+//
+// `ports:` is taken as written. `expose:` + `publish:` — what raioz.yaml
+// uses now — is paired up: pinned host ports give `host:container`; with
+// `publish: true` raioz picks the host port, so only the container side
+// can disagree and the production host port is borrowed for the match.
+func localInfraPorts(inf models.Infra, prodPorts []string) []string {
+	if len(inf.Ports) > 0 {
+		return inf.Ports
+	}
+	if inf.Publish == nil || len(inf.Expose) == 0 {
+		return []string{}
+	}
+	prodHostFor := map[string]string{}
+	for _, mapping := range prodPorts {
+		if host, container, ok := strings.Cut(mapping, ":"); ok {
+			prodHostFor[container] = host
+		}
+	}
+	ports := make([]string, 0, len(inf.Expose))
+	for i, container := range inf.Expose {
+		containerPort := strconv.Itoa(container)
+		switch {
+		case i < len(inf.Publish.Ports):
+			ports = append(ports, strconv.Itoa(inf.Publish.Ports[i])+":"+containerPort)
+		case inf.Publish.Auto && prodHostFor[containerPort] != "":
+			ports = append(ports, prodHostFor[containerPort]+":"+containerPort)
+		default:
+			ports = append(ports, containerPort)
+		}
+	}
+	return ports
 }

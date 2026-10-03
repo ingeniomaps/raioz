@@ -236,3 +236,38 @@ func TestCompareConfigsYAMLDependencies(t *testing.T) {
 		t.Errorf("postgres:16 on both sides is no difference, got %+v", result.InfraDifferences)
 	}
 }
+
+func TestLocalInfraPorts(t *testing.T) {
+	prod := []string{"5433:5432"}
+	tests := []struct {
+		name string
+		inf  models.Infra
+		want []string
+	}{
+		{"legacy ports as written", models.Infra{Ports: []string{"5433:5432"}}, []string{"5433:5432"}},
+		{
+			"pinned publish pairs with expose",
+			models.Infra{Expose: []int{5432}, Publish: &models.PublishSpec{Ports: []int{5433}}},
+			[]string{"5433:5432"},
+		},
+		{
+			"auto publish compares the container side only",
+			models.Infra{Expose: []int{5432}, Publish: &models.PublishSpec{Auto: true}},
+			[]string{"5433:5432"},
+		},
+		{
+			"a different host port is a real difference",
+			models.Infra{Expose: []int{5432}, Publish: &models.PublishSpec{Ports: []int{6000}}},
+			[]string{"6000:5432"},
+		},
+		{"internal only", models.Infra{Expose: []int{5432}}, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := localInfraPorts(tt.inf, prod)
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("localInfraPorts = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

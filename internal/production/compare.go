@@ -225,11 +225,8 @@ func compareInfra(local *models.Deps, prod *ProductionConfig, result *Comparison
 		}
 
 		// Compare ports
-		localPorts := localInf.Ports
-		if localPorts == nil {
-			localPorts = []string{}
-		}
 		prodPorts := NormalizePorts(prodSvc.Ports)
+		localPorts := localInfraPorts(localInf, prodPorts)
 
 		if !portsEqual(localPorts, prodPorts) {
 			diff.PortMismatch = &PortMismatch{
