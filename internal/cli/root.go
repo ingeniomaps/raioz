@@ -76,7 +76,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&langFlag, "lang", "", "Override display language (en, es)")
 
 	// Hook to update logging and language when flags are parsed
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if logLevel != "" {
 			logging.SetLevel(logging.ParseLogLevel(logLevel))
 		}
@@ -84,9 +84,14 @@ func init() {
 			logging.SetJSONFormat(true)
 		}
 		if langFlag != "" {
+			// An unknown language is a typo, not a preference: falling
+			// back in silence showed English to someone who asked for
+			// something else and never said why.
 			if err := i18n.SetLang(langFlag); err != nil {
-				logging.Warn("Failed to set language, falling back to default",
-					"lang", langFlag, "error", err)
+				return errors.New(
+					errors.ErrCodeInvalidField,
+					i18n.T("lang.invalid", langFlag, strings.Join(i18n.Available(), ", ")),
+				)
 			}
 		}
 		// ADR-021: warn (once) when the binary has no version stamps.
@@ -110,6 +115,7 @@ func init() {
 				logging.Info(n)
 			}
 		}
+		return nil
 	}
 
 	rootCmd.AddCommand(upCmd)
