@@ -13,6 +13,7 @@ import (
 	"raioz/internal/env"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 )
 
@@ -51,6 +52,9 @@ func (uc *EnvShowUseCase) Execute(
 	if err != nil {
 		return nil, err
 	}
+	// Container names carry the workspace prefix; without it every host
+	// shown here is one that `up` never creates.
+	naming.SetPrefix(deps.Workspace)
 
 	svc, ok := deps.Services[opts.ServiceName]
 	if !ok {
