@@ -31,7 +31,8 @@ func streamForeground(ctx context.Context, deps *models.Deps, detections Detecti
 
 	<-sigCh
 	fmt.Println()
-	output.PrintInfo(i18n.T("output.stopping"))
+	// Only the log stream stops: attach started nothing it has to stop.
+	output.PrintInfo(i18n.T("output.attach_detached"))
 	cancel()
 }
 
