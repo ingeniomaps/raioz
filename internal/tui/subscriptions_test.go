@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"context"
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -70,5 +73,50 @@ func TestContainerOf(t *testing.T) {
 		if _, err := m.containerOf(name); err == nil {
 			t.Errorf("%s has no container, want an error", name)
 		}
+	}
+}
+
+// A host service has no container: restart and stop go through HostAction,
+// everything else keeps addressing the container.
+func TestHostActionRouting(t *testing.T) {
+	var calls []string
+	m := New(Config{
+		Ctx: context.Background(),
+		Services: []ServiceRow{
+			{Name: "api", Container: "rzbench-rzb1-api"},
+			{Name: "web", Host: true},
+		},
+		HostAction: func(_ context.Context, action, service string) error {
+			calls = append(calls, action+" "+service)
+			return errors.New("the lock already exists")
+		},
+	})
+
+	for _, action := range []string{"restart", "stop"} {
+		handled, err := m.hostAction(action, "web")
+		if !handled || err == nil {
+			t.Errorf("%s on a host service: handled=%v err=%v", action, handled, err)
+		}
+	}
+	if handled, _ := m.hostAction("restart", "api"); handled {
+		t.Error("a container row must not go through HostAction")
+	}
+	if got := strings.Join(calls, ","); got != "restart web,stop web" {
+		t.Errorf("calls = %q", got)
+	}
+
+	msg, ok := m.restartServiceCmd("web")().(ActionResultMsg)
+	if !ok || msg.Err == nil || msg.Action != "restart" || msg.Service != "web" {
+		t.Errorf("restart result = %+v", msg)
+	}
+	msg, ok = m.stopServiceCmd("web")().(ActionResultMsg)
+	if !ok || msg.Err == nil || msg.Action != "stop" {
+		t.Errorf("stop result = %+v", msg)
+	}
+
+	// Without the callback a host service stays read-only.
+	ro := New(Config{Ctx: context.Background(), Services: []ServiceRow{{Name: "web", Host: true}}})
+	if handled, _ := ro.hostAction("restart", "web"); handled {
+		t.Error("no HostAction configured: nothing to handle")
 	}
 }

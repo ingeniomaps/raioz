@@ -802,7 +802,7 @@
   "doctor.spawn_env_header": "=== Entorno que raioz heredaría al lanzar un sub-proceso ===",
   "dashboard.action_failed": "%s %s falló: %s",
   "dashboard.action_done": "%s %s: listo",
-  "dashboard.host_service_no_container": "es un servicio de host, no un contenedor: el dashboard sólo actúa sobre contenedores. Usa 'raioz restart <servicio>' o 'raioz down <servicio>'",
+  "dashboard.host_service_no_container": "no hay un contenedor corriendo detrás de esta fila: la shell necesita uno, y un servicio de host no lo tiene",
   "dashboard.restarting": "Reiniciando %s...",
   "dashboard.stopping": "Deteniendo %s...",
   "dashboard.no_logs": "(sin logs todavía)",

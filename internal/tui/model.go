@@ -56,6 +56,10 @@ type Config struct {
 	// ProjectDir is where the project's local state lives; host service
 	// PIDs are read from it.
 	ProjectDir string
+	// HostAction restarts ("restart") or stops ("stop") a host service.
+	// It runs outside the dashboard, under the workspace lock (ADR-044);
+	// nil leaves host services read-only.
+	HostAction func(ctx context.Context, action, service string) error
 }
 
 // Model is the Bubble Tea model for the dashboard.

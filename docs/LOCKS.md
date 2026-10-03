@@ -222,6 +222,12 @@ and user-initiated, and the worst case is losing the race and
 re-running the command. ADR-044 states the accepted risk and caps the
 dashboard at these three; a fourth action needs the lock design first.
 
+Host services are the exception to the exception. `r` and `s` on a host
+service run `raioz restart <service>` / `raioz down <service>` as a child
+process, which takes the workspace lock like the same command typed in a
+terminal. When the lock is held the action fails and the status bar shows
+why.
+
 ### Failure mode — parent SIGKILL and stale project lock
 
 `internal/lock/lock.go` uses `O_EXCL` + PID file (not `flock`) for

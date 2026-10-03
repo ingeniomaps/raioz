@@ -94,6 +94,9 @@ func runDashboardYAML(
 		Proxy:      deps.ProxyManager,
 		Ctx:        ctx,
 		ProjectDir: projectDir,
+		HostAction: func(ctx context.Context, action, service string) error {
+			return app.HostServiceAction(ctx, proj.ConfigPath, action, service)
+		},
 	}
 
 	model := tui.New(cfg)

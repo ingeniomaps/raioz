@@ -802,7 +802,7 @@
   "doctor.spawn_env_header": "=== Env raioz would inherit on sub-spawn ===",
   "dashboard.action_failed": "%s %s failed: %s",
   "dashboard.action_done": "%s %s: done",
-  "dashboard.host_service_no_container": "this is a host service, not a container: the dashboard only acts on containers. Use 'raioz restart <service>' or 'raioz down <service>'",
+  "dashboard.host_service_no_container": "no running container behind this row: a shell needs one, and a host service has none",
   "dashboard.restarting": "Restarting %s...",
   "dashboard.stopping": "Stopping %s...",
   "dashboard.no_logs": "(no logs yet)",

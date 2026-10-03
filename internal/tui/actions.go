@@ -18,9 +18,12 @@ func (m Model) restartServiceCmd(serviceName string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(m.config.Ctx, 30*time.Second)
 		defer cancel()
 
-		container, err := m.containerOf(serviceName)
-		if err == nil {
-			err = exec.CommandContext(ctx, runtime.Binary(), "restart", container).Run()
+		handled, err := m.hostAction("restart", serviceName)
+		if !handled {
+			var container string
+			if container, err = m.containerOf(serviceName); err == nil {
+				err = exec.CommandContext(ctx, runtime.Binary(), "restart", container).Run()
+			}
 		}
 		return ActionResultMsg{
 			Service: serviceName,
@@ -36,9 +39,12 @@ func (m Model) stopServiceCmd(serviceName string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(m.config.Ctx, 30*time.Second)
 		defer cancel()
 
-		container, err := m.containerOf(serviceName)
-		if err == nil {
-			err = exec.CommandContext(ctx, runtime.Binary(), "stop", container).Run()
+		handled, err := m.hostAction("stop", serviceName)
+		if !handled {
+			var container string
+			if container, err = m.containerOf(serviceName); err == nil {
+				err = exec.CommandContext(ctx, runtime.Binary(), "stop", container).Run()
+			}
 		}
 		return ActionResultMsg{
 			Service: serviceName,
@@ -74,9 +80,20 @@ func formatActionResult(msg ActionResultMsg) string {
 	return i18n.T("dashboard.action_done", msg.Action, msg.Service)
 }
 
-// containerOf returns the live container of a row. The dashboard acts on
-// containers only (ADR-044); a host service, or a row with nothing
-// running, has none to act on.
+// hostAction restarts or stops a host service through Config.HostAction.
+// handled is false for anything that is not a host service, which the
+// caller then addresses by container.
+func (m Model) hostAction(action, serviceName string) (handled bool, err error) {
+	row, ok := m.row(serviceName)
+	if !ok || !row.Host || m.config.HostAction == nil {
+		return false, nil
+	}
+	return true, m.config.HostAction(m.config.Ctx, action, serviceName)
+}
+
+// containerOf returns the live container of a row. Exec and the direct
+// docker actions need one (ADR-044); a host service, or a row with nothing
+// running, has none.
 func (m Model) containerOf(serviceName string) (string, error) {
 	row, ok := m.row(serviceName)
 	if !ok || row.Container == "" {
