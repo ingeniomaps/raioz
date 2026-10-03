@@ -770,5 +770,6 @@
   "meta.optional_absent": "%s: opcional y no está en disco — se omite",
   "meta.path_missing": "no existe el directorio del proyecto: %s",
   "port.conflict.occupied_by_raioz_host": "El puerto %d está en uso por el servicio '%s' del proyecto raioz '%s'. 'raioz switch' lo detiene y levanta este proyecto",
-  "error.volumes_in_use_suggestion": "Un volumen en uso no se puede borrar: detén antes el proyecto con 'raioz down'"
+  "error.volumes_in_use_suggestion": "Un volumen en uso no se puede borrar: detén antes el proyecto con 'raioz down'",
+  "error.meta_not_a_project": "%s es una config meta (kind: meta): no tiene servicios propios. Corre este comando dentro de uno de sus proyectos; aquí funcionan 'up', 'down', 'status', 'check' y 'yaml lint'"
 }

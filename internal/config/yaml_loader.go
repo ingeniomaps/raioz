@@ -70,6 +70,11 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 	}
 
 	if len(cfg.Services) == 0 && len(cfg.Deps) == 0 {
+		if cfg.Kind == "meta" {
+			// Not an invalid file: a meta config, asked to do what only a
+			// project can.
+			return fmt.Errorf("%s", i18n.T("error.meta_not_a_project", path))
+		}
 		return fmt.Errorf("at least one service or dependency is required in %s", path)
 	}
 

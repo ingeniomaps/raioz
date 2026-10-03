@@ -770,5 +770,6 @@
   "meta.optional_absent": "%s: optional and not on disk — skipped",
   "meta.path_missing": "project directory not found: %s",
   "port.conflict.occupied_by_raioz_host": "Port %d is in use by service '%s' of raioz project '%s'. 'raioz switch' stops it and starts this project",
-  "error.volumes_in_use_suggestion": "A volume in use cannot be removed: stop the project with 'raioz down' first"
+  "error.volumes_in_use_suggestion": "A volume in use cannot be removed: stop the project with 'raioz down' first",
+  "error.meta_not_a_project": "%s is a meta config (kind: meta): it has no services of its own. Run this command inside one of its projects; here, 'up', 'down', 'status', 'check' and 'yaml lint' work"
 }

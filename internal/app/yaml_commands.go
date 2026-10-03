@@ -62,6 +62,19 @@ func (uc *RestartUseCase) RestartYAML(
 		}
 	}
 
+	// A name the project does not declare has nothing to restart; asking
+	// docker for it only returns "No such container".
+	for _, name := range services {
+		_, isService := proj.Deps.Services[name]
+		_, isDep := proj.Deps.Infra[name]
+		if !isService && !isDep {
+			return errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("env.service_not_found", name),
+			).WithSuggestion(i18n.T("logs.available", strings.Join(logTargets(proj), ", ")))
+		}
+	}
+
 	// Lifecycle audit. Restart can be partial-success at the
 	// per-service level (printed); the lifecycle pair records the
 	// outer Execute outcome only.

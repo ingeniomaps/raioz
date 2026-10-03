@@ -27,6 +27,11 @@ func (uc *UseCase) resolveWorkspace(opts Options) (string, string, *interfaces.W
 				// The error above came from loading "nothing"; ask the
 				// file that is actually there.
 				configFile = "raioz.yaml"
+				if _, statErr := os.Stat(configFile); statErr != nil {
+					// Only the legacy file is here: let its own error
+					// ("no longer supported, run migrate yaml") speak.
+					configFile = ".raioz.json"
+				}
 				_, _, loadErr = uc.deps.ConfigLoader.LoadDeps(configFile)
 			}
 			if _, statErr := os.Stat(configFile); statErr == nil && loadErr != nil {
