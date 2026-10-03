@@ -181,7 +181,7 @@ func stopAllServicesForShutdown(
 		if svc.ProxyOverride != nil {
 			svcCtx.ProxyTarget = svc.ProxyOverride.Target
 		}
-		svcCtx.Resources = svc.Resources
+		svcCtx.Resources = serviceResources(svc, det)
 		if err := dispatcher.Stop(ctx, svcCtx); err != nil {
 			logging.WarnWithContext(ctx, "Failed to stop service on shutdown",
 				"service", name, "error", err.Error())
@@ -264,7 +264,7 @@ func buildRestartCallback(
 		if svc.ProxyOverride != nil {
 			svcCtx.ProxyTarget = svc.ProxyOverride.Target
 		}
-		svcCtx.Resources = svc.Resources
+		svcCtx.Resources = serviceResources(svc, det)
 		applyServiceEnv(&svcCtx, svc.Env, projectDir)
 
 		if err := dispatcher.Restart(ctx, svcCtx); err != nil {
@@ -327,7 +327,7 @@ func ServiceStartContext(
 	if svc.ProxyOverride != nil {
 		svcCtx.ProxyTarget = svc.ProxyOverride.Target
 	}
-	svcCtx.Resources = svc.Resources
+	svcCtx.Resources = serviceResources(svc, det)
 	applyServiceEnv(&svcCtx, svc.Env, projectDir)
 	return svcCtx, true
 }

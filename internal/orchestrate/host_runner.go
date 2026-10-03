@@ -132,6 +132,9 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	logging.InfoWithContext(ctx, "Starting host service",
 		"service", svc.Name, "command", command, "path", svc.Path)
 
+	// A declared cap runs the command inside a transient systemd scope.
+	parts = append(hostLimitPrefix(ctx, svc), parts...)
+
 	// exec.Command (no ctx) by design — see Start's doc comment.
 	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = svc.Path

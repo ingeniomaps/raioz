@@ -144,6 +144,10 @@ func (r *ComposeRunner) createNetworkOverlay(svc interfaces.ServiceContext) (str
 	services, err := r.docker.GetAvailableServicesWithContext(context.Background(), svc.Detection.ComposeFile)
 	if err != nil {
 		// If we can't read services, create a generic overlay
+		if !svc.Resources.IsZero() {
+			logging.Warn("Cannot read the compose services; resource limits not applied",
+				"service", svc.Name, "error", err.Error())
+		}
 		return r.writeOverlay(svc, overlay)
 	}
 
@@ -171,6 +175,9 @@ func (r *ComposeRunner) createNetworkOverlay(svc interfaces.ServiceContext) (str
 			},
 			"labels": labels,
 		}
+		// The service's `resources:` caps each container of its stack and
+		// replaces a limit the compose file sets.
+		applyResourceLimits(svcOverrides[name].(map[string]any), svc.Resources)
 		// host-gateway mapping so the user's compose containers can
 		// reach the host via host.docker.internal — required on Linux
 		// without Docker Desktop. Gated via runtime.Supports so nerdctl

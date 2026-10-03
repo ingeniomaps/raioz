@@ -95,14 +95,21 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 			return nil, fmt.Errorf("service '%s': %w", name, err)
 		}
 		service.Resources = svc.Resources.OrDefault(cfg.Resources)
+		service.ResourcesInherited = svc.Resources.IsZero()
 		deps.Services[name] = service
 	}
 
 	// Convert dependencies to infra entries
 	for name, dep := range cfg.Deps {
 		entry := yamlDependencyToInfra(dep)
-		if entry.Inline != nil && len(dep.Compose) == 0 {
+		switch {
+		case entry.Inline == nil:
+		case len(dep.Compose) == 0:
 			entry.Inline.Resources = dep.Resources.OrDefault(cfg.Resources)
+		default:
+			// A compose dependency carries its own limits; only a block
+			// declared on the dependency itself replaces them.
+			entry.Inline.Resources = dep.Resources
 		}
 		deps.Infra[name] = entry
 	}
@@ -364,7 +371,6 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 		warnings = append(warnings, systemVolumeWarnings(cfg, filepath.Dir(absPath))...)
 	}
 	warnings = append(warnings, authWarnings(cfg)...)
-	warnings = append(warnings, serviceResourceWarnings(cfg)...)
 
 	// Strict re-parse on the raw bytes for unknown-field detection. Any
 	// read error here is purely diagnostic — the lenient load already

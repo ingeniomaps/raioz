@@ -68,7 +68,7 @@ dependencies:
 | `project` | string | yes | — | Project name. Used for Docker resource naming. Lowercase, hyphens, max 63 chars. |
 | `workspace` | string | no | — | Groups projects on same Docker network. When set, resources use `{workspace}-` prefix instead of `raioz-`. |
 | `workspaceRoot` | string | no | the yaml's own dir | Widens the path-safety containment boundary (ADR-036 H2). By default every path in the yaml must resolve inside the yaml's directory; in a multi-repo workspace where the `raioz.yaml` lives in a sub-repo and services point at sibling repos via `../`, declare `workspaceRoot:` (relative to this yaml, e.g. `..`) to move the boundary there. Paths stay HARD-contained against the declared root; the root itself may not be a system dir. See [Multi-repo workspaces](#multi-repo-workspaces). |
-| `resources` | object | no | no cap | Default memory/CPU cap for every container raioz creates itself: each `image:` dependency and the proxy. A `resources:` block on a dependency or on `proxy:` replaces it. See [Resource limits](#resource-limits). |
+| `resources` | object | no | no cap | Default memory/CPU cap for every container raioz creates itself: each `image:` dependency, each Dockerfile service and the proxy. A `resources:` block on any of them replaces it. Host services and compose stacks take a cap only from a block of their own. See [Resource limits](#resource-limits). |
 | `network` | string or object | no | auto-derived | Pin Docker network name and/or subnet. See [Network config](#network-config). |
 | `proxy` | bool or object | no | `false` | Enable Caddy reverse proxy with HTTPS. See [Proxy config](#proxy-config). |
 | `pre` | string or list | no | — | Commands to run before anything else (env rendering, secrets fetch). Failure aborts `up`. |
@@ -238,7 +238,7 @@ and starts with the native tool (go run, npm dev, etc.).
 | `watch` | bool or string | no | `false` | File watching mode. See [Watch config](#watch-config). |
 | `health` | string | no | — | Health endpoint path (e.g., `/api/health`). Probed on `127.0.0.1:<port>` after `up` and by `raioz health`; needs `port:` declared, since without it raioz assigns the host port at run time. |
 | `hostname` | string | no | service name | Custom hostname for proxy routing. |
-| `resources` | object | no | root `resources`, else no cap | Memory/CPU cap for the service's container. Only for a service raioz builds from a Dockerfile; on a host or compose service it has no effect and raioz warns. See [Resource limits](#resource-limits). |
+| `resources` | object | no | root `resources` for a Dockerfile service, else no cap | Memory/CPU cap for the service: its container (Dockerfile), each container of its stack (compose), or the process itself (host, Linux with systemd). See [Resource limits](#resource-limits). |
 | `routing` | object | no | — | Proxy routing options. See [Routing config](#routing-config). |
 | `proxy` | object | no | — | Override proxy target/port when detection can't see the service (e.g., `command:` launches its own compose stack). See [Service proxy override](#service-proxy-override). |
 | `command` | string | no | — | User-supplied launch command. Overrides runtime auto-detection. Split into arguments the way a shell does (quotes and `\` keep spaces together) but **not** run by a shell: for `&&`, pipes or variables write `sh -c "..."`. Same for `stop`. |
@@ -305,7 +305,7 @@ Exactly one of `image`, `compose`, or `project` is required.
 | `project` | string | one of | — | Path to a sibling raioz project's directory. The sibling IS this dep — raioz brings it up via `raioz up` recursively when not already running, and never tumba it on `raioz down`. Mutually exclusive with `image`/`compose`. See [Sibling raioz projects](#sibling-raioz-projects-as-deps). |
 | `siblingProject` | string | no | — | Fallback marker: pair with `image:`/`compose:` and raioz skips the local declaration when the sibling project is active. Mutually exclusive with `project`. Useful for CI or contributors without the sibling repo cloned. |
 | `requiredHostname` | string | no | — | Assert the sibling's raioz.yaml declares this hostname before deferring to it. Only valid alongside `project:` or `siblingProject:`. |
-| `resources` | object | no | root `resources`, else no cap | Memory/CPU cap for this dependency's container. Only for `image:` dependencies; a `compose:` one sets `mem_limit`/`cpus` in its own file. See [Resource limits](#resource-limits). |
+| `resources` | object | no | root `resources` for an `image:` dependency, else no cap | Memory/CPU cap for this dependency's container. On a `compose:` dependency it replaces the limits its own file sets. See [Resource limits](#resource-limits). |
 | `name` | string | no | auto-derived | Literal container name override. Use when external tooling (IDEs, backup scripts) expects a specific name. Without it, the name is `{workspace}-{dep}` (workspace mode) or `{prefix}-{project}-{dep}` (standalone). |
 | `ports` | string or list | no | — | Port mappings (e.g., `"5432"`, `"5432:5432"`). |
 | `env` | string or list | no | — | Env file paths for the container. |
@@ -532,11 +532,44 @@ dependencies:
 - A workspace-shared proxy or dependency has one container for several
   projects: the last project to run `up` sets its cap. Declare the same
   value in each to keep it stable.
-- Not covered: anything raioz does not create the container for. A
-  `compose:` dependency sets `mem_limit`/`cpus` in its own file (raioz
-  rejects `resources:` there); a compose service and a host service that
-  declare `resources:` get a warning, because the cap has no effect on
-  them.
+- The root default stops at the containers raioz creates. A compose
+  service, a `compose:` dependency and a host service are capped only by
+  a `resources:` block of their own:
+
+  ```yaml
+  services:
+    stack:
+      path: ./stack     # has a docker-compose.yml
+      resources:        # each container of the stack gets this cap
+        memory: 512m
+    web:
+      path: ./web       # npm, go, make, `command:` … a host process
+      resources:
+        memory: 1g
+        cpus: 2
+  dependencies:
+    kafka:
+      compose: ./kafka.yml
+      resources:
+        memory: 1g
+  ```
+
+  - **Compose** (service or dependency): the cap goes into the overlay
+    raioz layers on top of the compose file, as `mem_limit`,
+    `memswap_limit` and `cpus`. It replaces a limit the file sets with
+    those same keys, and the file itself is never edited. On a service
+    it applies to *each* container of the stack, not to their sum.
+  - **Host service**: raioz runs the command inside a transient systemd
+    user scope (`systemd-run --user --scope`) with `MemoryMax`,
+    `MemorySwapMax=0` and `CPUQuota`. The whole process tree shares the
+    cap, and a process that goes over the memory figure is killed by the
+    kernel, as a container would be. This needs Linux, systemd and the
+    `memory`/`cpu` cgroup controllers delegated to your user session
+    (the default on current distributions). Where that is missing —
+    macOS, Windows, WSL without systemd, a session without a user
+    manager — raioz warns and starts the service without a cap. Containers
+    a host `command:` launches on its own (`make start` running
+    `docker compose up`) live in Docker's cgroup, outside the scope.
 
 ## Network config
 

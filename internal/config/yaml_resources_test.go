@@ -73,9 +73,9 @@ func TestResources_Rejected(t *testing.T) {
 			"proxy.resources",
 		},
 		{
-			"compose dependency",
-			"project: res\ndependencies:\n  kv:\n    compose: ./kv.yml\n    resources:\n      memory: 64m\n",
-			"only applies to 'image:'",
+			"bad memory on a compose dependency",
+			"project: res\ndependencies:\n  kv:\n    compose: ./kv.yml\n    resources:\n      memory: 64\n      cpus: -1\n",
+			"dependencies.kv.resources",
 		},
 	}
 	for _, tt := range tests {
@@ -129,13 +129,41 @@ services:
 		t.Errorf("a service without a block takes the root default, got %+v", got)
 	}
 
-	var flagged []string
+	if deps.Services["api"].ResourcesInherited || !deps.Services["worker"].ResourcesInherited {
+		t.Error("only the service without a block inherits")
+	}
+	if got := deps.Services["host"]; got.Resources == nil || got.Resources.CPUs != 1 || got.ResourcesInherited {
+		t.Errorf("a host service keeps the block it declares, got %+v", got.Resources)
+	}
 	for _, w := range warnings {
 		if strings.Contains(w, "resources") {
-			flagged = append(flagged, w)
+			t.Errorf("a declared cap is enforced by every runner, no warning expected: %s", w)
 		}
 	}
-	if len(flagged) != 1 || !strings.Contains(flagged[0], "host") {
-		t.Errorf("only the host service that declares resources is flagged, got %v", flagged)
+}
+
+// A compose dependency sets its own limits: the root default leaves it
+// alone, a block of its own replaces them.
+func TestResources_ComposeDependency(t *testing.T) {
+	deps, err := loadYAMLString(t, `version: "1"
+project: res
+resources:
+  memory: 128m
+dependencies:
+  plain:
+    compose: ./plain.yml
+  capped:
+    compose: ./capped.yml
+    resources:
+      memory: 64m
+`)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if got := deps.Infra["plain"].Inline.Resources; got != nil {
+		t.Errorf("the root default must not reach a compose dependency, got %+v", got)
+	}
+	if got := deps.Infra["capped"].Inline.Resources; got == nil || got.Memory != "64m" {
+		t.Errorf("a compose dependency keeps its own block, got %+v", got)
 	}
 }

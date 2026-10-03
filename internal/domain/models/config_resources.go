@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
-// Resources caps what a container raioz creates may use. Both fields are
-// optional; the zero value means "no cap", which is Docker's default and
-// what raioz did before the block existed.
+// Resources caps what a container or host process raioz starts may use.
+// Both fields are optional; the zero value means "no cap", which is
+// Docker's default and what raioz did before the block existed.
 type Resources struct {
 	// Memory is a Docker size: a number with an optional b/k/m/g unit
 	// (`256m`, `1g`). It is applied as the memory limit AND the
@@ -44,6 +45,28 @@ func (r *Resources) Validate() error {
 // take it.
 func (r *Resources) CPUsString() string {
 	return strconv.FormatFloat(r.CPUs, 'f', -1, 64)
+}
+
+// memoryUnits are the binary multipliers of the unit letters Docker takes.
+var memoryUnits = map[byte]int64{'b': 1, 'k': 1 << 10, 'm': 1 << 20, 'g': 1 << 30}
+
+// MemoryBytes returns Memory in bytes, read the way Docker reads it: a
+// bare number is bytes and the units are binary. ok is false when no
+// memory cap is declared or the value does not parse.
+func (r *Resources) MemoryBytes() (bytes int64, ok bool) {
+	if r == nil || !memorySizePattern.MatchString(r.Memory) {
+		return 0, false
+	}
+	number := strings.TrimRight(strings.ToLower(r.Memory), "bkmg")
+	unit := int64(1)
+	if suffix := strings.ToLower(r.Memory[len(number):]); suffix != "" {
+		unit = memoryUnits[suffix[0]]
+	}
+	value, err := strconv.ParseFloat(number, 64)
+	if err != nil || value <= 0 {
+		return 0, false
+	}
+	return int64(value * float64(unit)), true
 }
 
 // OrDefault returns r when it declares something, fallback otherwise.

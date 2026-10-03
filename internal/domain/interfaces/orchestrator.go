@@ -61,8 +61,9 @@ type ServiceContext struct {
 	// path resolution (services already track their own path).
 	ProjectDir string
 
-	// Resources caps the container's memory and CPU. Set for image-mode
-	// dependencies that declare (or inherit) `resources:`; nil = no cap.
+	// Resources caps the memory and CPU of whatever the runner starts —
+	// a container, each container of a compose stack, or a host process.
+	// nil = no cap.
 	Resources *models.Resources
 }
 

@@ -45,3 +45,33 @@ func TestResourcesOrDefault(t *testing.T) {
 		t.Errorf("CPUsString = %q", got)
 	}
 }
+
+func TestResourcesMemoryBytes(t *testing.T) {
+	tests := []struct {
+		memory string
+		want   int64
+		ok     bool
+	}{
+		{"", 0, false},
+		{"lots", 0, false},
+		{"0", 0, false},
+		{"1024", 1024, true},
+		{"512b", 512, true},
+		{"64k", 64 << 10, true},
+		{"256m", 256 << 20, true},
+		{"256MB", 256 << 20, true},
+		{"1g", 1 << 30, true},
+		{"1.5G", 3 << 29, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.memory, func(t *testing.T) {
+			got, ok := (&Resources{Memory: tt.memory}).MemoryBytes()
+			if got != tt.want || ok != tt.ok {
+				t.Errorf("MemoryBytes(%q) = %d, %v; want %d, %v", tt.memory, got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+	if _, ok := (*Resources)(nil).MemoryBytes(); ok {
+		t.Error("nil declares no memory cap")
+	}
+}

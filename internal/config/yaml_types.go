@@ -41,8 +41,10 @@ type RaiozConfig struct {
 	Deps          map[string]YAMLDependency `yaml:"dependencies,omitempty"`  // since: v0.1.0
 
 	// Resources is the default memory/CPU cap for every container raioz
-	// creates itself: each `image:` dependency and the proxy. A block on
-	// the dependency or on `proxy:` replaces it. Unset = no cap.
+	// creates itself: each `image:` dependency, each Dockerfile service
+	// and the proxy. A block on any of them replaces it. Unset = no cap.
+	// It does not reach host services nor compose stacks, which take a
+	// cap only from a block of their own.
 	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
 
 	// Router replaces raioz's internal Caddy with a sibling raioz project
@@ -181,9 +183,11 @@ type YAMLService struct {
 	Hostname        string          `yaml:"hostname,omitempty"`        // since: v0.1.0
 	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"` // since: v0.3.0
 
-	// Resources caps the service's memory and CPU when raioz creates its
-	// container — a service run from a Dockerfile. It does not reach a
-	// host process, nor a compose stack (which sets its own limits).
+	// Resources caps the service's memory and CPU: its container when it
+	// runs from a Dockerfile, each container of its stack when it is a
+	// compose service, and a systemd user scope around the process when
+	// it runs on the host (Linux; elsewhere raioz warns and runs it
+	// uncapped).
 	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
 	Routing   *RoutingConfig    `yaml:"routing,omitempty"`   // since: v0.1.0
 	Profiles  YAMLStringSlice   `yaml:"profiles,omitempty"`  // since: v0.1.0
@@ -343,8 +347,8 @@ type YAMLDependency struct {
 	// whichever is left out.
 	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"` // since: v0.1.1
 
-	// Resources caps this dependency's memory and CPU. Only for `image:`
-	// dependencies — a `compose:` one sets its limits in its own file.
+	// Resources caps this dependency's memory and CPU. On a `compose:`
+	// dependency it replaces the limits its own file sets.
 	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
 
 	// Project points at a sibling raioz project that *is* this dependency

@@ -57,6 +57,10 @@ func (r *ImageRunner) writeInfraOverlay(svc interfaces.ServiceContext) (string, 
 		service["extra_hosts"] = []string{"host.docker.internal:host-gateway"}
 	}
 
+	// A `resources:` block on the dependency replaces whatever limit its
+	// compose file sets.
+	applyResourceLimits(service, svc.Resources)
+
 	overlay := map[string]any{
 		"services": map[string]any{
 			svc.Name: service,
