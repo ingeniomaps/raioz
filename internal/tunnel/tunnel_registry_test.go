@@ -315,3 +315,26 @@ func TestInfo_JSONRoundTrip(t *testing.T) {
 		t.Errorf("round-trip mismatch: %+v", got)
 	}
 }
+
+func TestNewManager_RegistryUnderStateDir(t *testing.T) {
+	state := t.TempDir()
+	t.Setenv("RAIOZ_HOME", state)
+
+	m := NewManager()
+	if want := filepath.Join(state, "tunnels.json"); m.registryPath != want {
+		t.Errorf("registryPath = %q, want %q", m.registryPath, want)
+	}
+}
+
+func TestLoadAll_ReadsLegacyRegistry(t *testing.T) {
+	dir := t.TempDir()
+	legacy := filepath.Join(dir, "legacy.json")
+	if err := os.WriteFile(legacy, []byte(`[{"service":"api","pid":1}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := &Manager{registryPath: filepath.Join(dir, "tunnels.json"), legacyPath: legacy}
+
+	if got := m.loadAll(); len(got) != 1 {
+		t.Fatalf("legacy registry not read: %+v", got)
+	}
+}

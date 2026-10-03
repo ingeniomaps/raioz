@@ -499,7 +499,6 @@
   "doctor.disk_critical": "Critical: only %.1f GB free. Free up disk space.",
   "doctor.disk_low": "Low: %.1f GB free. Consider freeing disk space.",
   "doctor.raioz_dir": "Raioz config",
-  "doctor.home_not_found": "Could not determine home directory",
   "doctor.raioz_dir_missing": "~/.raioz not found (will be created on first raioz up)",
   "doctor.system": "System",
   "doctor.result_ok": "All checks passed. Your system is ready to use raioz.",

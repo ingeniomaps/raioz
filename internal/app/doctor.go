@@ -11,6 +11,7 @@ import (
 
 	"raioz/internal/host"
 	"raioz/internal/i18n"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
 )
@@ -171,12 +172,9 @@ func (uc *DoctorUseCase) checkBuildInfo() DoctorCheck {
 
 func (uc *DoctorUseCase) checkRaiozDir() DoctorCheck {
 	name := i18n.T("doctor.raioz_dir")
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return DoctorCheck{Name: name, Status: "warning", Message: i18n.T("doctor.home_not_found")}
-	}
-
-	raiozDir := home + "/.raioz"
+	// ADR-022: the state dir is wherever RaiozStateDir resolves, not a
+	// fixed ~/.raioz.
+	raiozDir := naming.RaiozStateDir()
 	if _, err := os.Stat(raiozDir); os.IsNotExist(err) {
 		return DoctorCheck{Name: name, Status: "warning", Message: i18n.T("doctor.raioz_dir_missing")}
 	}

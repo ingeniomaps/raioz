@@ -2,6 +2,7 @@ package i18n
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -54,6 +55,10 @@ func TestInit_EnvVar(t *testing.T) {
 func TestInit_InvalidFallsBackToDefault(t *testing.T) {
 	reset()
 	SetBaseDir(t.TempDir())
+	// Nothing else names a language: no env var, no system locale.
+	for _, v := range []string{"RAIOZ_LANG", "LANG", "LC_ALL", "LC_MESSAGES", "LANGUAGE"} {
+		t.Setenv(v, "")
+	}
 	Init("xx")
 
 	if lang := GetLang(); lang != "en" {
@@ -237,4 +242,54 @@ func reset() {
 	currentLang = ""
 	initialized = false
 	raiozBaseDir = ""
+}
+
+// The preference follows the raioz state dir; one saved by an older raioz
+// under ~/.raioz is still read until a new one is written.
+func TestPreference_StateDirWithLegacyFallback(t *testing.T) {
+	reset()
+	SetBaseDir("")
+	home, state := t.TempDir(), t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("RAIOZ_HOME", state)
+
+	legacy := filepath.Join(home, ".raioz")
+	if err := os.MkdirAll(legacy, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacy, configFile), []byte(`{"language":"es"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	mu.Lock()
+	got := loadPreferenceInternal()
+	mu.Unlock()
+	if got != "es" {
+		t.Fatalf("legacy preference = %q, want es", got)
+	}
+
+	if err := SavePreference("en"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(state, configFile)); err != nil {
+		t.Fatalf("preference must be written under the state dir: %v", err)
+	}
+	mu.Lock()
+	got = loadPreferenceInternal()
+	mu.Unlock()
+	if got != "en" {
+		t.Errorf("state-dir preference must win, got %q", got)
+	}
+}
+
+func TestInit_UnknownExplicitLangKeepsUsualLanguage(t *testing.T) {
+	reset()
+	SetBaseDir(t.TempDir())
+	t.Setenv("RAIOZ_LANG", "es")
+
+	Init("fr")
+
+	if lang := GetLang(); lang != "es" {
+		t.Errorf("an unknown explicit language must not switch to English, got %q", lang)
+	}
 }

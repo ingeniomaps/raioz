@@ -14,6 +14,7 @@ import (
 
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 )
 
 // Info represents an active tunnel.
@@ -29,14 +30,18 @@ type Info struct {
 // Manager handles tunnel lifecycle.
 type Manager struct {
 	registryPath string
+	// legacyPath is where raioz kept the registry before ADR-022; read
+	// when registryPath does not exist yet, never written.
+	legacyPath string
 }
 
 // NewManager creates a tunnel Manager.
 func NewManager() *Manager {
-	home, _ := os.UserHomeDir()
-	return &Manager{
-		registryPath: filepath.Join(home, ".raioz", "tunnels.json"),
+	m := &Manager{registryPath: filepath.Join(naming.RaiozStateDir(), "tunnels.json")}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		m.legacyPath = filepath.Join(home, ".raioz", "tunnels.json")
 	}
+	return m
 }
 
 // Start creates a tunnel for a local port using the best available backend.
@@ -92,6 +97,9 @@ func (m *Manager) StopAll() {
 		}
 	}
 	_ = os.Remove(m.registryPath)
+	if m.legacyPath != "" {
+		_ = os.Remove(m.legacyPath)
+	}
 }
 
 // List returns all active tunnels, cleaning up dead ones.
@@ -206,6 +214,10 @@ func (m *Manager) save(info *Info) {
 
 func (m *Manager) loadAll() []Info {
 	data, err := os.ReadFile(m.registryPath)
+	if err != nil && m.legacyPath != "" {
+		// Tunnels an older raioz started are still running; find them.
+		data, err = os.ReadFile(m.legacyPath)
+	}
 	if err != nil {
 		return nil
 	}
