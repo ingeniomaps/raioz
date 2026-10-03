@@ -49,8 +49,8 @@ func (uc *PortsUseCase) listConflictingPorts(
 // without spawning Docker.
 func printConflictingPortsTable(w io.Writer, conflicts []portConflict) {
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(tw, "PORT\tPROJECT\tSERVICE\tALTERNATIVE")
-	fmt.Fprintln(tw, "────\t───────\t───────\t───────────")
+	writeTableHeader(tw, i18n.T("ports.col_port"), i18n.T("ports.col_project"),
+		i18n.T("ports.col_service"), i18n.T("ports.col_alternative"))
 	for _, c := range conflicts {
 		alt := c.Alternative
 		if alt == "" {

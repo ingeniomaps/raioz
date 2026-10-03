@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"raioz/internal/i18n"
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -89,7 +91,7 @@ func (m Model) renderLogs() string {
 
 	lines := m.logs[selected]
 	if len(lines) == 0 {
-		lines = []string{"  (no logs yet)"}
+		lines = []string{"  " + i18n.T("dashboard.no_logs")}
 	}
 
 	// Show last N lines that fit

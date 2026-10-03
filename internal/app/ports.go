@@ -3,8 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
+	"unicode/utf8"
 
 	"raioz/internal/i18n"
 	"raioz/internal/output"
@@ -56,8 +59,8 @@ func (uc *PortsUseCase) Execute(ctx context.Context, opts PortsOptions) error {
 	output.PrintSectionHeader(i18n.T("output.active_ports_header"))
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "PORT\tPROJECT\tSERVICE\tRUNS AS")
-	fmt.Fprintln(w, "────\t───────\t───────\t───────")
+	writeTableHeader(w, i18n.T("ports.col_port"), i18n.T("ports.col_project"),
+		i18n.T("ports.col_service"), i18n.T("ports.col_runs_as"))
 
 	for _, ep := range endpoints {
 		project := ep.Project
@@ -69,4 +72,15 @@ func (uc *PortsUseCase) Execute(ctx context.Context, opts PortsOptions) error {
 
 	w.Flush()
 	return nil
+}
+
+// writeTableHeader writes the column titles and a rule under each, as wide
+// as its title in whatever language it is in.
+func writeTableHeader(w io.Writer, columns ...string) {
+	rules := make([]string, len(columns))
+	for i, col := range columns {
+		rules[i] = strings.Repeat("─", utf8.RuneCountInString(col))
+	}
+	fmt.Fprintln(w, strings.Join(columns, "\t"))
+	fmt.Fprintln(w, strings.Join(rules, "\t"))
 }

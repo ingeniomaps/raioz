@@ -3,10 +3,10 @@ package tui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os/exec"
 	"time"
 
+	"raioz/internal/i18n"
 	"raioz/internal/runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -69,9 +69,9 @@ func (m Model) execInServiceCmd(serviceName string) tea.Cmd {
 // formatActionResult returns a human-readable message for an action result.
 func formatActionResult(msg ActionResultMsg) string {
 	if msg.Err != nil {
-		return fmt.Sprintf("%s %s failed: %s", msg.Action, msg.Service, msg.Err)
+		return i18n.T("dashboard.action_failed", msg.Action, msg.Service, msg.Err)
 	}
-	return fmt.Sprintf("%s %s: done", msg.Action, msg.Service)
+	return i18n.T("dashboard.action_done", msg.Action, msg.Service)
 }
 
 // containerOf returns the live container of a row. The dashboard acts on
@@ -80,7 +80,7 @@ func formatActionResult(msg ActionResultMsg) string {
 func (m Model) containerOf(serviceName string) (string, error) {
 	row, ok := m.row(serviceName)
 	if !ok || row.Container == "" {
-		return "", errors.New("no running container (use `raioz restart` for a host service)")
+		return "", errors.New(i18n.T("dashboard.host_service_no_container"))
 	}
 	return row.Container, nil
 }

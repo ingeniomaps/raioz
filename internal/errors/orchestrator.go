@@ -1,5 +1,7 @@
 package errors
 
+import "raioz/internal/i18n"
+
 // Error codes for the meta-orchestrator flow.
 const (
 	// Detection errors
@@ -32,42 +34,28 @@ const (
 // RuntimeNotDetected creates an error when raioz can't determine how to run a service.
 func RuntimeNotDetected(serviceName, path string) *RaiozError {
 	return New(ErrCodeRuntimeNotDetected,
-		"Cannot detect how to run service '"+serviceName+"'",
+		i18n.T("error.runtime_not_detected", serviceName),
 	).WithContext("service", serviceName).
 		WithContext("path", path).
-		WithSuggestion(
-			"Raioz looks for: docker-compose.yml, Dockerfile, package.json, go.mod, Makefile, pyproject.toml, or Cargo.toml.\n" +
-				"  Add one of these to " + path + ", or check that the path exists and is accessible.",
-		)
+		WithSuggestion(i18n.T("error.runtime_not_detected_suggestion", path))
+}
+
+// startFailureHints are the runtimes with a hint of their own for a failed
+// start; anything else gets the generic one.
+var startFailureHints = map[string]bool{
+	"compose": true, "dockerfile": true, "npm": true, "go": true, "make": true,
+	"command": true, "python": true, "rust": true, "image": true,
 }
 
 // ServiceStartFailed creates an error when a service fails to start.
 func ServiceStartFailed(serviceName, runtime string, err error) *RaiozError {
-	suggestions := map[string]string{
-		"compose": "Check the service's docker-compose.yml for errors. " +
-			"Try running 'docker compose up' directly in the service directory.",
-		"dockerfile": "The build or the run step failed. Try 'docker build .' in the service " +
-			"directory, then check for a bound port, a missing env file, or an unreachable network.",
-		"npm": "Check package.json scripts. " +
-			"Try running 'npm run dev' directly in the service directory.",
-		"go": "Check for compilation errors. " +
-			"Try running 'go run .' directly in the service directory.",
-		"make": "Check the Makefile targets. " +
-			"Try running 'make dev' directly in the service directory.",
-		"command": "Run the service's 'command:' from raioz.yaml directly in its directory " +
-			"and read what it prints.",
-		"python": "Check for missing dependencies. Try running the start command directly in the service directory.",
-		"rust":   "Check for compilation errors. Try running 'cargo run' directly in the service directory.",
-		"image":  "Check that the Docker image exists and can be pulled. Try 'docker pull <image>' manually.",
-	}
-
-	suggestion := suggestions[runtime]
-	if suggestion == "" {
-		suggestion = "Check the service logs for details. Try starting the service manually."
+	suggestion := i18n.T("error.service_start_hint.default")
+	if startFailureHints[runtime] {
+		suggestion = i18n.T("error.service_start_hint." + runtime)
 	}
 
 	return New(ErrCodeServiceStartFailed,
-		"Failed to start service '"+serviceName+"' ("+runtime+")",
+		i18n.T("error.service_start_failed", serviceName, runtime),
 	).WithContext("service", serviceName).
 		WithContext("runtime", runtime).
 		WithError(err).
@@ -79,17 +67,11 @@ func ServiceStartFailed(serviceName, runtime string, err error) *RaiozError {
 // suggestion shifts accordingly because `docker pull ""` is nonsense in that
 // case and the actionable knobs are different (compose file, networks, env).
 func DependencyStartFailed(name, image string, err error) *RaiozError {
-	title := "Failed to start dependency '" + name + "'"
+	title := i18n.T("error.dependency_start_failed", name)
+	suggestion := i18n.T("error.dependency_start_hint_compose")
 	if image != "" {
 		title += " (" + image + ")"
-	}
-	suggestion := "Check the compose file for hardcoded subnets or ports.\n" +
-		"  Verify referenced env files exist and are readable.\n" +
-		"  Check for port conflicts: raioz ports"
-	if image != "" {
-		suggestion = "Check that Docker is running: docker info\n" +
-			"  Check that the image exists: docker pull " + image + "\n" +
-			"  Check for port conflicts: raioz ports"
+		suggestion = i18n.T("error.dependency_start_hint_image", image)
 	}
 	e := New(ErrCodeDepStartFailed, title).
 		WithContext("dependency", name).
@@ -104,27 +86,15 @@ func DependencyStartFailed(name, image string, err error) *RaiozError {
 // PreHookFailed creates an error when a pre-hook command fails.
 func PreHookFailed(command string, err error) *RaiozError {
 	return New(ErrCodePreHookFailed,
-		"Pre-hook failed: "+command,
+		i18n.T("error.pre_hook_failed", command),
 	).WithError(err).
-		WithSuggestion(
-			"The 'pre' command in raioz.yaml failed. This usually means:\n" +
-				"  - You're not logged in to your secrets manager (try the login command first)\n" +
-				"  - The script doesn't exist or isn't executable (check permissions)\n" +
-				"  - A required tool is missing (check the command works manually)",
-		)
+		WithSuggestion(i18n.T("error.pre_hook_failed_suggestion"))
 }
 
 // PreUpHookFailed creates an error when the preUp hook fails.
 func PreUpHookFailed(command string, err error) *RaiozError {
 	return New(ErrCodePreUpHookFailed,
-		"Pre-up hook failed: "+command,
+		i18n.T("error.pre_up_hook_failed", command),
 	).WithError(err).
-		WithSuggestion(
-			"The 'preUp' command in raioz.yaml runs AFTER infra/sibling " +
-				"spawn but BEFORE service start. Common causes:\n" +
-				"  - The dep your hook talks to is not reachable from the host " +
-				"(use the published host:port, or run the bootstrap inside a container)\n" +
-				"  - The dep didn't actually come up — check 'raioz status'\n" +
-				"  - The command works locally but is missing env vars — re-export them in the hook",
-		)
+		WithSuggestion(i18n.T("error.pre_up_hook_failed_suggestion"))
 }
