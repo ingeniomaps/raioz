@@ -250,6 +250,12 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 
 	orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath, opts.RouterOff)
 	if err != nil {
+		// A run that failed before attaching anything leaves the network it
+		// just created with nothing on it. One with containers attached is
+		// left alone: `raioz down` owns that teardown.
+		if _, rmErr := removeUnusedNetworksFn(ctx, networkLabelsFor(deps)); rmErr != nil {
+			logging.WarnWithContext(ctx, "Could not drop the unused network", "error", rmErr.Error())
+		}
 		return err
 	}
 	serviceNames = orchResult.serviceNames

@@ -265,6 +265,11 @@ func buildEndpoints(
 	return endpoints
 }
 
+// removeUnusedNetworksFn drops the networks carrying the given labels that
+// no container is attached to. Declared here (this file already imports
+// internal/docker) and as a package var so tests never reach the daemon.
+var removeUnusedNetworksFn = docker.RemoveLabeledNetworks
+
 // serviceContainerIPFn resolves the address of a service's container.
 // Declared here (this file already imports internal/docker) and as a
 // package var so tests can answer without a docker daemon.
