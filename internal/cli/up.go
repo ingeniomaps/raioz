@@ -145,7 +145,8 @@ func init() {
 	upCmd.Flags().BoolVar(&forceReclone, "force-reclone", false, "Force re-clone of all git repositories")
 	upCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
 	upCmd.Flags().StringSliceVar(&onlyServices, "only", nil, "Start only these services (with their dependencies)")
-	upCmd.Flags().StringVar(&hostBind, "host", "", "Bind address for shared dev server (e.g., 0.0.0.0)")
+	upCmd.Flags().StringVar(&hostBind, "host", "",
+		"Host address a published proxy binds 80/443 on (default 127.0.0.1; 0.0.0.0 shares it on the network)")
 	upCmd.Flags().BoolVar(&attach, "attach", false, "Stay attached and stream logs (blocks until Ctrl+C)")
 	upCmd.Flags().BoolVar(&watch, "watch", false,
 		"File-watch services with watch: true and auto-restart (blocks until Ctrl+C)")

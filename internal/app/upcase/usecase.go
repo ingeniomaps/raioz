@@ -104,6 +104,11 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		return err
 	}
 
+	// --host widens where a published proxy listens (default: loopback).
+	if opts.Host != "" && deps.ProxyConfig != nil {
+		deps.ProxyConfig.BindHost = opts.Host
+	}
+
 	// Filters: profile, feature flags, ignore list, --only
 	deps, err = uc.applyFilters(deps, opts.Profile, opts.Only)
 	if err != nil {

@@ -830,5 +830,6 @@
   "ports.col_project": "PROYECTO",
   "ports.col_service": "SERVICIO",
   "ports.col_runs_as": "CORRE COMO",
-  "ports.col_alternative": "ALTERNATIVA"
+  "ports.col_alternative": "ALTERNATIVA",
+  "flag.up.host": "Dirección del host donde el proxy publicado enlaza 80/443 (por defecto 127.0.0.1; 0.0.0.0 lo comparte en la red)"
 }

@@ -90,6 +90,7 @@ func proxyConfigFor(deps *models.Deps) interfaces.ProxyConfig {
 		}
 		cfg.ContainerIP = deps.ProxyConfig.IP
 		cfg.Publish = deps.ProxyConfig.Publish
+		cfg.BindHost = deps.ProxyConfig.BindHost
 		cfg.Resources = deps.ProxyConfig.Resources
 	}
 	return cfg

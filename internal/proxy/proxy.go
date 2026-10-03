@@ -210,13 +210,10 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		args = append(args, "--add-host=host.docker.internal:host-gateway")
 	}
 	if m.publish {
-		httpBind := "80:80"
-		httpsBind := "443:443"
-		if m.bindHost != "" {
-			httpBind = m.bindHost + ":80:80"
-			httpsBind = m.bindHost + ":443:443"
-		}
-		args = append(args, "-p", httpBind, "-p", httpsBind)
+		// Loopback unless asked otherwise: a bare `-p 80:80` binds every
+		// interface and puts a development proxy on the local network.
+		host := m.publishHost()
+		args = append(args, "-p", host+":80:80", "-p", host+":443:443")
 	}
 
 	// Pin the proxy to a known IP inside the network when one is resolvable.
@@ -278,6 +275,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		return fmt.Errorf("failed to start proxy: %w\n%s", err, string(output))
 	}
 
+	m.waitUntilListening(ctx, proxyIP)
 	return nil
 }
 

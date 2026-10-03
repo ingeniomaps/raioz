@@ -830,5 +830,6 @@
   "ports.col_project": "PROJECT",
   "ports.col_service": "SERVICE",
   "ports.col_runs_as": "RUNS AS",
-  "ports.col_alternative": "ALTERNATIVE"
+  "ports.col_alternative": "ALTERNATIVE",
+  "flag.up.host": "Host address a published proxy binds 80/443 on (default 127.0.0.1; 0.0.0.0 shares it on the network)"
 }

@@ -29,6 +29,10 @@ type ProxyConfig struct {
 	// the host, so publish:false is functionally broken there.
 	Publish *bool `yaml:"publish,omitempty"` // since: v0.1.0
 
+	// BindHost is the host address a published proxy binds 80/443 on. Not
+	// a yaml field: it comes from `raioz up --host`. Empty = loopback.
+	BindHost string `yaml:"-"`
+
 	// Resources caps the proxy container's memory and CPU. Unset falls
 	// back to the root `resources:` block, then to no cap.
 	Resources *Resources `yaml:"resources,omitempty"` // since: v0.16.0

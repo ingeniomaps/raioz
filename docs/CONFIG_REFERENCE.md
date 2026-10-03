@@ -477,7 +477,7 @@ proxy:
 | `mode` | string | `subdomain` | Routing mode: `subdomain` or `path`. |
 | `tls` | string | `mkcert` | TLS provider: `mkcert` (local) or `letsencrypt`. |
 | `ip` | string | `<subnet>.1.1` when `network.subnet` is set, else Docker-assigned | Pin the Caddy container's IP. Deterministic so scripts and `/etc/hosts` entries stay stable. Requires `network.subnet` — Docker won't honor `--ip` without a user-defined subnet. |
-| `publish` | bool | `true` | Bind host ports 80/443 (default). Set `false` to reach the proxy only via its container IP — lets multiple workspaces run in parallel without port contention. Requires a deterministic `ip` or `network.subnet`. **Linux-only**; on macOS/Windows, Docker routes through a VM whose bridge IPs aren't reachable from the host. |
+| `publish` | bool | `true` | Bind host ports 80/443 (default) on `127.0.0.1`; `raioz up --host 0.0.0.0` binds every interface to share the proxy on the local network. Set `false` to reach the proxy only via its container IP — lets multiple workspaces run in parallel without port contention. Requires a deterministic `ip` or `network.subnet`. **Linux-only**; on macOS/Windows, Docker routes through a VM whose bridge IPs aren't reachable from the host. |
 | `resources` | object | root `resources`, else no cap | Memory/CPU cap for the proxy container. See [Resource limits](#resource-limits). |
 
 Result: each service gets `https://{service}.{domain}` (e.g., `https://api.acme.localhost`).

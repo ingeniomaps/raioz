@@ -40,6 +40,7 @@ func setI18nDescriptions() {
 	upCmd.Flags().Lookup("force-reclone").Usage = i18n.T("flag.force_reclone")
 	upCmd.Flags().Lookup("dry-run").Usage = i18n.T("flag.up.dry_run")
 	upCmd.Flags().Lookup("only").Usage = i18n.T("flag.up.only")
+	upCmd.Flags().Lookup("host").Usage = i18n.T("flag.up.host")
 
 	// --- down ---
 	downCmd.Short = i18n.T("cmd.down.short")
