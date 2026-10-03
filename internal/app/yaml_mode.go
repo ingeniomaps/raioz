@@ -125,6 +125,28 @@ func (p *YAMLProject) liveContainerName(ctx context.Context, name string) string
 	return resolved
 }
 
+// liveContainerNames is liveContainerName for callers that act on every
+// container of an entry: a service whose compose file declares several
+// containers has more than one. Dependencies resolve to a single one.
+func (p *YAMLProject) liveContainerNames(ctx context.Context, name string) []string {
+	if p.Deps != nil {
+		if _, isDep := p.Deps.Infra[name]; !isDep {
+			matches := containerLookup().FindByLabels(ctx, map[string]string{
+				naming.LabelManaged: "true",
+				naming.LabelProject: p.ProjectName,
+				naming.LabelService: name,
+			})
+			if len(matches) > 0 {
+				return matches
+			}
+		}
+	}
+	if resolved := p.liveContainerName(ctx, name); resolved != "" {
+		return []string{resolved}
+	}
+	return nil
+}
+
 // ContainerStatus returns the status of a specific container, discarding
 // the restart count. For callers that only branch on liveness.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {

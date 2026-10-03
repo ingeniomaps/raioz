@@ -51,7 +51,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		svc, isService := proj.Deps.Services[name]
 		if !isService {
 			// Dependency — docker logs <container>.
-			dockerContainers = append(dockerContainers, naming.Container(proj.ProjectName, name))
+			dockerContainers = append(dockerContainers, logContainer(ctx, proj, name))
 			continue
 		}
 		// Classify by how the service runs — same runtime check the up-time
@@ -62,7 +62,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 			composeServices = append(composeServices, name)
 		case det.IsDocker():
 			// Dockerfile / image: raioz owns the container name.
-			dockerContainers = append(dockerContainers, naming.Container(proj.ProjectName, name))
+			dockerContainers = append(dockerContainers, logContainer(ctx, proj, name))
 		default:
 			// Host process — the file HostRunner writes.
 			hostLogFiles = append(hostLogFiles, naming.LogFile(proj.ProjectName, name))
@@ -82,7 +82,8 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		}
 	}
 
-	if len(dockerContainers) > 0 {
+	// `docker logs` takes exactly one container.
+	for _, container := range dockerContainers {
 		args := []string{"logs"}
 		if follow {
 			args = append(args, "-f")
@@ -90,7 +91,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		if tail > 0 {
 			args = append(args, "--tail", fmt.Sprintf("%d", tail))
 		}
-		args = append(args, dockerContainers...)
+		args = append(args, container)
 
 		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 		cmd.Stdout = os.Stdout
@@ -131,4 +132,14 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 		return fmt.Errorf("tail %q: %w", logPath, err)
 	}
 	return nil
+}
+
+// logContainer returns the container to read logs from: the one Docker
+// runs for the entry, or the canonical name when there is none, so docker
+// itself reports what is missing.
+func logContainer(ctx context.Context, proj *YAMLProject, name string) string {
+	if live := proj.liveContainerName(ctx, name); live != "" {
+		return live
+	}
+	return naming.Container(proj.ProjectName, name)
 }

@@ -98,6 +98,11 @@ func showComposeServiceLogs(
 	return nil
 }
 
+// serviceContainerIP resolves the address of a service's container. It
+// lives here so the app-layer docker import stays on this ADR-029 baseline
+// file, and is a package var so tests can answer without a docker daemon.
+var serviceContainerIP = docker.ServiceContainerIP
+
 // stopComposeServices tears down compose-based yaml services by invoking
 // `docker compose -f <files> down` under the same COMPOSE_PROJECT_NAME scope
 // used at `up` time. Required because the default prefix-based cleanup only

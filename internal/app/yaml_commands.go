@@ -14,6 +14,7 @@ import (
 	"raioz/internal/audit"
 	"raioz/internal/config"
 	"raioz/internal/errors"
+	"raioz/internal/fsutil"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
@@ -89,6 +90,13 @@ func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filt
 					status = formatContainerStatus(st)
 					goto print
 				}
+			}
+
+			// A compose / Dockerfile service is a container: Docker is the
+			// source of truth, and there is no PID to look at.
+			if result.IsDocker() {
+				status = formatContainerStatus(proj.ContainerState(ctx, name))
+				goto print
 			}
 
 			// Fallback: process alive via saved PID. A live PID is not
@@ -188,9 +196,15 @@ func (uc *RestartUseCase) RestartYAML(
 			continue
 		}
 
-		containerName := naming.Container(proj.ProjectName, name)
+		// Resolve by label: the canonical name misses workspace deps and
+		// any compose entry that sets its own `container_name:`. Nothing
+		// found falls back to it, so docker reports what is missing.
+		containers := proj.liveContainerNames(ctx, name)
+		if len(containers) == 0 {
+			containers = []string{naming.Container(proj.ProjectName, name)}
+		}
 		output.PrintProgress(i18n.T("output.restarting_service", name))
-		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
+		cmd := exec.CommandContext(ctx, runtime.Binary(), append([]string{"restart"}, containers...)...)
 		if out, restartErr := cmd.CombinedOutput(); restartErr != nil {
 			output.PrintProgressError(name + ": " + strings.TrimSpace(string(out)))
 			failed = append(failed, name)
@@ -264,11 +278,9 @@ func isYAMLHostService(proj *YAMLProject, name string) bool {
 
 // ExecYAML runs a command in a container of a YAML orchestrated project.
 func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, command []string, interactive bool) error {
-	containerName := fmt.Sprintf("raioz-%s-%s", proj.ProjectName, serviceName)
-
 	// Check if it's a Docker container or host service
-	status := proj.ContainerStatus(ctx, serviceName)
-	if status == "stopped" {
+	containerName := proj.liveContainerName(ctx, serviceName)
+	if containerName == "" {
 		// Might be a host service — exec in the directory
 		if svc, ok := proj.Deps.Services[serviceName]; ok && svc.Source.Path != "" {
 			output.PrintInfo(i18n.T("output.exec_in_dir", svc.Source.Path))
@@ -278,7 +290,11 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 			}
 			cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 			cmd.Dir = svc.Source.Path
-			cmd.Stdin = nil // Will be set by cobra for interactive
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if fsutil.IsTerminal(os.Stdin) {
+				cmd.Stdin = os.Stdin
+			}
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("exec in service dir: %w", err)
 			}
@@ -287,10 +303,7 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 		return fmt.Errorf("service '%s' is not running", serviceName)
 	}
 
-	isTTY := false
-	if fileInfo, err := os.Stdin.Stat(); err == nil {
-		isTTY = fileInfo.Mode()&os.ModeCharDevice != 0
-	}
+	isTTY := fsutil.IsTerminal(os.Stdin)
 
 	args := []string{"exec"}
 	if interactive && isTTY {
