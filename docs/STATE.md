@@ -113,6 +113,15 @@ different:
 | Schema | runtime overrides (PIDs, dev swaps, deferred siblings, compose path) | full resolved `Deps` snapshot (services, infra, env, metadata) |
 | What it answers | "what did the previous `up` actually start, and where?" | "did the YAML change since last `up`?" |
 
+**What a full `down` leaves behind.** Once no container of the project
+survives, `down` deletes `raioz.root.json`, the workspace directory if
+no file is left in it, the generated dependency compose files under
+the temp dir, and the proxy directory when the proxy stopped.
+LocalState goes too unless it records a choice the user made — a
+`raioz dev` override or an ignored service. Host logs
+(`<RaiozStateDir>/logs/<project>/`) stay on purpose: they are what you
+read after something failed.
+
 **Heuristic:** if the new info changes per-up (PIDs, dispatch
 results, sibling defer decisions), it's LocalState. If it's a
 post-resolution snapshot of `raioz.yaml`, it's `raioz.root.json`.

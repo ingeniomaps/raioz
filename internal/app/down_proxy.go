@@ -127,23 +127,32 @@ func (uc *DownUseCase) handlePerProjectProxyDown(ctx context.Context) {
 // kind that the upgrading user can't os.RemoveAll without sudo — log and
 // move on instead of failing the down.
 func cleanProxyDirOnDisk(ctx context.Context, deps *models.Deps) {
-	var current, legacy string
+	var dirs []string
 	if deps.Workspace != "" {
-		current = naming.WorkspaceProxyDir()
-		legacy = naming.LegacyWorkspaceProxyDir()
+		dirs = []string{naming.WorkspaceProxyDir(), naming.LegacyWorkspaceProxyDir()}
 	} else {
-		current = naming.ProxyDir(deps.Project.Name)
-		legacy = naming.LegacyProxyDir(deps.Project.Name)
+		// The per-project proxy keys its dir by network name
+		// (proxy.generateCaddyfile); the project-name spelling is what
+		// older builds cleaned, and what they may have left behind.
+		dirs = []string{
+			naming.ProxyDir(deps.Network.GetName()),
+			naming.ProxyDir(deps.Project.Name),
+			naming.LegacyProxyDir(deps.Project.Name),
+		}
 	}
 
-	for _, dir := range []string{current, legacy} {
+	for _, dir := range dirs {
 		if dir == "" {
 			continue
 		}
 		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
 			logging.WarnWithContext(ctx, "Failed to remove proxy dir",
 				"dir", dir, "error", err.Error())
+			continue
 		}
+		// The parent held nothing but the proxy dir; os.Remove refuses a
+		// directory that still has anything in it.
+		_ = os.Remove(filepath.Dir(dir))
 	}
 }
 

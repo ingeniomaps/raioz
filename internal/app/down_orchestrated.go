@@ -240,6 +240,8 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 				logging.WarnWithContext(ctx, "Failed to remove root config",
 					"project", projectName, "error", err.Error())
 			}
+			tidyAfterDown(ctx, projectName, projectDir, uc.deps.Workspace.GetRoot(ws),
+				localState, len(keptDeps) > 0)
 		}
 		if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 			logging.WarnWithContext(ctx, "Failed to deregister project from global state",
