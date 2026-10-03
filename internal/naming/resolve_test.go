@@ -266,3 +266,20 @@ func TestResolveDepContainer_NilLookupReturnsCanonical(t *testing.T) {
 		t.Errorf("expected canonical when lookup nil, got %q", got)
 	}
 }
+
+// ContainerTarget addresses a dependency (Caddy upstream, discovery host).
+// A workspace dep whose compose sets its own container_name carries no
+// project label, so only the workspace-scoped lookup finds the name that
+// actually resolves on the network.
+func TestContainerTarget_WorkspaceComposeDep(t *testing.T) {
+	SetPrefix("dropi")
+	t.Cleanup(func() { SetPrefix("") })
+
+	const wsFilter = "com.raioz.managed=true,com.raioz.service=rabbitmq," +
+		"com.raioz.workspace=dropi,com.raioz.kind=dependency"
+	lookup := &stubLookup{labeled: map[string][]string{wsFilter: {"rabbitmq"}}}
+
+	if got := ContainerTarget(context.Background(), lookup, "dropi", "rabbitmq", ""); got != "rabbitmq" {
+		t.Errorf("ContainerTarget = %q, want the live container %q", got, "rabbitmq")
+	}
+}

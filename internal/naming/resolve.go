@@ -116,7 +116,7 @@ func ContainerTarget(
 	lookup ContainerLookup,
 	project, service, nameOverride string,
 ) string {
-	name, err := ResolveContainer(ctx, lookup, project, service, nameOverride)
+	name, err := ResolveDepContainer(ctx, lookup, project, service, nameOverride)
 	if err != nil || name == "" {
 		return DepContainer(project, service, nameOverride)
 	}
