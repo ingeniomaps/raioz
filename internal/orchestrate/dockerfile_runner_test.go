@@ -253,7 +253,9 @@ func TestDockerfileRunner_Start_AbsentContainerBuildsAndRuns(t *testing.T) {
 	if strings.Contains(got, "rm -f") {
 		t.Errorf("absent container must not trigger removal; got: %q", got)
 	}
-	if !strings.Contains(got, "build -t raioz-api") || !strings.Contains(got, "run -d") {
+	// The image carries the project in its name, so another project's
+	// `api` does not build over it.
+	if !strings.Contains(got, "build -t raioz-proj-api") || !strings.Contains(got, "run -d") {
 		t.Errorf("expected build and run; got: %q", got)
 	}
 }
