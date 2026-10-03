@@ -54,33 +54,11 @@ func Resolve(project string) (*Workspace, error) {
 	// EnvDir is now workspace-specific (was shared before)
 	envDir := filepath.Join(root, "env")
 
-	// Use 0700 permissions (read/write/execute for owner only) for security
-	if err := os.MkdirAll(root, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create workspace root: %w", err)
-	}
-	if err := os.MkdirAll(services, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create services directory: %w", err)
-	}
-	if err := os.MkdirAll(localServices, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create local services directory: %w", err)
-	}
-	if err := os.MkdirAll(readonlyServices, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create readonly services directory: %w", err)
-	}
-	if err := os.MkdirAll(envDir, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create env directory: %w", err)
-	}
-
-	// Create env subdirectories (use 0700 for security)
-	envServices := filepath.Join(envDir, "services")
-	envProjects := filepath.Join(envDir, "projects")
-	if err := os.MkdirAll(envServices, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create env services directory: %w", err)
-	}
-	if err := os.MkdirAll(envProjects, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create env projects directory: %w", err)
-	}
-
+	// Nothing is created here. Resolve answers "where would this project's
+	// state live", and most callers only read: creating the tree on every
+	// `status` or `check` left an empty directory per project ever looked
+	// at. Writers create what they write into (EnsureDirs, or their own
+	// MkdirAll).
 	ws := &Workspace{
 		Root:                root,
 		ServicesDir:         services,
@@ -126,4 +104,22 @@ func GetStatePath(ws *Workspace) string {
 
 func GetComposePath(ws *Workspace) string {
 	return filepath.Join(ws.Root, composeFileName)
+}
+
+// EnsureDirs creates the workspace tree with owner-only permissions. Called
+// by the flows that are about to write into it.
+func EnsureDirs(ws *Workspace) error {
+	if ws == nil {
+		return nil
+	}
+	dirs := []string{
+		ws.Root, ws.ServicesDir, ws.LocalServicesDir, ws.ReadonlyServicesDir,
+		filepath.Join(ws.EnvDir, "services"), filepath.Join(ws.EnvDir, "projects"),
+	}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return fmt.Errorf("failed to create workspace directory %s: %w", dir, err)
+		}
+	}
+	return nil
 }
