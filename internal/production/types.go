@@ -1,5 +1,7 @@
 package production
 
+import "sort"
+
 // ProductionConfig represents a production configuration loaded from Docker Compose
 type ProductionConfig struct {
 	Services map[string]ProductionService `yaml:"services"`
@@ -13,13 +15,60 @@ type ProductionService struct {
 	Ports       []string          `yaml:"ports,omitempty"`
 	Volumes     []string          `yaml:"volumes,omitempty"`
 	DependsOn   interface{}       `yaml:"depends_on,omitempty"` // Can be []string or map[string]map[string]string
-	Environment []string          `yaml:"environment,omitempty"`
-	EnvFile     []string          `yaml:"env_file,omitempty"`
+	Environment EnvList           `yaml:"environment,omitempty"`
+	EnvFile     StringOrList      `yaml:"env_file,omitempty"`
 	Networks    []string          `yaml:"networks,omitempty"`
 	Command     interface{}       `yaml:"command,omitempty"` // Can be string or []string
 	Build       interface{}       `yaml:"build,omitempty"`
 	Labels      map[string]string `yaml:"labels,omitempty"`
 	Restart     string            `yaml:"restart,omitempty"`
+}
+
+// EnvList is a compose `environment:` block. Compose accepts a list of
+// KEY=VALUE strings or a mapping; both land here as KEY=VALUE, sorted.
+type EnvList []string
+
+// UnmarshalYAML accepts the list form and the mapping form.
+func (e *EnvList) UnmarshalYAML(unmarshal func(any) error) error {
+	var list []string
+	if err := unmarshal(&list); err == nil {
+		*e = list
+		return nil
+	}
+	var mapping map[string]*string
+	if err := unmarshal(&mapping); err != nil {
+		return err
+	}
+	out := make([]string, 0, len(mapping))
+	for key, value := range mapping {
+		if value == nil {
+			out = append(out, key) // pass-through from the shell
+			continue
+		}
+		out = append(out, key+"="+*value)
+	}
+	sort.Strings(out)
+	*e = out
+	return nil
+}
+
+// StringOrList is a compose field that takes one string or a list of them
+// (`env_file`).
+type StringOrList []string
+
+// UnmarshalYAML accepts a scalar or a sequence.
+func (s *StringOrList) UnmarshalYAML(unmarshal func(any) error) error {
+	var one string
+	if err := unmarshal(&one); err == nil {
+		*s = []string{one}
+		return nil
+	}
+	var list []string
+	if err := unmarshal(&list); err != nil {
+		return err
+	}
+	*s = list
+	return nil
 }
 
 // ComparisonResult represents the result of comparing local and production configs

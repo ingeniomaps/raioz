@@ -78,6 +78,23 @@ func depsToYAMLConfig(deps *models.Deps) config.RaiozConfig {
 
 	// Convert services
 	for name, svc := range deps.Services {
+		// A legacy service that only names an image has no code behind
+		// it: in raioz.yaml that is a dependency, and a service without
+		// `path:` or `git:` does not load.
+		if svc.Source.Kind == "image" {
+			imageRef := svc.Source.Image
+			if svc.Source.Tag != "" {
+				imageRef += ":" + svc.Source.Tag
+			}
+			dep := config.YAMLDependency{Image: imageRef}
+			if svc.Docker != nil {
+				dep.Ports = config.YAMLStringSlice(svc.Docker.Ports)
+				dep.Volumes = config.YAMLStringSlice(svc.Docker.Volumes)
+			}
+			cfg.Deps[name] = dep
+			continue
+		}
+
 		yamlSvc := config.YAMLService{
 			DependsOn: config.YAMLStringSlice(svc.GetDependsOn()),
 		}
