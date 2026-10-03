@@ -30,6 +30,11 @@ func MigrateLegacyServices(ws *Workspace, deps *models.Deps) error {
 		if svc.Source.Kind != "git" {
 			continue // Only migrate git services
 		}
+		// A raioz.yaml git service lives at its declared path, which was
+		// never under the legacy services dir.
+		if filepath.IsAbs(svc.Source.Path) {
+			continue
+		}
 
 		// Determine target path based on access mode
 		targetPath := GetServicePath(ws, name, svc)

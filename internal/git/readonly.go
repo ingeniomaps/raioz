@@ -173,7 +173,12 @@ func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 		return err
 	}
 
-	// After cloning, validate branch exists (use same context)
+	// After cloning, validate branch exists (use same context). With no
+	// branch asked for, the clone took the remote's default and there is
+	// nothing to check.
+	if src.Branch == "" {
+		return nil
+	}
 	if err := ValidateBranch(ctx, target, src.Branch); err != nil {
 		return fmt.Errorf("branch validation failed after clone: %w", err)
 	}

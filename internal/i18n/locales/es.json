@@ -375,6 +375,7 @@
   "up.volume_ensure_error": "Error al asegurar volumen Docker '%s'",
   "up.volumes_ready": "Todos los %d volumen(es) Docker listos",
   "up.all_services_running": "Todos los servicios ya están corriendo (sin cambios detectados)",
+  "up.git.path_present": "%s: el path ya existe, el repositorio se deja como está",
   "up.git.resolving": "Resolviendo %s",
   "up.git.recloning": "Re-clonando repositorio para servicio '%s'...",
   "up.git.readonly_exists": "El repositorio para servicio '%s' ya existe (solo lectura, omitiendo actualización)",

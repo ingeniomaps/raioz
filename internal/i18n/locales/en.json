@@ -375,6 +375,7 @@
   "up.volume_ensure_error": "Failed to ensure Docker volume '%s'",
   "up.volumes_ready": "All %d Docker volume(s) ready",
   "up.all_services_running": "All services are already running (no changes detected)",
+  "up.git.path_present": "%s: path already present, repository left as is",
   "up.git.resolving": "Resolving %s",
   "up.git.recloning": "Re-cloning repository for service '%s'...",
   "up.git.readonly_exists": "Repository for service '%s' already exists (readonly, skipping update)",

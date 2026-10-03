@@ -3,6 +3,7 @@ package upcase
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"time"
 
 	"raioz/internal/domain/interfaces"
@@ -100,6 +101,14 @@ func (uc *UseCase) processGitRepos(
 			output.PrintInfo(i18n.T("up.service_disabled_skipping", name))
 			continue
 		}
+		if svc.Source.Kind == "git" && filepath.IsAbs(svc.Source.Path) {
+			// raioz.yaml: `git:` says where `path:` comes from when it is
+			// not on disk yet.
+			if err := uc.cloneIntoDeclaredPath(ctx, name, svc, forceReclone); err != nil {
+				return err
+			}
+			continue
+		}
 		if svc.Source.Kind == "git" {
 			output.PrintInfo(i18n.T("up.git.resolving", name))
 			// Use correct directory based on access mode
@@ -185,5 +194,31 @@ func (uc *UseCase) processGitRepos(
 		output.PrintInfo(i18n.T("up.skipped_disabled_services", len(disabledServices), disabledServices))
 	}
 
+	return nil
+}
+
+// cloneIntoDeclaredPath clones a raioz.yaml git service into its `path:`
+// when that directory is missing. An existing directory is the developer's
+// working copy and is left exactly as it is — no checkout, no pull: raioz
+// has no business moving the branch someone is editing.
+func (uc *UseCase) cloneIntoDeclaredPath(
+	ctx context.Context, name string, svc models.Service, forceReclone bool,
+) error {
+	target := svc.Source.Path
+	if _, err := os.Stat(target); err == nil && !forceReclone {
+		output.PrintInfo(i18n.T("up.git.path_present", name))
+		return nil
+	}
+
+	output.PrintProgress(i18n.T("up.git.cloning", name))
+	src := svc.Source
+	src.Path = filepath.Base(target)
+	if err := uc.deps.GitRepository.EnsureRepoWithForce(src, filepath.Dir(target), forceReclone); err != nil {
+		logging.ErrorWithContext(logging.WithService(ctx, name), "Failed to clone service repository",
+			"repo", svc.Source.Repo, "branch", svc.Source.Branch, "target", target, "error", err.Error())
+		output.PrintProgressError(i18n.T("up.git.ensure_error", name))
+		return err
+	}
+	output.PrintProgressDone(i18n.T("up.git.cloned", name))
 	return nil
 }
