@@ -19,14 +19,14 @@ import (
 // nothing the next `up` needs. Each step is best-effort — a leftover is
 // untidy, not an error.
 //
-// keepDepFiles is true while a shared dependency this project started is
-// still serving another one: its compose file lives in this project's
-// temp tree and its eventual `down` needs it.
+// The generated compose files go even when a shared dependency this project
+// started keeps serving another one: its eventual teardown runs
+// `docker compose -p <project> down`, which needs no file.
 func tidyAfterDown(
 	ctx context.Context, projectName, projectDir, workspaceDir string,
-	localState *models.LocalState, keepDepFiles bool,
+	localState *models.LocalState,
 ) {
-	if projectName != "" && !keepDepFiles {
+	if projectName != "" {
 		if err := os.RemoveAll(naming.TempDir(projectName)); err != nil {
 			logging.WarnWithContext(ctx, "Failed to remove generated dependency files",
 				"project", projectName, "error", err.Error())
@@ -83,11 +83,11 @@ func removeIfHoldsNoFile(dir string) {
 // containers; the project's own leftovers go either way.
 func (uc *DownUseCase) dropWorkspaceState(
 	ctx context.Context, deps *models.Deps, projectName, projectDir string,
-	localState *models.LocalState, keepDepFiles bool,
+	localState *models.LocalState,
 ) {
 	shared := deps.Workspace != "" && otherWorkspaceProjectsActive(ctx, deps.Workspace, projectName)
 	if shared {
-		tidyAfterDown(ctx, projectName, projectDir, "", localState, keepDepFiles)
+		tidyAfterDown(ctx, projectName, projectDir, "", localState)
 		return
 	}
 	ws, err := uc.deps.Workspace.Resolve(deps.GetWorkspaceName())
@@ -104,5 +104,5 @@ func (uc *DownUseCase) dropWorkspaceState(
 		logging.WarnWithContext(ctx, "Failed to remove root config",
 			"project", projectName, "error", err.Error())
 	}
-	tidyAfterDown(ctx, projectName, projectDir, uc.deps.Workspace.GetRoot(ws), localState, keepDepFiles)
+	tidyAfterDown(ctx, projectName, projectDir, uc.deps.Workspace.GetRoot(ws), localState)
 }

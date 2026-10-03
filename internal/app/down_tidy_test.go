@@ -65,7 +65,7 @@ func TestTidyAfterDown_LocalState(t *testing.T) {
 			if err := state.SaveLocalState(projectDir, tt.state); err != nil {
 				t.Fatal(err)
 			}
-			tidyAfterDown(context.Background(), "", projectDir, "", tt.state, false)
+			tidyAfterDown(context.Background(), "", projectDir, "", tt.state)
 
 			_, err := os.Stat(filepath.Join(projectDir, ".raioz.state.json"))
 			if kept := err == nil; kept != tt.wantKept {
@@ -78,21 +78,18 @@ func TestTidyAfterDown_LocalState(t *testing.T) {
 func TestTidyAfterDown_DepFiles(t *testing.T) {
 	t.Setenv("TMPDIR", t.TempDir())
 
-	for _, keep := range []bool{false, true} {
-		project := "tidyproj"
-		depFile := naming.DepComposePath(project, "kv")
-		if err := os.MkdirAll(filepath.Dir(depFile), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(depFile, []byte("services: {}\n"), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	project := "tidyproj"
+	depFile := naming.DepComposePath(project, "kv")
+	if err := os.MkdirAll(filepath.Dir(depFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(depFile, []byte("services: {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-		tidyAfterDown(context.Background(), project, t.TempDir(), "", nil, keep)
+	tidyAfterDown(context.Background(), project, t.TempDir(), "", nil)
 
-		_, err := os.Stat(depFile)
-		if kept := err == nil; kept != keep {
-			t.Errorf("keepDepFiles=%v: dep compose file kept = %v", keep, kept)
-		}
+	if _, err := os.Stat(naming.TempDir(project)); !os.IsNotExist(err) {
+		t.Errorf("generated dependency files must go with the project, stat err = %v", err)
 	}
 }

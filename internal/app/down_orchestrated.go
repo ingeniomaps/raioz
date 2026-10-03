@@ -224,7 +224,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
 	}); len(leftovers) == 0 {
-		uc.dropWorkspaceState(ctx, deps, projectName, projectDir, localState, len(keptDeps) > 0)
+		uc.dropWorkspaceState(ctx, deps, projectName, projectDir, localState)
 		if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 			logging.WarnWithContext(ctx, "Failed to deregister project from global state",
 				"project", projectName, "error", err.Error())
