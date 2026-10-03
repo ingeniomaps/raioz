@@ -60,10 +60,7 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 
 	proj := ResolveYAMLProject(uc.deps, opts.ConfigPath)
 	if proj == nil {
-		return errors.New(
-			errors.ErrCodeInvalidConfig,
-			i18n.T("error.no_project"),
-		).WithSuggestion(i18n.T("error.no_project_suggestion"))
+		return noProjectError(uc.deps, opts.ConfigPath)
 	}
 
 	return uc.reportHealth(ctx, proj)

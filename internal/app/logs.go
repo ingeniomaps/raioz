@@ -113,10 +113,7 @@ func (uc *LogsUseCase) resolveProject(opts LogsOptions) (string, string, error) 
 		if deps != nil {
 			return deps.Project.Name, deps.GetWorkspaceName(), nil
 		}
-		return "", "", errors.New(
-			errors.ErrCodeInvalidConfig,
-			i18n.T("error.no_project"),
-		).WithSuggestion(i18n.T("error.no_project_suggestion"))
+		return "", "", noProjectError(uc.deps, opts.ConfigPath)
 	}
 
 	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)

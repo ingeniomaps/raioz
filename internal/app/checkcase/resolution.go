@@ -1,6 +1,8 @@
 package checkcase
 
 import (
+	"os"
+
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
@@ -14,11 +16,25 @@ func (uc *UseCase) resolveWorkspace(opts Options) (string, string, *interfaces.W
 	projectName := opts.ProjectName
 	var workspaceName string
 	if projectName == "" {
-		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
+		deps, _, loadErr := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
 		if deps != nil {
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
 		} else {
+			// A config that is there and does not load: say why.
+			configFile := opts.ConfigPath
+			if configFile == "" {
+				// The error above came from loading "nothing"; ask the
+				// file that is actually there.
+				configFile = "raioz.yaml"
+				_, _, loadErr = uc.deps.ConfigLoader.LoadDeps(configFile)
+			}
+			if _, statErr := os.Stat(configFile); statErr == nil && loadErr != nil {
+				return "", "", nil, errors.New(
+					errors.ErrCodeInvalidConfig,
+					i18n.T("error.config_invalid", configFile, loadErr.Error()),
+				).WithSuggestion(i18n.T("error.config_invalid_suggestion"))
+			}
 			return "", "", nil, errors.New(
 				errors.ErrCodeInvalidConfig,
 				i18n.T("error.check_could_not_determine_project"),

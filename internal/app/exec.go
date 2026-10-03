@@ -51,10 +51,7 @@ func (uc *ExecUseCase) Execute(ctx context.Context, opts ExecOptions) error {
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
 		} else {
-			return errors.New(
-				errors.ErrCodeInvalidConfig,
-				i18n.T("error.no_project"),
-			).WithSuggestion(i18n.T("error.no_project_suggestion"))
+			return noProjectError(uc.deps, opts.ConfigPath)
 		}
 	} else {
 		deps, warnings, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)

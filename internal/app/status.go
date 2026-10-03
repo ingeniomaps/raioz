@@ -2,9 +2,6 @@ package app
 
 import (
 	"context"
-
-	"raioz/internal/errors"
-	"raioz/internal/i18n"
 )
 
 // StatusOptions contains options for the Status use case
@@ -46,12 +43,7 @@ func (uc *StatusUseCase) Execute(ctx context.Context, opts StatusOptions) error 
 
 	proj := ResolveYAMLProject(uc.deps, opts.ConfigPath)
 	if proj == nil {
-		return errors.New(
-			errors.ErrCodeInvalidConfig,
-			i18n.T("error.no_project"),
-		).WithSuggestion(
-			i18n.T("error.no_project_suggestion"),
-		)
+		return noProjectError(uc.deps, opts.ConfigPath)
 	}
 	if opts.JSON {
 		return uc.statusJSON(ctx, proj, opts.Services)

@@ -178,10 +178,7 @@ func (uc *VolumesUseCase) resolveProject(
 			projectName = deps.Project.Name
 			workspaceName = deps.GetWorkspaceName()
 		} else {
-			return "", nil, errors.New(
-				errors.ErrCodeInvalidConfig,
-				i18n.T("error.no_project"),
-			).WithSuggestion(i18n.T("error.no_project_suggestion"))
+			return "", nil, noProjectError(uc.deps, configPath)
 		}
 	} else {
 		deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
