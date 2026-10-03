@@ -30,7 +30,7 @@ func init() {
 		models.RuntimeElixir, models.RuntimeDart, models.RuntimeSwift,
 		models.RuntimeScala, models.RuntimeClojure, models.RuntimeZig,
 		models.RuntimeGleam, models.RuntimeHaskell, models.RuntimeDeno,
-		models.RuntimeBun,
+		models.RuntimeBun, models.RuntimeCommand,
 	}
 	for _, rt := range hostRuntimes {
 		register(rt, func(d *Dispatcher) runner { return d.host })

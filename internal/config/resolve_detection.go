@@ -12,7 +12,7 @@ import (
 // Precedence:
 //  1. svc.Source.ComposeFiles (yaml: `compose: [...]`) -> RuntimeCompose with
 //     exactly those files, in the order given.
-//  2. svc.Source.Command      (yaml: `command: ...`)  -> RuntimeMake (generic
+//  2. svc.Source.Command      (yaml: `command: ...`)  -> RuntimeCommand (generic
 //     host exec) with StartCommand/DevCommand set to the user command.
 //  3. Fallback: detect.Detect(path) — scan the directory for compose/
 //     Dockerfile/etc.
@@ -72,11 +72,10 @@ func resolveServiceDetectionBase(svc Service, path string) models.DetectResult {
 		}
 	}
 
-	// Custom command override — route through HostRunner (RuntimeMake is the
-	// generic "invoke something on the host" bucket used by the dispatcher).
+	// Custom command override — HostRunner runs what the user wrote.
 	if svc.Source.Command != "" {
 		return models.DetectResult{
-			Runtime:      models.RuntimeMake,
+			Runtime:      models.RuntimeCommand,
 			StartCommand: svc.Source.Command,
 			DevCommand:   svc.Source.Command,
 		}

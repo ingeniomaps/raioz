@@ -54,6 +54,8 @@ func ServiceStartFailed(serviceName, runtime string, err error) *RaiozError {
 			"Try running 'go run .' directly in the service directory.",
 		"make": "Check the Makefile targets. " +
 			"Try running 'make dev' directly in the service directory.",
+		"command": "Run the service's 'command:' from raioz.yaml directly in its directory " +
+			"and read what it prints.",
 		"python": "Check for missing dependencies. Try running the start command directly in the service directory.",
 		"rust":   "Check for compilation errors. Try running 'cargo run' directly in the service directory.",
 		"image":  "Check that the Docker image exists and can be pulled. Try 'docker pull <image>' manually.",
