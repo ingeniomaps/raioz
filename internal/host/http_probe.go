@@ -17,10 +17,16 @@ const httpProbeTimeout = 2 * time.Second
 // endpoint. A missing leading slash is added; anything else in the path is
 // taken as written, because a typo there is the user's to see.
 func HealthURL(port int, endpoint string) string {
+	return HealthURLAt("127.0.0.1", port, endpoint)
+}
+
+// HealthURLAt is HealthURL for a service that does not listen on loopback:
+// a container that publishes no host port answers on its network address.
+func HealthURLAt(addr string, port int, endpoint string) string {
 	if endpoint != "" && !strings.HasPrefix(endpoint, "/") {
 		endpoint = "/" + endpoint
 	}
-	return fmt.Sprintf("http://127.0.0.1:%d%s", port, endpoint)
+	return fmt.Sprintf("http://%s:%d%s", addr, port, endpoint)
 }
 
 // ProbeHTTP reports whether the URL answered without a server-side error.

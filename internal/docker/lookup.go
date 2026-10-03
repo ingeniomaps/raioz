@@ -1,6 +1,13 @@
 package docker
 
-import "context"
+import (
+	"context"
+	"os/exec"
+	"strings"
+
+	"raioz/internal/naming"
+	"raioz/internal/runtime"
+)
 
 // Lookup is the docker-package implementation of naming.ContainerLookup.
 // It wraps the existing helpers (GetContainerStatusByName,
@@ -32,4 +39,27 @@ func (Lookup) FindByLabels(
 	ctx context.Context, labels map[string]string,
 ) []string {
 	return ListContainersByLabels(ctx, labels)
+}
+
+// ServiceContainerIP returns the network address of the container that
+// runs a project's service, "" when there is none. A container that
+// publishes no host port can only be reached there from the host.
+func ServiceContainerIP(ctx context.Context, project, service string) string {
+	names := ListContainersByLabels(ctx, map[string]string{
+		naming.LabelManaged: "true",
+		naming.LabelProject: project,
+		naming.LabelService: service,
+	})
+	if len(names) == 0 {
+		return ""
+	}
+	out, err := exec.CommandContext(ctx, runtime.Binary(), "inspect", "--format",
+		"{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}", names[0]).Output()
+	if err != nil {
+		return ""
+	}
+	if fields := strings.Fields(string(out)); len(fields) > 0 {
+		return fields[0]
+	}
+	return ""
 }

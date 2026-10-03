@@ -2,6 +2,9 @@ package upcase
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/interfaces"
@@ -175,5 +178,60 @@ func TestAllocateHostPortsOwned_KeepsHeldPorts(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A compose / Dockerfile service declares the port its container listens
+// on with `port:`. The proxy route was built without it and dialed :80.
+func TestBuildProxyRoute_DockerServiceUsesDeclaredPort(t *testing.T) {
+	dir := t.TempDir()
+	deps := &models.Deps{
+		Project: models.Project{Name: "rzb1"},
+		Services: map[string]models.Service{
+			"api": {Source: models.SourceConfig{Kind: "local", Path: dir}, Port: 3000},
+		},
+	}
+	det := models.DetectResult{Runtime: models.RuntimeDockerfile}
+
+	route := buildProxyRoute(context.Background(), nil, deps, "api", &det)
+	if route.Port != 3000 {
+		t.Errorf("route port = %d, want 3000", route.Port)
+	}
+}
+
+func TestWaitForServiceEndpoints_ContainerAddress(t *testing.T) {
+	initI18nUp(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM alpine\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	deps := &models.Deps{
+		Project: models.Project{Name: "rzb1"},
+		Services: map[string]models.Service{
+			"api": {
+				Source: models.SourceConfig{Kind: "local", Path: dir},
+				Port:   3000, HealthEndpoint: "/health",
+			},
+		},
+	}
+
+	prevIP := serviceContainerIPFn
+	serviceContainerIPFn = func(context.Context, string, string) string { return "10.213.0.8" }
+	t.Cleanup(func() { serviceContainerIPFn = prevIP })
+
+	var answered string
+	prevProbe := endpointProbe
+	endpointProbe = func(_ context.Context, url string) bool {
+		if strings.Contains(url, "10.213.0.8") {
+			answered = url
+			return true
+		}
+		return false
+	}
+	t.Cleanup(func() { endpointProbe = prevProbe })
+
+	waitForServiceEndpoints(context.Background(), deps, []string{"api"})
+	if answered != "http://10.213.0.8:3000/health" {
+		t.Errorf("container address never probed, got %q", answered)
 	}
 }

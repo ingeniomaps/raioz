@@ -310,6 +310,11 @@ func buildEndpoints(
 	return endpoints
 }
 
+// serviceContainerIPFn resolves the address of a service's container.
+// Declared here (this file already imports internal/docker) and as a
+// package var so tests can answer without a docker daemon.
+var serviceContainerIPFn = docker.ServiceContainerIP
+
 // serviceEnvFor returns the per-service env recompute the file watcher
 // uses on every reload.
 func (uc *UseCase) serviceEnvFor(
