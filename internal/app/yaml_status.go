@@ -31,6 +31,9 @@ type dependencyStatus struct {
 	CPU      string `json:"cpu,omitempty"`
 	Memory   string `json:"memory,omitempty"`
 	Image    string `json:"image,omitempty"`
+	// Dev is set while the dependency runs from a local path (`raioz dev`)
+	// instead of Image.
+	Dev bool `json:"dev,omitempty"`
 }
 
 type serviceStatus struct {
@@ -58,6 +61,9 @@ func (uc *StatusUseCase) collectStatus(
 		Services:     []serviceStatus{},
 	}
 
+	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
+	localState, _ := state.LoadLocalState(projectDir)
+
 	for _, name := range sortedKeysInfra(proj.Deps.Infra) {
 		if !inFilter(want, name) {
 			continue
@@ -72,11 +78,10 @@ func (uc *StatusUseCase) collectStatus(
 				dep.Image += ":" + entry.Inline.Tag
 			}
 		}
+		dep.Dev = localState != nil && localState.IsDevOverridden(name)
 		report.Dependencies = append(report.Dependencies, dep)
 	}
 
-	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
-	localState, _ := state.LoadLocalState(projectDir)
 	for _, name := range sortedKeysServices(proj.Deps.Services) {
 		if !inFilter(want, name) {
 			continue
@@ -142,7 +147,11 @@ func printStatusReport(report *statusReport) {
 		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", len(report.Dependencies)))
 		for _, dep := range report.Dependencies {
 			status := formatContainerStatus(ContainerState{Status: dep.Status, Restarts: dep.Restarts})
-			fmt.Printf("    %-18s %-10s %-8s %-10s %s\n", dep.Name, status, dep.CPU, dep.Memory, dep.Image)
+			image := dep.Image
+			if dep.Dev {
+				image += " (dev)"
+			}
+			fmt.Printf("    %-18s %-10s %-8s %-10s %s\n", dep.Name, status, dep.CPU, dep.Memory, image)
 		}
 	}
 

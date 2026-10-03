@@ -6,14 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"raioz/internal/app/upcase"
 	"raioz/internal/audit"
 	"raioz/internal/detect"
-	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
-	"raioz/internal/naming"
 	"raioz/internal/orchestrate"
 	"raioz/internal/output"
 	"raioz/internal/state"
@@ -186,34 +185,35 @@ func (uc *DevUseCase) promote(
 		return errors.RuntimeNotDetected(name, absPath)
 	}
 
-	output.PrintInfo(fmt.Sprintf("Promoting %s: image → local (%s)", name, detection.Runtime))
+	// The swap replaces a running dependency. With the project down there
+	// is nothing to swap and no network to start the local build on.
+	if uc.liveDependency(ctx, cfgDeps, name) == "" {
+		return errors.New(errors.ErrCodeInvalidConfig,
+			i18n.T("error.dev_dependency_not_running", name),
+		).WithSuggestion(i18n.T("error.dev_dependency_not_running_suggestion"))
+	}
 
-	// Stop the dependency container
+	depCtx, _ := upcase.DependencyContext(ctx, cfgDeps, name, projectDir)
+	localCtx := upcase.DevOverrideContext(depCtx, absPath)
+
+	output.PrintInfo(i18n.T("output.dev_promoting", name, string(detection.Runtime)))
+
+	// Stop the dependency through the context up started it with — a
+	// context missing the project or the compose scope stops nothing, and
+	// the local start then finds the name taken and "reuses" the image.
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)
-	networkName := cfgDeps.Network.GetName()
-	containerName := naming.Container(cfgDeps.Project.Name, name)
-
-	stopCtx := interfaces.ServiceContext{
-		Name:          name,
-		ContainerName: containerName,
-		NetworkName:   networkName,
-		Detection:     detect.ForImage(originalImage),
-	}
-	if err := dispatcher.Stop(ctx, stopCtx); err != nil {
-		output.PrintWarning(fmt.Sprintf("Could not stop %s container: %s", name, err))
+	if err := dispatcher.Stop(ctx, depCtx); err != nil {
+		return fmt.Errorf("could not stop %s: %w", name, err)
 	}
 
-	// Start the local version
-	startCtx := interfaces.ServiceContext{
-		Name:          name,
-		Path:          absPath,
-		Detection:     detection,
-		NetworkName:   networkName,
-		ContainerName: containerName,
-		EnvVars:       map[string]string{},
-		Ports:         infraPorts(entry),
-	}
-	if err := dispatcher.Start(ctx, startCtx); err != nil {
+	// Start the local version. If it does not come up, the dependency
+	// goes back to its image: a failed promotion must not leave the
+	// project without the dependency.
+	if err := dispatcher.Start(ctx, localCtx); err != nil {
+		_ = dispatcher.Stop(ctx, localCtx)
+		if restoreErr := dispatcher.Start(ctx, depCtx); restoreErr != nil {
+			output.PrintWarning(i18n.T("warning.dev_restore_failed", name, restoreErr.Error()))
+		}
 		return fmt.Errorf("failed to start local %s: %w", name, err)
 	}
 
@@ -230,7 +230,7 @@ func (uc *DevUseCase) promote(
 			"error", auditErr.Error())
 	}
 
-	output.PrintSuccess(fmt.Sprintf("%s: now running from %s", name, absPath))
+	output.PrintSuccess(i18n.T("output.dev_promoted", name, absPath))
 	return nil
 }
 
@@ -247,41 +247,19 @@ func (uc *DevUseCase) resetOverride(
 		return fmt.Errorf("'%s' is not in dev mode", name)
 	}
 
-	output.PrintInfo(fmt.Sprintf("Resetting %s: local → image (%s)", name, override.OriginalImage))
+	output.PrintInfo(i18n.T("output.dev_resetting", name, override.OriginalImage))
 
+	depCtx, _ := upcase.DependencyContext(ctx, cfgDeps, name, projectDir)
+	localCtx := upcase.DevOverrideContext(depCtx, override.LocalPath)
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)
-	networkName := cfgDeps.Network.GetName()
-	containerName := naming.Container(cfgDeps.Project.Name, name)
 
 	// Stop the local version
-	localDetection := detect.Detect(override.LocalPath)
-	stopCtx := interfaces.ServiceContext{
-		Name:          name,
-		Path:          override.LocalPath,
-		Detection:     localDetection,
-		NetworkName:   networkName,
-		ContainerName: containerName,
-	}
-	if err := dispatcher.Stop(ctx, stopCtx); err != nil {
-		output.PrintWarning(fmt.Sprintf("Could not stop local %s: %s", name, err))
+	if err := dispatcher.Stop(ctx, localCtx); err != nil {
+		output.PrintWarning(i18n.T("warning.dev_stop_local_failed", name, err.Error()))
 	}
 
 	// Restart the dependency container
-	entry := cfgDeps.Infra[name]
-	envVars := map[string]string{}
-	if entry.Inline != nil {
-		envVars["RAIOZ_IMAGE"] = override.OriginalImage
-	}
-
-	startCtx := interfaces.ServiceContext{
-		Name:          name,
-		ContainerName: containerName,
-		NetworkName:   networkName,
-		Detection:     detect.ForImage(override.OriginalImage),
-		EnvVars:       envVars,
-		Ports:         infraPorts(entry),
-	}
-	if err := dispatcher.Start(ctx, startCtx); err != nil {
+	if err := dispatcher.Start(ctx, depCtx); err != nil {
 		return fmt.Errorf("failed to restart %s container: %w", name, err)
 	}
 
@@ -297,7 +275,7 @@ func (uc *DevUseCase) resetOverride(
 			"error", auditErr.Error())
 	}
 
-	output.PrintSuccess(fmt.Sprintf("%s: restored to %s", name, override.OriginalImage))
+	output.PrintSuccess(i18n.T("output.dev_restored", name, override.OriginalImage))
 	return nil
 }
 
@@ -317,4 +295,18 @@ func infraPorts(entry models.InfraEntry) []string {
 		return entry.Inline.Ports
 	}
 	return nil
+}
+
+// liveDependency returns the container currently running the dependency,
+// "" when there is none.
+func (uc *DevUseCase) liveDependency(ctx context.Context, cfgDeps *models.Deps, name string) string {
+	proj := &YAMLProject{ProjectName: cfgDeps.Project.Name, Deps: cfgDeps}
+	container := proj.liveContainerName(ctx, name)
+	if container == "" {
+		return ""
+	}
+	if st, ok := dockerStateProbe(ctx, container); !ok || st.Status != statusRunning {
+		return ""
+	}
+	return container
 }

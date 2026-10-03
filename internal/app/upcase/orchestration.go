@@ -88,6 +88,7 @@ func (uc *UseCase) processOrchestration(
 			output.PrintProgress(i18n.T("up.starting_infra", toDispatch))
 		}
 		infraStart := time.Now()
+		devOverrides := loadDevOverrides(projectDir)
 
 		for _, name := range infraNames {
 			detection := detections[name]
@@ -107,79 +108,16 @@ func (uc *UseCase) processOrchestration(
 			}
 			dispatchedInfra = append(dispatchedInfra, name)
 
-			// Build image reference + env for the runner.
-			envVars := map[string]string{}
-			if entry.Inline != nil {
-				imageRef := entry.Inline.Image
-				if entry.Inline.Tag != "" {
-					imageRef += ":" + entry.Inline.Tag
-				}
-				envVars["RAIOZ_IMAGE"] = imageRef
-				if entry.Inline.Env != nil {
-					for k, v := range entry.Inline.Env.GetVariables() {
-						envVars[k] = v
-					}
-					for _, filePath := range entry.Inline.Env.GetFilePaths() {
-						if filePath != "" {
-							envVars["RAIOZ_ENV_FILE"] = filePath
-						}
-					}
-				}
-			}
-
-			// Build container name. Deps may be workspace-shared or have an
-			// explicit `name:` override — both cases resolved by DepContainer.
-			var nameOverride string
-			if entry.Inline != nil {
-				nameOverride = entry.Inline.Name
-			}
-			containerName := naming.DepContainer(deps.Project.Name, name, nameOverride)
-
-			// Resolve what ports (if any) this dep should publish to the host.
-			// Priority: allocator result (publish: …) → legacy ports: list →
-			// nothing at all (internal-only, containers reach it by DNS).
-			composePorts := resolveDepPublishPorts(name, entry, portAllocs)
-
-			svcCtx := buildServiceContext(
-				name, detection, networkName,
-				envVars,
-				composePorts,
-				nil, // infra has no dependsOn
-				containerName,
-				"", // no path for images
-				deps.Project.Name,
-			)
-			svcCtx.SharedDep = naming.IsSharedDep(nameOverride) // ADR-050
-
-			// ProjectDir anchors relative bind-mount sources against the
-			// project's raioz.yaml dir rather than the raioz process cwd.
-			if entry.Inline != nil && len(entry.Inline.Volumes) > 0 {
-				svcCtx.Volumes = append([]string(nil), entry.Inline.Volumes...)
-				svcCtx.ProjectDir = projectDir
-			}
-
-			// When the dep declares `compose:`, hand its files + env files
-			// straight to ImageRunner. ImageRunner branches on these: if
-			// set it uses the user's compose with a network/labels overlay
-			// layered on top; if not it generates a minimal compose from
-			// the `image:` field (legacy behavior).
-			if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
-				svcCtx.ExternalComposeFiles = append([]string(nil), entry.Inline.Compose...)
-				if entry.Inline.Env != nil {
-					for _, f := range entry.Inline.Env.GetFilePaths() {
-						if f != "" {
-							svcCtx.EnvFilePaths = append(svcCtx.EnvFilePaths, f)
-						}
-					}
-				}
+			svcCtx := buildDepContext(deps, name, entry, detection, networkName, projectDir, portAllocs)
+			// A dependency promoted with `raioz dev` runs from its local
+			// path until it is reset; up brings back what was promoted,
+			// not the image.
+			if override, ok := devOverrides[name]; ok {
+				svcCtx = DevOverrideContext(svcCtx, override.LocalPath)
 			}
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
-				imageRef := ""
-				if envVars["RAIOZ_IMAGE"] != "" {
-					imageRef = envVars["RAIOZ_IMAGE"]
-				}
-				return nil, errors.DependencyStartFailed(name, imageRef, err)
+				return nil, errors.DependencyStartFailed(name, svcCtx.EnvVars["RAIOZ_IMAGE"], err)
 			}
 			output.PrintInfraStarted(name)
 		}
