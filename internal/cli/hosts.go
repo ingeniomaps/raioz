@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"raioz/internal/app"
+	"raioz/internal/app/upcase"
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/naming"
@@ -143,7 +144,7 @@ func proxiedHostnamesFromConfig(deps *models.Deps) []string {
 		if entry.Inline.Project != "" {
 			continue
 		}
-		if entry.Inline.Routing == nil && netutil.IsNonHTTPImage(entry.Inline.Image) {
+		if entry.Inline.Routing == nil && netutil.IsNonHTTPImage(upcase.DependencyImage(name, entry.Inline)) {
 			continue
 		}
 		hosts = append(hosts, name+"."+domain)

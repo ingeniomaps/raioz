@@ -82,7 +82,8 @@ func applyInlineDepEndpoint(
 // applyInternalDepPort gives a dependency with no host binding the port it
 // listens on inside the Docker network, so a caller in a container gets
 // <DEP>_PORT and <DEP>_URL and not only <DEP>_HOST. The port is the
-// declared `expose:`, else what the image itself exposes; it is marked
+// declared `expose:`, else what the image itself exposes, else — for a
+// `compose:` dependency — what its compose file says; it is marked
 // ContainerOnly so host callers are not handed a localhost address that
 // reaches nothing.
 func applyInternalDepPort(
@@ -104,6 +105,14 @@ func applyInternalDepPort(
 		}
 		if p, err := imageExposedPortFn(ctx, image); err == nil {
 			port = p
+		}
+	case len(inline.Compose) > 0:
+		// raioz did not write this dependency's compose, but it can read
+		// it: the port and the image (for the URL scheme) are in there.
+		var image string
+		port, image = composeDepPort(ctx, inline.Compose, name)
+		if ep.Scheme == "" && image != "" {
+			ep.Scheme = netutil.SchemeForImage(image)
 		}
 	}
 	if port > 0 {

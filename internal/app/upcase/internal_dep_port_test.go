@@ -3,6 +3,8 @@ package upcase
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"raioz/internal/domain/interfaces"
@@ -43,6 +45,48 @@ func TestApplyInternalDepPort(t *testing.T) {
 			applyInternalDepPort(context.Background(), &ep, "dep", deps)
 			if ep.Port != tt.wantPort || ep.ContainerOnly != tt.wantOnly {
 				t.Errorf("Port=%d ContainerOnly=%v, want %d/%v", ep.Port, ep.ContainerOnly, tt.wantPort, tt.wantOnly)
+			}
+		})
+	}
+}
+
+func TestComposeDepPort(t *testing.T) {
+	prev := imageExposedPortFn
+	imageExposedPortFn = func(_ context.Context, image string) (int, error) {
+		if image == "redis:7.4-alpine" {
+			return 6379, nil
+		}
+		return 0, errors.New("unknown image")
+	}
+	t.Cleanup(func() { imageExposedPortFn = prev })
+
+	write := func(body string) []string {
+		path := filepath.Join(t.TempDir(), "compose.yml")
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return []string{path}
+	}
+
+	tests := []struct {
+		name      string
+		compose   string
+		wantPort  int
+		wantImage string
+	}{
+		{"only service, port from the image", "services:\n  cache:\n    image: redis:7.4-alpine\n", 6379, "redis:7.4-alpine"},
+		{"expose wins", "services:\n  kv:\n    image: redis:7.4-alpine\n    expose: [7000]\n", 7000, "redis:7.4-alpine"},
+		{"container side of ports", "services:\n  kv:\n    image: x\n    ports: [\"127.0.0.1:5433:5432/tcp\"]\n", 5432, "x"},
+		{"long form ports", "services:\n  kv:\n    image: x\n    ports:\n      - target: 9000\n        published: 9001\n", 9000, "x"},
+		{"service named like the dependency", "services:\n  other:\n    image: x\n    expose: [1]\n  kv:\n    image: y\n    expose: [2]\n", 2, "y"},
+		{"several services, none matches", "services:\n  a:\n    image: x\n    expose: [1]\n  b:\n    image: y\n    expose: [2]\n", 0, ""},
+		{"interpolated port is not guessed", "services:\n  kv:\n    image: x\n    ports: [\"${PORT}:${PORT}\"]\n", 0, "x"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			port, image := composeDepPort(context.Background(), write(tt.compose), "kv")
+			if port != tt.wantPort || image != tt.wantImage {
+				t.Errorf("got %d %q, want %d %q", port, image, tt.wantPort, tt.wantImage)
 			}
 		})
 	}

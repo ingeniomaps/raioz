@@ -80,7 +80,7 @@ func shouldProxy(deps *models.Deps, name string) bool {
 	if entry.Inline.Routing != nil {
 		return true
 	}
-	return !isNonHTTPImage(entry.Inline.Image)
+	return !isNonHTTPImage(DependencyImage(name, entry.Inline))
 }
 
 // isNonHTTPImage delegates to the shared classifier in proxy/filter.go.
