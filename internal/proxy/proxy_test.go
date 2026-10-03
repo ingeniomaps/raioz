@@ -299,3 +299,36 @@ func TestBusyHostPorts(t *testing.T) {
 		}
 	})
 }
+
+func TestWriteFallbackBlock(t *testing.T) {
+	tests := []struct {
+		name     string
+		tlsMode  string
+		certsDir string
+		want     []string
+		empty    bool
+	}{
+		{"mkcert with certs answers on https", "mkcert", "/certs", []string{"https:// {", "tls /certs/", "404"}, false},
+		{"mkcert without certs answers on http", "mkcert", "", []string{"http:// {", "404"}, false},
+		{"no tls answers on http", "", "", []string{"http:// {", "404"}, false},
+		{"acme gets no catch-all", "letsencrypt", "", nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var b strings.Builder
+			writeFallbackBlock(&b, tt.tlsMode, tt.certsDir)
+			got := b.String()
+			if tt.empty {
+				if got != "" {
+					t.Fatalf("want no block, got %q", got)
+				}
+				return
+			}
+			for _, w := range tt.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("block %q is missing %q", got, w)
+				}
+			}
+		})
+	}
+}
