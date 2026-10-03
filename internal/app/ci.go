@@ -145,7 +145,10 @@ func (uc *CIUseCase) executeYAML(
 	}
 
 	for name, entry := range proj.Deps.Infra {
-		if entry.Inline != nil && entry.Inline.Image == "" {
+		// An image is one of four ways to declare a dependency; a compose
+		// fragment or a sibling project needs none.
+		if entry.Inline != nil && entry.Inline.Image == "" && len(entry.Inline.Compose) == 0 &&
+			entry.Inline.Project == "" && entry.Inline.SiblingProject == "" {
 			result.Validations = append(result.Validations, ValidationResult{
 				Check:   "dependency_images",
 				Status:  "failed",

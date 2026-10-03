@@ -155,3 +155,34 @@ func TestCIUseCase_Execute_YAMLMissingImage(t *testing.T) {
 		t.Error("expected Success=false for missing image")
 	}
 }
+
+// A dependency declared through a compose fragment or a sibling project has
+// no image of its own, and is as valid as one that does.
+func TestCIUseCase_Execute_YAMLDepsWithoutImage(t *testing.T) {
+	initI18nForTest(t)
+	deps := newFullMockDeps()
+	deps.Validator = &mocks.MockValidator{}
+	deps.ConfigLoader = &mocks.MockConfigLoader{
+		LoadDepsFunc: func(string) (*models.Deps, []string, error) {
+			return &models.Deps{
+				Project:       models.Project{Name: "yaml-proj"},
+				Network:       models.NetworkConfig{Name: "net"},
+				SchemaVersion: "2.0",
+				SourceFormat:  models.SourceFormatYAML,
+				Services:      map[string]models.Service{},
+				Infra: map[string]models.InfraEntry{
+					"own":     {Inline: &models.Infra{Compose: []string{"./own.yml"}}},
+					"sibling": {Inline: &models.Infra{Project: "../other"}},
+					"either":  {Inline: &models.Infra{SiblingProject: "../kafka", Image: "kafka"}},
+				},
+			}, nil, nil
+		},
+	}
+	result, err := NewCIUseCase(deps).Execute(CIOptions{OnlyValidate: true, ConfigPath: "raioz.yaml"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Success {
+		t.Errorf("compose and sibling dependencies must validate, got errors=%v", result.Errors)
+	}
+}
