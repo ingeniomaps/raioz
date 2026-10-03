@@ -188,11 +188,20 @@ func resolvePortBindConflicts(
 	return nil
 }
 
+// HostPortOwnerFn names the raioz project and service whose host process
+// holds a port, or returns empty strings. The inventory of running projects
+// lives in the app layer, which installs the real lookup at init.
+var HostPortOwnerFn = func(context.Context, int) (project, service string) { return "", "" }
+
 // printConflictBanner prints a human-readable description of who is using
 // the port.
 func printConflictBanner(c PortBindConflict, occ docker.PortOccupant) {
-	output.PrintWarning("")
-	if occ.IsDocker {
+	fmt.Println()
+	if project, service := HostPortOwnerFn(context.Background(), c.Port); !occ.IsDocker && project != "" {
+		// A host process is not anonymous when another raioz project
+		// started it: name it, and the command that frees the port.
+		output.PrintWarning(i18n.T("port.conflict.occupied_by_raioz_host", c.Port, service, project))
+	} else if occ.IsDocker {
 		if occ.IsRaioz {
 			output.PrintWarning(fmt.Sprintf(
 				i18n.T("port.conflict.occupied_by_raioz"),

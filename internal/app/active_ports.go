@@ -206,3 +206,16 @@ func ActiveProjectConfig(name string) (path string, ok bool) {
 	}
 	return "", false
 }
+
+// hostPortOwner names the project and service whose host process holds
+// port, for the conflict message `up` prints.
+func hostPortOwner(ctx context.Context, port int) (project, service string) {
+	for _, ep := range activeEndpointsFn(ctx) {
+		if ep.Runner == runnerHost && ep.Port == port {
+			return ep.Project, ep.Service
+		}
+	}
+	return "", ""
+}
+
+func init() { upcase.HostPortOwnerFn = hostPortOwner }

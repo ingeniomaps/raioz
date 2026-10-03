@@ -768,5 +768,7 @@
   "snapshot.restart_failed": "No se pudo volver a arrancar %s: %v. Corre 'raioz up' para levantarlos",
   "output.recreating_service": "Recreando %s...",
   "meta.optional_absent": "%s: opcional y no está en disco — se omite",
-  "meta.path_missing": "no existe el directorio del proyecto: %s"
+  "meta.path_missing": "no existe el directorio del proyecto: %s",
+  "port.conflict.occupied_by_raioz_host": "El puerto %d está en uso por el servicio '%s' del proyecto raioz '%s'. 'raioz switch' lo detiene y levanta este proyecto",
+  "error.volumes_in_use_suggestion": "Un volumen en uso no se puede borrar: detén antes el proyecto con 'raioz down'"
 }

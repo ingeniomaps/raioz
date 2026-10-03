@@ -768,5 +768,7 @@
   "snapshot.restart_failed": "Could not start %s again: %v. Run 'raioz up' to bring them back",
   "output.recreating_service": "Recreating %s...",
   "meta.optional_absent": "%s: optional and not on disk — skipped",
-  "meta.path_missing": "project directory not found: %s"
+  "meta.path_missing": "project directory not found: %s",
+  "port.conflict.occupied_by_raioz_host": "Port %d is in use by service '%s' of raioz project '%s'. 'raioz switch' stops it and starts this project",
+  "error.volumes_in_use_suggestion": "A volume in use cannot be removed: stop the project with 'raioz down' first"
 }
