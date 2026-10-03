@@ -11,6 +11,7 @@ import (
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/fsutil"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
@@ -195,11 +196,7 @@ func promptProxyFailureAction() int {
 // Avoids pulling in golang.org/x/term — the character-device check is
 // portable across Linux/macOS and sufficient for our needs.
 func stdinIsInteractive() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
+	return fsutil.IsTerminal(os.Stdin)
 }
 
 // printProxyURLs lists the HTTPS URLs the proxy exposes for each service.
