@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 	}
 	// No proxy ever listens in these tests: without this every Start would
 	// wait out the readiness timeout.
-	dialProxy = func(context.Context, string) bool { return true }
+	proxyAnswers = func(context.Context, string) bool { return true }
 	code := m.Run()
 	_ = os.RemoveAll(stateDir)
 	os.Exit(code)

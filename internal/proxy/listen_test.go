@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestPublishHostAndListenAddress(t *testing.T) {
+func TestPublishHostAndListenHost(t *testing.T) {
 	tests := []struct {
 		name        string
 		publish     bool
@@ -15,10 +15,10 @@ func TestPublishHostAndListenAddress(t *testing.T) {
 		wantHost    string
 		wantAddr    string
 	}{
-		{"published defaults to loopback", true, "", "10.0.1.1", "127.0.0.1", "127.0.0.1:443"},
-		{"explicit host is honored", true, "192.168.1.5", "", "192.168.1.5", "192.168.1.5:443"},
-		{"all interfaces is probed on loopback", true, "0.0.0.0", "", "0.0.0.0", "127.0.0.1:443"},
-		{"unpublished is reached on the container", false, "", "10.0.1.1", "127.0.0.1", "10.0.1.1:443"},
+		{"published defaults to loopback", true, "", "10.0.1.1", "127.0.0.1", "127.0.0.1"},
+		{"explicit host is honored", true, "192.168.1.5", "", "192.168.1.5", "192.168.1.5"},
+		{"all interfaces is probed on loopback", true, "0.0.0.0", "", "0.0.0.0", "127.0.0.1"},
+		{"unpublished is reached on the container", false, "", "10.0.1.1", "127.0.0.1", "10.0.1.1"},
 		{"unpublished without an IP has no address", false, "", "", "127.0.0.1", ""},
 	}
 	for _, tt := range tests {
@@ -28,19 +28,19 @@ func TestPublishHostAndListenAddress(t *testing.T) {
 			if got := m.publishHost(); got != tt.wantHost {
 				t.Errorf("publishHost = %q, want %q", got, tt.wantHost)
 			}
-			if got := m.listenAddress(tt.containerIP); got != tt.wantAddr {
-				t.Errorf("listenAddress = %q, want %q", got, tt.wantAddr)
+			if got := m.listenHost(tt.containerIP); got != tt.wantAddr {
+				t.Errorf("listenHost = %q, want %q", got, tt.wantAddr)
 			}
 		})
 	}
 }
 
 func TestWaitUntilListening_ReturnsOnceReachable(t *testing.T) {
-	prev := dialProxy
-	t.Cleanup(func() { dialProxy = prev })
+	prev := proxyAnswers
+	t.Cleanup(func() { proxyAnswers = prev })
 
 	calls := 0
-	dialProxy = func(context.Context, string) bool {
+	proxyAnswers = func(context.Context, string) bool {
 		calls++
 		return calls >= 3
 	}
