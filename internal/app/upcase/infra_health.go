@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
@@ -59,7 +60,7 @@ func checkInfraHealth(
 			case "running":
 				continue
 			case "restarting", "exited":
-				output.PrintWarning(fmt.Sprintf("%s is %s — checking logs...", infraName, status))
+				output.PrintWarning(i18n.T("up.infra_bad_status", infraName, status))
 				showContainerDiagnostics(ctx, cn, infraName)
 				return fmt.Errorf("dependency '%s' failed to start (status: %s)", infraName, status)
 			default:

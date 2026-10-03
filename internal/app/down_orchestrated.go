@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -147,10 +146,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
 	}); len(leftovers) > 0 {
-		output.PrintWarning(fmt.Sprintf(
-			"Project '%s' down finished but these raioz-managed containers survived: %v",
-			projectName, leftovers,
-		))
+		output.PrintWarning(i18n.T("down.leftover_containers", projectName, leftovers))
 	}
 
 	// Stop dependency compose projects. The deferred list comes from

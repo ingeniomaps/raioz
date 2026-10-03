@@ -87,7 +87,7 @@ func startWatcher(
 		return
 	}
 
-	output.PrintProgressDone(fmt.Sprintf("Watching %d service(s): %v", watchCount, names))
+	output.PrintProgressDone(i18n.T("watch.watching", watchCount, names))
 	output.PrintInfo(i18n.T("output.press_ctrlc"))
 	fmt.Println()
 
@@ -195,7 +195,7 @@ func buildRestartCallback(
 ) watch.RestartFunc {
 	return func(serviceName string) {
 		logging.Info("File change detected, restarting", "service", serviceName)
-		output.PrintInfo(fmt.Sprintf("[watch] restarting %s...", serviceName))
+		output.PrintInfo(i18n.T("watch.restarting", serviceName))
 
 		det, ok := detections[serviceName]
 		if !ok {
@@ -241,7 +241,7 @@ func buildRestartCallback(
 		applyServiceEnv(&svcCtx, svc.Env, projectDir)
 
 		if err := dispatcher.Restart(ctx, svcCtx); err != nil {
-			output.PrintWarning(fmt.Sprintf("[watch] failed: %s: %s", serviceName, err))
+			output.PrintWarning(i18n.T("watch.failed", serviceName, err))
 			return
 		}
 
@@ -255,7 +255,7 @@ func buildRestartCallback(
 			}
 		}
 
-		output.PrintSuccess(fmt.Sprintf("[watch] %s restarted", serviceName))
+		output.PrintSuccess(i18n.T("watch.restarted", serviceName))
 	}
 }
 

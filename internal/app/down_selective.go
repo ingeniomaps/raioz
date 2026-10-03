@@ -10,6 +10,7 @@ import (
 	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -69,9 +70,7 @@ func (uc *DownUseCase) downSelectiveServices(
 		)
 	}
 
-	output.PrintProgress(fmt.Sprintf(
-		"Stopping %d target(s) from project %q...", len(targets), projectName,
-	))
+	output.PrintProgress(i18n.T("down.selective_stopping", len(targets), projectName))
 
 	localState, _ := state.LoadLocalState(projectDir)
 
@@ -90,10 +89,7 @@ func (uc *DownUseCase) downSelectiveServices(
 		_ = state.SaveLocalState(projectDir, localState)
 	}
 
-	output.PrintSuccess(fmt.Sprintf(
-		"Stopped %d target(s) from %q (rest of project untouched)",
-		len(targets), projectName,
-	))
+	output.PrintSuccess(i18n.T("down.selective_stopped", len(targets), projectName))
 	return nil
 }
 
@@ -170,11 +166,8 @@ func stopSelectiveDep(
 
 	// Mode A: project: ../sibling — sibling is the runtime.
 	if entry.Inline != nil && entry.Inline.Project != "" {
-		output.PrintInfo(fmt.Sprintf(
-			"%s: sibling-owned (project: %s) — leaving it up. "+
-				"Run `cd %s && raioz down` to stop it from its own project.",
-			name, entry.Inline.Project, entry.Inline.Project,
-		))
+		output.PrintInfo(i18n.T("down.selective_sibling_owned",
+			name, entry.Inline.Project, entry.Inline.Project))
 		return
 	}
 	// Mode B deferred: image+siblingProject and last `up` deferred

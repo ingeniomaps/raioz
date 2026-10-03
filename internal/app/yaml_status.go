@@ -151,7 +151,7 @@ func printStatusReport(report *statusReport) {
 	output.PrintSectionHeader(report.Project)
 
 	if len(report.Dependencies) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", len(report.Dependencies)))
+		output.PrintSubsection(i18n.T("status.dependencies_header", len(report.Dependencies)))
 		for _, dep := range report.Dependencies {
 			status := formatContainerStatus(ContainerState{Status: dep.Status, Restarts: dep.Restarts})
 			image := dep.Image
@@ -163,7 +163,7 @@ func printStatusReport(report *statusReport) {
 	}
 
 	if len(report.Services) > 0 {
-		output.PrintSubsection(fmt.Sprintf("Services (%d)", len(report.Services)))
+		output.PrintSubsection(i18n.T("status.services_header", len(report.Services)))
 		for _, svc := range report.Services {
 			status := formatContainerStatus(ContainerState{Status: svc.Status, Restarts: svc.Restarts})
 			pidInfo := ""

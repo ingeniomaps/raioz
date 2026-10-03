@@ -226,6 +226,8 @@ func setI18nDescriptions() {
 	hostsCmd.Short = i18n.T("cmd.hosts.short")
 	switchCmd.Short = i18n.T("cmd.switch.short")
 	yamlCmd.Short = i18n.T("cmd.yaml.short")
+	yamlLintCmd.Short = i18n.T("cmd.yaml.lint.short")
+	yamlLintCmd.Long = i18n.T("cmd.yaml.lint.long")
 	cloneCmd.Flags().Lookup("branch").Usage = i18n.T("cmd.clone.flag.branch")
 	cloneCmd.Flags().Lookup("no-up").Usage = i18n.T("cmd.clone.flag.no_up")
 }

@@ -7,6 +7,7 @@ import (
 
 	"raioz/internal/app"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/netutil"
 
@@ -98,9 +99,7 @@ func resolveProxyIPForHosts(deps *models.Deps) (string, error) {
 	if ip := netutil.DefaultProxyIP(deps.Network.GetSubnet()); ip != "" {
 		return ip, nil
 	}
-	return "", fmt.Errorf(
-		"cannot derive proxy IP — declare network.subnet (raioz uses <subnet>.1.1) " +
-			"or proxy.ip in raioz.yaml")
+	return "", fmt.Errorf("%s", i18n.T("error.hosts_no_proxy_ip"))
 }
 
 // proxiedHostnamesFromConfig replicates the orchestrator's filter so the

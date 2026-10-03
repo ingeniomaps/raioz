@@ -33,7 +33,7 @@ var tunnelCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		output.PrintSuccess(fmt.Sprintf("Tunnel active for %s", args[0]))
+		output.PrintSuccess(i18n.T("tunnel.active", args[0]))
 		fmt.Printf("  URL:   %s\n", info.PublicURL)
 		fmt.Printf("  Local: http://localhost:%d\n", info.LocalPort)
 		fmt.Printf("  PID:   %d\n", info.PID)
@@ -72,7 +72,7 @@ var tunnelStopCmd = &cobra.Command{
 		if err := uc.Execute(cmd.Context(), tunnelcase.StopOptions{ServiceName: args[0]}); err != nil {
 			return err
 		}
-		output.PrintSuccess(fmt.Sprintf("Tunnel stopped for %s", args[0]))
+		output.PrintSuccess(i18n.T("tunnel.stopped", args[0]))
 		return nil
 	},
 }

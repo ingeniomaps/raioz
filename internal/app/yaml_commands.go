@@ -202,7 +202,8 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 			}
 			return nil
 		}
-		return fmt.Errorf("service '%s' is not running", serviceName)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.exec_service_not_running", serviceName)).
+			WithSuggestion(i18n.T("error.exec_service_not_running_suggestion"))
 	}
 
 	isTTY := fsutil.IsTerminal(os.Stdin)

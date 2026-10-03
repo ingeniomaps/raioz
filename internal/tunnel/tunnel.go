@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"time"
 
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 )
 
@@ -78,7 +79,7 @@ func (m *Manager) Stop(serviceName string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("no active tunnel for '%s'", serviceName)
+	return fmt.Errorf("%s", i18n.T("error.tunnel_not_active", serviceName))
 }
 
 // StopAll kills all tunnels.

@@ -131,7 +131,7 @@ func stopComposeServices(ctx context.Context, deps *models.Deps) {
 		if err := docker.DownWithContext(scopedCtx, inv.spec); err != nil {
 			logging.WarnWithContext(ctx, "Compose service down failed",
 				"service", name, "error", err.Error())
-			output.PrintWarning(fmt.Sprintf("Failed to stop compose service %s: %v", name, err))
+			output.PrintWarning(i18n.T("down.compose_stop_failed", name, err))
 		}
 	}
 }
@@ -162,7 +162,7 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 		if out, err := cmd.CombinedOutput(); err != nil {
 			logging.WarnWithContext(ctx, "Custom stop command failed",
 				"service", name, "error", err.Error(), "output", string(out))
-			output.PrintWarning(fmt.Sprintf("Stop command for %s failed: %v", name, err))
+			output.PrintWarning(i18n.T("down.stop_command_failed", name, err))
 			failed = append(failed, name)
 		}
 	}

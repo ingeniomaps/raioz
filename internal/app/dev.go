@@ -63,7 +63,8 @@ func (uc *DevUseCase) Execute(ctx context.Context, opts DevOptions) error {
 	}
 
 	if opts.Name == "" {
-		return fmt.Errorf("dependency name is required")
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.dev_name_required")).
+			WithSuggestion(i18n.T("error.dev_name_required_suggestion"))
 	}
 
 	// Acquire workspace lock before reading state — `raioz dev` is a
@@ -150,12 +151,8 @@ func (uc *DevUseCase) promote(
 	entry, ok := cfgDeps.Infra[name]
 	if !ok {
 		return errors.New(errors.ErrCodeNotADependency,
-			"'"+name+"' is not a dependency",
-		).WithSuggestion(
-			"Available dependencies: " + infraNames(cfgDeps) + "\n" +
-				"  Only items in 'dependencies:' can be promoted to local.\n" +
-				"  Items in 'services:' are already local.",
-		)
+			i18n.T("error.dev_not_a_dependency", name),
+		).WithSuggestion(i18n.T("error.dev_not_a_dependency_suggestion", infraNames(cfgDeps)))
 	}
 
 	// Validate local path

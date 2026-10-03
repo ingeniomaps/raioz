@@ -32,9 +32,9 @@ func CheckYAML(proj *YAMLProject) error {
 		result := config.ResolveServiceDetection(svc, svc.Source.Path)
 		if result.Runtime == models.RuntimeUnknown {
 			if svc.Source.Path != "" {
-				output.PrintWarning(fmt.Sprintf("%s: no runtime detected at %s", name, svc.Source.Path))
+				output.PrintWarning(i18n.T("check.no_runtime_at", name, svc.Source.Path))
 			} else {
-				output.PrintWarning(fmt.Sprintf("%s: no runtime declared (command/compose/path)", name))
+				output.PrintWarning(i18n.T("check.no_runtime_declared", name))
 			}
 			issues++
 		} else {
@@ -60,7 +60,7 @@ func CheckYAML(proj *YAMLProject) error {
 	for name, svc := range proj.Deps.Services {
 		for _, dep := range svc.GetDependsOn() {
 			if !known[dep] {
-				output.PrintError(fmt.Sprintf("%s depends on '%s' which is not defined", name, dep))
+				output.PrintError(i18n.T("check.unknown_dependency", name, dep))
 				issues++
 			}
 		}

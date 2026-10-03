@@ -12,6 +12,7 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -211,12 +212,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				// silently leak resources.
 				r.markLauncher(svc.Name)
 				if svc.StopCommand == "" {
-					output.PrintWarning(fmt.Sprintf(
-						"Service '%s' exited 0 within the settle window — likely a "+
-							"launcher that detached a container or daemon. Without "+
-							"`stop:` declared, `raioz down` cannot clean up. Add a "+
-							"`stop:` command (e.g. `make stop`) to raioz.yaml.",
-						svc.Name))
+					output.PrintWarning(i18n.T("launcher.no_stop", svc.Name))
 					logging.WarnWithContext(ctx, "Launcher pattern without stop: declared",
 						"service", svc.Name, "command", command)
 				}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
@@ -148,7 +149,7 @@ func (m *Manager) Restore(project, name string) error {
 
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
-		return fmt.Errorf("snapshot '%s' not found for project '%s'", name, project)
+		return fmt.Errorf("%s", i18n.T("error.snapshot_not_found", name, project))
 	}
 
 	var snap Snapshot
@@ -221,7 +222,7 @@ func (m *Manager) Delete(project, name string) error {
 	}
 	dir := m.snapshotDir(project, name)
 	if _, err := os.Stat(dir); err != nil {
-		return fmt.Errorf("snapshot '%s' not found for project '%s'", name, project)
+		return fmt.Errorf("%s", i18n.T("error.snapshot_not_found", name, project))
 	}
 	if err := os.RemoveAll(dir); err != nil {
 		return fmt.Errorf("remove snapshot dir %q: %w", dir, err)

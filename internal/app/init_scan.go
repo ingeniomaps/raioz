@@ -49,7 +49,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 		projectName = filepath.Base(dir)
 	}
 
-	output.PrintInfo(fmt.Sprintf("Scanning %s...", dir))
+	output.PrintInfo(i18n.T("init.scanning", dir))
 	fmt.Println()
 
 	cfg := config.RaiozConfig{

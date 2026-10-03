@@ -54,7 +54,7 @@ var migrateYAMLCmd = &cobra.Command{
 			return fmt.Errorf("failed to write %s: %w", out, err)
 		}
 
-		output.PrintSuccess(fmt.Sprintf("Generated %s from %s", out, from))
+		output.PrintSuccess(i18n.T("migrate.generated", out, from))
 		output.PrintInfo(i18n.T("output.migrate_yaml_delete_hint", from))
 		return nil
 	},
