@@ -37,8 +37,8 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		return nil
 	}
 
-	// Named after the project as well as the service: two projects with a
-	// service called `api` used to build over each other's image tag.
+	// Named after the project as well as the service, so two projects with
+	// a service called `api` do not build over each other's image tag.
 	imageName := "raioz-" + svc.Name
 	if svc.ProjectName != "" {
 		imageName = naming.Container(svc.ProjectName, svc.Name)

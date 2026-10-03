@@ -545,8 +545,9 @@ func TestCreateCombinedEnvFile_WithoutDotEnv(t *testing.T) {
 }
 
 // The YAML bridge resolves `env:` to an absolute path before the legacy
-// resolver sees it. It used to be joined onto projectDir, miss, and fall
-// into the name lookup, which rejected it as a path escape.
+// resolver sees it. Such a path is read as is: joined onto projectDir it
+// would miss and fall into the name lookup, which rejects it as a path
+// escape.
 func TestResolveServiceEnvFile_AbsolutePath(t *testing.T) {
 	projectDir := t.TempDir()
 	envFile := filepath.Join(projectDir, "web", ".env")

@@ -48,8 +48,8 @@ func loadFixture(t *testing.T) *ProductionConfig {
 	return prod
 }
 
-// The mapping form of `environment:` is the common one; it used to fail
-// the whole load with "cannot unmarshal !!map into []string".
+// `environment:` loads in both of its forms, the mapping (the common one)
+// and the list.
 func TestLoadComposeFile_EnvironmentForms(t *testing.T) {
 	prod := loadFixture(t)
 

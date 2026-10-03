@@ -284,8 +284,9 @@ func TestApplyProxyURL(t *testing.T) {
 	})
 }
 
-// `publish:` without `expose:` used to map the host port onto the same
-// number inside the container, where nothing listens.
+// `publish:` without `expose:` maps the host port onto the port the image
+// exposes, not onto the same number inside the container, where nothing
+// listens.
 func TestInferDepExpose(t *testing.T) {
 	prev := imageExposedPortFn
 	imageExposedPortFn = func(_ context.Context, image string) (int, error) {
