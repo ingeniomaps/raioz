@@ -22,6 +22,7 @@ var (
 	attach        bool
 	watch         bool
 	exclusive     bool
+	upYes         bool
 	notifyDone    bool
 	routerOff     bool
 	auditSiblings bool
@@ -97,6 +98,7 @@ var upCmd = &cobra.Command{
 			Attach:        attach,
 			Watch:         watch,
 			Exclusive:     exclusive,
+			Yes:           upYes,
 			RouterOff:     routerOff,
 			AuditSiblings: auditSiblings,
 		})
@@ -148,6 +150,8 @@ func init() {
 	upCmd.Flags().BoolVar(&watch, "watch", false,
 		"File-watch services with watch: true and auto-restart (blocks until Ctrl+C)")
 	upCmd.Flags().BoolVar(&exclusive, "exclusive", false, i18n.T("cmd.up.flag.exclusive"))
+	upCmd.Flags().BoolVarP(&upYes, "yes", "y", false,
+		"Approve what --exclusive would stop without being asked")
 	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 	upCmd.Flags().StringSliceVar(&metaProfiles, "meta-profile", nil,
 		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")

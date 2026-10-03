@@ -9,6 +9,9 @@ import (
 	"raioz/internal/i18n"
 )
 
+// portProbe reports whether a host port is bound.
+type portProbe func(port string) (bool, error)
+
 // findFreePort returns wanted (or the next available port above it) given
 // the set of already-taken ports and an external bind probe. Caller passes
 // `owner` for the error message when the search exhausts the port space.
@@ -16,7 +19,7 @@ import (
 // Implicit allocations bump on conflicts; explicit allocations treat
 // external conflicts as a hard error. That difference matches the design:
 // implicit is negotiable, explicit is sacred.
-func findFreePort(wanted int, taken map[int]string, owner string) (int, error) {
+func findFreePort(wanted int, taken map[int]string, owner string, probe portProbe) (int, error) {
 	final := wanted
 	// Non-root cannot bind to privileged ports, so iterating through 1..1023
 	// would just burn ~944 doomed net.Listen() calls. Jump to the first
@@ -26,7 +29,7 @@ func findFreePort(wanted int, taken map[int]string, owner string) (int, error) {
 	}
 	for {
 		if _, clash := taken[final]; !clash {
-			inUse, err := portInUseProbe(fmt.Sprintf("%d", final))
+			inUse, err := probe(fmt.Sprintf("%d", final))
 			if err != nil || !inUse {
 				return final, nil
 			}

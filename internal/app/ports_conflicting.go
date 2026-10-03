@@ -7,7 +7,6 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"raioz/internal/docker"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
@@ -18,7 +17,7 @@ import (
 // holding host ports declared in the cwd's raioz.yaml, without touching any
 // of them. Useful for debugging "why does my up keep failing on port X?".
 func (uc *PortsUseCase) listConflictingPorts(
-	_ context.Context,
+	ctx context.Context,
 	opts PortsOptions,
 ) error {
 	cwdDeps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
@@ -27,15 +26,7 @@ func (uc *PortsUseCase) listConflictingPorts(
 		return nil
 	}
 
-	baseDir, err := uc.deps.Workspace.GetBaseDir()
-	if err != nil {
-		return errors.New(
-			errors.ErrCodeWorkspaceError,
-			i18n.T("error.base_dir"),
-		).WithError(err)
-	}
-
-	conflicts, err := docker.ValidatePorts(cwdDeps, baseDir, cwdDeps.Project.Name)
+	conflicts, err := portConflictsFn(ctx, cwdDeps)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeDockerNotRunning,
@@ -56,7 +47,7 @@ func (uc *PortsUseCase) listConflictingPorts(
 // printConflictingPortsTable writes a tab-aligned PORT/PROJECT/SERVICE/
 // ALTERNATIVE table to w. Pure formatter so tests can assert content
 // without spawning Docker.
-func printConflictingPortsTable(w io.Writer, conflicts []docker.PortConflict) {
+func printConflictingPortsTable(w io.Writer, conflicts []portConflict) {
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
 	fmt.Fprintln(tw, "PORT\tPROJECT\tSERVICE\tALTERNATIVE")
 	fmt.Fprintln(tw, "────\t───────\t───────\t───────────")

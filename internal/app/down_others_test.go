@@ -81,10 +81,16 @@ type downOthersStubs struct {
 
 func withDownOthersHooks(t *testing.T, s *downOthersStubs) {
 	t.Helper()
-	prevVP, prevLA, prevSP := validatePortsFn, listActiveProjectsFn, stopProjectContainersFn
-	validatePortsFn = func(_ *models.Deps, _ string, _ string) ([]docker.PortConflict, error) {
+	prevVP, prevLA, prevSP := portConflictsFn, listActiveProjectsFn, stopProjectContainersFn
+	prevRec, prevPath, prevDown := recordedProjects, projectPathFn, downProjectFn
+	portConflictsFn = func(_ context.Context, _ *models.Deps) ([]docker.PortConflict, error) {
 		return s.conflicts, s.validateErr
 	}
+	// No project is on record unless a test says so: the container
+	// fallback is what these tests exercise.
+	recordedProjects = func() []models.ProjectState { return nil }
+	projectPathFn = func(string) string { return "" }
+	downProjectFn = func(context.Context, string) error { return nil }
 	listActiveProjectsFn = func(_ context.Context) ([]string, error) {
 		return s.active, s.listErr
 	}
@@ -99,15 +105,16 @@ func withDownOthersHooks(t *testing.T, s *downOthersStubs) {
 		return nil, nil
 	}
 	t.Cleanup(func() {
-		validatePortsFn = prevVP
+		portConflictsFn = prevVP
 		listActiveProjectsFn = prevLA
 		stopProjectContainersFn = prevSP
+		recordedProjects, projectPathFn, downProjectFn = prevRec, prevPath, prevDown
 	})
 }
 
 func TestDownConflictingProjects_NilDepsNoop(t *testing.T) {
 	initI18nForTest(t)
-	got, err := DownConflictingProjects(context.Background(), nil, "/tmp")
+	got, err := DownConflictingProjects(context.Background(), nil, "/tmp", approveAll)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -134,7 +141,7 @@ func TestDownConflictingProjects_StopsOnlyOthers(t *testing.T) {
 	withDownOthersHooks(t, stubs)
 
 	cwd := &models.Deps{Project: models.Project{Name: "myproj"}}
-	got, err := DownConflictingProjects(context.Background(), cwd, "/tmp")
+	got, err := DownConflictingProjects(context.Background(), cwd, "/tmp", approveAll)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -156,7 +163,7 @@ func TestDownConflictingProjects_NoConflicts(t *testing.T) {
 	withDownOthersHooks(t, &downOthersStubs{conflicts: nil})
 
 	cwd := &models.Deps{Project: models.Project{Name: "myproj"}}
-	got, err := DownConflictingProjects(context.Background(), cwd, "/tmp")
+	got, err := DownConflictingProjects(context.Background(), cwd, "/tmp", approveAll)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -171,7 +178,7 @@ func TestDownConflictingProjects_ValidatePortsError(t *testing.T) {
 	withDownOthersHooks(t, &downOthersStubs{validateErr: want})
 
 	cwd := &models.Deps{Project: models.Project{Name: "myproj"}}
-	_, err := DownConflictingProjects(context.Background(), cwd, "/tmp")
+	_, err := DownConflictingProjects(context.Background(), cwd, "/tmp", approveAll)
 	if !errors.Is(err, want) {
 		t.Errorf("err = %v, want %v", err, want)
 	}
@@ -188,7 +195,7 @@ func TestDownAllOtherProjects_StopsAllButCwd(t *testing.T) {
 	}
 	withDownOthersHooks(t, stubs)
 
-	got, err := DownAllOtherProjects(context.Background(), "myproj")
+	got, err := DownAllOtherProjects(context.Background(), "myproj", approveAll)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -209,7 +216,7 @@ func TestDownAllOtherProjects_NoOthers(t *testing.T) {
 	initI18nForTest(t)
 	withDownOthersHooks(t, &downOthersStubs{active: []string{"myproj"}})
 
-	got, err := DownAllOtherProjects(context.Background(), "myproj")
+	got, err := DownAllOtherProjects(context.Background(), "myproj", approveAll)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -223,7 +230,7 @@ func TestDownAllOtherProjects_ListError(t *testing.T) {
 	want := errors.New("ls failed")
 	withDownOthersHooks(t, &downOthersStubs{listErr: want})
 
-	_, err := DownAllOtherProjects(context.Background(), "myproj")
+	_, err := DownAllOtherProjects(context.Background(), "myproj", approveAll)
 	if !errors.Is(err, want) {
 		t.Errorf("err = %v, want %v", err, want)
 	}
@@ -338,7 +345,7 @@ func TestDownOtherWorkspaceProjects_StopsSiblingsOnly(t *testing.T) {
 		listContainersByLabelsErrFn, getContainerLabelFn, stopProjectContainersFn = prevErrList, prevLabel, prevStop
 	})
 
-	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "acme", "alpha")
+	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "acme", "alpha", approveAll)
 
 	if len(stopped) != 1 || stopped[0] != "beta" {
 		t.Errorf("expected only sibling 'beta' to be stopped, got %v", stopped)
@@ -363,7 +370,7 @@ func TestDownOtherWorkspaceProjects_SkipsWhenDockerFails(t *testing.T) {
 		listContainersByLabelsErrFn, stopProjectContainersFn = prevErrList, prevStop
 	})
 
-	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "acme", "alpha")
+	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "acme", "alpha", approveAll)
 
 	if len(stopped) != 0 {
 		t.Errorf("no project may be stopped when the probe fails, got %v", stopped)
@@ -383,7 +390,7 @@ func TestDownOtherWorkspaceProjects_NoWorkspaceNoop(t *testing.T) {
 	}
 	t.Cleanup(func() { listContainersByLabelsErrFn = prevErrList })
 
-	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "", "alpha")
+	NewDownUseCase(&Dependencies{}).downOtherWorkspaceProjects(context.Background(), "", "alpha", approveAll)
 
 	if called {
 		t.Error("no docker probe should run without a workspace")

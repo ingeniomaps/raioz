@@ -2,9 +2,9 @@ package app
 
 import (
 	"context"
+	"strings"
 	"testing"
 
-	"raioz/internal/domain/interfaces"
 	"raioz/internal/mocks"
 )
 
@@ -35,35 +35,50 @@ func newTestDepsForPorts(t *testing.T) (*Dependencies, *mocks.MockWorkspaceManag
 	return deps, wsMgr, dockerRunner
 }
 
+func stubActiveEndpoints(t *testing.T, endpoints []activeEndpoint) {
+	t.Helper()
+	prev := activeEndpointsFn
+	activeEndpointsFn = func(context.Context) []activeEndpoint { return endpoints }
+	t.Cleanup(func() { activeEndpointsFn = prev })
+}
+
 func TestPortsUseCase_Execute_NoPorts(t *testing.T) {
-	deps, _, dockerRunner := newTestDepsForPorts(t)
+	initI18nForTest(t)
+	deps, _, _ := newTestDepsForPorts(t)
+	stubActiveEndpoints(t, nil)
 
-	dockerRunner.GetAllActivePortsFunc = func(baseDir string) ([]interfaces.PortInfo, error) {
-		return []interfaces.PortInfo{}, nil
-	}
-
-	uc := NewPortsUseCase(deps)
-	err := uc.Execute(context.Background(), PortsOptions{})
-
-	if err != nil {
+	if err := NewPortsUseCase(deps).Execute(context.Background(), PortsOptions{}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestPortsUseCase_Execute_WithPorts(t *testing.T) {
-	deps, _, dockerRunner := newTestDepsForPorts(t)
+// `raioz ports` lists every port a raioz project holds, whichever way the
+// thing behind it was launched: a container and a host process both count.
+func TestPortsUseCase_Execute_ListsBothRunners(t *testing.T) {
+	initI18nForTest(t)
+	deps, _, _ := newTestDepsForPorts(t)
+	stubActiveEndpoints(t, []activeEndpoint{
+		{Project: "bencha", Service: "web", Runner: runnerHost, Port: 38101},
+		{Project: "bencha", Service: "cache", Runner: runnerContainer, Port: 36379},
+		{Workspace: "acme", Service: "postgres", Runner: runnerContainer, Port: 5432},
+		{Project: "other", Service: "api", Runner: runnerHost, Port: 3000},
+	})
 
-	dockerRunner.GetAllActivePortsFunc = func(baseDir string) ([]interfaces.PortInfo, error) {
-		return []interfaces.PortInfo{
-			{Port: "8080:80", Project: "test-project", Service: "api"},
-			{Port: "5432:5432", Project: "test-project", Service: "postgres"},
-		}, nil
+	out := captureStdout(t, func() {
+		if err := NewPortsUseCase(deps).Execute(context.Background(), PortsOptions{}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	for _, want := range []string{"38101", "web", runnerHost, "36379", runnerContainer, "acme", "3000"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output misses %q:\n%s", want, out)
+		}
 	}
 
-	uc := NewPortsUseCase(deps)
-	err := uc.Execute(context.Background(), PortsOptions{})
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	filtered := captureStdout(t, func() {
+		_ = NewPortsUseCase(deps).Execute(context.Background(), PortsOptions{ProjectName: "bencha"})
+	})
+	if strings.Contains(filtered, "3000") || !strings.Contains(filtered, "38101") {
+		t.Errorf("-p bencha should list only bencha's ports:\n%s", filtered)
 	}
 }

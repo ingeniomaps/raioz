@@ -193,6 +193,7 @@ func (uc *UseCase) updateGlobalState(
 		Workspace:     deps.GetWorkspaceName(),
 		LastExecution: time.Now(),
 		Services:      serviceStates,
+		Path:          deps.ProjectRoot,
 	}
 
 	// Update global state

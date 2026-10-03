@@ -33,7 +33,7 @@ func TestUpUseCase_stopOtherProjects_NoState(t *testing.T) {
 	}
 	uc := NewUpUseCase(deps)
 	// Should not panic and just return silently
-	uc.stopOtherProjects(context.Background(), "")
+	uc.stopOtherProjects(context.Background(), "", true)
 }
 
 func TestUpUseCase_stopOtherProjects_NoActiveProjects(t *testing.T) {
@@ -45,5 +45,5 @@ func TestUpUseCase_stopOtherProjects_NoActiveProjects(t *testing.T) {
 		},
 	}
 	uc := NewUpUseCase(deps)
-	uc.stopOtherProjects(context.Background(), "")
+	uc.stopOtherProjects(context.Background(), "", true)
 }

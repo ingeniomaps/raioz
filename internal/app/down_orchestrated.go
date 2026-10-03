@@ -79,7 +79,10 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 	// --all is a workspace shutdown: the siblings go first so that, by the
 	// time the shared infra gate runs below, nothing is left holding it up.
 	if opts.All {
-		uc.downOtherWorkspaceProjects(ctx, deps.Workspace, projectName)
+		if err := uc.downOtherWorkspaceProjects(ctx, deps.Workspace, projectName,
+			approveStopping(opts.Yes, reasonWorkspace)); err != nil {
+			return err
+		}
 	}
 
 	output.PrintProgress(i18n.T("output.stopping_project", projectName))

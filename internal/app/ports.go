@@ -6,7 +6,6 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -38,29 +37,18 @@ func (uc *PortsUseCase) Execute(ctx context.Context, opts PortsOptions) error {
 		return uc.listConflictingPorts(ctx, opts)
 	}
 
-	var baseDir string
-
+	endpoints := activeEndpointsFn(ctx)
 	if opts.ProjectName != "" {
-		ws, err := uc.deps.Workspace.Resolve(opts.ProjectName)
-		if err == nil {
-			baseDir = uc.deps.Workspace.GetBaseDirFromWorkspace(ws)
+		var own []activeEndpoint
+		for _, ep := range endpoints {
+			if ep.Project == opts.ProjectName {
+				own = append(own, ep)
+			}
 		}
+		endpoints = own
 	}
 
-	if baseDir == "" {
-		var err error
-		baseDir, err = uc.deps.Workspace.GetBaseDir()
-		if err != nil {
-			return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.base_dir")).WithError(err)
-		}
-	}
-
-	ports, err := uc.deps.DockerRunner.GetAllActivePorts(baseDir)
-	if err != nil {
-		return errors.New(errors.ErrCodeDockerNotRunning, i18n.T("error.ports_get_active")).WithError(err)
-	}
-
-	if len(ports) == 0 {
+	if len(endpoints) == 0 {
 		output.PrintInfo(i18n.T("output.no_active_ports"))
 		return nil
 	}
@@ -68,11 +56,15 @@ func (uc *PortsUseCase) Execute(ctx context.Context, opts PortsOptions) error {
 	output.PrintSectionHeader(i18n.T("output.active_ports_header"))
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "PORT\tPROJECT\tSERVICE")
-	fmt.Fprintln(w, "────\t───────\t───────")
+	fmt.Fprintln(w, "PORT\tPROJECT\tSERVICE\tRUNS AS")
+	fmt.Fprintln(w, "────\t───────\t───────\t───────")
 
-	for _, port := range ports {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", port.Port, port.Project, port.Service)
+	for _, ep := range endpoints {
+		project := ep.Project
+		if project == "" {
+			project = ep.Workspace
+		}
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", ep.Port, project, ep.Service, ep.Runner)
 	}
 
 	w.Flush()

@@ -38,12 +38,13 @@ func (uc *DownUseCase) downOtherProjectsOnly(
 			output.PrintWarning(i18n.T("output.config_load_fallback"))
 			return nil
 		}
-		_, err := DownConflictingProjects(ctx, cwdDeps, baseDir)
+		_, err := DownConflictingProjects(ctx, cwdDeps, baseDir,
+			approveStopping(opts.Yes, reasonConflicting))
 		return err
 	}
 
 	// AllProjects branch
-	_, err := DownAllOtherProjects(ctx, cwdProject)
+	_, err := DownAllOtherProjects(ctx, cwdProject, approveStopping(opts.Yes, reasonAllProjects))
 	return err
 }
 
@@ -54,21 +55,29 @@ func (uc *DownUseCase) downOtherProjectsOnly(
 // Label-invisible projects (`command:` launchers) survive the scan. Not a
 // silent half-down: the proxy gate still sees them through their route
 // targets and keeps serving them (ADR-005).
-func (uc *DownUseCase) downOtherWorkspaceProjects(ctx context.Context, workspace, currentProject string) {
+func (uc *DownUseCase) downOtherWorkspaceProjects(
+	ctx context.Context, workspace, currentProject string, approve stopApproval,
+) error {
 	if workspace == "" {
-		return
+		return nil
 	}
 	live, err := liveWorkspaceProjects(ctx, workspace)
 	if err != nil {
 		logging.WarnWithContext(ctx, "Skipping workspace-wide down: docker probe failed",
 			"workspace", workspace, "error", err.Error())
-		return
+		return nil
 	}
 	names := filterOtherActiveProjects(sortedKeys(live), currentProject)
 	if len(names) == 0 {
-		return
+		return nil
+	}
+	// Declined: the siblings stay up and the cwd project still goes down.
+	approved, err := approve(names)
+	if err != nil || !approved {
+		return err
 	}
 	stopProjects(ctx, names)
+	return nil
 }
 
 // uniqueConflictingProjects returns the deduplicated, sorted set of project
@@ -76,7 +85,7 @@ func (uc *DownUseCase) downOtherWorkspaceProjects(ctx context.Context, workspace
 // and any conflict missing a project label. Pure function so the filter
 // logic stays testable without a Docker daemon.
 func uniqueConflictingProjects(
-	conflicts []docker.PortConflict,
+	conflicts []portConflict,
 	currentProject string,
 ) []string {
 	set := map[string]struct{}{}
@@ -112,10 +121,18 @@ func sortedKeys(set map[string]struct{}) []string {
 // Package-level hooks so tests can simulate Docker without a daemon.
 // Same pattern as listContainersByLabelsFn in down_proxy.go.
 var (
-	validatePortsFn         = docker.ValidatePorts
+	portConflictsFn         = findPortConflicts
+	listPublishedPortsFn    = docker.ListManagedPublishedPorts
 	listActiveProjectsFn    = docker.ListActiveProjects
 	stopProjectContainersFn = docker.StopProjectContainers
 )
+
+// portConflict is aliased here so the files that build and print
+// conflicts stay off the app→infra import list (ADR-029).
+type portConflict = docker.PortConflict
+
+// publishedPort is aliased for the same reason.
+type publishedPort = docker.PublishedPort
 
 // DownConflictingProjects stops every active raioz project (cross-workspace)
 // whose published host ports collide with the cwd's raioz.yaml. Returns the
@@ -126,11 +143,13 @@ func DownConflictingProjects(
 	ctx context.Context,
 	cwdDeps *models.Deps,
 	baseDir string,
+	approve stopApproval,
 ) ([]string, error) {
 	if cwdDeps == nil {
 		return nil, nil
 	}
-	conflicts, err := validatePortsFn(cwdDeps, baseDir, cwdDeps.Project.Name)
+	_ = baseDir
+	conflicts, err := portConflictsFn(ctx, cwdDeps)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +157,9 @@ func DownConflictingProjects(
 	if len(names) == 0 {
 		output.PrintInfo(i18n.T("output.no_conflicting_projects"))
 		return nil, nil
+	}
+	if approved, err := approve(names); err != nil || !approved {
+		return nil, err
 	}
 	return stopProjects(ctx, names), nil
 }
@@ -148,23 +170,44 @@ func DownConflictingProjects(
 func DownAllOtherProjects(
 	ctx context.Context,
 	currentProject string,
+	approve stopApproval,
 ) ([]string, error) {
+	// Docker only knows the projects that run containers; one made of
+	// host services alone is active too, and only the state lists it.
 	active, err := listActiveProjectsFn(ctx)
 	if err != nil {
 		return nil, err
+	}
+	for _, project := range recordedProjects() {
+		active = append(active, project.Name)
 	}
 	names := filterOtherActiveProjects(active, currentProject)
 	if len(names) == 0 {
 		output.PrintInfo(i18n.T("output.no_other_projects"))
 		return nil, nil
 	}
+	if approved, err := approve(names); err != nil || !approved {
+		return nil, err
+	}
 	return stopProjects(ctx, names), nil
 }
 
+// stopProjects tears down each named project and returns the ones that
+// went down. A project whose directory is on record is stopped through
+// its own `raioz down`; removing its containers is the fallback for one
+// brought up by a raioz too old to have recorded it, and leaves any host
+// service of that project running.
 func stopProjects(ctx context.Context, names []string) []string {
 	var stopped []string
 	for _, name := range names {
 		output.PrintInfo(i18n.T("output.stopping_other_project", name))
+		if dir := projectPathFn(name); dir != "" {
+			if err := downProjectFn(ctx, dir); err == nil {
+				stopped = append(stopped, name)
+				output.PrintSuccess(i18n.T("output.other_project_down", name))
+				continue
+			}
+		}
 		containers, err := stopProjectContainersFn(ctx, name)
 		if err != nil {
 			logging.WarnWithContext(ctx,

@@ -27,7 +27,7 @@ func TestUpUseCase_stopOtherProjects_NoGlobalState(t *testing.T) {
 	}
 	uc := NewUpUseCase(deps)
 	// Should not panic
-	uc.stopOtherProjects(context.Background(), "raioz.yaml")
+	uc.stopOtherProjects(context.Background(), "raioz.yaml", true)
 }
 
 func TestUpUseCase_stopOtherProjects_EmptyProjects(t *testing.T) {
@@ -39,7 +39,7 @@ func TestUpUseCase_stopOtherProjects_EmptyProjects(t *testing.T) {
 		},
 	}
 	uc := NewUpUseCase(deps)
-	uc.stopOtherProjects(context.Background(), "raioz.yaml")
+	uc.stopOtherProjects(context.Background(), "raioz.yaml", true)
 }
 
 func TestUpUseCase_stopOtherProjects_SkipsCurrent(t *testing.T) {
@@ -60,7 +60,7 @@ func TestUpUseCase_stopOtherProjects_SkipsCurrent(t *testing.T) {
 		},
 	}
 	uc := NewUpUseCase(deps)
-	uc.stopOtherProjects(context.Background(), "raioz.yaml")
+	uc.stopOtherProjects(context.Background(), "raioz.yaml", true)
 }
 
 func TestUpUseCase_stopOtherProjects_StopsOthers(t *testing.T) {
@@ -93,7 +93,7 @@ func TestUpUseCase_stopOtherProjects_StopsOthers(t *testing.T) {
 	_ = stoppedProjects
 
 	uc := NewUpUseCase(deps)
-	uc.stopOtherProjects(context.Background(), "raioz.yaml")
+	uc.stopOtherProjects(context.Background(), "raioz.yaml", true)
 	// The down will fail (workspace resolve), but the code path is exercised
 }
 
