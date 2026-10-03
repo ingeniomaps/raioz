@@ -1,34 +1,51 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
 )
 
-// checkPortsAvailable reports whether the host ports the proxy needs are
-// free before we try to create the container. Returns a descriptive error
-// listing the conflicting port(s) so the user can act (stop the other
-// process, configure SetBindHost, etc.).
-func (m *Manager) checkPortsAvailable() error {
-	ports := []int{80, 443}
+// proxyHostPorts are the host ports a published proxy binds.
+var proxyHostPorts = []int{80, 443}
+
+// takenHostPorts returns the proxy host ports something else already holds.
+func takenHostPorts() []int {
 	var taken []int
-	for _, p := range ports {
-		inUse, err := portCheckFunc(p)
-		if err != nil {
-			continue
-		}
-		if inUse {
+	for _, p := range proxyHostPorts {
+		if inUse, err := portCheckFunc(p); err == nil && inUse {
 			taken = append(taken, p)
 		}
 	}
+	return taken
+}
+
+// BusyHostPorts reports the host ports the proxy needs and cannot have, so
+// `up` can refuse before it starts anything. Empty when the proxy does not
+// publish, or when its container is already running (the ports are its own).
+func (m *Manager) BusyHostPorts(ctx context.Context) []int {
+	if !m.publish {
+		return nil
+	}
+	if running, _ := m.isRunning(ctx, m.containerName()); running {
+		return nil
+	}
+	return takenHostPorts()
+}
+
+// checkPortsAvailable reports whether the host ports the proxy needs are
+// free before we try to create the container. Returns a descriptive error
+// listing the conflicting port(s) so the user can act.
+func (m *Manager) checkPortsAvailable() error {
+	taken := takenHostPorts()
 	if len(taken) == 0 {
 		return nil
 	}
 	return fmt.Errorf(
 		"proxy cannot start: host port(s) %v already in use; "+
-			"stop the conflicting process, or configure the proxy to bind to a "+
-			"different address (see proxy.bindHost)", taken,
+			"stop the conflicting process, or set proxy.publish: false to "+
+			"reach the proxy through its container IP", taken,
 	)
 }
 

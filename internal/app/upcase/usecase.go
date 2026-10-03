@@ -145,6 +145,12 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		return nil
 	}
 
+	// A proxy that cannot have its host ports refuses the run here, while
+	// nothing exists yet — no hook has run, no network, no container.
+	if err := uc.proxyPortsPreflight(ctx, deps, opts.RouterOff); err != nil {
+		return err
+	}
+
 	// Pre-hook: runs before anything else (env rendering, secrets fetch, etc.).
 	// Must run before generateEnvFilesFromTemplates and docker prep so that files
 	// the hook produces are visible to downstream steps. A failure aborts the run.

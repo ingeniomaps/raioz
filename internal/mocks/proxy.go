@@ -14,6 +14,7 @@ var _ interfaces.ProxyManager = (*MockProxyManager)(nil)
 // captured fields after Configure to verify the surface that used to
 // be observed via individual setter calls.
 type MockProxyManager struct {
+	BusyHostPortsFunc          func(ctx context.Context) []int
 	StartFunc                  func(ctx context.Context, networkName string) error
 	StopFunc                   func(ctx context.Context) error
 	AddRouteFunc               func(ctx context.Context, route interfaces.ProxyRoute) error
@@ -44,6 +45,14 @@ type MockProxyManager struct {
 	RemoveProjectRoutesCalled bool
 	Publish                   bool
 	PublishExplicit           bool
+}
+
+// BusyHostPorts reports no conflict unless BusyHostPortsFunc says otherwise.
+func (m *MockProxyManager) BusyHostPorts(ctx context.Context) []int {
+	if m.BusyHostPortsFunc != nil {
+		return m.BusyHostPortsFunc(ctx)
+	}
+	return nil
 }
 
 func (m *MockProxyManager) Start(ctx context.Context, networkName string) error {

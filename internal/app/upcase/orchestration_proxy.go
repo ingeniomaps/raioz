@@ -33,23 +33,7 @@ func (uc *UseCase) startProxy(
 	serviceNames []string,
 	networkName string,
 ) error {
-	// ADR-013 / ADR-032: single Configure call; TLS string normalized
-	// through ParseTLSMode (legacy mkcert/letsencrypt aliases accepted).
-	cfg := interfaces.ProxyConfig{
-		ProjectName:   deps.Project.Name,
-		Workspace:     deps.Workspace,
-		NetworkSubnet: deps.Network.GetSubnet(),
-		ProjectDir:    deps.ProjectRoot,
-	}
-	if deps.ProxyConfig != nil {
-		cfg.Domain = deps.ProxyConfig.Domain
-		if mode, ok := interfaces.ParseTLSMode(deps.ProxyConfig.TLS); ok {
-			cfg.TLSMode = mode
-		}
-		cfg.ContainerIP = deps.ProxyConfig.IP
-		cfg.Publish = deps.ProxyConfig.Publish
-	}
-	uc.deps.ProxyManager.Configure(cfg)
+	uc.deps.ProxyManager.Configure(proxyConfigFor(deps))
 
 	output.PrintProgress(i18n.T("up.proxy.starting"))
 
@@ -87,6 +71,27 @@ func (uc *UseCase) startProxy(
 	printProxyURLs(uc.deps.ProxyManager, serviceNames)
 	printHostsHintIfUnpublished(uc.deps.ProxyManager)
 	return nil
+}
+
+// proxyConfigFor builds the manager config for a project. ADR-013 / ADR-032:
+// single Configure call; TLS string normalized through ParseTLSMode (legacy
+// mkcert/letsencrypt aliases accepted).
+func proxyConfigFor(deps *models.Deps) interfaces.ProxyConfig {
+	cfg := interfaces.ProxyConfig{
+		ProjectName:   deps.Project.Name,
+		Workspace:     deps.Workspace,
+		NetworkSubnet: deps.Network.GetSubnet(),
+		ProjectDir:    deps.ProjectRoot,
+	}
+	if deps.ProxyConfig != nil {
+		cfg.Domain = deps.ProxyConfig.Domain
+		if mode, ok := interfaces.ParseTLSMode(deps.ProxyConfig.TLS); ok {
+			cfg.TLSMode = mode
+		}
+		cfg.ContainerIP = deps.ProxyConfig.IP
+		cfg.Publish = deps.ProxyConfig.Publish
+	}
+	return cfg
 }
 
 // printHostsHintIfUnpublished surfaces the /etc/hosts entry the user needs
@@ -143,6 +148,7 @@ func (uc *UseCase) handleProxyStartFailure(
 	output.PrintError(i18n.T("up.proxy.start_failed", firstErr.Error()))
 
 	if !stdinIsInteractiveFn() {
+		output.PrintInfo(i18n.T("up.proxy.left_running"))
 		return fmt.Errorf("proxy start failed: %w", firstErr)
 	}
 
@@ -160,6 +166,7 @@ func (uc *UseCase) handleProxyStartFailure(
 		output.PrintInfo(i18n.T("up.proxy.skip_continue"))
 		return nil
 	default:
+		output.PrintInfo(i18n.T("up.proxy.left_running"))
 		return fmt.Errorf("proxy start failed: %w", firstErr)
 	}
 }

@@ -3,8 +3,11 @@ package upcase
 import (
 	"context"
 	"os"
+	"strconv"
+	"strings"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 	"raioz/internal/protocol"
@@ -52,4 +55,26 @@ func (uc *UseCase) maybeStartProxy(
 		return nil
 	}
 	return uc.startProxy(ctx, deps, detections, serviceNames, networkName)
+}
+
+// proxyPortsPreflight refuses the run while nothing is started yet when
+// the proxy this project asks for cannot have its host ports. Found late,
+// the same conflict fails `up` with every service already running.
+func (uc *UseCase) proxyPortsPreflight(ctx context.Context, deps *models.Deps, routerOff bool) error {
+	if !deps.Proxy || uc.deps.ProxyManager == nil || shouldSuppressBundledProxy(routerOff) {
+		return nil
+	}
+	uc.deps.ProxyManager.Configure(proxyConfigFor(deps))
+	busy := uc.deps.ProxyManager.BusyHostPorts(ctx)
+	if len(busy) == 0 {
+		return nil
+	}
+	ports := make([]string, len(busy))
+	for i, p := range busy {
+		ports[i] = strconv.Itoa(p)
+	}
+	return errors.New(
+		errors.ErrCodePortConflict,
+		i18n.T("error.proxy_ports_busy", strings.Join(ports, ", ")),
+	).WithSuggestion(i18n.T("error.proxy_ports_busy_suggestion"))
 }

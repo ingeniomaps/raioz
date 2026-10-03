@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -273,4 +274,28 @@ func TestCheckPortsAvailable_DetectsConflict(t *testing.T) {
 	}
 
 	_ = fmt.Sprintf(":%d", port) // keep fmt import used
+}
+
+func TestBusyHostPorts(t *testing.T) {
+	prev := portCheckFunc
+	portCheckFunc = func(p int) (bool, error) { return p == 80, nil }
+	defer func() { portCheckFunc = prev }()
+
+	t.Run("unpublished proxy needs no host port", func(t *testing.T) {
+		m := NewManager("")
+		m.publish = false
+		if got := m.BusyHostPorts(context.Background()); len(got) != 0 {
+			t.Errorf("BusyHostPorts = %v, want none", got)
+		}
+	})
+
+	t.Run("published proxy reports the taken port", func(t *testing.T) {
+		m := NewManager("")
+		m.projectName = "rz-busy-ports-test"
+		m.publish = true
+		got := m.BusyHostPorts(context.Background())
+		if len(got) != 1 || got[0] != 80 {
+			t.Errorf("BusyHostPorts = %v, want [80]", got)
+		}
+	})
 }

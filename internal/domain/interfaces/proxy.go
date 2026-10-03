@@ -50,6 +50,10 @@ type ProxyManager interface {
 	// Configure applies a ProxyConfig to the manager in one call.
 	// Canonical entry point for configuration (ADR-013 Phase 2).
 	Configure(cfg ProxyConfig)
+	// BusyHostPorts returns the host ports the proxy needs and something
+	// else holds. Empty when the proxy does not publish or already runs.
+	// Call after Configure.
+	BusyHostPorts(ctx context.Context) []int
 	// Start starts the proxy container on the given network.
 	Start(ctx context.Context, networkName string) error
 	// Stop stops the proxy container.
