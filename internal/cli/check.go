@@ -30,6 +30,14 @@ var checkCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
+		if configPath == "" && projectName != "" {
+			resolved, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+			if resolveErr != nil {
+				return resolveErr
+			}
+			configPath = resolved
+		}
+
 		deps := newDependencies()
 		checkUseCase := app.NewCheckUseCase(deps)
 

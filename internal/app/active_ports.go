@@ -189,3 +189,20 @@ func downProjectAt(ctx context.Context, projectDir string) error {
 	}
 	return nil
 }
+
+// ActiveProjectConfig returns the raioz.yaml of an active project given its
+// name, so `-p <name>` works from any directory. ok is false when the
+// project is not active or its directory was never recorded.
+func ActiveProjectConfig(name string) (path string, ok bool) {
+	dir := projectPathFn(name)
+	if dir == "" {
+		return "", false
+	}
+	for _, candidate := range []string{"raioz.yaml", "raioz.yml"} {
+		config := filepath.Join(dir, candidate)
+		if _, err := os.Stat(config); err == nil {
+			return config, true
+		}
+	}
+	return "", false
+}

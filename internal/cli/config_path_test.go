@@ -114,3 +114,34 @@ func TestResolveConfigPathYAMLPriorityOverJSON(t *testing.T) {
 		t.Errorf("priority: got %q, want raioz.yaml", got)
 	}
 }
+
+// `-p <name>` with no config in the cwd and no such active project is an
+// error, never a silent "nothing to do".
+func TestResolveProjectConfigPath(t *testing.T) {
+	t.Setenv("RAIOZ_HOME", t.TempDir())
+	empty := t.TempDir()
+	t.Chdir(empty)
+
+	if _, err := ResolveProjectConfigPath("", "ghost"); err == nil {
+		t.Error("expected an error for an inactive project with no config in the cwd")
+	}
+
+	got, err := ResolveProjectConfigPath("", "")
+	if err != nil || got != AutoDetectMarker {
+		t.Errorf("no project, no file: got %q err=%v, want the auto-detect marker", got, err)
+	}
+
+	if err := os.WriteFile("raioz.yaml", []byte("project: here\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err = ResolveProjectConfigPath("", "ghost")
+	if err != nil || got != "raioz.yaml" {
+		t.Errorf("config in the cwd: got %q err=%v, want raioz.yaml", got, err)
+	}
+
+	explicit := filepath.Join(empty, "other.yaml")
+	got, err = ResolveProjectConfigPath(explicit, "ghost")
+	if err != nil || got != explicit {
+		t.Errorf("explicit file: got %q err=%v, want %q", got, err, explicit)
+	}
+}

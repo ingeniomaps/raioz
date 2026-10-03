@@ -222,6 +222,8 @@
   "app.conflict_opt_keep": "[1] Mantener raíz (recomendado)",
   "app.conflict_opt_replace": "[2] Reemplazar raíz",
   "app.conflict_opt_abort": "[3] Abortar",
+  "error.project_not_active": "el proyecto '%s' no está activo y aquí no hay raioz.yaml",
+  "error.project_not_active_suggestion": "Ejecuta el comando desde el directorio del proyecto, o pasa --file.",
   "error.no_project": "No se pudo determinar el nombre del proyecto. Proporciona --file o --project.",
   "error.workspace_resolve": "Error al resolver workspace",
   "error.workspace_resolve_suggestion": "Verifica que el nombre del proyecto es correcto. Verifica que los directorios del workspace existen y son accesibles.",

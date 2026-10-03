@@ -222,6 +222,8 @@
   "app.conflict_opt_keep": "[1] Keep root (recommended)",
   "app.conflict_opt_replace": "[2] Replace root",
   "app.conflict_opt_abort": "[3] Abort",
+  "error.project_not_active": "project '%s' is not active and there is no raioz.yaml here",
+  "error.project_not_active_suggestion": "Run the command from the project's directory, or pass --file.",
   "error.no_project": "Could not determine project name. Please provide --file or --project flag.",
   "error.workspace_resolve": "Failed to resolve workspace",
   "error.workspace_resolve_suggestion": "Check that the project name is correct. Verify workspace directories exist and are accessible.",

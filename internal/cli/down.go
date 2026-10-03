@@ -44,7 +44,11 @@ var downCmd = &cobra.Command{
 		ctx = logging.WithRequestID(ctx)
 		ctx = logging.WithOperation(ctx, "raioz down")
 
-		configPath = ResolveConfigPath(configPath)
+		resolvedConfig, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		configPath = resolvedConfig
 
 		if handled, metaErr := tryHandleMeta(
 			ctx, configPath, "down", nil, nil, app.MetaUpOptions{},
