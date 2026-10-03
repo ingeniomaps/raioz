@@ -28,7 +28,7 @@ var (
 )
 
 // Init loads all embedded locale catalogs and sets the active language.
-// Detection order: explicit lang param > saved preference > RAIOZ_LANG env > LANG/LC_ALL > "en"
+// Detection order: explicit lang param > RAIOZ_LANG env > saved preference > LANG/LC_ALL > "en"
 func Init(lang string) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -218,14 +218,16 @@ func resolveLangInternal(explicit string) string {
 		return explicit
 	}
 
+	// RAIOZ_LANG env var. Above the saved preference: an env var is set
+	// for this invocation (or this shell), the preference is the default
+	// for when nothing more specific says otherwise.
+	if envLang := os.Getenv("RAIOZ_LANG"); envLang != "" {
+		return normalizeLocale(envLang)
+	}
+
 	// Saved preference (use internal version — caller holds mu)
 	if saved := loadPreferenceInternal(); saved != "" {
 		return saved
-	}
-
-	// RAIOZ_LANG env var
-	if envLang := os.Getenv("RAIOZ_LANG"); envLang != "" {
-		return normalizeLocale(envLang)
 	}
 
 	// LANG / LC_ALL
