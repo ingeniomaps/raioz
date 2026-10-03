@@ -16,9 +16,9 @@ import (
 
 var checkCmd = &cobra.Command{
 	Use:          "check",
-	Short:        "Check for alignment issues between config and state",
+	Short:        "Validate raioz.yaml without starting anything",
 	SilenceUsage: true,
-	Long:         "Check if the current configuration aligns with the saved state.",
+	Long:         "Validate the configuration without starting anything.",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		defer func() {
 			if panicErr := errors.RecoverPanic("raioz check"); panicErr != nil {
