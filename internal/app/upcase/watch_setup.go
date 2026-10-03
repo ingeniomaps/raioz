@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"syscall"
 
+	"raioz/internal/docker"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -269,4 +271,34 @@ func updateHostPID(projectDir, serviceName string, pid int) {
 	// Best-effort: watch PID updates are advisory for `status` — losing
 	// one doesn't break the watched process itself.
 	_ = state.SaveLocalState(projectDir, localState)
+}
+
+// ServiceStartContext rebuilds, from the config alone, the context `up`
+// starts a service with: detection, recomputed env, ports and stop command.
+// ok is false when the name is not a service of the project.
+func ServiceStartContext(
+	ctx context.Context, dm interfaces.DiscoveryManager, deps *models.Deps, projectDir, name string,
+) (svcCtx interfaces.ServiceContext, ok bool) {
+	svc, isService := deps.Services[name]
+	det, detected := BuildDetectionMap(deps)[name]
+	if !isService || !detected {
+		return interfaces.ServiceContext{}, false
+	}
+	svcCtx = buildServiceContext(
+		name, det, deps.Network.GetName(),
+		ComputedServiceEnv(ctx, dm, docker.NewLookup(), deps, projectDir, name),
+		servicePorts(svc),
+		svc.GetDependsOn(),
+		naming.Container(deps.Project.Name, name),
+		svc.Source.Path,
+		deps.Project.Name,
+	)
+	if svc.Commands != nil && svc.Commands.Down != "" {
+		svcCtx.StopCommand = svc.Commands.Down
+	}
+	if svc.ProxyOverride != nil {
+		svcCtx.ProxyTarget = svc.ProxyOverride.Target
+	}
+	applyServiceEnv(&svcCtx, svc.Env, projectDir)
+	return svcCtx, true
 }

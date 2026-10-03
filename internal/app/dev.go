@@ -9,6 +9,7 @@ import (
 	"raioz/internal/app/upcase"
 	"raioz/internal/audit"
 	"raioz/internal/detect"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
@@ -306,4 +307,32 @@ func (uc *DevUseCase) liveDependency(ctx context.Context, cfgDeps *models.Deps, 
 		return ""
 	}
 	return container
+}
+
+// recreateTargetFn tears a container target down and starts it again from
+// a freshly built context, so config changes reach it. build is called
+// twice on purpose: once for the context to stop, and again after the stop
+// so the ports the target itself was holding read as free.
+//
+// Lives here because this file already imports the orchestrator; a package
+// var so tests can observe the call without docker.
+var recreateTargetFn = func(
+	ctx context.Context, runner interfaces.DockerRunner,
+	build func() (interfaces.ServiceContext, bool),
+) error {
+	svcCtx, ok := build()
+	if !ok {
+		return fmt.Errorf("not a service or dependency of this project")
+	}
+	dispatcher := orchestrate.NewDispatcher(runner)
+	if err := dispatcher.Stop(ctx, svcCtx); err != nil {
+		return fmt.Errorf("stop: %w", err)
+	}
+	if fresh, ok := build(); ok {
+		svcCtx = fresh
+	}
+	if err := dispatcher.Start(ctx, svcCtx); err != nil {
+		return fmt.Errorf("start: %w", err)
+	}
+	return nil
 }

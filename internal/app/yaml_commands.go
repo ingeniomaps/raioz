@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
 	"time"
 
+	"raioz/internal/app/upcase"
 	"raioz/internal/audit"
 	"raioz/internal/config"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
 	"raioz/internal/fsutil"
 	"raioz/internal/i18n"
@@ -91,6 +94,18 @@ func (uc *RestartUseCase) RestartYAML(
 		if isYAMLHostService(proj, name) {
 			if restartErr := uc.restartHostService(ctx, proj, name); restartErr != nil {
 				output.PrintProgressError(name + ": " + restartErr.Error())
+				failed = append(failed, name)
+			} else {
+				output.PrintProgressDone(name)
+			}
+			continue
+		}
+
+		if opts.ForceRecreate {
+			output.PrintProgress(i18n.T("output.recreating_service", name))
+			build := uc.startContextFor(ctx, proj, name)
+			if recreateErr := recreateTargetFn(ctx, uc.deps.DockerRunner, build); recreateErr != nil {
+				output.PrintProgressError(name + ": " + recreateErr.Error())
 				failed = append(failed, name)
 			} else {
 				output.PrintProgressDone(name)
@@ -263,3 +278,17 @@ func isHostProcessAlive(pid int) bool {
 }
 
 // CheckYAML validates a YAML project config.
+
+// startContextFor returns the builder of the context `up` would start name
+// with — a dependency or a container service.
+func (uc *RestartUseCase) startContextFor(
+	ctx context.Context, proj *YAMLProject, name string,
+) func() (interfaces.ServiceContext, bool) {
+	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
+	return func() (interfaces.ServiceContext, bool) {
+		if _, isDep := proj.Deps.Infra[name]; isDep {
+			return upcase.DependencyContext(ctx, proj.Deps, name, projectDir)
+		}
+		return upcase.ServiceStartContext(ctx, uc.deps.DiscoveryManager, proj.Deps, projectDir, name)
+	}
+}

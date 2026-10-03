@@ -765,5 +765,6 @@
   "up.git.stopping_for_reclone": "Deteniendo %s antes de re-clonarlo",
   "snapshot.stopping_for_restore": "Deteniendo %s mientras se restauran sus volúmenes",
   "snapshot.restarted_after_restore": "Arrancados de nuevo: %s",
-  "snapshot.restart_failed": "No se pudo volver a arrancar %s: %v. Corre 'raioz up' para levantarlos"
+  "snapshot.restart_failed": "No se pudo volver a arrancar %s: %v. Corre 'raioz up' para levantarlos",
+  "output.recreating_service": "Recreando %s..."
 }

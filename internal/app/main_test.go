@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"testing"
+
+	"raioz/internal/domain/interfaces"
 )
 
 // TestMain keeps the package's tests off the machine they run on: the
@@ -27,6 +29,12 @@ func TestMain(m *testing.M) {
 	listPublishedPortsFn = func(context.Context) ([]publishedPort, error) { return nil, nil }
 	stopProjectContainersFn = func(context.Context, string) ([]string, error) {
 		return nil, errors.New("stopProjectContainersFn is disabled in tests; stub it")
+	}
+	// Nor tear a container down and start it again.
+	recreateTargetFn = func(
+		context.Context, interfaces.DockerRunner, func() (interfaces.ServiceContext, bool),
+	) error {
+		return errors.New("recreate is disabled in tests")
 	}
 
 	code := m.Run()
