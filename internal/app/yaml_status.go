@@ -69,6 +69,13 @@ func (uc *StatusUseCase) collectStatus(
 			continue
 		}
 		entry := proj.Deps.Infra[name]
+		// A dependency that is another raioz project (ADR-008 mode A) has
+		// no container of its own: it is up when that project is.
+		if entry.Inline != nil && entry.Inline.Project != "" {
+			report.Dependencies = append(report.Dependencies,
+				siblingDependencyStatus(name, entry.Inline.Project, projectDir))
+			continue
+		}
 		st := proj.ContainerState(ctx, name)
 		dep := dependencyStatus{Name: name, Status: st.Status, Restarts: st.Restarts}
 		dep.CPU, dep.Memory = proj.ContainerStats(ctx, name)
@@ -190,4 +197,24 @@ func (uc *StatusUseCase) statusJSON(ctx context.Context, proj *YAMLProject, filt
 		return fmt.Errorf("encode status: %w", err)
 	}
 	return nil
+}
+
+// siblingDependencyStatus reports a sibling-project dependency: running
+// when an active project lives at the sibling's path.
+func siblingDependencyStatus(name, siblingPath, projectDir string) dependencyStatus {
+	if !filepath.IsAbs(siblingPath) {
+		siblingPath = filepath.Join(projectDir, siblingPath)
+	}
+	siblingPath = filepath.Clean(siblingPath)
+
+	dep := dependencyStatus{Name: name, Status: statusStopped, CPU: "-", Memory: "-"}
+	for _, project := range recordedProjects() {
+		if project.Path != "" && filepath.Clean(project.Path) == siblingPath {
+			dep.Status = statusRunning
+			dep.Image = "→ " + project.Name
+			return dep
+		}
+	}
+	dep.Image = "→ " + filepath.Base(siblingPath)
+	return dep
 }

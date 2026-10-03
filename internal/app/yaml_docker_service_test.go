@@ -161,3 +161,26 @@ func TestStatusJSON(t *testing.T) {
 		t.Errorf("service = %+v, want site/compose/running", svc)
 	}
 }
+
+// A dependency that is another raioz project is up when that project is.
+func TestSiblingDependencyStatus(t *testing.T) {
+	projectDir := t.TempDir()
+	sibling := filepath.Join(filepath.Dir(projectDir), "rzb2")
+
+	prev := recordedProjects
+	recordedProjects = func() []models.ProjectState {
+		return []models.ProjectState{{Name: "rzb2", Path: sibling}}
+	}
+	t.Cleanup(func() { recordedProjects = prev })
+
+	rel, err := filepath.Rel(projectDir, sibling)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := siblingDependencyStatus("sib", rel, projectDir); got.Status != statusRunning {
+		t.Errorf("active sibling reported %q", got.Status)
+	}
+	if got := siblingDependencyStatus("sib", "../absent", projectDir); got.Status != statusStopped {
+		t.Errorf("inactive sibling reported %q", got.Status)
+	}
+}
