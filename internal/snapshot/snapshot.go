@@ -93,6 +93,10 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 	}
 
 	dir := filepath.Join(m.baseDir, project, name)
+	// A snapshot is what you go back to; replacing one silently loses it.
+	if _, err := os.Stat(filepath.Join(dir, "snapshot.json")); err == nil {
+		return nil, fmt.Errorf("%s", i18n.T("error.snapshot_exists", name))
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create snapshot directory: %w", err)
 	}

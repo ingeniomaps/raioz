@@ -76,7 +76,7 @@
   "flag.compare.file": "Path to local config file",
   "flag.compare.production": "Path to production docker-compose.yml (required)",
   "flag.compare.json": "Output results in JSON format",
-  "flag.init.output": "Output path for generated .raioz.json",
+  "flag.init.output": "Output path for the generated raioz.yaml",
   "flag.list.filter": "Filter projects by name (partial match, case-insensitive)",
   "flag.list.status": "Filter projects by service status (running, stopped)",
   "flag.migrate.compose": "Path to docker-compose.yml file (required)",
@@ -771,5 +771,7 @@
   "meta.path_missing": "project directory not found: %s",
   "port.conflict.occupied_by_raioz_host": "Port %d is in use by service '%s' of raioz project '%s'. 'raioz switch' stops it and starts this project",
   "error.volumes_in_use_suggestion": "A volume in use cannot be removed: stop the project with 'raioz down' first",
-  "error.meta_not_a_project": "%s is a meta config (kind: meta): it has no services of its own. Run this command inside one of its projects; here, 'up', 'down', 'status', 'check' and 'yaml lint' work"
+  "error.meta_not_a_project": "%s is a meta config (kind: meta): it has no services of its own. Run this command inside one of its projects; here, 'up', 'down', 'status', 'check' and 'yaml lint' work",
+  "up.profile_ignored": "--profile %s has no effect: raioz.yaml has no profiles. Use --only to start a subset",
+  "error.snapshot_exists": "snapshot '%s' already exists; delete it first with 'raioz snapshot delete %[1]s' or pick another name"
 }

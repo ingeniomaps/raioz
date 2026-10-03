@@ -62,6 +62,9 @@ var proxyStopCmd = &cobra.Command{
 			output.PrintInfo(i18n.T("proxy.not_configured"))
 			return nil
 		}
+		if err == nil {
+			output.PrintSuccess(i18n.T("output.proxy_stopped"))
+		}
 		return err
 	},
 }

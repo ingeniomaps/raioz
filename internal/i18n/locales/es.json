@@ -76,7 +76,7 @@
   "flag.compare.file": "Ruta al archivo de configuración local",
   "flag.compare.production": "Ruta al docker-compose.yml de producción (requerido)",
   "flag.compare.json": "Salida de resultados en formato JSON",
-  "flag.init.output": "Ruta de salida para el .raioz.json generado",
+  "flag.init.output": "Ruta de salida para el raioz.yaml generado",
   "flag.list.filter": "Filtrar proyectos por nombre (coincidencia parcial, sin distinción de mayúsculas)",
   "flag.list.status": "Filtrar proyectos por estado del servicio (running, stopped)",
   "flag.migrate.compose": "Ruta al archivo docker-compose.yml (requerido)",
@@ -771,5 +771,7 @@
   "meta.path_missing": "no existe el directorio del proyecto: %s",
   "port.conflict.occupied_by_raioz_host": "El puerto %d está en uso por el servicio '%s' del proyecto raioz '%s'. 'raioz switch' lo detiene y levanta este proyecto",
   "error.volumes_in_use_suggestion": "Un volumen en uso no se puede borrar: detén antes el proyecto con 'raioz down'",
-  "error.meta_not_a_project": "%s es una config meta (kind: meta): no tiene servicios propios. Corre este comando dentro de uno de sus proyectos; aquí funcionan 'up', 'down', 'status', 'check' y 'yaml lint'"
+  "error.meta_not_a_project": "%s es una config meta (kind: meta): no tiene servicios propios. Corre este comando dentro de uno de sus proyectos; aquí funcionan 'up', 'down', 'status', 'check' y 'yaml lint'",
+  "up.profile_ignored": "--profile %s no tiene efecto: raioz.yaml no tiene perfiles. Usa --only para levantar un subconjunto",
+  "error.snapshot_exists": "el snapshot '%s' ya existe; bórralo antes con 'raioz snapshot delete %[1]s' o usa otro nombre"
 }

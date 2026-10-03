@@ -33,6 +33,13 @@ func (uc *UseCase) applyFilters(deps *models.Deps, profile string, only []string
 		).WithError(err)
 	}
 
+	// raioz.yaml has no profiles: the flag belongs to the legacy format.
+	// Say so instead of accepting any name and changing nothing.
+	if profile != "" && deps.SourceFormat == models.SourceFormatYAML {
+		output.PrintWarning(i18n.T("up.profile_ignored", profile))
+		profile = ""
+	}
+
 	// Filter by profile first
 	if profile != "" {
 		deps = uc.deps.ConfigLoader.FilterByProfile(deps, profile)
