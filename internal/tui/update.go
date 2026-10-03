@@ -14,7 +14,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 
 	case TickMsg:
-		return m, tea.Batch(m.pollStats(), tickCmd())
+		return m, tea.Batch(m.pollStats(), m.pollLogs(), tickCmd())
+
+	case LogsMsg:
+		m.logs[msg.Service] = msg.Lines
+		return m, nil
 
 	case StatsMsg:
 		m.updateStats(msg.Stats)

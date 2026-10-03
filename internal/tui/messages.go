@@ -14,6 +14,8 @@ type ServiceStats struct {
 	Status string
 	Health string
 	Uptime string
+	// Container is the live container the stats were read from.
+	Container string
 }
 
 // LogMsg carries a single log line for a service.
@@ -35,4 +37,10 @@ type TickMsg time.Time
 // LogStreamStartedMsg signals that log streaming has begun for a service.
 type LogStreamStartedMsg struct {
 	Service string
+}
+
+// LogsMsg replaces the log tail shown for a service.
+type LogsMsg struct {
+	Service string
+	Lines   []string
 }
