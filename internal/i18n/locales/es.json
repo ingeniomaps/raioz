@@ -766,5 +766,7 @@
   "snapshot.stopping_for_restore": "Deteniendo %s mientras se restauran sus volúmenes",
   "snapshot.restarted_after_restore": "Arrancados de nuevo: %s",
   "snapshot.restart_failed": "No se pudo volver a arrancar %s: %v. Corre 'raioz up' para levantarlos",
-  "output.recreating_service": "Recreando %s..."
+  "output.recreating_service": "Recreando %s...",
+  "meta.optional_absent": "%s: opcional y no está en disco — se omite",
+  "meta.path_missing": "no existe el directorio del proyecto: %s"
 }

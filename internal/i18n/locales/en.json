@@ -766,5 +766,7 @@
   "snapshot.stopping_for_restore": "Stopping %s while their volumes are restored",
   "snapshot.restarted_after_restore": "Started again: %s",
   "snapshot.restart_failed": "Could not start %s again: %v. Run 'raioz up' to bring them back",
-  "output.recreating_service": "Recreating %s..."
+  "output.recreating_service": "Recreating %s...",
+  "meta.optional_absent": "%s: optional and not on disk — skipped",
+  "meta.path_missing": "project directory not found: %s"
 }

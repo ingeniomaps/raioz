@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"raioz/internal/config"
@@ -183,4 +184,42 @@ func TestMetaRunner_StatusToleratesFailures(t *testing.T) {
 	if len(summary) != 3 {
 		t.Errorf("status must run on every sub, got %d entries", len(summary))
 	}
+}
+
+// A sub-project that is not on disk has nothing to spawn in. An optional one
+// drops out of status and down without failing them; a required one fails
+// naming the missing directory.
+func TestMetaRunner_AbsentSubProject(t *testing.T) {
+	initI18nForTest(t)
+	bin := stagePassingBinary(t)
+
+	t.Run("optional is skipped", func(t *testing.T) {
+		cfg, base := makeMetaProjects(t, "api")
+		cfg.Projects = append(cfg.Projects, config.MetaProject{
+			Name: "extra", Path: filepath.Join(base, "extra"), Optional: true, Mode: config.MetaModeClone,
+		})
+		r := &MetaRunner{Binary: bin}
+
+		for name, summary := range map[string]MetaSummaryList{
+			"status": r.Status(context.Background(), cfg, nil, nil),
+			"down":   r.Down(context.Background(), cfg, nil),
+		} {
+			if summary.HasFailures() {
+				t.Errorf("%s: an absent optional project must not fail the run: %+v", name, summary)
+			}
+			if len(summary) != 1 || summary[0].Project != "api" {
+				t.Errorf("%s: summary = %+v, want only api", name, summary)
+			}
+		}
+	})
+
+	t.Run("required fails naming the directory", func(t *testing.T) {
+		cfg, base := makeMetaProjects(t)
+		missing := filepath.Join(base, "gone")
+		cfg.Projects = []config.MetaProject{{Name: "gone", Path: missing}}
+		summary := (&MetaRunner{Binary: bin}).Status(context.Background(), cfg, nil, nil)
+		if !summary.HasFailures() || !strings.Contains(summary[0].Err.Error(), missing) {
+			t.Errorf("want a failure naming %s, got %+v", missing, summary)
+		}
+	})
 }

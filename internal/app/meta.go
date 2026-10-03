@@ -266,7 +266,20 @@ func (m *MetaRunner) run(
 			continue
 		}
 		subEnv := withMetaCompleted(extraEnv, completed, subCmd)
-		entry := m.runSingle(ctx, subCmd, p, extraArgs, subEnv)
+		var entry MetaSummary
+		if _, statErr := os.Stat(p.Path); os.IsNotExist(statErr) {
+			// Not on disk (never cloned, or --no-clone): there is nothing
+			// to spawn in. An optional project is simply not part of the
+			// run; a required one fails saying what is missing instead of
+			// a fork/exec error about a directory that is not there.
+			if p.Optional {
+				output.PrintInfo(i18n.T("meta.optional_absent", p.Name))
+				continue
+			}
+			entry = MetaSummary{Project: p.Name, Path: p.Path, Err: fmt.Errorf("%s", i18n.T("meta.path_missing", p.Path))}
+		} else {
+			entry = m.runSingle(ctx, subCmd, p, extraArgs, subEnv)
+		}
 		switch {
 		case entry.Err == nil:
 			if subCmd == "up" && p.Name != "" {
