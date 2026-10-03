@@ -55,6 +55,12 @@ func (uc *UseCase) processOrchestration(
 	}
 
 	applyPortAllocs(detections, portAllocs)
+	unreachable := unreachableHostDeps(deps, detections, portAllocs)
+	for _, service := range sortedKeys(unreachable) {
+		for _, dep := range unreachable[service] {
+			output.PrintWarning(i18n.T("up.host_service_unreachable_dep", service, dep, dep))
+		}
+	}
 	for name, pid := range alreadyRunning {
 		if portAllocs.RunningHost == nil {
 			portAllocs.RunningHost = make(map[string]int)

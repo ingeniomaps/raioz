@@ -330,3 +330,33 @@ func TestInferDepExpose(t *testing.T) {
 		t.Errorf("auto mapping = %+v, want something→6379", m)
 	}
 }
+
+// A host process is not on the Docker network: a dependency that publishes
+// no port is out of its reach, and up should say so instead of handing it
+// X_HOST=localhost.
+func TestUnreachableHostDeps(t *testing.T) {
+	deps := &models.Deps{
+		Services: map[string]models.Service{
+			"web": {DependsOn: []string{"kv", "cache", "sib", "api"}},
+			"api": {DependsOn: []string{"kv"}},
+		},
+		Infra: map[string]models.InfraEntry{
+			"kv":    {Inline: &models.Infra{Image: "redis", Tag: "7"}},
+			"cache": {Inline: &models.Infra{Image: "redis", Tag: "7"}},
+			"sib":   {Inline: &models.Infra{Project: "../other"}},
+		},
+	}
+	detections := DetectionMap{
+		"web": {Runtime: models.RuntimeNPM},
+		"api": {Runtime: models.RuntimeDockerfile},
+	}
+	portAllocs := &PortAllocResult{Deps: map[string]DepPortAllocation{
+		"cache": {Name: "cache", Mappings: []DepPortMapping{{HostPort: 36379, ContainerPort: 6379}}},
+	}}
+
+	got := unreachableHostDeps(deps, detections, portAllocs)
+
+	if len(got) != 1 || len(got["web"]) != 1 || got["web"][0] != "kv" {
+		t.Errorf("got %v, want only web → kv (published, sibling and container callers are fine)", got)
+	}
+}
