@@ -192,6 +192,16 @@ func resolveServiceEnvFile(
 	deps *models.Deps,
 	serviceName, envFile, projectEnvPath, projectDir string,
 ) (string, error) {
+	// The YAML bridge hands over absolute paths. Take them as they are: a
+	// missing one is skipped like any other unresolved reference instead of
+	// falling into the name lookup below, which rejects it as an escape.
+	if filepath.IsAbs(envFile) {
+		if _, statErr := os.Stat(envFile); statErr == nil {
+			return envFile, nil
+		}
+		return "", nil
+	}
+
 	// Check project-relative paths first
 	hasPath := strings.Contains(envFile, "/") ||
 		(strings.HasPrefix(envFile, ".") && len(envFile) > 1)

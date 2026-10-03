@@ -543,3 +543,39 @@ func TestCreateCombinedEnvFile_WithoutDotEnv(t *testing.T) {
 		t.Errorf("got %q, want %q", result, expected)
 	}
 }
+
+// The YAML bridge resolves `env:` to an absolute path before the legacy
+// resolver sees it. It used to be joined onto projectDir, miss, and fall
+// into the name lookup, which rejected it as a path escape.
+func TestResolveServiceEnvFile_AbsolutePath(t *testing.T) {
+	projectDir := t.TempDir()
+	envFile := filepath.Join(projectDir, "web", ".env")
+	if err := os.MkdirAll(filepath.Dir(envFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(envFile, []byte("TAG=v1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ws := &workspace.Workspace{Root: projectDir, EnvDir: filepath.Join(t.TempDir(), "env")}
+	deps := &models.Deps{Project: models.Project{Name: "bencha"}}
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{"existing absolute path is used as is", envFile, envFile},
+		{"missing absolute path is skipped", filepath.Join(projectDir, "absent.env"), ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveServiceEnvFile(ws, deps, "web", tc.path, "", projectDir)
+			if err != nil {
+				t.Fatalf("resolveServiceEnvFile: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
