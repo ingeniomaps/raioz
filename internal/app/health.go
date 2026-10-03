@@ -116,6 +116,13 @@ func (uc *HealthUseCase) collectHealth(ctx context.Context, proj *YAMLProject) [
 			})
 			continue
 		}
+		if dep, onHost := hostDevDependency(name, proj.Deps.Infra[name], localState); onHost {
+			out = append(out, healthVerdict{
+				name: name, kind: "dependency", status: dep.Status, healthy: true,
+				detail: fmt.Sprintf("pid:%d", localState.HostPIDs[name]),
+			})
+			continue
+		}
 		st := proj.ContainerState(ctx, name)
 		v := healthVerdict{
 			name:    name,

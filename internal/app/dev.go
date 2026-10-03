@@ -12,6 +12,7 @@ import (
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
@@ -215,6 +216,16 @@ func (uc *DevUseCase) promote(
 		return fmt.Errorf("failed to start local %s: %w", name, err)
 	}
 
+	// A local version that runs on the host is a process only its PID can
+	// reach: recorded like any host service's, so `dev --reset`, `down` and
+	// the next `up` find it.
+	if pid := dispatcher.GetHostPID(name); pid > 0 {
+		if localState.HostPIDs == nil {
+			localState.HostPIDs = make(map[string]int)
+		}
+		localState.HostPIDs[name] = pid
+	}
+
 	// Save override in state
 	localState.AddDevOverride(name, originalImage, absPath)
 	if err := state.SaveLocalState(projectDir, localState); err != nil {
@@ -251,7 +262,14 @@ func (uc *DevUseCase) resetOverride(
 	localCtx := upcase.DevOverrideContext(depCtx, override.LocalPath)
 	dispatcher := orchestrate.NewDispatcher(uc.deps.DockerRunner)
 
-	// Stop the local version
+	// Stop the local version. A host process is stopped by the PID recorded
+	// at promotion — this dispatcher is new and never saw it start.
+	if pid := localState.HostPIDs[name]; pid > 0 {
+		if err := stopHostProcessFn(ctx, pid, "", override.LocalPath); err != nil {
+			output.PrintWarning(i18n.T("warning.dev_stop_local_failed", name, err.Error()))
+		}
+		delete(localState.HostPIDs, name)
+	}
 	if err := dispatcher.Stop(ctx, localCtx); err != nil {
 		output.PrintWarning(i18n.T("warning.dev_stop_local_failed", name, err.Error()))
 	}
@@ -308,6 +326,10 @@ func (uc *DevUseCase) liveDependency(ctx context.Context, cfgDeps *models.Deps, 
 	}
 	return container
 }
+
+// stopHostProcessFn stops a host process by PID. A package var so tests can
+// observe the call without a live process.
+var stopHostProcessFn = host.StopServiceWithCommandAndPath
 
 // recreateTargetFn tears a container target down and starts it again from
 // a freshly built context, so config changes reach it. build is called

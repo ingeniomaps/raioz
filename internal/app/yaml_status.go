@@ -74,6 +74,10 @@ func (uc *StatusUseCase) collectStatus(
 			report.Dependencies = append(report.Dependencies, dep)
 			continue
 		}
+		if dep, onHost := hostDevDependency(name, entry, localState); onHost {
+			report.Dependencies = append(report.Dependencies, dep)
+			continue
+		}
 		st := proj.ContainerState(ctx, name)
 		dep := dependencyStatus{Name: name, Status: st.Status, Restarts: st.Restarts}
 		dep.CPU, dep.Memory = proj.ContainerStats(ctx, name)
@@ -217,6 +221,29 @@ func siblingOwnedDependency(
 		return siblingDependencyStatus(name, entry.Inline.SiblingProject, projectDir), true
 	}
 	return dependencyStatus{}, false
+}
+
+// hostDevDependency reports a dependency that `raioz dev` promoted to a
+// path run on the host. It has no container while promoted, so the
+// container probe would call it stopped; its recorded PID is the signal.
+func hostDevDependency(
+	name string, entry models.InfraEntry, localState *models.LocalState,
+) (dependencyStatus, bool) {
+	if localState == nil || !localState.IsDevOverridden(name) {
+		return dependencyStatus{}, false
+	}
+	pid := localState.HostPIDs[name]
+	if pid <= 0 || !processAlive(pid) {
+		return dependencyStatus{}, false
+	}
+	dep := dependencyStatus{Name: name, Status: statusRunning, CPU: "-", Memory: "-", Dev: true}
+	if entry.Inline != nil {
+		dep.Image = entry.Inline.Image
+		if entry.Inline.Tag != "" {
+			dep.Image += ":" + entry.Inline.Tag
+		}
+	}
+	return dep, true
 }
 
 // siblingDependencyStatus reports a sibling-project dependency: running

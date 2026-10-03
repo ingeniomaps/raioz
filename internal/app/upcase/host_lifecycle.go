@@ -223,3 +223,18 @@ func stopGitServicesBeforeReclone(ctx context.Context, deps *models.Deps, projec
 		_ = state.SaveLocalState(projectDir, localState)
 	}
 }
+
+// devOverrideRunning reports whether a dependency promoted with `raioz dev`
+// to a host-run path still has its recorded process alive in that path.
+func devOverrideRunning(projectDir, name, localPath string) bool {
+	localState, err := state.LoadLocalState(projectDir)
+	if err != nil || localState == nil {
+		return false
+	}
+	pid := localState.HostPIDs[name]
+	if pid <= 0 || !isProcessAlive(pid) {
+		return false
+	}
+	within, known := host.ProcessRunsIn(pid, localPath)
+	return !known || within
+}

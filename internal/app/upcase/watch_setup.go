@@ -292,6 +292,9 @@ func updateHostPID(projectDir, serviceName string, pid int) {
 	if localState == nil {
 		return
 	}
+	if localState.HostPIDs == nil {
+		localState.HostPIDs = make(map[string]int)
+	}
 	localState.HostPIDs[serviceName] = pid
 	// Best-effort: watch PID updates are advisory for `status` — losing
 	// one doesn't break the watched process itself.

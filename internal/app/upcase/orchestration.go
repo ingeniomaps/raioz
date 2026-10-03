@@ -123,10 +123,19 @@ func (uc *UseCase) processOrchestration(
 			// not the image.
 			if override, ok := devOverrides[name]; ok {
 				svcCtx = DevOverrideContext(svcCtx, override.LocalPath)
+				// Promoted to a host process that is still running: it
+				// is adopted like any host service, not started twice.
+				if devOverrideRunning(projectDir, name, override.LocalPath) {
+					output.PrintInfraStarted(name)
+					continue
+				}
 			}
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
 				return nil, errors.DependencyStartFailed(name, svcCtx.EnvVars["RAIOZ_IMAGE"], err)
+			}
+			if pid := dispatcher.GetHostPID(name); pid > 0 {
+				updateHostPID(projectDir, name, pid)
 			}
 			output.PrintInfraStarted(name)
 		}

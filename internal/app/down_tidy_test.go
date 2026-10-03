@@ -93,3 +93,22 @@ func TestTidyAfterDown_DepFiles(t *testing.T) {
 		t.Errorf("generated dependency files must go with the project, stat err = %v", err)
 	}
 }
+
+func TestHostDevDependency(t *testing.T) {
+	entry := models.InfraEntry{Inline: &models.Infra{Image: "redis", Tag: "7"}}
+	promoted := &models.LocalState{
+		DevOverrides: map[string]models.DevOverride{"kv": {LocalPath: "./kv"}},
+		HostPIDs:     map[string]int{"kv": os.Getpid()},
+	}
+
+	dep, onHost := hostDevDependency("kv", entry, promoted)
+	if !onHost || dep.Status != statusRunning || !dep.Dev || dep.Image != "redis:7" {
+		t.Errorf("a promoted dependency with a live PID is running: got %+v, %v", dep, onHost)
+	}
+	if _, onHost := hostDevDependency("kv", entry, &models.LocalState{HostPIDs: map[string]int{"kv": os.Getpid()}}); onHost {
+		t.Error("without a dev override the container probe decides")
+	}
+	if _, onHost := hostDevDependency("kv", entry, nil); onHost {
+		t.Error("no state, no host dependency")
+	}
+}
