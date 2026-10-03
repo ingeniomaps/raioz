@@ -118,52 +118,54 @@ var cloudflaredURLRegex = regexp.MustCompile(`https://[a-z0-9-]+\.trycloudflare\
 const tunnelURLTimeout = 30 * time.Second
 
 func (m *Manager) startCloudflared(_ context.Context, serviceName string, port int) (*Info, error) {
-	cmd, logPath, err := startDetached(serviceName,
-		"cloudflared", "tunnel", "--url", fmt.Sprintf("http://localhost:%d", port))
+	return startAndAwaitURL(serviceName, port, "cloudflared", cloudflaredURLRegex, func(match []string) string {
+		return match[0]
+	}, "tunnel", "--url", fmt.Sprintf("http://localhost:%d", port))
+}
+
+// boreAddressRegex matches the line bore prints once the server assigned
+// its remote port: `listening at bore.pub:9824`.
+var boreAddressRegex = regexp.MustCompile(`listening at (\S+:\d+)`)
+
+func (m *Manager) startBore(_ context.Context, serviceName string, port int) (*Info, error) {
+	return startAndAwaitURL(serviceName, port, "bore", boreAddressRegex, func(match []string) string {
+		return "http://" + match[1]
+	}, "local", fmt.Sprintf("%d", port), "--to", "bore.pub")
+}
+
+// startAndAwaitURL starts a backend detached and waits for the public
+// address it announces in its log. The address is read from the file the
+// process writes to rather than from a pipe that dies with raioz.
+func startAndAwaitURL(
+	serviceName string, port int, backend string,
+	pattern *regexp.Regexp, toURL func(match []string) string, args ...string,
+) (*Info, error) {
+	cmd, logPath, err := startDetached(serviceName, backend, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start cloudflared: %w", err)
+		return nil, fmt.Errorf("failed to start %s: %w", backend, err)
 	}
 
-	// cloudflared prints the URL in its log; read it from the file the
-	// process writes to rather than from a pipe that dies with raioz.
 	deadline := time.Now().Add(tunnelURLTimeout)
 	for time.Now().Before(deadline) {
 		if data, readErr := os.ReadFile(logPath); readErr == nil {
-			if url := cloudflaredURLRegex.FindString(string(data)); url != "" {
+			if match := pattern.FindStringSubmatch(string(data)); match != nil {
 				return &Info{
 					ServiceName: serviceName,
 					LocalPort:   port,
-					PublicURL:   url,
-					Backend:     "cloudflared",
+					PublicURL:   toURL(match),
+					Backend:     backend,
 					PID:         cmd.Process.Pid,
 					StartedAt:   time.Now(),
 				}, nil
 			}
 		}
 		if !host.IsProcessAlive(cmd.Process.Pid) {
-			return nil, fmt.Errorf("cloudflared exited before returning a URL; see %s", logPath)
+			return nil, fmt.Errorf("%s exited before returning an address; see %s", backend, logPath)
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
 	stopTunnelProcess(cmd.Process.Pid)
-	return nil, fmt.Errorf("cloudflared did not return a URL within %s; see %s", tunnelURLTimeout, logPath)
-}
-
-func (m *Manager) startBore(_ context.Context, serviceName string, port int) (*Info, error) {
-	cmd, _, err := startDetached(serviceName, "bore", "local", fmt.Sprintf("%d", port), "--to", "bore.pub")
-	if err != nil {
-		return nil, fmt.Errorf("failed to start bore: %w", err)
-	}
-
-	// Bore doesn't give us the URL easily, construct it
-	return &Info{
-		ServiceName: serviceName,
-		LocalPort:   port,
-		PublicURL:   fmt.Sprintf("bore.pub (port forwarded from %d)", port),
-		Backend:     "bore",
-		PID:         cmd.Process.Pid,
-		StartedAt:   time.Now(),
-	}, nil
+	return nil, fmt.Errorf("%s did not return an address within %s; see %s", backend, tunnelURLTimeout, logPath)
 }
 
 // tunnelLogPath is where a tunnel's backend writes its output.

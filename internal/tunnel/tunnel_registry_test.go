@@ -338,3 +338,15 @@ func TestLoadAll_ReadsLegacyRegistry(t *testing.T) {
 		t.Fatalf("legacy registry not read: %+v", got)
 	}
 }
+
+func TestTunnelAddressPatterns(t *testing.T) {
+	bore := boreAddressRegex.FindStringSubmatch(
+		"2026-10-03T21:07:01Z  INFO bore_cli::client: listening at bore.pub:9824")
+	if bore == nil || bore[1] != "bore.pub:9824" {
+		t.Errorf("bore address = %v, want bore.pub:9824", bore)
+	}
+	cf := cloudflaredURLRegex.FindString("INF |  https://idea-emission-live.trycloudflare.com  |")
+	if cf != "https://idea-emission-live.trycloudflare.com" {
+		t.Errorf("cloudflared URL = %q", cf)
+	}
+}
