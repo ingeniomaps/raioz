@@ -32,6 +32,16 @@ var yamlLintCmd = &cobra.Command{
 			return err
 		}
 		emitLintReport(cmd, path, cfg, findings)
+		// A linter that passes a typo is not doing its job: fields the
+		// schema does not know are listed, and fail the lint.
+		if unknown := config.UnknownFields(path); len(unknown) > 0 {
+			out := cmd.OutOrStdout()
+			fmt.Fprintln(out)
+			for _, msg := range unknown {
+				fmt.Fprintf(out, "  [warn] %s\n", msg)
+			}
+			return fmt.Errorf("%d unknown field(s) in %s", len(unknown), path)
+		}
 		return nil
 	},
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"raioz/internal/app/upcase"
 	"raioz/internal/config"
@@ -15,6 +16,16 @@ func CheckYAML(proj *YAMLProject) error {
 	output.PrintSectionHeader(i18n.T("output.check_section_header", proj.ProjectName))
 
 	issues := 0
+
+	// What the loader noticed is shown. An ignored field also fails the
+	// check — it is a typo the user asked check to find; the rest
+	// (unpinned image, legacy `ports:`) is advice.
+	for _, warning := range proj.Warnings {
+		output.PrintWarning(warning)
+		if strings.Contains(warning, "field ignored") {
+			issues++
+		}
+	}
 
 	// Check service paths exist (honoring yaml `command:`/`compose:` overrides).
 	for name, svc := range proj.Deps.Services {

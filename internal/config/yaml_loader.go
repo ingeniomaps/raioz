@@ -268,3 +268,14 @@ func readYAMLBytes(path string) ([]byte, error) {
 	}
 	return data, nil
 }
+
+// UnknownFields returns one message per field in the file that raioz.yaml
+// does not define — a typo, or a field from a newer raioz. Nil when the
+// file cannot be read or has none.
+func UnknownFields(path string) []string {
+	data, err := readYAMLBytes(path)
+	if err != nil {
+		return nil
+	}
+	return unknownFieldWarnings(path, data)
+}

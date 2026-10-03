@@ -29,6 +29,10 @@ type YAMLProject struct {
 	ProjectName string
 	NetworkName string
 	ConfigPath  string
+	// Warnings are what the loader had to say about the config (unknown
+	// fields, unpinned images, version drift). Commands that exist to
+	// validate print them.
+	Warnings []string
 }
 
 // ResolveYAMLProject attempts to load the config and returns a YAMLProject
@@ -41,7 +45,7 @@ func ResolveYAMLProject(deps *Dependencies, configPath string) *YAMLProject {
 		}
 	}
 
-	cfgDeps, _, err := deps.ConfigLoader.LoadDeps(configPath)
+	cfgDeps, warnings, err := deps.ConfigLoader.LoadDeps(configPath)
 	if err != nil || cfgDeps == nil {
 		return nil
 	}
@@ -61,6 +65,7 @@ func ResolveYAMLProject(deps *Dependencies, configPath string) *YAMLProject {
 		ProjectName: cfgDeps.Project.Name,
 		NetworkName: cfgDeps.Network.GetName(),
 		ConfigPath:  configPath,
+		Warnings:    warnings,
 	}
 }
 
