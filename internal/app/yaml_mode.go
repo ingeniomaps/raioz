@@ -101,6 +101,30 @@ type ContainerState struct {
 // hostStatusPortProbe.
 var dockerStateProbe = inspectContainerState
 
+// containerLookup is the Docker adapter the status paths resolve names
+// through. Package var for the same reason as dockerStateProbe.
+var containerLookup = func() naming.ContainerLookup { return dockerpkg.NewLookup() }
+
+// liveContainerName returns the name of the container Docker actually runs
+// for `name`, or "" when there is none. Dependencies go through
+// ResolveDepContainer: a `compose:` dep may set its own `container_name:`,
+// and in workspace mode only the workspace-scoped label lookup finds it.
+func (p *YAMLProject) liveContainerName(ctx context.Context, name string) string {
+	if p.Deps != nil {
+		if entry, isDep := p.Deps.Infra[name]; isDep {
+			var override string
+			if entry.Inline != nil {
+				override = entry.Inline.Name
+			}
+			resolved, _ := naming.ResolveDepContainer(ctx, containerLookup(),
+				p.ProjectName, name, override)
+			return resolved
+		}
+	}
+	resolved, _ := naming.ResolveContainer(ctx, containerLookup(), p.ProjectName, name, "")
+	return resolved
+}
+
 // ContainerStatus returns the status of a specific container, discarding
 // the restart count. For callers that only branch on liveness.
 func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
@@ -112,14 +136,7 @@ func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
 // through naming.ResolveContainer — the single resolver shared by proxy,
 // discovery, and down. A container that does not exist reports "stopped".
 func (p *YAMLProject) ContainerState(ctx context.Context, name string) ContainerState {
-	var override string
-	if p.Deps != nil {
-		if entry, ok := p.Deps.Infra[name]; ok && entry.Inline != nil {
-			override = entry.Inline.Name
-		}
-	}
-	resolved, _ := naming.ResolveContainer(ctx, dockerpkg.NewLookup(),
-		p.ProjectName, name, override)
+	resolved := p.liveContainerName(ctx, name)
 	if resolved == "" {
 		return ContainerState{Status: statusStopped}
 	}
@@ -178,6 +195,15 @@ func formatContainerStatus(st ContainerState) string {
 // ContainerStats returns CPU and memory for a container.
 func (p *YAMLProject) ContainerStats(ctx context.Context, name string) (cpu, mem string) {
 	containerName := p.resolveInfraContainerName(name)
+	if p.Deps != nil {
+		// Same resolution as ContainerState, or stats probe the canonical
+		// name of a dep that runs under its own `container_name:`.
+		if _, isDep := p.Deps.Infra[name]; isDep {
+			if live := p.liveContainerName(ctx, name); live != "" {
+				containerName = live
+			}
+		}
+	}
 	cmd := exec.CommandContext(ctx, runtime.Binary(), "stats", "--no-stream",
 		"--format", "{{.CPUPerc}}\t{{.MemUsage}}", containerName)
 	out, err := cmd.Output()

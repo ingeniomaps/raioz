@@ -36,9 +36,10 @@ func (s *stubLookup) FindByLabels(
 func encodeLabels(labels map[string]string) string {
 	// Tests construct the expected key in the same order ResolveContainer
 	// builds the filter map. We rely on stable ordering of the small
-	// label set used in this package (managed → service → project).
+	// label set used in this package (managed → service → project →
+	// workspace → kind).
 	out := ""
-	for _, k := range []string{LabelManaged, LabelService, LabelProject} {
+	for _, k := range []string{LabelManaged, LabelService, LabelProject, LabelWorkspace, LabelKind} {
 		if v, ok := labels[k]; ok {
 			if out != "" {
 				out += ","
@@ -174,5 +175,94 @@ func TestResolveContainer_WorkspaceMode(t *testing.T) {
 	}
 	if got != "acme-postgres" {
 		t.Errorf("expected shared canonical 'acme-postgres', got %q", got)
+	}
+}
+
+func TestResolveDepContainer(t *testing.T) {
+	const wsFilter = "com.raioz.managed=true,com.raioz.service=rabbitmq," +
+		"com.raioz.workspace=dropi,com.raioz.kind=dependency"
+	const projFilter = "com.raioz.managed=true,com.raioz.service=rabbitmq,com.raioz.project=dropi"
+
+	tests := []struct {
+		name      string
+		workspace string
+		lookup    *stubLookup
+		want      string
+		wantErr   bool
+	}{
+		{
+			// The reported bug: workspace dep from a compose with its own
+			// container_name. The overlay stamped no project label, so only
+			// the workspace-scoped retry can find it.
+			name:      "workspace dep with own container_name",
+			workspace: "dropi",
+			lookup:    &stubLookup{labeled: map[string][]string{wsFilter: {"rabbitmq"}}},
+			want:      "rabbitmq",
+		},
+		{
+			name:      "canonical still wins in workspace mode",
+			workspace: "dropi",
+			lookup: &stubLookup{
+				existing: map[string]bool{"dropi-rabbitmq": true},
+				labeled:  map[string][]string{wsFilter: {"rabbitmq"}},
+			},
+			want: "dropi-rabbitmq",
+		},
+		{
+			name:      "project label match wins over workspace retry",
+			workspace: "dropi",
+			lookup: &stubLookup{labeled: map[string][]string{
+				projFilter: {"by-project"},
+				wsFilter:   {"by-workspace"},
+			}},
+			want: "by-project",
+		},
+		{
+			// Without a workspace the overlay keeps the project label, so
+			// there is nothing to retry — and nothing to widen into.
+			name:   "no workspace skips the retry",
+			lookup: &stubLookup{labeled: map[string][]string{wsFilter: {"rabbitmq"}}},
+			want:   "",
+		},
+		{
+			name:      "nothing found in workspace mode",
+			workspace: "dropi",
+			lookup:    &stubLookup{},
+			want:      "",
+		},
+		{
+			name:      "lookup error propagates without retry",
+			workspace: "dropi",
+			lookup: &stubLookup{
+				existsErr: errors.New("docker timeout"),
+				labeled:   map[string][]string{wsFilter: {"rabbitmq"}},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			SetPrefix(tc.workspace)
+			t.Cleanup(func() { SetPrefix("") })
+			got, err := ResolveDepContainer(context.Background(), tc.lookup, "dropi", "rabbitmq", "")
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestResolveDepContainer_NilLookupReturnsCanonical(t *testing.T) {
+	SetPrefix("dropi")
+	t.Cleanup(func() { SetPrefix("") })
+	got, err := ResolveDepContainer(context.Background(), nil, "dropi", "rabbitmq", "")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if got != "dropi-rabbitmq" {
+		t.Errorf("expected canonical when lookup nil, got %q", got)
 	}
 }

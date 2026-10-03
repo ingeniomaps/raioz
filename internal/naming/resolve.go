@@ -67,6 +67,42 @@ func ResolveContainer(
 	return "", nil
 }
 
+// ResolveDepContainer is ResolveContainer for a dependency. It adds one
+// more fallback for workspace mode: the infra overlay omits
+// com.raioz.project whenever a workspace is set (shared-dep rule, see
+// ImageRunner.writeInfraOverlay), so the project-scoped label lookup can
+// never match a workspace dep whose compose declared its own
+// `container_name:`. The retry scopes by workspace + kind=dependency
+// instead — the same identity the overlay stamps.
+//
+// Only for names known to be dependencies: services keep the project
+// label, and widening their lookup to the workspace would match another
+// project's service of the same name.
+func ResolveDepContainer(
+	ctx context.Context,
+	lookup ContainerLookup,
+	project, dep, nameOverride string,
+) (string, error) {
+	name, err := ResolveContainer(ctx, lookup, project, dep, nameOverride)
+	if err != nil || name != "" || lookup == nil {
+		return name, err
+	}
+	ws := WorkspaceName()
+	if ws == "" {
+		return "", nil
+	}
+	matches := lookup.FindByLabels(ctx, map[string]string{
+		LabelManaged:   "true",
+		LabelWorkspace: ws,
+		LabelService:   dep,
+		LabelKind:      KindDependency,
+	})
+	if len(matches) > 0 {
+		return matches[0], nil
+	}
+	return "", nil
+}
+
 // ContainerTarget is ResolveContainer with the canonical name as a fallback
 // when no live container is found. Use this when the result is being used
 // to *address* a container (Caddy upstream, discovery env var) that may
