@@ -125,11 +125,22 @@ func startWatcher(
 	// deadline.
 	stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 	stopAllServicesForShutdown(stopCtx, deps, dispatcher, detections, networkName)
+	// The dispatcher stopped what it started; the project's own `down`
+	// takes the rest with it — proxy, network, state — so leaving a watch
+	// session is the same as running `raioz down`.
+	if err := ProjectDownFn(stopCtx, projectDir); err != nil {
+		logging.WarnWithContext(ctx, "Project teardown after watch failed", "error", err.Error())
+	}
 	stopCancel()
 
 	cancel()
 	w.Close()
 }
+
+// ProjectDownFn runs the full `down` of the project in projectDir. The down
+// flow lives in the app layer, which installs it at init; the default does
+// nothing.
+var ProjectDownFn = func(context.Context, string) error { return nil }
 
 // shutdownTimeout bounds the Ctrl+C teardown of a watch session.
 const shutdownTimeout = 90 * time.Second

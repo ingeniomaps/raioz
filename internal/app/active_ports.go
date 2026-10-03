@@ -218,4 +218,9 @@ func hostPortOwner(ctx context.Context, port int) (project, service string) {
 	return "", ""
 }
 
-func init() { upcase.HostPortOwnerFn = hostPortOwner }
+func init() {
+	upcase.HostPortOwnerFn = hostPortOwner
+	upcase.ProjectDownFn = func(ctx context.Context, projectDir string) error {
+		return downProjectFn(ctx, projectDir)
+	}
+}
