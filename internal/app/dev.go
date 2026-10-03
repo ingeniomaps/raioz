@@ -331,6 +331,19 @@ func (uc *DevUseCase) liveDependency(ctx context.Context, cfgDeps *models.Deps, 
 // observe the call without a live process.
 var stopHostProcessFn = host.StopServiceWithCommandAndPath
 
+// startHostServiceFn starts a host service through the orchestrator's host
+// runner and returns its PID (0 for a launcher that keeps none). A package
+// var so tests can observe the call without spawning a process.
+var startHostServiceFn = func(
+	ctx context.Context, runner interfaces.DockerRunner, svcCtx interfaces.ServiceContext,
+) (int, error) {
+	dispatcher := orchestrate.NewDispatcher(runner)
+	if err := dispatcher.Start(ctx, svcCtx); err != nil {
+		return 0, err //nolint:wrapcheck // the caller adds the context
+	}
+	return dispatcher.GetHostPID(svcCtx.Name), nil
+}
+
 // recreateTargetFn tears a container target down and starts it again from
 // a freshly built context, so config changes reach it. build is called
 // twice on purpose: once for the context to stop, and again after the stop

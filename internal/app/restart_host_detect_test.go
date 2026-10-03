@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	"raioz/internal/discovery"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
-	"raioz/internal/host"
 	"raioz/internal/mocks"
-	"raioz/internal/workspace"
 )
 
 // writeServiceDir creates a service directory holding the given files so
@@ -24,6 +23,31 @@ func writeServiceDir(t *testing.T, files map[string]string) string {
 		}
 	}
 	return dir
+}
+
+// captureHostStart replaces the host-service launcher for one test and
+// hands back what restart asked it to start.
+func captureHostStart(t *testing.T) *interfaces.ServiceContext {
+	t.Helper()
+	var got interfaces.ServiceContext
+	prev := startHostServiceFn
+	startHostServiceFn = func(
+		_ context.Context, _ interfaces.DockerRunner, svcCtx interfaces.ServiceContext,
+	) (int, error) {
+		got = svcCtx
+		return 4242, nil
+	}
+	t.Cleanup(func() { startHostServiceFn = prev })
+	return &got
+}
+
+// launchCommand is the command the host runner would run for a context:
+// dev first, start as the fallback — the order orchestrate.HostRunner uses.
+func launchCommand(svcCtx *interfaces.ServiceContext) string {
+	if svcCtx.Detection.DevCommand != "" {
+		return svcCtx.Detection.DevCommand
+	}
+	return svcCtx.Detection.StartCommand
 }
 
 const npmPackageJSON = `{"name":"bff","scripts":{"start":"node dist/main","dev":"nest start --watch"}}`
@@ -88,16 +112,8 @@ func TestRestartHostService_RelaunchCommand(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var launched string
-			hostRunner := &mocks.MockHostRunner{
-				StartServiceFunc: func(_ context.Context, _ *workspace.Workspace, _ *models.Deps,
-					_ string, svc models.Service, _ string,
-				) (*host.ProcessInfo, error) {
-					launched = svc.Source.Command
-					return &host.ProcessInfo{PID: 4242}, nil
-				},
-			}
-			uc := NewRestartUseCase(&Dependencies{HostRunner: hostRunner})
+			started := captureHostStart(t)
+			uc := NewRestartUseCase(&Dependencies{HostRunner: &mocks.MockHostRunner{}})
 			proj := &YAMLProject{
 				ProjectName: "bff",
 				ConfigPath:  filepath.Join(t.TempDir(), "raioz.yaml"),
@@ -106,7 +122,7 @@ func TestRestartHostService_RelaunchCommand(t *testing.T) {
 			if err := uc.restartHostService(context.Background(), proj, "bff"); err != nil {
 				t.Fatalf("restartHostService: %v", err)
 			}
-			if launched != tc.want {
+			if launched := launchCommand(started); launched != tc.want {
 				t.Errorf("relaunched with %q, want %q", launched, tc.want)
 			}
 		})
@@ -118,17 +134,12 @@ func TestRestartHostService_RelaunchCommand(t *testing.T) {
 func TestRestartHostService_NoCommandStopsNothing(t *testing.T) {
 	dockerDir := writeServiceDir(t, map[string]string{"Dockerfile": "FROM alpine\n"})
 
-	var stopped, launched bool
+	var stopped bool
+	started := captureHostStart(t)
 	hostRunner := &mocks.MockHostRunner{
 		StopServiceWithCommandAndPathFunc: func(_ context.Context, _ int, _, _ string) error {
 			stopped = true
 			return nil
-		},
-		StartServiceFunc: func(_ context.Context, _ *workspace.Workspace, _ *models.Deps,
-			_ string, _ models.Service, _ string,
-		) (*host.ProcessInfo, error) {
-			launched = true
-			return &host.ProcessInfo{PID: 4242}, nil
 		},
 	}
 	uc := NewRestartUseCase(&Dependencies{HostRunner: hostRunner})
@@ -144,7 +155,7 @@ func TestRestartHostService_NoCommandStopsNothing(t *testing.T) {
 	if err := uc.restartHostService(context.Background(), proj, "bff"); err == nil {
 		t.Fatal("expected an error for a service with no relaunch command")
 	}
-	if stopped || launched {
+	if launched := started.Name != ""; stopped || launched {
 		t.Errorf("stopped=%v launched=%v, want the service left untouched", stopped, launched)
 	}
 }
@@ -154,17 +165,9 @@ func TestRestartHostService_NoCommandStopsNothing(t *testing.T) {
 func TestRestartHostService_RelaunchesWithComputedEnv(t *testing.T) {
 	npmDir := writeServiceDir(t, map[string]string{"package.json": npmPackageJSON})
 
-	var got map[string]string
-	hostRunner := &mocks.MockHostRunner{
-		StartServiceFunc: func(ctx context.Context, _ *workspace.Workspace, _ *models.Deps,
-			_ string, _ models.Service, _ string,
-		) (*host.ProcessInfo, error) {
-			got = host.ExtraEnv(ctx)
-			return &host.ProcessInfo{PID: 4242}, nil
-		},
-	}
+	started := captureHostStart(t)
 	uc := NewRestartUseCase(&Dependencies{
-		HostRunner:       hostRunner,
+		HostRunner:       &mocks.MockHostRunner{},
 		DiscoveryManager: discovery.NewManager(),
 	})
 	proj := &YAMLProject{
@@ -182,6 +185,7 @@ func TestRestartHostService_RelaunchesWithComputedEnv(t *testing.T) {
 	if err := uc.restartHostService(context.Background(), proj, "bff"); err != nil {
 		t.Fatalf("restartHostService: %v", err)
 	}
+	got := started.EnvVars
 	if got["PORT"] != "3002" {
 		t.Errorf("PORT = %q, want 3002", got["PORT"])
 	}
@@ -219,12 +223,8 @@ func TestStopCommandRunsInServicePath(t *testing.T) {
 				gotDir = dir
 				return nil
 			},
-			StartServiceFunc: func(_ context.Context, _ *workspace.Workspace, _ *models.Deps,
-				_ string, _ models.Service, _ string,
-			) (*host.ProcessInfo, error) {
-				return &host.ProcessInfo{}, nil
-			},
 		}
+		captureHostStart(t)
 		uc := NewRestartUseCase(&Dependencies{HostRunner: hostRunner})
 		proj := &YAMLProject{
 			ProjectName: "rzc",

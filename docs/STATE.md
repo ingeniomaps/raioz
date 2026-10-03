@@ -81,7 +81,7 @@ below.
 | `state.json` | `internal/state/global.go::UpdateProjectState` | `raioz up`'s `updateGlobalState` — best-effort, once per up |
 | `Caddyfile` | `internal/proxy/caddyfile.go::generateCaddyfile` | indirect — every `Reload` and the first `Start` |
 | certs | `internal/proxy/certs.go::EnsureCerts` | proxy `Start` when `tlsMode == mkcert` and the SAN-validated cert is missing |
-| `logs/<project>/<service>.log` | `internal/orchestrate/host_runner.go::Start` (`raioz up`) and `internal/host/process.go::StartService` (`raioz restart`) | every host service launch — truncated, not appended |
+| `logs/<project>/<service>.log` | `internal/orchestrate/host_runner.go::Start` (`raioz up`, `raioz restart`, watch reloads) | every host service launch — truncated, not appended |
 
 Both host writers go through `naming.LogFile`, and so does every reader
 (`raioz logs`, `up`'s log streaming, the early-exit error tail). That is

@@ -7,7 +7,6 @@ import (
 
 	"raioz/internal/app/upcase"
 	"raioz/internal/config"
-	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/logging"
@@ -25,9 +24,9 @@ import (
 //     `stop:` command first when declared (typical for launchers like
 //     `make dev-docker` whose grandchildren can't be killed by PID).
 //  2. Otherwise, kill the process tree.
-//  3. Re-launch through HostRunner.StartService — the same path the up
-//     flow uses, so the settle window and proxy.target
-//     bookkeeping apply uniformly.
+//  3. Re-launch through the orchestrator's host runner — the one `up`
+//     uses, with the context `up` builds — so the settle window, the
+//     launcher wait and the log file are a single implementation.
 //  4. Persist the new PID back to .raioz.state.json so subsequent status
 //     / down still match.
 func (uc *RestartUseCase) restartHostService(
@@ -54,12 +53,14 @@ func (uc *RestartUseCase) restartHostService(
 		pid = localState.HostPIDs[name]
 	}
 
-	// The service comes back on the env up gave it: without the recompute
-	// it would lose PORT and every discovery var. Worked out before the
-	// stop, while the process can still tell which port it holds.
-	startCtx := host.WithExtraEnv(ctx, upcase.ComputedServiceEnv(
-		ctx, uc.deps.DiscoveryManager, containerLookup(), proj.Deps, projectDir, name,
-	))
+	// The service comes back the way up starts it — same runner, same
+	// context: env with PORT and every discovery var, env files, stop
+	// command, proxy target. Built before the stop, while the process can
+	// still tell which port it holds.
+	svcCtx, ok := upcase.ServiceStartContext(ctx, uc.deps.DiscoveryManager, proj.Deps, projectDir, name)
+	if !ok {
+		return fmt.Errorf("cannot work out how %q starts", name)
+	}
 
 	// Stop step.
 	stopCommand := ""
@@ -87,11 +88,9 @@ func (uc *RestartUseCase) restartHostService(
 		sweepLauncherOrphans(ctx, proj.Deps, projectDir, name)
 	}
 
-	// Start step.
-	ws := &interfaces.Workspace{Root: projectDir}
-	processInfo, err := uc.deps.HostRunner.StartService(
-		startCtx, ws, proj.Deps, name, svc, projectDir,
-	)
+	// Start step: the runner `up` uses, so the settle window, the launcher
+	// wait, the log file and the process group are one implementation.
+	newPID, err := startHostServiceFn(ctx, uc.deps.DockerRunner, svcCtx)
 	if err != nil {
 		return fmt.Errorf("relaunch failed: %w", err)
 	}
@@ -107,8 +106,8 @@ func (uc *RestartUseCase) restartHostService(
 	if localState.HostPIDs == nil {
 		localState.HostPIDs = map[string]int{}
 	}
-	if processInfo != nil && processInfo.PID > 0 {
-		localState.HostPIDs[name] = processInfo.PID
+	if newPID > 0 {
+		localState.HostPIDs[name] = newPID
 	} else {
 		// Synchronous launchers (make dev-docker style) don't keep a PID.
 		// Drop the entry so status doesn't pretend the old PID is alive.

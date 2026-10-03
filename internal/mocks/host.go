@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/workspace"
 )
@@ -14,10 +13,6 @@ var _ interfaces.HostRunner = (*MockHostRunner)(nil)
 
 // MockHostRunner is a mock implementation of interfaces.HostRunner
 type MockHostRunner struct {
-	StartServiceFunc func(
-		ctx context.Context, ws *workspace.Workspace, deps *models.Deps,
-		serviceName string, svc models.Service, projectDir string,
-	) (*host.ProcessInfo, error)
 	StopServiceWithCommandFunc        func(ctx context.Context, pid int, stopCommand string) error
 	LoadProcessesStateFunc            func(ws *workspace.Workspace) (map[string]*host.ProcessInfo, error)
 	SaveProcessesStateFunc            func(ws *workspace.Workspace, processes map[string]*host.ProcessInfo) error
@@ -25,16 +20,6 @@ type MockHostRunner struct {
 	DetectComposePathFunc             func(servicePath string, command string, explicitComposePath string) string
 	StopServiceWithCommandAndPathFunc func(ctx context.Context, pid int, stopCommand string, servicePath string) error
 	IsServiceRunningFunc              func(pid int) (bool, error)
-}
-
-func (m *MockHostRunner) StartService(
-	ctx context.Context, ws *workspace.Workspace, deps *models.Deps,
-	serviceName string, svc models.Service, projectDir string,
-) (*host.ProcessInfo, error) {
-	if m.StartServiceFunc != nil {
-		return m.StartServiceFunc(ctx, ws, deps, serviceName, svc, projectDir)
-	}
-	return nil, nil
 }
 
 func (m *MockHostRunner) StopServiceWithCommand(ctx context.Context, pid int, stopCommand string) error {

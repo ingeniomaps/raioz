@@ -33,6 +33,10 @@ func TestMain(m *testing.M) {
 	stopProjectContainersFn = func(context.Context, string) ([]string, error) {
 		return nil, errors.New("stopProjectContainersFn is disabled in tests; stub it")
 	}
+	// Nor launch a host service.
+	startHostServiceFn = func(context.Context, interfaces.DockerRunner, interfaces.ServiceContext) (int, error) {
+		return 0, errors.New("starting host services is disabled in tests")
+	}
 	// Nor tear a container down and start it again.
 	recreateTargetFn = func(
 		context.Context, interfaces.DockerRunner, func() (interfaces.ServiceContext, bool),
