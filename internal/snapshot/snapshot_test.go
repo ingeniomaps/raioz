@@ -35,14 +35,13 @@ func TestList_EmptyProject(t *testing.T) {
 	}
 }
 
+// Deleting a snapshot that is not there is an error, not a silent ok: the
+// caller most likely mistyped the name.
 func TestDelete_Nonexistent(t *testing.T) {
-	dir := t.TempDir()
-	m := NewManager(dir)
+	m := NewManager(t.TempDir())
 
-	// Should not error on nonexistent snapshot
-	err := m.Delete("project", "nonexistent")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := m.Delete("project", "nonexistent"); err == nil {
+		t.Fatal("expected an error for a snapshot that does not exist")
 	}
 }
 

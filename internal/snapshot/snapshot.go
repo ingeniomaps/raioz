@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
 
@@ -33,17 +34,63 @@ type Manager struct {
 	baseDir string // ~/.raioz/snapshots
 }
 
-// NewManager creates a Manager. If baseDir is empty, uses ~/.raioz/snapshots.
+// NewManager creates a Manager. An empty baseDir means the snapshots
+// directory under the raioz state dir (ADR-022).
 func NewManager(baseDir string) *Manager {
 	if baseDir == "" {
-		home, _ := os.UserHomeDir()
-		baseDir = filepath.Join(home, ".raioz", "snapshots")
+		baseDir = filepath.Join(naming.RaiozStateDir(), "snapshots")
 	}
 	return &Manager{baseDir: baseDir}
 }
 
+// legacyBaseDir is where snapshots lived before they followed the state
+// dir. Snapshots taken there are still listed, restored and deleted.
+func legacyBaseDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".raioz", "snapshots")
+}
+
+// snapshotDir returns the directory of an existing snapshot, looking in
+// the legacy store when the current one does not have it. A snapshot that
+// exists in neither resolves to the current store.
+func (m *Manager) snapshotDir(project, name string) string {
+	dir := filepath.Join(m.baseDir, project, name)
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	if legacy := legacyBaseDir(); legacy != "" && legacy != m.baseDir {
+		old := filepath.Join(legacy, project, name)
+		if _, err := os.Stat(old); err == nil {
+			return old
+		}
+	}
+	return dir
+}
+
 // Create exports all given volumes to tar.gz archives.
 func (m *Manager) Create(project, name string, volumes map[string]string) (*Snapshot, error) {
+	if err := validateName("snapshot", name); err != nil {
+		return nil, err
+	}
+
+	// Resolve every volume before writing anything: a snapshot that fails
+	// halfway must not leave a directory that looks like a snapshot.
+	type target struct{ volume, service, archive string }
+	var targets []target
+	for spec, serviceName := range volumes {
+		volumeName, ok, err := volumeResolver(project, serviceName, spec)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		targets = append(targets, target{volumeName, serviceName, volumeName + ".tar.gz"})
+	}
+
 	dir := filepath.Join(m.baseDir, project, name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create snapshot directory: %w", err)
@@ -55,11 +102,12 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 		CreatedAt: time.Now(),
 	}
 
-	for volumeName, serviceName := range volumes {
-		archiveFile := volumeName + ".tar.gz"
+	for _, t := range targets {
+		volumeName, serviceName, archiveFile := t.volume, t.service, t.archive
 		archivePath := filepath.Join(dir, archiveFile)
 
 		if err := exportVolume(volumeName, archivePath); err != nil {
+			_ = os.RemoveAll(dir)
 			return nil, fmt.Errorf("failed to export volume %s: %w", volumeName, err)
 		}
 
@@ -92,7 +140,10 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 
 // Restore imports volumes from a snapshot.
 func (m *Manager) Restore(project, name string) error {
-	dir := filepath.Join(m.baseDir, project, name)
+	if err := validateName("snapshot", name); err != nil {
+		return err
+	}
+	dir := m.snapshotDir(project, name)
 	metaPath := filepath.Join(dir, "snapshot.json")
 
 	data, err := os.ReadFile(metaPath)
@@ -117,7 +168,26 @@ func (m *Manager) Restore(project, name string) error {
 
 // List returns all snapshots for a project.
 func (m *Manager) List(project string) ([]Snapshot, error) {
-	dir := filepath.Join(m.baseDir, project)
+	snapshots, err := listDir(filepath.Join(m.baseDir, project))
+	if err != nil {
+		return nil, err
+	}
+	if legacy := legacyBaseDir(); legacy != "" && legacy != m.baseDir {
+		seen := map[string]bool{}
+		for _, s := range snapshots {
+			seen[s.Name] = true
+		}
+		old, _ := listDir(filepath.Join(legacy, project))
+		for _, s := range old {
+			if !seen[s.Name] {
+				snapshots = append(snapshots, s)
+			}
+		}
+	}
+	return snapshots, nil
+}
+
+func listDir(dir string) ([]Snapshot, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -146,7 +216,13 @@ func (m *Manager) List(project string) ([]Snapshot, error) {
 
 // Delete removes a snapshot and frees disk space.
 func (m *Manager) Delete(project, name string) error {
-	dir := filepath.Join(m.baseDir, project, name)
+	if err := validateName("snapshot", name); err != nil {
+		return err
+	}
+	dir := m.snapshotDir(project, name)
+	if _, err := os.Stat(dir); err != nil {
+		return fmt.Errorf("snapshot '%s' not found for project '%s'", name, project)
+	}
 	if err := os.RemoveAll(dir); err != nil {
 		return fmt.Errorf("remove snapshot dir %q: %w", dir, err)
 	}
