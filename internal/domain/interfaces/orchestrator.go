@@ -8,12 +8,16 @@ import (
 
 // ServiceContext holds all information needed to start/stop a service.
 type ServiceContext struct {
-	Name          string
-	Path          string
-	Detection     models.DetectResult
-	NetworkName   string
-	EnvVars       map[string]string
-	Ports         []string
+	Name        string
+	Path        string
+	Detection   models.DetectResult
+	NetworkName string
+	EnvVars     map[string]string
+	Ports       []string
+	// HostPort is the host port the service declared with `port:`. A
+	// runner that creates the service's container publishes it there, on
+	// loopback, when Ports maps nothing itself. Zero = not declared.
+	HostPort      int
 	DependsOn     []string
 	ContainerName string
 	ProjectName   string // Used for project-isolated temp dirs and naming

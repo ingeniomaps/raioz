@@ -112,6 +112,7 @@ func (uc *UseCase) buildStartContext(
 		svcCtx.ProxyTarget = svc.ProxyOverride.Target
 	}
 	svcCtx.Resources = serviceResources(svc, detection)
+	svcCtx.HostPort = svc.Port
 
 	// Pass the service's own `env:` (inline vars + --env-file) to the
 	// runner; mirrors the deps path in orchestration.go.
