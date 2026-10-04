@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
@@ -54,22 +53,12 @@ func EnsureReadonlyRepo(src models.SourceConfig, baseDir string) error {
 		}
 		defer cleanup()
 
-		if err := cmd.Run(); err != nil {
+		if err := runClone(cmd, src); err != nil {
 			// Check for timeout
 			if exectimeout.IsTimeoutError(ctx, err) {
 				return exectimeout.HandleTimeoutError(ctx, err, "git clone", exectimeout.GitCloneTimeout)
 			}
 
-			// Check if error is about branch not existing (not retryable)
-			output := err.Error()
-			if strings.Contains(output, "could not find remote branch") ||
-				strings.Contains(output, "fatal: Remote branch") {
-				return fmt.Errorf(
-					"branch '%s' does not exist in repository '%s'. "+
-						"Please verify the branch name or create it in the repository",
-					src.Branch, src.Repo,
-				)
-			}
 			return fmt.Errorf("failed to clone readonly repository: %w", err)
 		}
 		return nil
@@ -136,7 +125,7 @@ func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 
 	retryConfig := resilience.GitRetryConfig()
 
-	err := resilience.RetryWithContext(ctx, retryConfig, "git clone editable", func(ctx context.Context) error {
+	err := resilience.RetryWithContext(ctx, retryConfig, "git clone", func(ctx context.Context) error {
 		// Ensure parent directory exists
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return fmt.Errorf("failed to create parent directory: %w", err)
@@ -148,22 +137,12 @@ func EnsureEditableRepo(src models.SourceConfig, baseDir string) error {
 		}
 		defer cleanup()
 
-		if err := cmd.Run(); err != nil {
+		if err := runClone(cmd, src); err != nil {
 			// Check for timeout
 			if exectimeout.IsTimeoutError(ctx, err) {
 				return exectimeout.HandleTimeoutError(ctx, err, "git clone", exectimeout.GitCloneTimeout)
 			}
 
-			// Check if error is about branch not existing (not retryable)
-			output := err.Error()
-			if strings.Contains(output, "could not find remote branch") ||
-				strings.Contains(output, "fatal: Remote branch") {
-				return fmt.Errorf(
-					"branch '%s' does not exist in repository '%s'. "+
-						"Please verify the branch name or create it in the repository",
-					src.Branch, src.Repo,
-				)
-			}
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 		return nil

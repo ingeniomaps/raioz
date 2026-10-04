@@ -121,7 +121,7 @@ func ForceReclone(ctx context.Context, repoPath string, src models.SourceConfig)
 	}
 	defer cleanup()
 
-	if err := cmd.Run(); err != nil {
+	if err := runClone(cmd, src); err != nil {
 		if exectimeout.IsTimeoutError(ctx, err) {
 			return exectimeout.HandleTimeoutError(ctx, err, "git clone", exectimeout.GitCloneTimeout)
 		}
