@@ -4,6 +4,23 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.1](https://github.com/ingeniomaps/raioz/compare/v0.16.0...v0.16.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **app:** list idle projects apart from active ([948f3e9](https://github.com/ingeniomaps/raioz/commit/948f3e9bebf37846711ee9e87acb5f3b92793c98))
+* **app:** probe health on the proxy target ([92a6636](https://github.com/ingeniomaps/raioz/commit/92a66360614a3d0590e4aaa54c2b9b12622ebbde))
+* **app:** show compose dependencies in check ([2212db5](https://github.com/ingeniomaps/raioz/commit/2212db5a21975997e8eee3fc0ec3c1eaff119a1c))
+* **docker:** list every port of a folded range ([5236bbd](https://github.com/ingeniomaps/raioz/commit/5236bbdad9ff037b6b050ce0118953296ea853d2))
+* **docker:** pull quietly when not on a terminal ([e3e6823](https://github.com/ingeniomaps/raioz/commit/e3e68235d315d43f841d220804cc3870b564ad3c))
+* **host:** stop only raioz's processes, and wait ([4028cef](https://github.com/ingeniomaps/raioz/commit/4028cef68bf4567a55659a2a544d8ac5cb8b12a0))
+
+
+### Documentation
+
+* describe the service marker and health probe ([b9fdcb4](https://github.com/ingeniomaps/raioz/commit/b9fdcb4eb2716fb4af85e7790d39977e685127ab))
+
 ## [0.16.0](https://github.com/ingeniomaps/raioz/compare/v0.15.3...v0.16.0) (2026-10-04)
 
 
