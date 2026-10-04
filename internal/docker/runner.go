@@ -55,6 +55,7 @@ func UpServicesWithContext(ctx context.Context, composePath string, serviceNames
 		args := append([]string{"compose"}, ComposeEnvFileArgs(timeoutCtx)...)
 		args = append(args, ComposeFileArgs(composePath)...)
 		args = append(args, "up", "-d", "--remove-orphans")
+		args = append(args, quietPullArgs(os.Stderr)...)
 		if len(serviceNames) > 0 {
 			args = append(args, serviceNames...)
 		}
