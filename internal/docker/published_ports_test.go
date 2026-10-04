@@ -16,7 +16,14 @@ func TestParsePublishedHostPorts(t *testing.T) {
 		{"exposed only", "6379/tcp", []int{}},
 		{"mixed", "80/tcp, 0.0.0.0:8443->443/tcp, 2019/tcp, :::8080->80/tcp", []int{8080, 8443}},
 		{"bound to one address", "127.0.0.1:5432->5432/tcp", []int{5432}},
-		{"range", "0.0.0.0:8000-8002->8000-8002/tcp", []int{8000}},
+		{"folded range", "0.0.0.0:8000-8002->8000-8002/tcp", []int{8000, 8001, 8002}},
+		{
+			"range next to a single port",
+			"0.0.0.0:5671-5672->5671-5672/tcp, [::]:5671-5672->5671-5672/tcp, 0.0.0.0:15672->15672/tcp",
+			[]int{5671, 5672, 15672},
+		},
+		{"absurd range keeps its first port", "0.0.0.0:1000-60000->1000-60000/tcp", []int{1000}},
+		{"backwards range keeps its first port", "0.0.0.0:9000-8000->9000-8000/tcp", []int{9000}},
 		{"empty", "", []int{}},
 	}
 	for _, tc := range tests {
