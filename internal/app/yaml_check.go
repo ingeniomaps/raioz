@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 
 	"raioz/internal/app/upcase"
 	"raioz/internal/config"
@@ -33,6 +34,11 @@ func CheckYAML(proj *YAMLProject) error {
 	// Check service paths exist (honoring yaml `command:`/`compose:` overrides).
 	for name, svc := range proj.Deps.Services {
 		result := config.ResolveServiceDetection(svc, svc.Source.Path)
+		if result.Runtime == models.RuntimeUnknown && awaitingClone(svc) {
+			// Nothing to detect yet: `up` clones the repository first.
+			output.PrintInfo(i18n.T("check.git_not_cloned", name, svc.Source.Repo))
+			continue
+		}
 		if result.Runtime == models.RuntimeUnknown {
 			if svc.Source.Path != "" {
 				output.PrintWarning(i18n.T("check.no_runtime_at", name, svc.Source.Path))
@@ -110,4 +116,15 @@ func CheckYAML(proj *YAMLProject) error {
 	// above — the error here is just the signal.
 	output.PrintWarning(i18n.T("check.issues_found", issues))
 	return fmt.Errorf("%d check issue(s) found", issues)
+}
+
+// awaitingClone reports whether a git service has no checkout on disk yet.
+// Its runtime cannot be detected until `up` clones it, which is the normal
+// state of a project that was just handed a raioz.yaml.
+func awaitingClone(svc models.Service) bool {
+	if svc.Source.Kind != "git" || svc.Source.Path == "" {
+		return false
+	}
+	entries, err := os.ReadDir(svc.Source.Path)
+	return err != nil || len(entries) == 0
 }
