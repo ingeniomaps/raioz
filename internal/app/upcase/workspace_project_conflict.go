@@ -13,7 +13,6 @@ type WorkspaceProjectConflictResult int
 const (
 	WorkspaceConflictProceed WorkspaceProjectConflictResult = iota
 	WorkspaceConflictSkip
-	WorkspaceConflictCancel
 )
 
 // checkWorkspaceProjectConflict detects when the same workspace is already running

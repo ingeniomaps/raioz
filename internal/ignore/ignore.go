@@ -87,22 +87,6 @@ func Save(config *IgnoreConfig) error {
 	return nil
 }
 
-// IsIgnored checks if a service is ignored
-func IsIgnored(serviceName string) (bool, error) {
-	config, err := Load()
-	if err != nil {
-		return false, err
-	}
-
-	for _, ignored := range config.Services {
-		if ignored == serviceName {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
 // AddService adds a service to the ignore list
 func AddService(serviceName string) error {
 	config, err := Load()
@@ -121,42 +105,6 @@ func AddService(serviceName string) error {
 	config.Services = append(config.Services, serviceName)
 
 	return Save(config)
-}
-
-// RemoveService removes a service from the ignore list
-func RemoveService(serviceName string) error {
-	config, err := Load()
-	if err != nil {
-		return err
-	}
-
-	// Find and remove
-	var newServices []string
-	found := false
-	for _, ignored := range config.Services {
-		if ignored != serviceName {
-			newServices = append(newServices, ignored)
-		} else {
-			found = true
-		}
-	}
-
-	if !found {
-		return nil // Not in list, no-op
-	}
-
-	config.Services = newServices
-	return Save(config)
-}
-
-// GetIgnoredServices returns the list of ignored services
-func GetIgnoredServices() ([]string, error) {
-	config, err := Load()
-	if err != nil {
-		return nil, err
-	}
-
-	return config.Services, nil
 }
 
 // ForProject returns the services ignored in a project: its own list plus

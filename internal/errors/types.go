@@ -25,11 +25,8 @@ const (
 	ErrCodeVolumeError        ErrorCode = "VOLUME_ERROR"
 
 	// Git errors
-	ErrCodeGitNotInstalled    ErrorCode = "GIT_NOT_INSTALLED"
-	ErrCodeGitCloneFailed     ErrorCode = "GIT_CLONE_FAILED"
-	ErrCodeGitBranchNotFound  ErrorCode = "GIT_BRANCH_NOT_FOUND"
-	ErrCodeGitConflict        ErrorCode = "GIT_CONFLICT"
-	ErrCodeNetworkUnavailable ErrorCode = "NETWORK_UNAVAILABLE"
+	ErrCodeGitNotInstalled ErrorCode = "GIT_NOT_INSTALLED"
+	ErrCodeGitCloneFailed  ErrorCode = "GIT_CLONE_FAILED"
 
 	// Workspace errors
 	ErrCodeWorkspaceError   ErrorCode = "WORKSPACE_ERROR"

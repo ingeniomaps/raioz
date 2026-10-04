@@ -44,26 +44,6 @@ func TestInfraNamesEmpty(t *testing.T) {
 	}
 }
 
-func TestInfraPorts(t *testing.T) {
-	entry := models.InfraEntry{
-		Inline: &models.Infra{
-			Ports: []string{"5432", "5433"},
-		},
-	}
-	ports := infraPorts(entry)
-	if len(ports) != 2 {
-		t.Errorf("expected 2 ports, got %d", len(ports))
-	}
-}
-
-func TestInfraPorts_Nil(t *testing.T) {
-	entry := models.InfraEntry{}
-	ports := infraPorts(entry)
-	if ports != nil {
-		t.Errorf("expected nil, got %v", ports)
-	}
-}
-
 func TestDevUseCase_Execute_ConfigLoadError(t *testing.T) {
 	initI18nForTest(t)
 	tmpDir := t.TempDir()

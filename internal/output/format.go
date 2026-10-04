@@ -17,7 +17,6 @@ const (
 	yellow = "\033[33m"
 	red    = "\033[31m"
 	cyan   = "\033[36m"
-	white  = "\033[37m"
 )
 
 // PrintSuccess prints a success message with green checkmark.

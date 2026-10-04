@@ -5,30 +5,19 @@ import "raioz/internal/i18n"
 // Error codes for the meta-orchestrator flow.
 const (
 	// Detection errors
-	ErrCodeRuntimeNotDetected  ErrorCode = "RUNTIME_NOT_DETECTED"
-	ErrCodeRuntimeNotInstalled ErrorCode = "RUNTIME_NOT_INSTALLED"
+	ErrCodeRuntimeNotDetected ErrorCode = "RUNTIME_NOT_DETECTED"
 
 	// Orchestration errors
 	ErrCodeServiceStartFailed ErrorCode = "SERVICE_START_FAILED"
 	ErrCodeServiceStopFailed  ErrorCode = "SERVICE_STOP_FAILED"
 	ErrCodeDepStartFailed     ErrorCode = "DEPENDENCY_START_FAILED"
 
-	// Proxy errors
-	ErrCodeProxyStartFailed ErrorCode = "PROXY_START_FAILED"
-	ErrCodeCertsError       ErrorCode = "CERTS_ERROR"
-
 	// Dev swap errors
-	ErrCodeDevSwapFailed  ErrorCode = "DEV_SWAP_FAILED"
 	ErrCodeNotADependency ErrorCode = "NOT_A_DEPENDENCY"
-
-	// Config errors for YAML
-	ErrCodeYAMLParseFailed ErrorCode = "YAML_PARSE_FAILED"
-	ErrCodePathNotFound    ErrorCode = "PATH_NOT_FOUND"
 
 	// Hook errors
 	ErrCodePreHookFailed   ErrorCode = "PRE_HOOK_FAILED"
 	ErrCodePreUpHookFailed ErrorCode = "PRE_UP_HOOK_FAILED"
-	ErrCodePostHookFailed  ErrorCode = "POST_HOOK_FAILED"
 )
 
 // RuntimeNotDetected creates an error when raioz can't determine how to run a service.

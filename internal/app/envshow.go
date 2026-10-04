@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"sort"
 
@@ -159,14 +158,6 @@ func resolveDiscoveryVars(
 		})
 	}
 	return entries
-}
-
-func parseFirstPort(portStr string) int {
-	var port int
-	// Sscanf errors surface as port == 0, which is the "unknown port"
-	// sentinel the caller already expects.
-	_, _ = fmt.Sscanf(portStr, "%d", &port)
-	return port
 }
 
 func joinServiceNames(deps *models.Deps) string {

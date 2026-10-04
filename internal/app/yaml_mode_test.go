@@ -111,10 +111,10 @@ func TestResolveYAMLProject_AutoFindEmpty(t *testing.T) {
 	}
 }
 
-func TestYAMLProject_ContainerStatus_Stopped(t *testing.T) {
+func TestYAMLProject_ContainerState_Stopped(t *testing.T) {
 	// No container will exist — expect "stopped"
 	p := &YAMLProject{ProjectName: "zzz-test-nonexistent-proj"}
-	status := p.ContainerStatus(context.Background(), "noservice")
+	status := p.ContainerState(context.Background(), "noservice").Status
 	if status != "stopped" {
 		t.Errorf("expected 'stopped' for nonexistent container, got %q", status)
 	}

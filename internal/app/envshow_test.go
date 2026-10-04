@@ -79,22 +79,6 @@ func TestEnvShowUseCase_Execute_ServiceIsInfra(t *testing.T) {
 	}
 }
 
-func TestParseFirstPort(t *testing.T) {
-	tests := []struct {
-		input string
-		want  int
-	}{
-		{"8080", 8080},
-		{"8080:80", 8080},
-		{"bad", 0},
-	}
-	for _, tt := range tests {
-		if got := parseFirstPort(tt.input); got != tt.want {
-			t.Errorf("parseFirstPort(%q): expected %d, got %d", tt.input, tt.want, got)
-		}
-	}
-}
-
 func TestJoinServiceNames(t *testing.T) {
 	deps := &models.Deps{
 		Services: map[string]models.Service{
