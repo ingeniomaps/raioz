@@ -69,7 +69,7 @@ legacy `~/.raioz/certs/` and is not migrated; the migrator
 moves runtime state, not crypto material. See "Open question"
 below.
 
-## Quién escribe qué
+## Who writes what
 
 | File | Writer | Trigger |
 |------|--------|---------|
@@ -89,7 +89,7 @@ load-bearing: when the two writers picked their own paths, a service
 changed file depending on which command had launched it, and the path
 nobody was writing sat there holding a stale successful startup.
 
-## Quién borra qué
+## Who deletes what
 
 | File | Deleter | Trigger | Notes |
 |------|---------|---------|-------|

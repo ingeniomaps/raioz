@@ -95,7 +95,7 @@ func TestDownUseCase_stopProxy_StopError(t *testing.T) {
 var _ interfaces.ProxyManager = (*mockProxyManager)(nil)
 
 // TestDownUseCase_stopProxy_WorkspaceSharedSkipsWhenSiblingsActive proves
-// that downing project A in workspace `acme` does NOT tumba the shared
+// that downing project A in workspace `acme` does NOT tear down the shared
 // proxy when project B's containers still exist. This is the Phase B
 // guarantee for the workspace-shared proxy lifecycle.
 func TestDownUseCase_stopProxy_WorkspaceSharedSkipsWhenSiblingsActive(t *testing.T) {
@@ -198,12 +198,12 @@ func TestDownUseCase_stopProxy_WorkspaceSharedReloadsWhenSiblingsRemain(t *testi
 	}
 }
 
-// TestDownUseCase_stopProxy_OrphanRoutePrunedThenTumbas covers the ADR-005
-// orphan route-file GC: the last project leaving a workspace must tumba the
+// TestDownUseCase_stopProxy_OrphanRoutePrunedThenTearsDown covers the ADR-005
+// orphan route-file GC: the last project leaving a workspace must tear down the
 // shared proxy even when a route file from a crashed project still sits on disk.
 // The orphan GC deletes that file (its owner has no live container) so the
 // gate sees RemainingProjects()==0.
-func TestDownUseCase_stopProxy_OrphanRoutePrunedThenTumbas(t *testing.T) {
+func TestDownUseCase_stopProxy_OrphanRoutePrunedThenTearsDown(t *testing.T) {
 	initI18nForTest(t)
 
 	prevList, prevLabel, prevErr := listContainersByLabelsFn, getContainerLabelFn, listContainersByLabelsErrFn
@@ -253,7 +253,7 @@ func TestDownUseCase_stopProxy_OrphanRoutePrunedThenTumbas(t *testing.T) {
 		t.Errorf("orphan route file for 'connector' must be pruned, got %v", proxy.removedRoutesFor)
 	}
 	if !stopCalled {
-		t.Error("last project out must tumba the proxy once the orphan file is gone")
+		t.Error("last project out must tear down the proxy once the orphan file is gone")
 	}
 }
 
@@ -347,10 +347,10 @@ func TestDownUseCase_stopProxy_LiveSiblingRouteNotPruned(t *testing.T) {
 	}
 }
 
-// TestDownUseCase_stopProxy_WorkspaceSharedTumbasWhenAlone confirms the
+// TestDownUseCase_stopProxy_WorkspaceSharedTearsDownWhenAlone confirms the
 // last-out-turns-off-the-lights semantics: when the workspace probe shows
 // no other project active, the shared proxy gets torn down normally.
-func TestDownUseCase_stopProxy_WorkspaceSharedTumbasWhenAlone(t *testing.T) {
+func TestDownUseCase_stopProxy_WorkspaceSharedTearsDownWhenAlone(t *testing.T) {
 	initI18nForTest(t)
 
 	prevList, prevLabel := listContainersByLabelsFn, getContainerLabelFn
@@ -392,7 +392,7 @@ func TestDownUseCase_stopProxy_WorkspaceSharedTumbasWhenAlone(t *testing.T) {
 		t.Error("RemoveProjectRoutes must run on every shared down")
 	}
 	if !stopCalled {
-		t.Error("last project out must tumba the shared proxy")
+		t.Error("last project out must tear down the shared proxy")
 	}
 }
 
@@ -451,7 +451,7 @@ func TestDownUseCase_stopProxy_SharedDepVetoesTeardown(t *testing.T) {
 
 // TestDownUseCase_stopProxy_ProxyKindDoesNotVeto proves the veto is scoped:
 // the workspace proxy container itself (project="" + kind=proxy) is not
-// evidence of a consumer, so the last project out still tumba it.
+// evidence of a consumer, so the last project out still tears it down.
 func TestDownUseCase_stopProxy_ProxyKindDoesNotVeto(t *testing.T) {
 	initI18nForTest(t)
 
@@ -610,7 +610,7 @@ func TestDownUseCase_stopProxy_DeadHostPIDsGetPruned(t *testing.T) {
 		t.Errorf("dead sibling's route file must be pruned, got %v", proxy.removedRoutesFor)
 	}
 	if !stopCalled {
-		t.Error("last project out must tumba the proxy once the dead sibling's file is gone")
+		t.Error("last project out must tear down the proxy once the dead sibling's file is gone")
 	}
 }
 

@@ -172,7 +172,7 @@ func (r *ImageRunner) generateCompose(svc interfaces.ServiceContext) (string, er
 
 	// Shared deps get a workspace-scoped label set (no project owner) so
 	// `raioz down` of any single project does NOT sweep them — only the last
-	// project leaving the workspace tumba the dep. See stopDependencyComposeProjects
+	// project leaving the workspace tears down the dep. See stopDependencyComposeProjects
 	// in down_orchestrated.go for the matching teardown logic.
 	//
 	// Only a workspace makes a dependency shared. Without one, a dependency

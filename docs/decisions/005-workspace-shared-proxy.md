@@ -72,7 +72,7 @@ deps do run as raioz containers, but those carry an empty
 `com.raioz.project` *by design* (ADR-002). Both gate signals and
 the GC were originally blind to such a project: a sibling's
 `down` would prune its route file as orphaned, pass the gate, and
-tumba the proxy out from under it (issue 021, workspace
+tear the proxy down from under it (issue 021, workspace
 `gouduet`). Two rules close the hole; both follow one principle —
 **pruning and teardown require positive proof of death, never
 mere absence of proof of life**:

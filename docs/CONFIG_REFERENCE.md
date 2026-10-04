@@ -311,7 +311,7 @@ Exactly one of `image`, `compose`, or `project` is required.
 |-------|------|----------|---------|-------------|
 | `image` | string | one of | — | Docker image with tag (e.g., `postgres:16`). Mutually exclusive with `compose` and `project`. |
 | `compose` | string or list | one of | — | Path(s) to existing docker-compose fragment(s). Use when the dep already has a production-grade compose file (healthchecks, volumes, custom entrypoints). Raioz adds a network + labels overlay; the user's compose controls everything else. Mutually exclusive with `image` and `project`. |
-| `project` | string | one of | — | Path to a sibling raioz project's directory. The sibling IS this dep — raioz brings it up via `raioz up` recursively when not already running, and never tumba it on `raioz down`. Mutually exclusive with `image`/`compose`. See [Sibling raioz projects](#sibling-raioz-projects-as-deps). |
+| `project` | string | one of | — | Path to a sibling raioz project's directory. The sibling IS this dep — raioz brings it up via `raioz up` recursively when not already running, and never tears it down on `raioz down`. Mutually exclusive with `image`/`compose`. See [Sibling raioz projects](#sibling-raioz-projects-as-deps). |
 | `siblingProject` | string | no | — | Fallback marker: pair with `image:`/`compose:` and raioz skips the local declaration when the sibling project is active. Mutually exclusive with `project`. Useful for CI or contributors without the sibling repo cloned. |
 | `requiredHostname` | string | no | — | Assert the sibling's raioz.yaml declares this hostname before deferring to it. Only valid alongside `project:` or `siblingProject:`. |
 | `resources` | object | no | root `resources` for an `image:` dependency, else no cap | Memory/CPU cap for this dependency's container. On a `compose:` dependency it replaces the limits its own file sets. See [Resource limits](#resource-limits). |
@@ -362,7 +362,7 @@ Behavior:
   the output prefixed with `[sibling: <depName>]`. For mode B: when
   the sibling is active, skips the local image and stamps the dep in
   `.raioz.state.json` so `down` matches.
-- **`raioz down`** never tumba al hermano. Mode A is identified via
+- **`raioz down`** never tears down the sibling. Mode A is identified via
   `project:`; mode B via the deferred-to-sibling stamp from up.
 - **Workspace coherence is required** — both sides must declare the
   same `workspace:`. Cross-workspace siblings fail fast with a
