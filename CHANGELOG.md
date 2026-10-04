@@ -4,6 +4,127 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0](https://github.com/ingeniomaps/raioz/compare/v0.15.3...v0.16.0) (2026-10-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** `raioz migrate` writes raioz.yaml by default instead of .raioz.json.
+* **app:** `down --all`, `down --conflicting`, `down --all-projects` and `up --exclusive` refuse to stop other projects without a terminal unless --yes is passed.
+* **upcase:** `raioz up` no longer restarts host services that are already running. Use `raioz restart` to relaunch one.
+
+### Features
+
+* **config:** cap Dockerfile services with resources ([f07c9b6](https://github.com/ingeniomaps/raioz/commit/f07c9b6dbdd83222d2a0bd5093ec07cac1c5a085))
+* **config:** cap memory and cpu with resources ([8946364](https://github.com/ingeniomaps/raioz/commit/89463646fd7acee746501b243ad7ff2e4f82b389))
+* **config:** warn on system dirs mounted into a dep ([0a9165e](https://github.com/ingeniomaps/raioz/commit/0a9165eef5a1b382c35cb450228d3a1c10bf208a))
+* **orchestrate:** cap host and compose services ([714ee36](https://github.com/ingeniomaps/raioz/commit/714ee365df22bf8842ebaa9358e32388ff893e70))
+* **tui:** restart and stop host services ([21581e2](https://github.com/ingeniomaps/raioz/commit/21581e296a67eb4cdb9a43134db27534a4ae4049))
+
+
+### Bug Fixes
+
+* **app:** always drop generated dep files on down ([3640bc2](https://github.com/ingeniomaps/raioz/commit/3640bc2857cfde7e6eda8c3fd9fcca6f9d3076b9))
+* **app:** drop workspace root state on down ([d057f31](https://github.com/ingeniomaps/raioz/commit/d057f315fc22902e7ecf4dcb922218715c60b855))
+* **app:** fail volumes remove when nothing is removed ([159f440](https://github.com/ingeniomaps/raioz/commit/159f4404926f71e054fec29c368e1b19e9e604b5))
+* **app:** keep init from overwriting a config ([4cc8a54](https://github.com/ingeniomaps/raioz/commit/4cc8a54f08863e9bf70fad4d34a02d1354ed54c1))
+* **app:** keep running projects in clean --all ([a0065f3](https://github.com/ingeniomaps/raioz/commit/a0065f32a4fcf241076893254a643f89cd5960bc))
+* **app:** let ci accept compose and sibling deps ([22e9392](https://github.com/ingeniomaps/raioz/commit/22e9392f400a2734fd6ed540383d4cec958168f8))
+* **app:** list the live status of each service ([bdb2b16](https://github.com/ingeniomaps/raioz/commit/bdb2b1614e3b2c7f3d6973496a77b554a1691598))
+* **app:** make dev swap the dependency for real ([bd65972](https://github.com/ingeniomaps/raioz/commit/bd659720146689fb24aac3a1f8ec8d724d20de2e))
+* **app:** make restart --force-recreate recreate ([9586af0](https://github.com/ingeniomaps/raioz/commit/9586af070fe408d2048750689e65b7db7a1cf710))
+* **app:** make restart, exec and logs exit honestly ([98c34b7](https://github.com/ingeniomaps/raioz/commit/98c34b79e2b47744b659ad60af2aa8dce5e5f78c))
+* **app:** point volumes at the one a dependency mounts ([fd81e13](https://github.com/ingeniomaps/raioz/commit/fd81e13f689e2d1de15a7c4ff5d9b46f12a1ecef))
+* **app:** print JSON for status --json ([c1cd198](https://github.com/ingeniomaps/raioz/commit/c1cd198c3ee65ba36b513a8bf08e6d5d2d0d5e74))
+* **app:** print the env a service actually gets ([1026307](https://github.com/ingeniomaps/raioz/commit/10263071ee86f1e2873f3c02d579399c92ca9fe3))
+* **app:** remove what down leaves on disk ([1e09b9c](https://github.com/ingeniomaps/raioz/commit/1e09b9c1cf2f4626956e9a566c1e5fb58329f5d3))
+* **app:** report running workspace deps in status ([96a920a](https://github.com/ingeniomaps/raioz/commit/96a920a79be4950fc16b3cd9c9c4db77eee42494))
+* **app:** report sibling-served deps as running ([e7bea8c](https://github.com/ingeniomaps/raioz/commit/e7bea8c5f515984a8e28b65a48f86c8e5134c931))
+* **app:** report why a config failed to load ([6ee4d50](https://github.com/ingeniomaps/raioz/commit/6ee4d500ee08cc34123f50983ac01a86306aa662))
+* **app:** resolve containers by label in every command ([c871fcd](https://github.com/ingeniomaps/raioz/commit/c871fcd0d49d80439cdd05c93d2c9bd6bac86a2f))
+* **app:** restart host services detected by runtime ([4ff5bff](https://github.com/ingeniomaps/raioz/commit/4ff5bff2f06a35fef49a9ae9f19fbe2c262127a1))
+* **app:** restart host services the way up does ([1fdad43](https://github.com/ingeniomaps/raioz/commit/1fdad438397910fdcd114152d66bb467638384b0))
+* **app:** run stop commands in the service path ([f9758f5](https://github.com/ingeniomaps/raioz/commit/f9758f561420fd7be81f66e1e30554c0784196c8))
+* **app:** say what is wrong in three edge cases ([f0313ab](https://github.com/ingeniomaps/raioz/commit/f0313ab286d6cec5433b6ddf0934f8717515d037))
+* **app:** see port clashes and ask before stopping others ([faf114a](https://github.com/ingeniomaps/raioz/commit/faf114ac77ffed421c34a5e820b824325d18fca5))
+* **app:** show a sibling dependency as running ([9803a11](https://github.com/ingeniomaps/raioz/commit/9803a119df086cde41afd018f8269bdb368a4bb1))
+* **app:** show real container hosts in env ([7a9ed62](https://github.com/ingeniomaps/raioz/commit/7a9ed62248bfb3407f1fd2733554afa60f174b17))
+* **app:** skip absent optional meta projects ([63c430d](https://github.com/ingeniomaps/raioz/commit/63c430d84a2b5547e3b2bd1585cefc3a545be404))
+* **app:** surface unknown fields in check and lint ([23c8f11](https://github.com/ingeniomaps/raioz/commit/23c8f115b2acd29abb976a20ce5e8ebeda71a077))
+* **app:** track a dependency promoted to the host ([ebd75d3](https://github.com/ingeniomaps/raioz/commit/ebd75d3ef62b2dc1305b24508f07e9af9e22fc9d))
+* **clean:** prune only what raioz created ([c97ec9c](https://github.com/ingeniomaps/raioz/commit/c97ec9ce9b3d4a7d9ccd5438fdbdc03f0dbfd15d))
+* **cli:** describe ci as what it runs ([e7231b8](https://github.com/ingeniomaps/raioz/commit/e7231b83ded2c55aeb0c683444d9a0af16a7e72e))
+* **cli:** guard migrate yaml and drop legacy ports ([3cde7b8](https://github.com/ingeniomaps/raioz/commit/3cde7b8bb9cc93ae55248c7a95eef9ae6fdda83f))
+* **cli:** let check and yaml lint read a meta config ([9c2752c](https://github.com/ingeniomaps/raioz/commit/9c2752c76d8ef899be4c72b01f3d729dc95c53a5))
+* **cli:** migrate a compose file to raioz.yaml ([f682284](https://github.com/ingeniomaps/raioz/commit/f68228425dbb5ecfbe30eaa8e1a53e1af00df2cd))
+* **cli:** print a hosts line for a published proxy ([5e07b91](https://github.com/ingeniomaps/raioz/commit/5e07b91f18ef61e1e409a8d41d3838a3d165e092))
+* **cli:** reject a --lang raioz does not ship ([daa1e47](https://github.com/ingeniomaps/raioz/commit/daa1e470ba578bed5d37a8a1d9e2986752540bad))
+* **cli:** resolve -p to the named project's config ([b145871](https://github.com/ingeniomaps/raioz/commit/b145871f678fd12bf6bd5f6df9f97fe492cb187d))
+* **cli:** stop four commands from acting silently ([370a780](https://github.com/ingeniomaps/raioz/commit/370a7801c3bbb3598ca401b5d0a2138e92760650))
+* **cli:** translate the remaining command help ([d7c1c0b](https://github.com/ingeniomaps/raioz/commit/d7c1c0bccab1a5320274e37f9e83383b11aa01cc))
+* **cli:** tunnel a service on its declared port ([a771cfd](https://github.com/ingeniomaps/raioz/commit/a771cfd3bc3f0e6f9e5f5b9070d1b9e9b2eebe9b))
+* **cli:** validate graph format and hosts entries ([3aa0971](https://github.com/ingeniomaps/raioz/commit/3aa0971197bc1c4b60ea6e981bb9d05e531e5b24))
+* **compare:** read dependsOn and deps from raioz.yaml ([19348ca](https://github.com/ingeniomaps/raioz/commit/19348ca09cda89a6a0032310b5a07c42b4f9d987))
+* **compare:** read publish and expose on deps ([77c0cd2](https://github.com/ingeniomaps/raioz/commit/77c0cd2e567678d8984c3909512122791122328e))
+* **config:** generate publish/expose, not ports ([a0b7859](https://github.com/ingeniomaps/raioz/commit/a0b7859cccfe0399d14ae35ea01e1b636a5a5140))
+* **config:** label command services as command ([2fe7dbc](https://github.com/ingeniomaps/raioz/commit/2fe7dbcd1c606dbe8a3ac472868d68aef916a9eb))
+* **discovery:** give containers internal dep ports ([08662a5](https://github.com/ingeniomaps/raioz/commit/08662a59699139ab68fbb7db10391a1f4f27a9ff))
+* **discovery:** inject the HTTPS URL the proxy serves ([5eca31d](https://github.com/ingeniomaps/raioz/commit/5eca31dc056998a4962de5b9528aaab357680ff6))
+* **discovery:** read compose deps from their file ([72fc325](https://github.com/ingeniomaps/raioz/commit/72fc3255f1b08259e1e0ace8bcfd97b3c88d7b2a))
+* **docker:** keep compose noise out of teardown ([baee479](https://github.com/ingeniomaps/raioz/commit/baee479a91ff9b79ac46850df8d602f2441c2108))
+* **docker:** list only unused networks in dry-run ([e77d0ef](https://github.com/ingeniomaps/raioz/commit/e77d0effa62904e3cda44eff65840c6d14da933c))
+* **docker:** remove anonymous volumes with containers ([4aea369](https://github.com/ingeniomaps/raioz/commit/4aea36985eb3177a19a77fc96f3a1b55551009d0))
+* **env:** accept absolute env file paths ([f2f5bc3](https://github.com/ingeniomaps/raioz/commit/f2f5bc318b8a346ddeeb079307c54b15d6444f7c))
+* **host:** honor quotes in command and stop ([7c8d09a](https://github.com/ingeniomaps/raioz/commit/7c8d09ac245a856044f1d3829dfaa6cfe7b4923f))
+* **i18n:** keep lang and tunnels in the state dir ([feea42d](https://github.com/ingeniomaps/raioz/commit/feea42d2c2a1f40ad9088a6dd1d6d99ecf4460e3))
+* **i18n:** let RAIOZ_LANG override the saved language ([799687f](https://github.com/ingeniomaps/raioz/commit/799687f974dea09f5917045e4f413820341aed4f))
+* **i18n:** translate a second batch of messages ([1565f3b](https://github.com/ingeniomaps/raioz/commit/1565f3be89657ff317413e1fba4193b6def97084))
+* **i18n:** translate hints, ports table, dashboard ([0a4d209](https://github.com/ingeniomaps/raioz/commit/0a4d209807291e76c772b16b2fc82b8b2d04ebd7))
+* **i18n:** translate messages that skipped catalogs ([5cb77a8](https://github.com/ingeniomaps/raioz/commit/5cb77a850efccd126c8f02e900bee0403dac0da6))
+* **i18n:** translate reports and loader warnings ([1696169](https://github.com/ingeniomaps/raioz/commit/1696169c295294c85f8ee131fd248efbd49c9f70))
+* **ignore:** scope the ignore list to a project ([da8dd14](https://github.com/ingeniomaps/raioz/commit/da8dd14523f64cc2beb51e0ddd1d398e1a3d9e6f))
+* **logging:** keep raw log lines off the terminal ([9054ce0](https://github.com/ingeniomaps/raioz/commit/9054ce0a4a5dca35cb37e89d2fc7e7e80eb42a41))
+* **naming:** address workspace compose deps by live name ([0d44891](https://github.com/ingeniomaps/raioz/commit/0d44891417d1d917ef9c3c916543fb61e7c90df5))
+* **naming:** keep the proxy dir inside the state dir ([f63bc18](https://github.com/ingeniomaps/raioz/commit/f63bc18998f1135a90dfd78392c66aaf97630f10))
+* **orchestrate:** label named deps with their project ([ba99fab](https://github.com/ingeniomaps/raioz/commit/ba99fab5080d9b0a279f7f12e36d8b9c4719d64a))
+* **orchestrate:** load env files for host services ([a1dd59a](https://github.com/ingeniomaps/raioz/commit/a1dd59a8cf7966d07457fadb0218a7c5e8e392c1))
+* **orchestrate:** map host.docker.internal for compose deps ([157eb3b](https://github.com/ingeniomaps/raioz/commit/157eb3b5fe8e12e26b6306c3a7eb47513de6c8b9))
+* **orchestrate:** namespace built images by project ([392acbf](https://github.com/ingeniomaps/raioz/commit/392acbf4b3200c213619e1bc409cc2d9a769473e))
+* **proxy:** answer 404 for a host with no route ([e9b6ffe](https://github.com/ingeniomaps/raioz/commit/e9b6ffee413a4c66a585de51129955625fcecbb3))
+* **proxy:** bind loopback and wait until listening ([792fd28](https://github.com/ingeniomaps/raioz/commit/792fd288c4afc1367ebff4be8766ce667c7b98a7))
+* **proxy:** label the proxy data volume ([5950e8d](https://github.com/ingeniomaps/raioz/commit/5950e8d6890d4c269df4f4cfd2b09865f69ec801))
+* **proxy:** wait for an answer, not a connection ([5563d89](https://github.com/ingeniomaps/raioz/commit/5563d89db083a36c24881694ec324738233e9bc2))
+* **snapshot:** archive the volume a dependency mounts ([59465d1](https://github.com/ingeniomaps/raioz/commit/59465d145f7e6ed21d934bf7ef2335b08ec490d7))
+* **snapshot:** copy volumes with containers stopped ([e9b9747](https://github.com/ingeniomaps/raioz/commit/e9b9747192238df19810124a0567307f1ab74a09))
+* **snapshot:** stop containers during a restore ([1421c92](https://github.com/ingeniomaps/raioz/commit/1421c9247d9612f1a8a5df5b49fb7d8ac65f6d1d))
+* **tui:** show the live state of every dashboard row ([f55a87d](https://github.com/ingeniomaps/raioz/commit/f55a87df1242fe45e5e7261963995e8720af659b))
+* **tunnel:** keep the tunnel alive after the command ([d17af58](https://github.com/ingeniomaps/raioz/commit/d17af583edb1fcfec3aa6d39f94c1786d32e0088))
+* **tunnel:** print the address bore really gives ([ecacf07](https://github.com/ingeniomaps/raioz/commit/ecacf0744ce6f52d7a585219efe68fb76e7cd272))
+* **upcase:** check the proxy ports before starting ([ed2615c](https://github.com/ingeniomaps/raioz/commit/ed2615cb341c380c55977e3bc90065f5ae34da42))
+* **upcase:** clone git services into their path ([9cf4b95](https://github.com/ingeniomaps/raioz/commit/9cf4b951f698e17f583566d48d8d2f8ba64f05fc))
+* **upcase:** do not prompt when stdin is /dev/null ([3bf3de7](https://github.com/ingeniomaps/raioz/commit/3bf3de7be89b7967a3d59855b597b518bb67c0af))
+* **upcase:** drop the network of a failed up ([84c434a](https://github.com/ingeniomaps/raioz/commit/84c434ac8c8de607f19dd63668a4999a1b9b4bd1))
+* **upcase:** keep running host services on re-up ([9d35bd4](https://github.com/ingeniomaps/raioz/commit/9d35bd4af600dc8dd58d272d2c0d1acc8c68e9d4))
+* **upcase:** name the raioz project holding a port ([a2cf91a](https://github.com/ingeniomaps/raioz/commit/a2cf91a69e96dd1836332ebd42db11756e065bb4))
+* **upcase:** never relaunch running host services on up ([98ea6b3](https://github.com/ingeniomaps/raioz/commit/98ea6b3bba780f8534c7d6f143f6f79be92e95d7))
+* **upcase:** publish the port the image listens on ([78db311](https://github.com/ingeniomaps/raioz/commit/78db3118e50d34d5bced72c925abc73470954dc8))
+* **upcase:** reach container services on their port ([881a697](https://github.com/ingeniomaps/raioz/commit/881a697a3db11c57a5b2cb3fb39965939ddf0cf6))
+* **upcase:** run a full down when leaving watch ([e59a66e](https://github.com/ingeniomaps/raioz/commit/e59a66efce73d4252151908cc5626ea047ba04c9))
+* **upcase:** say what leaving --attach actually does ([bc8a867](https://github.com/ingeniomaps/raioz/commit/bc8a867cf7e21a7f7fdddec706d37ba1a13dd264))
+* **upcase:** stop a service before re-cloning it ([03b5ae9](https://github.com/ingeniomaps/raioz/commit/03b5ae9df62378344e6625f876b15a9829ed70f3))
+* **upcase:** stop dependencies on watch Ctrl+C ([3b20577](https://github.com/ingeniomaps/raioz/commit/3b20577e7b45645373a15741fce9634a07d6589f))
+* **upcase:** validate the proxy address up front ([c0b4075](https://github.com/ingeniomaps/raioz/commit/c0b4075f1b0a13b9db20ad861d07c511990faf8e))
+* **upcase:** warn when a git copy is on another branch ([df3642c](https://github.com/ingeniomaps/raioz/commit/df3642c4a2424a9091704b7a84cbd6a9bcb0cd90))
+* **upcase:** warn when a host service cannot reach a dep ([7149e4e](https://github.com/ingeniomaps/raioz/commit/7149e4ea15901974f65e5e2d62ac5716013d4a7c))
+* **workspace:** create state dirs only on write ([c552065](https://github.com/ingeniomaps/raioz/commit/c552065e2b547d9b31619eb0ac0bf88ec2c95628))
+
+
+### Documentation
+
+* **cli:** describe what check actually validates ([5e21333](https://github.com/ingeniomaps/raioz/commit/5e213335dab1007cd38eef056219ed7c3fe7a97d))
+* describe resources on host and compose ([394da38](https://github.com/ingeniomaps/raioz/commit/394da38b54716eac3ff89dbe00132988147f137b))
+* state behaviour in comments, not history ([2b4094e](https://github.com/ingeniomaps/raioz/commit/2b4094eca6cafb8ffcc87c775ec63bd713cfceaf))
+
 ## [0.15.3](https://github.com/ingeniomaps/raioz/compare/v0.15.2...v0.15.3) (2026-09-07)
 
 
