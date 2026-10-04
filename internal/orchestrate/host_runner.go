@@ -291,22 +291,9 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 		return nil
 	}
 
-	// Graceful tree kill. Ignore errors from the KillProcessTree path —
-	// the poll below is the real barrier.
-	_ = host.KillProcessTree(pid)
-
-	// Poll for actual death up to 5s so callers (Restart, down) can
-	// trust the port is free once Stop returns.
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if !host.IsProcessAlive(pid) {
-			return nil
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-
-	// Still alive after 5s → force kill. Best-effort.
-	_ = host.ForceKillProcessTree(pid)
+	// Stop the whole group and wait for it, so callers (Restart, down)
+	// can trust the port is free once Stop returns.
+	_ = host.StopProcessTree(ctx, pid)
 	return nil
 }
 

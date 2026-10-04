@@ -5,6 +5,7 @@ import (
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/env"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
@@ -35,5 +36,8 @@ func hostProcessEnv(svc interfaces.ServiceContext) []string {
 	for k, v := range svc.EnvVars {
 		out = append(out, k+"="+v)
 	}
+	// Last, so nothing overrides it: the marker is how down and restart
+	// recognise a detached process as this service's.
+	out = append(out, host.ServiceMarkerEnv+"="+host.ServiceMarker(svc.ProjectName, svc.Name))
 	return out
 }

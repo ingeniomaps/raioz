@@ -90,6 +90,15 @@ func isProcessAlive(pid int) bool {
 // /proc/<pid>/cwd, which doesn't exist here; replicating it via WMI or
 // NtQueryInformationProcess isn't worth the complexity while raioz's
 // primary host platforms remain Linux/macOS dev machines.
-func killOrphansByCwd(_ string) []int {
+func killOrphansByCwd(_, _ string) []int {
 	return nil
 }
+
+// isProcessGroupAlive answers for the process alone: Windows has no
+// process groups, and taskkill /T walks the tree by parentage.
+func isProcessGroupAlive(pid int) bool {
+	return isProcessAlive(pid)
+}
+
+// forceKillPID is covered by ForceKillProcessTree (taskkill /F /T).
+func forceKillPID(_ int) {}

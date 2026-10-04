@@ -326,10 +326,11 @@ func stopContainersByPrefix(ctx context.Context, prefix string) {
 	}
 }
 
-// killProcessGroup kills pid and its descendants (`go run`'s compiled
-// binary, `sh -c`'s grandchildren, etc). Cross-platform via the host
-// helper; best-effort because the process may already be gone. Exposed
-// as a var so tests can swap it without delivering real signals.
+// killProcessGroup stops pid and its descendants (`go run`'s compiled
+// binary, `sh -c`'s grandchildren, etc) and waits for them to be gone, so
+// the ports they held are free when down returns. Cross-platform via the
+// host helper; best-effort because the process may already be gone.
+// Exposed as a var so tests can swap it without delivering real signals.
 var killProcessGroup = func(pid int) {
-	_ = host.KillProcessTree(pid)
+	_ = host.StopProcessTree(context.Background(), pid)
 }

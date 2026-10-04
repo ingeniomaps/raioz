@@ -76,7 +76,7 @@ func TestDownSelectiveServices_TouchesOnlyRequestedServices(t *testing.T) {
 
 	var sweepPaths []string
 	prevSweep := killOrphansByCwdFn
-	killOrphansByCwdFn = func(p string) []int {
+	killOrphansByCwdFn = func(p, _ string) []int {
 		sweepPaths = append(sweepPaths, p)
 		return nil
 	}
