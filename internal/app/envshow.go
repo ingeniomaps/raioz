@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"raioz/internal/detect"
+	"raioz/internal/app/upcase"
 	"raioz/internal/discovery"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
@@ -42,7 +42,7 @@ type EnvEntry struct {
 
 // Execute computes and returns env vars for the given service.
 func (uc *EnvShowUseCase) Execute(
-	_ context.Context,
+	ctx context.Context,
 	opts EnvShowOptions,
 ) ([]EnvEntry, error) {
 	deps, warnings, err := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)
@@ -52,6 +52,9 @@ func (uc *EnvShowUseCase) Execute(
 	if err != nil {
 		return nil, err
 	}
+	// Container names carry the workspace prefix; without it every host
+	// shown here is one that `up` never creates.
+	naming.SetPrefix(deps.Workspace)
 
 	svc, ok := deps.Services[opts.ServiceName]
 	if !ok {
@@ -75,16 +78,25 @@ func (uc *EnvShowUseCase) Execute(
 	projectDir, _ := filepath.Abs(filepath.Dir(opts.ConfigPath))
 	var entries []EnvEntry
 
-	// 1. Env file variables
-	entries = append(entries, resolveFileVars(
-		uc.deps, deps, opts.ServiceName, svc, projectDir,
-	)...)
-
-	// 2. Discovery variables (YAML/orchestrated mode)
+	// 1. Computed variables (YAML/orchestrated mode)
+	computed := map[string]bool{}
 	if deps.SourceFormat == models.SourceFormatYAML {
-		entries = append(entries, resolveDiscoveryVars(
-			deps, opts.ServiceName, projectDir,
-		)...)
+		dm := uc.deps.DiscoveryManager
+		if dm == nil {
+			dm = discovery.NewManager()
+		}
+		for _, e := range resolveDiscoveryVars(ctx, dm, deps, projectDir, opts.ServiceName) {
+			computed[e.Key] = true
+			entries = append(entries, e)
+		}
+	}
+
+	// 2. Env file variables. A computed var of the same name wins in the
+	// process, so the file's value is not listed.
+	for _, e := range resolveFileVars(uc.deps, deps, opts.ServiceName, svc, projectDir) {
+		if !computed[e.Key] {
+			entries = append(entries, e)
+		}
 	}
 
 	sort.Slice(entries, func(i, j int) bool {
@@ -128,52 +140,17 @@ func resolveFileVars(
 	return entries
 }
 
+// resolveDiscoveryVars returns the vars raioz computes for the service —
+// the same recompute restart and the watcher relaunch with, so what this
+// prints is what the process receives.
 func resolveDiscoveryVars(
+	ctx context.Context,
+	dm interfaces.DiscoveryManager,
 	deps *models.Deps,
-	serviceName string,
 	projectDir string,
+	serviceName string,
 ) []EnvEntry {
-	detections := make(map[string]models.DetectResult)
-	for name, svc := range deps.Services {
-		path := filepath.Join(projectDir, svc.Source.Path)
-		detections[name] = detect.Detect(path)
-	}
-	for name, entry := range deps.Infra {
-		if entry.Inline != nil && entry.Inline.Image != "" {
-			detections[name] = models.DetectResult{
-				Runtime: models.RuntimeImage,
-			}
-		}
-	}
-
-	endpoints := make(map[string]interfaces.ServiceEndpoint)
-	for name, det := range detections {
-		ep := interfaces.ServiceEndpoint{
-			Name:    name,
-			Runtime: det.Runtime,
-			Port:    det.Port,
-		}
-		if det.IsDocker() {
-			ep.Host = naming.Container(deps.Project.Name, name)
-		} else {
-			ep.Host = "localhost"
-		}
-		if s, ok := deps.Services[name]; ok &&
-			s.Docker != nil && len(s.Docker.Ports) > 0 {
-			ep.Port = parseFirstPort(s.Docker.Ports[0])
-		}
-		if e, ok := deps.Infra[name]; ok &&
-			e.Inline != nil && len(e.Inline.Ports) > 0 {
-			ep.Port = parseFirstPort(e.Inline.Ports[0])
-		}
-		endpoints[name] = ep
-	}
-
-	svcDet := detections[serviceName]
-	mgr := discovery.NewManager()
-	vars := mgr.GenerateEnvVars(
-		serviceName, svcDet.Runtime, endpoints, deps.Proxy,
-	)
+	vars := upcase.ComputedServiceEnv(ctx, dm, containerLookup(), deps, projectDir, serviceName)
 
 	entries := make([]EnvEntry, 0, len(vars))
 	for k, v := range vars {

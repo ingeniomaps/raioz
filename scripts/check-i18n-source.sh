@@ -40,9 +40,19 @@ while IFS= read -r line; do
     file="${file#./}"
     current["$file"]=$(( ${current["$file"]:-0} + 1 ))
 done < <(
-    grep -rEn 'output\.Print[A-Z][a-zA-Z]*\("[A-Z]' \
+    # A literal handed straight to Print*, or wrapped in fmt.Sprintf on
+    # the same line.
+    grep -rEn 'output\.Print[A-Z][a-zA-Z]*\((fmt\.Sprintf\()?"[A-Za-z]' \
         internal --include="*.go" 2>/dev/null \
         | grep -v _test.go || true
+    # The same thing split over two lines: `Print*(fmt.Sprintf(` with the
+    # literal opening the next one. This shape slipped past the gate for
+    # ~50 messages.
+    grep -rEn -A1 'output\.Print[A-Z][a-zA-Z]*\(fmt\.Sprintf\($' \
+        internal --include="*.go" 2>/dev/null \
+        | grep -v _test.go \
+        | grep -E '^[^ ]+\.go-[0-9]+-[[:space:]]*"[A-Za-z%]' \
+        | sed -E 's/^([^ ]+\.go)-([0-9]+)-/\1:\2:/' || true
 )
 
 violations=0

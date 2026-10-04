@@ -17,6 +17,7 @@ var downForceStateCleanup bool
 var pruneShared bool
 var downConflicting bool
 var downAllProjects bool
+var downYes bool
 
 var downCmd = &cobra.Command{
 	Use:   "down [service...]",
@@ -43,7 +44,11 @@ var downCmd = &cobra.Command{
 		ctx = logging.WithRequestID(ctx)
 		ctx = logging.WithOperation(ctx, "raioz down")
 
-		configPath = ResolveConfigPath(configPath)
+		resolvedConfig, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		configPath = resolvedConfig
 
 		if handled, metaErr := tryHandleMeta(
 			ctx, configPath, "down", nil, nil, app.MetaUpOptions{},
@@ -71,6 +76,7 @@ var downCmd = &cobra.Command{
 			PruneShared:       pruneShared,
 			Conflicting:       downConflicting,
 			AllProjects:       downAllProjects,
+			Yes:               downYes,
 			Services:          args,
 			ForceStateCleanup: downForceStateCleanup,
 		})
@@ -92,6 +98,8 @@ func init() {
 		"Stop other active raioz projects whose host ports collide with the cwd's raioz.yaml")
 	downCmd.Flags().BoolVar(&downAllProjects, "all-projects", false,
 		"Stop every active raioz project except the cwd's (cross-workspace)")
+	downCmd.Flags().BoolVarP(&downYes, "yes", "y", false,
+		"Approve stopping projects other than this one without being asked (--all, --conflicting, --all-projects)")
 	downCmd.Flags().BoolVar(&downForceStateCleanup, "force-state-cleanup", false,
 		"Clean local state (host PIDs, state files) when Docker is unreachable.")
 }

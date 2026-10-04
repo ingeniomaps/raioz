@@ -22,6 +22,7 @@ var (
 	attach        bool
 	watch         bool
 	exclusive     bool
+	upYes         bool
 	notifyDone    bool
 	routerOff     bool
 	auditSiblings bool
@@ -97,6 +98,7 @@ var upCmd = &cobra.Command{
 			Attach:        attach,
 			Watch:         watch,
 			Exclusive:     exclusive,
+			Yes:           upYes,
 			RouterOff:     routerOff,
 			AuditSiblings: auditSiblings,
 		})
@@ -143,11 +145,14 @@ func init() {
 	upCmd.Flags().BoolVar(&forceReclone, "force-reclone", false, "Force re-clone of all git repositories")
 	upCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be done without making changes")
 	upCmd.Flags().StringSliceVar(&onlyServices, "only", nil, "Start only these services (with their dependencies)")
-	upCmd.Flags().StringVar(&hostBind, "host", "", "Bind address for shared dev server (e.g., 0.0.0.0)")
+	upCmd.Flags().StringVar(&hostBind, "host", "",
+		"Host address a published proxy binds 80/443 on (default 127.0.0.1; 0.0.0.0 shares it on the network)")
 	upCmd.Flags().BoolVar(&attach, "attach", false, "Stay attached and stream logs (blocks until Ctrl+C)")
 	upCmd.Flags().BoolVar(&watch, "watch", false,
 		"File-watch services with watch: true and auto-restart (blocks until Ctrl+C)")
 	upCmd.Flags().BoolVar(&exclusive, "exclusive", false, i18n.T("cmd.up.flag.exclusive"))
+	upCmd.Flags().BoolVarP(&upYes, "yes", "y", false,
+		"Approve what --exclusive would stop without being asked")
 	upCmd.Flags().BoolVar(&notifyDone, "notify", false, i18n.T("cmd.up.flag.notify"))
 	upCmd.Flags().StringSliceVar(&metaProfiles, "meta-profile", nil,
 		"Activate meta sub-projects tagged with these profiles (kind: meta only). Repeatable.")

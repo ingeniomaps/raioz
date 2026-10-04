@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
+	"strings"
 
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -43,6 +46,19 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		return nil
 	}
 
+	// A name the project does not declare has no logs anywhere; asking
+	// Docker for it only returns "No such container".
+	for _, name := range services {
+		_, isService := proj.Deps.Services[name]
+		_, isDep := proj.Deps.Infra[name]
+		if !isService && !isDep {
+			return errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("env.service_not_found", name),
+			).WithSuggestion(i18n.T("logs.available", strings.Join(logTargets(proj), ", ")))
+		}
+	}
+
 	var dockerContainers []string
 	var hostLogFiles []string
 	var composeServices []string
@@ -51,7 +67,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		svc, isService := proj.Deps.Services[name]
 		if !isService {
 			// Dependency — docker logs <container>.
-			dockerContainers = append(dockerContainers, naming.Container(proj.ProjectName, name))
+			dockerContainers = append(dockerContainers, logContainer(ctx, proj, name))
 			continue
 		}
 		// Classify by how the service runs — same runtime check the up-time
@@ -62,7 +78,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 			composeServices = append(composeServices, name)
 		case det.IsDocker():
 			// Dockerfile / image: raioz owns the container name.
-			dockerContainers = append(dockerContainers, naming.Container(proj.ProjectName, name))
+			dockerContainers = append(dockerContainers, logContainer(ctx, proj, name))
 		default:
 			// Host process — the file HostRunner writes.
 			hostLogFiles = append(hostLogFiles, naming.LogFile(proj.ProjectName, name))
@@ -72,17 +88,18 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 	for _, logPath := range hostLogFiles {
 		if err := showHostLogs(ctx, logPath, follow, tail); err != nil {
 			// Log file may not exist yet — not fatal.
-			output.PrintWarning(fmt.Sprintf("No logs found: %s", logPath))
+			output.PrintWarning(i18n.T("logs.none_found", logPath))
 		}
 	}
 
 	for _, name := range composeServices {
 		if err := showComposeServiceLogs(ctx, proj, name, follow, tail); err != nil {
-			output.PrintWarning(fmt.Sprintf("Failed to read logs for %s: %v", name, err))
+			output.PrintWarning(i18n.T("logs.read_failed", name, err))
 		}
 	}
 
-	if len(dockerContainers) > 0 {
+	// `docker logs` takes exactly one container.
+	for _, container := range dockerContainers {
 		args := []string{"logs"}
 		if follow {
 			args = append(args, "-f")
@@ -90,7 +107,7 @@ func LogsYAML(ctx context.Context, proj *YAMLProject, services []string, follow 
 		if tail > 0 {
 			args = append(args, "--tail", fmt.Sprintf("%d", tail))
 		}
-		args = append(args, dockerContainers...)
+		args = append(args, container)
 
 		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
 		cmd.Stdout = os.Stdout
@@ -113,9 +130,10 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 		cmd := exec.CommandContext(ctx, "tail", "-f", logPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		if err := cmd.Run(); err != nil && ctx.Err() == nil {
 			return fmt.Errorf("tail -f %q: %w", logPath, err)
 		}
+		// Interrupted by the user: that is how following ends.
 		return nil
 	}
 
@@ -131,4 +149,27 @@ func showHostLogs(ctx context.Context, logPath string, follow bool, tail int) er
 		return fmt.Errorf("tail %q: %w", logPath, err)
 	}
 	return nil
+}
+
+// logContainer returns the container to read logs from: the one Docker
+// runs for the entry, or the canonical name when there is none, so docker
+// itself reports what is missing.
+func logContainer(ctx context.Context, proj *YAMLProject, name string) string {
+	if live := proj.liveContainerName(ctx, name); live != "" {
+		return live
+	}
+	return naming.Container(proj.ProjectName, name)
+}
+
+// logTargets lists every name `raioz logs` accepts for a project, sorted.
+func logTargets(proj *YAMLProject) []string {
+	names := make([]string, 0, len(proj.Deps.Services)+len(proj.Deps.Infra))
+	for name := range proj.Deps.Services {
+		names = append(names, name)
+	}
+	for name := range proj.Deps.Infra {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

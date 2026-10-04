@@ -38,7 +38,11 @@ func newAuthenticatedCloneCmd(
 	}
 
 	gitArgs := append([]string{}, pr.GitArgs...)
-	gitArgs = append(gitArgs, "clone", "--depth", "1", "-b", src.Branch, pr.URL, target)
+	gitArgs = append(gitArgs, "clone", "--depth", "1")
+	if src.Branch != "" {
+		gitArgs = append(gitArgs, "-b", src.Branch)
+	}
+	gitArgs = append(gitArgs, pr.URL, target)
 
 	cmd := exec.CommandContext(ctx, "git", gitArgs...)
 	cmd.Env = append(os.Environ(), pr.Env...)

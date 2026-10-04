@@ -103,29 +103,23 @@ func TestResolve(t *testing.T) {
 		t.Errorf("Workspace EnvDir = %v, want %v", ws.EnvDir, expectedEnv)
 	}
 
-	// Verify directories exist
-	if _, err := os.Stat(ws.Root); os.IsNotExist(err) {
-		t.Errorf("Workspace root directory does not exist: %v", ws.Root)
+	// Resolve only answers where the state would live: looking a project
+	// up must not leave a directory behind.
+	if _, err := os.Stat(ws.Root); !os.IsNotExist(err) {
+		t.Errorf("Resolve must not create the workspace root, stat err = %v", err)
 	}
 
-	if _, err := os.Stat(ws.ServicesDir); os.IsNotExist(err) {
-		t.Errorf("Services directory does not exist: %v", ws.ServicesDir)
+	// The writers' entry point creates the whole tree.
+	if err := EnsureDirs(ws); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
 	}
-
-	if _, err := os.Stat(ws.EnvDir); os.IsNotExist(err) {
-		t.Errorf("Env directory does not exist: %v", ws.EnvDir)
-	}
-
-	// Verify env subdirectories exist
-	envServices := filepath.Join(ws.EnvDir, "services")
-	envProjects := filepath.Join(ws.EnvDir, "projects")
-
-	if _, err := os.Stat(envServices); os.IsNotExist(err) {
-		t.Errorf("Env services directory does not exist: %v", envServices)
-	}
-
-	if _, err := os.Stat(envProjects); os.IsNotExist(err) {
-		t.Errorf("Env projects directory does not exist: %v", envProjects)
+	for _, dir := range []string{
+		ws.Root, ws.ServicesDir, ws.EnvDir, ws.LocalServicesDir, ws.ReadonlyServicesDir,
+		filepath.Join(ws.EnvDir, "services"), filepath.Join(ws.EnvDir, "projects"),
+	} {
+		if _, err := os.Stat(dir); err != nil {
+			t.Errorf("EnsureDirs did not create %s: %v", dir, err)
+		}
 	}
 }
 

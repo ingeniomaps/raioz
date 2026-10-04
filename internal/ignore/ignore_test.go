@@ -290,3 +290,38 @@ func TestGetIgnoredServices(t *testing.T) {
 		}
 	})
 }
+
+// Ignoring a service in one project says nothing about another project's
+// service of the same name; the pre-existing global list still applies.
+func TestIgnore_PerProject(t *testing.T) {
+	t.Setenv("RAIOZ_HOME", t.TempDir())
+
+	if err := AddService("legacy"); err != nil {
+		t.Fatal(err)
+	}
+	if err := AddFor("alpha", "api"); err != nil {
+		t.Fatal(err)
+	}
+
+	alpha, _ := ForProject("alpha")
+	beta, _ := ForProject("beta")
+	if !contains(alpha, "api") || !contains(alpha, "legacy") {
+		t.Errorf("alpha = %v, want api and the legacy entry", alpha)
+	}
+	if contains(beta, "api") {
+		t.Errorf("beta = %v: alpha's ignore leaked into another project", beta)
+	}
+	if !contains(beta, "legacy") {
+		t.Errorf("beta = %v: the legacy global entry must still apply", beta)
+	}
+
+	if err := RemoveFor("alpha", "api"); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveFor("alpha", "legacy"); err != nil {
+		t.Fatal(err)
+	}
+	if alpha, _ = ForProject("alpha"); len(alpha) != 0 {
+		t.Errorf("alpha after removal = %v, want empty", alpha)
+	}
+}

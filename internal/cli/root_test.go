@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -161,7 +162,7 @@ func TestPersistentPreRunSetsLang(t *testing.T) {
 	defer func() { langFlag = origFlag }()
 
 	langFlag = "es"
-	rootCmd.PersistentPreRun(rootCmd, nil)
+	_ = rootCmd.PersistentPreRunE(rootCmd, nil)
 
 	// Verify via i18n that language changed
 	// (i18n.GetLang is tested in the i18n package)
@@ -185,7 +186,7 @@ func TestPersistentPreRunNoOpWithoutFlags(t *testing.T) {
 	logJSON = false
 
 	// Should not panic or error with empty flags
-	rootCmd.PersistentPreRun(rootCmd, nil)
+	_ = rootCmd.PersistentPreRunE(rootCmd, nil)
 }
 
 func TestPersistentPreRunSetsLogLevel(t *testing.T) {
@@ -195,7 +196,7 @@ func TestPersistentPreRunSetsLogLevel(t *testing.T) {
 	defer func() { logLevel = origLogLevel }()
 
 	logLevel = "debug"
-	rootCmd.PersistentPreRun(rootCmd, nil)
+	_ = rootCmd.PersistentPreRunE(rootCmd, nil)
 	// If it doesn't panic, the log level was applied
 }
 
@@ -206,7 +207,7 @@ func TestPersistentPreRunSetsLogJSON(t *testing.T) {
 	defer func() { logJSON = origLogJSON }()
 
 	logJSON = true
-	rootCmd.PersistentPreRun(rootCmd, nil)
+	_ = rootCmd.PersistentPreRunE(rootCmd, nil)
 	// If it doesn't panic, JSON format was applied
 }
 
@@ -244,5 +245,18 @@ func TestI18nDescriptionsApplied(t *testing.T) {
 			}
 			t.Errorf("command %q not found", tt.name)
 		})
+	}
+}
+
+func TestPersistentPreRunRejectsUnknownLang(t *testing.T) {
+	initI18nForTest(t)
+
+	origLang := langFlag
+	defer func() { langFlag = origLang }()
+
+	langFlag = "fr"
+	err := rootCmd.PersistentPreRunE(rootCmd, nil)
+	if err == nil || !strings.Contains(err.Error(), "fr") {
+		t.Fatalf("an unknown --lang must fail naming it, got %v", err)
 	}
 }

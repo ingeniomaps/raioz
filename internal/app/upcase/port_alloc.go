@@ -80,6 +80,10 @@ type DepPortMapping struct {
 type PortAllocResult struct {
 	Services map[string]PortAllocation
 	Deps     map[string]DepPortAllocation
+	// RunningHost maps a host service to the PID already serving its port:
+	// an earlier up of this project started it and it is still healthy, so
+	// this run adopts it instead of starting a second copy.
+	RunningHost map[string]int
 }
 
 // AllocateHostPorts walks services AND dependencies, classifies them, resolves
@@ -108,6 +112,34 @@ func AllocateHostPorts(
 	deps *models.Deps,
 	detections DetectionMap,
 ) (*PortAllocResult, error) {
+	return AllocateHostPortsOwned(deps, detections, nil)
+}
+
+// hostPortOwner returns the ports a service's already-running process
+// listens on, sorted ascending; nil when it is not running.
+type hostPortOwner func(service string) []int
+
+// AllocateHostPortsOwned is AllocateHostPorts for a project that may
+// already be up. A service that holds a port keeps it: without `owned` the
+// implicit pass would find that port busy, bump to the next free one and
+// have the caller start a second copy of the service there.
+func AllocateHostPortsOwned(
+	deps *models.Deps,
+	detections DetectionMap,
+	owned hostPortOwner,
+) (*PortAllocResult, error) {
+	return allocateHostPorts(deps, detections, owned, portInUseProbe)
+}
+
+// allocateHostPorts is the allocator proper. probe answers whether a host
+// port is bound; passing one that always says no yields the ports the
+// project asks for, whatever the host looks like right now.
+func allocateHostPorts(
+	deps *models.Deps,
+	detections DetectionMap,
+	owned hostPortOwner,
+	probe portProbe,
+) (*PortAllocResult, error) {
 	result := &PortAllocResult{
 		Services: map[string]PortAllocation{},
 		Deps:     map[string]DepPortAllocation{},
@@ -126,13 +158,13 @@ func AllocateHostPorts(
 	if err := allocExplicitDeps(deps, depNames, taken, result); err != nil {
 		return nil, err
 	}
-	if err := allocImplicitServices(deps, detections, svcNames, taken, result); err != nil {
+	if err := allocImplicitServices(deps, detections, svcNames, taken, result, owned, probe); err != nil {
 		return nil, err
 	}
-	if err := allocAutoDeps(deps, depNames, taken, result); err != nil {
+	if err := allocAutoDeps(deps, depNames, taken, result, probe); err != nil {
 		return nil, err
 	}
-	if err := allocLegacyPortsDeps(deps, depNames, taken, result); err != nil {
+	if err := allocLegacyPortsDeps(deps, depNames, taken, result, probe); err != nil {
 		return nil, err
 	}
 	// NOTE: host-port bind conflicts are checked by the caller via
@@ -220,6 +252,8 @@ func allocImplicitServices(
 	svcNames []string,
 	taken map[int]string,
 	result *PortAllocResult,
+	owned hostPortOwner,
+	probe portProbe,
 ) error {
 	for _, name := range svcNames {
 		if _, done := result.Services[name]; done {
@@ -235,9 +269,12 @@ func allocImplicitServices(
 			continue
 		}
 		owner := fmt.Sprintf("service '%s'", name)
-		final, err := findFreePort(wanted, taken, owner)
-		if err != nil {
-			return err
+		final := heldPort(owned, name, wanted, taken)
+		if final == 0 {
+			var err error
+			if final, err = findFreePort(wanted, taken, owner, probe); err != nil {
+				return err
+			}
 		}
 		taken[final] = owner
 		result.Services[name] = PortAllocation{
@@ -260,6 +297,7 @@ func allocAutoDeps(
 	depNames []string,
 	taken map[int]string,
 	result *PortAllocResult,
+	probe portProbe,
 ) error {
 	for _, name := range depNames {
 		entry := deps.Infra[name]
@@ -273,7 +311,7 @@ func allocAutoDeps(
 		if !entry.Inline.Publish.Auto {
 			continue
 		}
-		mappings, err := assignAutoDepPorts(name, entry.Inline, taken)
+		mappings, err := assignAutoDepPorts(name, entry.Inline, taken, probe)
 		if err != nil {
 			return err
 		}
@@ -327,6 +365,7 @@ func assignAutoDepPorts(
 	name string,
 	infra *models.Infra,
 	taken map[int]string,
+	probe portProbe,
 ) ([]DepPortMapping, error) {
 	if len(infra.Expose) == 0 {
 		logging.Warn(
@@ -340,7 +379,7 @@ func assignAutoDepPorts(
 	mappings := make([]DepPortMapping, 0, len(infra.Expose))
 
 	for _, containerPort := range infra.Expose {
-		hostPort, err := findFreePort(containerPort, taken, owner)
+		hostPort, err := findFreePort(containerPort, taken, owner, probe)
 		if err != nil {
 			return nil, err
 		}

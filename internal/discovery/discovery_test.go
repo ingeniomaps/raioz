@@ -258,3 +258,53 @@ func TestGenerateEnvVars_EmptySchemeDefaultsToHTTP(t *testing.T) {
 		t.Errorf("WEB_URL = %q, want http://localhost:8080", vars["WEB_URL"])
 	}
 }
+
+func TestGenerateEnvVars_ProxyURL(t *testing.T) {
+	m := NewManager()
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"web":   {Name: "web", Runtime: models.RuntimeNPM, Host: "localhost", Port: 3000},
+		"hw":    {Name: "hw", Runtime: models.RuntimeNPM, Host: "localhost", ProxyURL: "https://hello.acme.dev"},
+		"redis": {Name: "redis", Runtime: models.RuntimeImage, Host: "redis", Unrouted: true},
+		"plain": {Name: "plain", Runtime: models.RuntimeNPM, Host: "localhost"},
+	}
+
+	vars := m.GenerateEnvVars("web", models.RuntimeNPM, endpoints, true)
+
+	if got := vars["HW_HTTPS_URL"]; got != "https://hello.acme.dev" {
+		t.Errorf("HW_HTTPS_URL = %q, want the proxy URL", got)
+	}
+	if got, ok := vars["REDIS_HTTPS_URL"]; ok {
+		t.Errorf("REDIS_HTTPS_URL = %q, want none for an unrouted endpoint", got)
+	}
+	if got := vars["PLAIN_HTTPS_URL"]; got != "https://plain.localhost" {
+		t.Errorf("PLAIN_HTTPS_URL = %q, want the localhost fallback", got)
+	}
+}
+
+// A dependency with no host binding has a port only inside the Docker
+// network: a container caller gets PORT/URL, a host caller only HOST.
+func TestGenerateEnvVars_ContainerOnlyPort(t *testing.T) {
+	endpoints := map[string]interfaces.ServiceEndpoint{
+		"redis": {
+			Name: "redis", Runtime: models.RuntimeImage, Host: "acme-redis",
+			Port: 6379, ContainerOnly: true, Scheme: "redis",
+		},
+	}
+	m := NewManager()
+
+	inContainer := m.GenerateEnvVars("api", models.RuntimeDockerfile, endpoints, false)
+	if inContainer["REDIS_PORT"] != "6379" || inContainer["REDIS_URL"] != "redis://acme-redis:6379" {
+		t.Errorf("container caller: got PORT=%q URL=%q", inContainer["REDIS_PORT"], inContainer["REDIS_URL"])
+	}
+
+	onHost := m.GenerateEnvVars("web", models.RuntimeNPM, endpoints, false)
+	if _, ok := onHost["REDIS_PORT"]; ok {
+		t.Errorf("host caller must not get a port it cannot reach, got %q", onHost["REDIS_PORT"])
+	}
+	if _, ok := onHost["REDIS_URL"]; ok {
+		t.Errorf("host caller must not get a URL it cannot reach, got %q", onHost["REDIS_URL"])
+	}
+	if onHost["REDIS_HOST"] == "" {
+		t.Error("host caller still gets REDIS_HOST")
+	}
+}

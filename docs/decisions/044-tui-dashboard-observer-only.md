@@ -1,7 +1,7 @@
 # ADR-044: TUI dashboard reads state; its three actions are the ceiling
 
-- **Status:** Amended 2026-09-06 — the original was written on a false premise
-- **Date:** 2026-05-16 (amended 2026-09-06)
+- **Status:** Amended 2026-09-06 (false premise) and 2026-10-03 (host services)
+- **Date:** 2026-05-16 (amended 2026-09-06, 2026-10-03)
 
 > **What was wrong.** The original text asserted that the dashboard does
 > not mutate state and does not spawn processes, and decided it must stay
@@ -92,6 +92,43 @@ addresses:
 
 Widening the action set without a dedicated ADR is a CR red flag.
 Not the three that exist; the fourth.
+
+## Amendment 2026-10-03 — restart and stop reach host services
+
+`r` and `s` did nothing on a host service: there is no container to hand
+to `docker restart`, and relaunching a host process rewrites its PID in
+`.raioz.state.json`, which rule 2 forbids. The dashboard listed the
+service, showed its logs and told the user to go type the command.
+
+No fourth action is added — the same two keys now cover every row — but
+doing it for a host service needs the design work this ADR asked for.
+The answers:
+
+- **Lock acquisition.** The dashboard does not take the lock and does
+  not learn how to. It runs `raioz restart <service>` or
+  `raioz down <service>` as a child process
+  (`internal/app/dashboard_actions.go::HostServiceAction`, injected as
+  `tui.Config.HostAction`). Those commands already take the workspace
+  lock, relaunch through the one host runner and persist the PID.
+- **Coordination with other raioz processes.** Whatever the CLI command
+  has: the lock. No IPC channel, no new protocol.
+- **Lock not available.** The child fails, and its last output line is
+  shown in the status bar (`the lock already exists … pid=N`). No retry,
+  no queue: the user presses the key again.
+- **State writes.** Still none from TUI code. The child writes; the
+  dashboard picks the new PID up on its next poll, like any change made
+  from another terminal.
+
+So rules 2 and 4 hold as written. Rule 3 gets one exception: the
+dashboard may spawn `raioz restart <service>` / `raioz down <service>`
+for the selected host service, and nothing else. The child's output is
+captured, never written to the dashboard's terminal, and the action is
+bounded at two minutes.
+
+Container rows are unchanged: `docker restart` / `docker stop`,
+unlocked, as rule 5 describes. Routing them through the CLI too would
+close that race, at the cost of a slower keypress; it is the natural
+next step and does not need another ADR.
 
 ## Consequences
 

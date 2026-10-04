@@ -6,13 +6,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"sort"
 
 	"raioz/internal/detect"
 	"raioz/internal/docker"
 	"raioz/internal/domain/models"
+	"raioz/internal/host"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/orchestrate"
@@ -98,6 +98,19 @@ func showComposeServiceLogs(
 	return nil
 }
 
+// withCleanScope limits clean's prunes to resources carrying the given
+// labels. Here for the same ADR-029 reason as the helpers below.
+var withCleanScope = docker.WithCleanScope
+
+// depVolume resolves a dependency's `volumes:` entry to its Docker volume.
+// Here for the same ADR-029 reason as serviceContainerIP below.
+var depVolume = docker.DepVolume
+
+// serviceContainerIP resolves the address of a service's container. It
+// lives here so the app-layer docker import stays on this ADR-029 baseline
+// file, and is a package var so tests can answer without a docker daemon.
+var serviceContainerIP = docker.ServiceContainerIP
+
 // stopComposeServices tears down compose-based yaml services by invoking
 // `docker compose -f <files> down` under the same COMPOSE_PROJECT_NAME scope
 // used at `up` time. Required because the default prefix-based cleanup only
@@ -118,7 +131,7 @@ func stopComposeServices(ctx context.Context, deps *models.Deps) {
 		if err := docker.DownWithContext(scopedCtx, inv.spec); err != nil {
 			logging.WarnWithContext(ctx, "Compose service down failed",
 				"service", name, "error", err.Error())
-			output.PrintWarning(fmt.Sprintf("Failed to stop compose service %s: %v", name, err))
+			output.PrintWarning(i18n.T("down.compose_stop_failed", name, err))
 		}
 	}
 }
@@ -138,23 +151,40 @@ func runCustomStopCommands(ctx context.Context, deps *models.Deps, projectDir st
 			"service", name, "command", stopCmd)
 		output.PrintInfo(i18n.T("output.stopping_via", name, stopCmd))
 
-		parts := strings.Fields(stopCmd)
+		parts := host.SplitCommand(stopCmd)
 		if len(parts) == 0 {
 			continue
 		}
 		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-		cmd.Dir = projectDir
+		cmd.Dir = stopCommandDir(svc, projectDir)
 		cmd.Env = buildStopCmdEnv(svc)
 
 		if out, err := cmd.CombinedOutput(); err != nil {
 			logging.WarnWithContext(ctx, "Custom stop command failed",
 				"service", name, "error", err.Error(), "output", string(out))
-			output.PrintWarning(fmt.Sprintf("Stop command for %s failed: %v", name, err))
+			output.PrintWarning(i18n.T("down.stop_command_failed", name, err))
 			failed = append(failed, name)
 		}
 	}
 	sort.Strings(failed)
 	return failed
+}
+
+// stopCommandDir is where a service's `stop:` runs: the service's own
+// path, the directory `command:` ran in. Running it at the project root
+// broke `stop: make stop` for every service that does not live there.
+func stopCommandDir(svc models.Service, projectDir string) string {
+	path := svc.Source.Path
+	if path == "" || path == "." {
+		return projectDir
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(projectDir, path)
+	}
+	if info, err := os.Stat(path); err != nil || !info.IsDir() {
+		return projectDir
+	}
+	return path
 }
 
 // Seeds the env from os.Environ() so the child sees PATH/DOCKER_HOST/
@@ -173,3 +203,8 @@ func buildStopCmdEnv(svc models.Service) []string {
 	}
 	return env
 }
+
+// composeDownByName tears a dependency's compose project down by its name,
+// anonymous volumes included. Declared here (this file already imports
+// internal/docker) and as a package var so tests can run without a daemon.
+var composeDownByName = docker.ComposeDownProject

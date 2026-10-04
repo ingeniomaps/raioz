@@ -11,6 +11,13 @@ import (
 // inferServicePort tries to determine the port a host service listens on.
 // It checks: config ports, .env PORT variable, then runtime defaults.
 func inferServicePort(svc models.Service, detection models.DetectResult) int {
+	// 0. The port declared in raioz.yaml. Host services never get here
+	// with one (the explicit pass allocates them first); a compose or
+	// Dockerfile service does, and it is the port its container listens on.
+	if svc.Port > 0 {
+		return svc.Port
+	}
+
 	// 1. Config ports (e.g., ports: ["3000"])
 	if svc.Docker != nil && len(svc.Docker.Ports) > 0 {
 		if p := parseFirstPort(svc.Docker.Ports[0]); p > 0 {

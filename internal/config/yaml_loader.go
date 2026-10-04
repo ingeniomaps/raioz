@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"raioz/internal/i18n"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -68,6 +70,11 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 	}
 
 	if len(cfg.Services) == 0 && len(cfg.Deps) == 0 {
+		if cfg.Kind == "meta" {
+			// Not an invalid file: a meta config, asked to do what only a
+			// project can.
+			return fmt.Errorf("%s", i18n.T("error.meta_not_a_project", path))
+		}
 		return fmt.Errorf("at least one service or dependency is required in %s", path)
 	}
 
@@ -78,15 +85,30 @@ func validateYAMLConfig(cfg *RaiozConfig, path string) error {
 		// reject unknown `runtime:` values at load time so
 		// the user sees the problem before runtime when the service
 		// would silently classify as Unknown.
+		if err := svc.Resources.Validate(); err != nil {
+			return fmt.Errorf("services.%s.resources in %s: %w", name, path, err)
+		}
 		shim := Service{Source: SourceConfig{Runtime: svc.Runtime}}
 		if err := ValidateServiceRuntime(shim); err != nil {
 			return fmt.Errorf("service '%s' in %s: %w", name, path, err)
 		}
 	}
 
+	if err := cfg.Resources.Validate(); err != nil {
+		return fmt.Errorf("resources in %s: %w", path, err)
+	}
+	if cfg.Proxy != nil {
+		if err := cfg.Proxy.Resources.Validate(); err != nil {
+			return fmt.Errorf("proxy.resources in %s: %w", path, err)
+		}
+	}
+
 	for name, dep := range cfg.Deps {
 		if err := validateSiblingDependency(name, dep, path); err != nil {
 			return err
+		}
+		if err := dep.Resources.Validate(); err != nil {
+			return fmt.Errorf("dependencies.%s.resources in %s: %w", name, path, err)
 		}
 		// `project:` makes the sibling the runtime; `image:`/`compose:`
 		// would be ignored, so the validator above already rejects them.
@@ -251,9 +273,7 @@ func unknownFieldWarnings(path string, data []byte) []string {
 	base := filepath.Base(path)
 	warnings := make([]string, 0, len(typeErr.Errors))
 	for _, msg := range typeErr.Errors {
-		warnings = append(warnings, fmt.Sprintf(
-			"%s: %s — field ignored. Check for typos or fields from a newer raioz version.",
-			base, msg))
+		warnings = append(warnings, i18n.T("warning.unknown_field", base, msg))
 	}
 	return warnings
 }
@@ -267,4 +287,15 @@ func readYAMLBytes(path string) ([]byte, error) {
 		return nil, fmt.Errorf("cannot read config file %s: %w", path, err)
 	}
 	return data, nil
+}
+
+// UnknownFields returns one message per field in the file that raioz.yaml
+// does not define — a typo, or a field from a newer raioz. Nil when the
+// file cannot be read or has none.
+func UnknownFields(path string) []string {
+	data, err := readYAMLBytes(path)
+	if err != nil {
+		return nil
+	}
+	return unknownFieldWarnings(path, data)
 }

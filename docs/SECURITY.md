@@ -154,6 +154,12 @@ ignored. Shell constructions with embedded paths
 (`bash ./scripts/foo.sh`) are intentionally not validated; that's
 the user's responsibility.
 
+`dependencies.<n>.volumes` is the one path field H2 does not
+reject: a bind mount is supposed to reach outside the project. A
+host source inside the same system-dir list gets a **warning**
+instead (`internal/config/volume_safety.go`), so mounting `/etc`
+into a registry image is never silent.
+
 **H3 — Image tag pinning (warning).**
 `internal/config/image_pinning.go` emits a warning when
 `dependencies.<n>.image` has no explicit tag or uses `:latest`.

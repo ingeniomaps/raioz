@@ -2,11 +2,11 @@ package orchestrate
 
 import (
 	"context"
-	"fmt"
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/output"
 )
@@ -23,23 +23,16 @@ func waitForLauncherContainer(ctx context.Context, svc interfaces.ServiceContext
 		return
 	}
 
-	output.PrintInfo(fmt.Sprintf(
-		"Waiting for launcher container '%s' to appear (up to %v)...",
-		svc.ProxyTarget, timeout,
-	))
+	output.PrintInfo(i18n.T("launcher.waiting", svc.ProxyTarget, timeout))
 	if err := docker.WaitForContainer(ctx, svc.ProxyTarget, timeout); err != nil {
-		output.PrintWarning(fmt.Sprintf(
-			"Service '%s': launcher exited but container '%s' did not "+
-				"appear within %v — continuing. Re-run `raioz status` "+
-				"shortly, or check `docker ps -a | grep %s`.",
+		output.PrintWarning(i18n.T("launcher.not_appeared",
 			svc.Name, svc.ProxyTarget, timeout, svc.ProxyTarget))
 		logging.WarnWithContext(ctx, "Launcher container did not appear",
 			"service", svc.Name, "target", svc.ProxyTarget,
 			"timeout", timeout.String(), "error", err.Error())
 		return
 	}
-	output.PrintSuccess(fmt.Sprintf(
-		"Launcher container '%s' ready", svc.ProxyTarget))
+	output.PrintSuccess(i18n.T("launcher.ready", svc.ProxyTarget))
 }
 
 // Waits for an in-progress launcher build to produce the container
@@ -59,15 +52,9 @@ func drainLauncherBeforeStop(ctx context.Context, svc interfaces.ServiceContext)
 		return
 	}
 
-	output.PrintInfo(fmt.Sprintf(
-		"Waiting up to %v for launcher build of '%s' to finish "+
-			"before running stop: ...", timeout, svc.ProxyTarget,
-	))
+	output.PrintInfo(i18n.T("launcher.drain_waiting", timeout, svc.ProxyTarget))
 	if err := docker.WaitForContainer(ctx, svc.ProxyTarget, timeout); err != nil {
-		output.PrintWarning(fmt.Sprintf(
-			"Service '%s': launcher build did not produce container '%s' "+
-				"within %v — running stop: anyway. Check `docker ps -a` "+
-				"if an orphan appears.",
+		output.PrintWarning(i18n.T("launcher.drain_timeout",
 			svc.Name, svc.ProxyTarget, timeout))
 		logging.WarnWithContext(ctx, "Launcher drain timed out before stop",
 			"service", svc.Name, "target", svc.ProxyTarget,

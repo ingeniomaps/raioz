@@ -31,6 +31,13 @@ type ServiceRow struct {
 	Memory  string
 	URL     string
 	Uptime  string
+	// Host marks a service raioz runs as a host process: there is no
+	// container, its status comes from the recorded PID and its logs from
+	// the file the host runner writes.
+	Host bool
+	// Container is the live container behind the row, as resolved on the
+	// last poll. Empty for host services and for anything not running.
+	Container string
 }
 
 // Config holds everything the TUI needs to start.
@@ -46,6 +53,13 @@ type Config struct {
 	Services  []ServiceRow
 	Proxy     interfaces.ProxyManager
 	Ctx       context.Context
+	// ProjectDir is where the project's local state lives; host service
+	// PIDs are read from it.
+	ProjectDir string
+	// HostAction restarts ("restart") or stops ("stop") a host service.
+	// It runs outside the dashboard, under the workspace lock (ADR-044);
+	// nil leaves host services read-only.
+	HostAction func(ctx context.Context, action, service string) error
 }
 
 // Model is the Bubble Tea model for the dashboard.
@@ -78,7 +92,11 @@ func New(cfg Config) Model {
 
 // Init starts background subscriptions.
 func (m Model) Init() tea.Cmd {
+	// Poll once right away: waiting for the first tick left every row on
+	// "unknown" for a full interval.
 	return tea.Batch(
+		m.pollStats(),
+		m.pollLogs(),
 		tickCmd(),
 		m.checkProxyCmd(),
 	)
@@ -125,9 +143,28 @@ func (m *Model) updateStats(stats map[string]ServiceStats) {
 			if s.Status != "" {
 				m.services[i].Status = s.Status
 			}
+			m.services[i].Container = s.Container
 			if s.Uptime != "" {
 				m.services[i].Uptime = s.Uptime
 			}
 		}
 	}
+}
+
+// selectedRow returns the selected service row, false when there is none.
+func (m Model) selectedRow() (ServiceRow, bool) {
+	if m.selected < 0 || m.selected >= len(m.services) {
+		return ServiceRow{}, false
+	}
+	return m.services[m.selected], true
+}
+
+// row returns the row of the named service.
+func (m Model) row(name string) (ServiceRow, bool) {
+	for _, svc := range m.services {
+		if svc.Name == name {
+			return svc, true
+		}
+	}
+	return ServiceRow{}, false
 }

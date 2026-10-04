@@ -385,6 +385,7 @@ type mockProxyManager struct {
 	removedRoutesFor          []string
 }
 
+func (m *mockProxyManager) BusyHostPorts(context.Context) []int                 { return nil }
 func (m *mockProxyManager) Start(ctx context.Context, networkName string) error { return nil }
 func (m *mockProxyManager) Stop(ctx context.Context) error {
 	if m.stopFunc != nil {

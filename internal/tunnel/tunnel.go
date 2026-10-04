@@ -2,7 +2,6 @@
 package tunnel
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,7 +11,10 @@ import (
 	"regexp"
 	"time"
 
+	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/naming"
 )
 
 // Info represents an active tunnel.
@@ -28,14 +30,18 @@ type Info struct {
 // Manager handles tunnel lifecycle.
 type Manager struct {
 	registryPath string
+	// legacyPath is where raioz kept the registry before ADR-022; read
+	// when registryPath does not exist yet, never written.
+	legacyPath string
 }
 
 // NewManager creates a tunnel Manager.
 func NewManager() *Manager {
-	home, _ := os.UserHomeDir()
-	return &Manager{
-		registryPath: filepath.Join(home, ".raioz", "tunnels.json"),
+	m := &Manager{registryPath: filepath.Join(naming.RaiozStateDir(), "tunnels.json")}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		m.legacyPath = filepath.Join(home, ".raioz", "tunnels.json")
 	}
+	return m
 }
 
 // Start creates a tunnel for a local port using the best available backend.
@@ -68,29 +74,24 @@ func (m *Manager) Stop(serviceName string) error {
 	tunnels := m.loadAll()
 	for i, t := range tunnels {
 		if t.ServiceName == serviceName {
-			if t.PID > 0 {
-				if proc, err := os.FindProcess(t.PID); err == nil {
-					_ = proc.Kill()
-				}
-			}
+			stopTunnelProcess(t.PID)
 			tunnels = append(tunnels[:i], tunnels[i+1:]...)
 			m.saveAll(tunnels)
 			return nil
 		}
 	}
-	return fmt.Errorf("no active tunnel for '%s'", serviceName)
+	return fmt.Errorf("%s", i18n.T("error.tunnel_not_active", serviceName))
 }
 
 // StopAll kills all tunnels.
 func (m *Manager) StopAll() {
 	for _, t := range m.loadAll() {
-		if t.PID > 0 {
-			if proc, err := os.FindProcess(t.PID); err == nil {
-				_ = proc.Kill()
-			}
-		}
+		stopTunnelProcess(t.PID)
 	}
 	_ = os.Remove(m.registryPath)
+	if m.legacyPath != "" {
+		_ = os.Remove(m.legacyPath)
+	}
 }
 
 // List returns all active tunnels, cleaning up dead ones.
@@ -98,13 +99,11 @@ func (m *Manager) List() []Info {
 	tunnels := m.loadAll()
 	var alive []Info
 	for _, t := range tunnels {
-		if t.PID > 0 {
-			if proc, err := os.FindProcess(t.PID); err == nil {
-				if proc.Signal(nil) == nil {
-					alive = append(alive, t)
-					continue
-				}
-			}
+		// host.IsProcessAlive, not proc.Signal(nil): a nil signal is an
+		// "unsupported signal type" error on every platform, which read
+		// every tunnel as dead and emptied the registry on each list.
+		if t.PID > 0 && host.IsProcessAlive(t.PID) {
+			alive = append(alive, t)
 		}
 	}
 	if len(alive) != len(tunnels) {
@@ -115,63 +114,107 @@ func (m *Manager) List() []Info {
 
 var cloudflaredURLRegex = regexp.MustCompile(`https://[a-z0-9-]+\.trycloudflare\.com`)
 
-func (m *Manager) startCloudflared(ctx context.Context, serviceName string, port int) (*Info, error) {
-	cmd := exec.CommandContext(ctx, "cloudflared", "tunnel", "--url",
-		fmt.Sprintf("http://localhost:%d", port))
+// tunnelURLTimeout bounds the wait for cloudflared to announce its URL.
+const tunnelURLTimeout = 30 * time.Second
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("cloudflared stderr pipe: %w", err)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start cloudflared: %w", err)
-	}
-
-	// Parse URL from stderr (cloudflared prints it there)
-	urlCh := make(chan string, 1)
-	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if match := cloudflaredURLRegex.FindString(line); match != "" {
-				urlCh <- match
-				return
-			}
-		}
-	}()
-
-	select {
-	case url := <-urlCh:
-		return &Info{
-			ServiceName: serviceName,
-			LocalPort:   port,
-			PublicURL:   url,
-			Backend:     "cloudflared",
-			PID:         cmd.Process.Pid,
-			StartedAt:   time.Now(),
-		}, nil
-	case <-time.After(15 * time.Second):
-		_ = cmd.Process.Kill()
-		return nil, fmt.Errorf("cloudflared did not return a URL within 15 seconds")
-	}
+func (m *Manager) startCloudflared(_ context.Context, serviceName string, port int) (*Info, error) {
+	return startAndAwaitURL(serviceName, port, "cloudflared", cloudflaredURLRegex, func(match []string) string {
+		return match[0]
+	}, "tunnel", "--url", fmt.Sprintf("http://localhost:%d", port))
 }
 
+// boreAddressRegex matches the line bore prints once the server assigned
+// its remote port: `listening at bore.pub:9824`.
+var boreAddressRegex = regexp.MustCompile(`listening at (\S+:\d+)`)
+
 func (m *Manager) startBore(_ context.Context, serviceName string, port int) (*Info, error) {
-	cmd := exec.Command("bore", "local", fmt.Sprintf("%d", port), "--to", "bore.pub")
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start bore: %w", err)
+	return startAndAwaitURL(serviceName, port, "bore", boreAddressRegex, func(match []string) string {
+		return "http://" + match[1]
+	}, "local", fmt.Sprintf("%d", port), "--to", "bore.pub")
+}
+
+// startAndAwaitURL starts a backend detached and waits for the public
+// address it announces in its log. The address is read from the file the
+// process writes to rather than from a pipe that dies with raioz.
+func startAndAwaitURL(
+	serviceName string, port int, backend string,
+	pattern *regexp.Regexp, toURL func(match []string) string, args ...string,
+) (*Info, error) {
+	cmd, logPath, err := startDetached(serviceName, backend, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start %s: %w", backend, err)
 	}
 
-	// Bore doesn't give us the URL easily, construct it
-	return &Info{
-		ServiceName: serviceName,
-		LocalPort:   port,
-		PublicURL:   fmt.Sprintf("bore.pub (port forwarded from %d)", port),
-		Backend:     "bore",
-		PID:         cmd.Process.Pid,
-		StartedAt:   time.Now(),
-	}, nil
+	deadline := time.Now().Add(tunnelURLTimeout)
+	for time.Now().Before(deadline) {
+		if data, readErr := os.ReadFile(logPath); readErr == nil {
+			if match := pattern.FindStringSubmatch(string(data)); match != nil {
+				return &Info{
+					ServiceName: serviceName,
+					LocalPort:   port,
+					PublicURL:   toURL(match),
+					Backend:     backend,
+					PID:         cmd.Process.Pid,
+					StartedAt:   time.Now(),
+				}, nil
+			}
+		}
+		if !host.IsProcessAlive(cmd.Process.Pid) {
+			return nil, fmt.Errorf("%s exited before returning an address; see %s", backend, logPath)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	stopTunnelProcess(cmd.Process.Pid)
+	return nil, fmt.Errorf("%s did not return an address within %s; see %s", backend, tunnelURLTimeout, logPath)
+}
+
+// tunnelLogPath is where a tunnel's backend writes its output.
+func tunnelLogPath(serviceName string) string {
+	return filepath.Join(naming.RaiozStateDir(), "logs", "tunnels", serviceName+".log")
+}
+
+// startDetached starts a tunnel backend that outlives the raioz command
+// that launched it. `raioz tunnel` returns as soon as it has the URL, so the
+// backend cannot hang off the command's context (cancelled on exit) nor
+// write to a pipe raioz holds (closed on exit — the next log line kills
+// it): it gets its own process group and a log file.
+func startDetached(serviceName, name string, args ...string) (*exec.Cmd, string, error) {
+	logPath := tunnelLogPath(serviceName)
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return nil, "", fmt.Errorf("create tunnel log dir: %w", err)
+	}
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("create tunnel log: %w", err)
+	}
+	defer logFile.Close()
+
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+	host.SetNewProcessGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		return nil, "", fmt.Errorf("start %s: %w", name, err)
+	}
+	// Reap it if it dies while raioz is still here; once raioz exits it is
+	// init's child.
+	go func() { _ = cmd.Wait() }()
+	return cmd, logPath, nil
+}
+
+// stopTunnelProcess ends a tunnel backend: a graceful signal to its group,
+// then a forced one if it is still there a few seconds later.
+func stopTunnelProcess(pid int) {
+	if pid <= 0 || !host.IsProcessAlive(pid) {
+		return
+	}
+	_ = host.KillProcessTree(pid)
+	for i := 0; i < 30 && host.IsProcessAlive(pid); i++ {
+		time.Sleep(100 * time.Millisecond)
+	}
+	if host.IsProcessAlive(pid) {
+		_ = host.ForceKillProcessTree(pid)
+	}
 }
 
 func detectBackend() (string, error) {
@@ -181,9 +224,7 @@ func detectBackend() (string, error) {
 	if _, err := exec.LookPath("bore"); err == nil {
 		return "bore", nil
 	}
-	return "", fmt.Errorf("no tunnel backend found. Install cloudflared or bore:\n" +
-		"  brew install cloudflare/cloudflare/cloudflared\n" +
-		"  cargo install bore-cli")
+	return "", fmt.Errorf("%s", i18n.T("error.tunnel_no_backend"))
 }
 
 func (m *Manager) save(info *Info) {
@@ -205,6 +246,10 @@ func (m *Manager) save(info *Info) {
 
 func (m *Manager) loadAll() []Info {
 	data, err := os.ReadFile(m.registryPath)
+	if err != nil && m.legacyPath != "" {
+		// Tunnels an older raioz started are still running; find them.
+		data, err = os.ReadFile(m.legacyPath)
+	}
 	if err != nil {
 		return nil
 	}

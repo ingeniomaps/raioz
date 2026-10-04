@@ -3,8 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"sort"
 
 	"raioz/internal/app"
+	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/tui"
 
@@ -47,10 +50,11 @@ func runDashboardYAML(
 	var services []tui.ServiceRow
 
 	for name, svc := range proj.Deps.Services {
-		rt := "unknown"
-		if svc.Source.Path != "" {
-			result := detect.Detect(svc.Source.Path)
-			rt = string(result.Runtime)
+		// Same detection as up and status, yaml overrides included.
+		result := config.ResolveServiceDetection(svc, svc.Source.Path)
+		rt := string(result.Runtime)
+		if rt == "" {
+			rt = "unknown"
 		}
 		url := ""
 		if deps.ProxyManager != nil {
@@ -61,6 +65,7 @@ func runDashboardYAML(
 			Runtime: rt,
 			Status:  "unknown",
 			URL:     url,
+			Host:    result.IsHost(),
 		})
 	}
 	for name, entry := range proj.Deps.Infra {
@@ -78,12 +83,20 @@ func runDashboardYAML(
 		})
 	}
 
+	// Rows in a stable order: dependencies and services each by name.
+	sort.SliceStable(services, func(i, j int) bool { return services[i].Name < services[j].Name })
+
+	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
 	cfg := tui.Config{
-		Project:   proj.ProjectName,
-		Workspace: proj.Deps.Workspace,
-		Services:  services,
-		Proxy:     deps.ProxyManager,
-		Ctx:       ctx,
+		Project:    proj.ProjectName,
+		Workspace:  proj.Deps.Workspace,
+		Services:   services,
+		Proxy:      deps.ProxyManager,
+		Ctx:        ctx,
+		ProjectDir: projectDir,
+		HostAction: func(ctx context.Context, action, service string) error {
+			return app.HostServiceAction(ctx, proj.ConfigPath, action, service)
+		},
 	}
 
 	model := tui.New(cfg)

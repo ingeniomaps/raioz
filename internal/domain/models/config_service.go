@@ -31,6 +31,15 @@ type Service struct {
 	// can't introspect.
 	ProxyOverride *ServiceProxyOverride `json:"proxyOverride,omitempty"`
 
+	// Resources caps the service's memory and CPU. Resolved against the
+	// root default at load time; nil = no cap.
+	Resources *Resources `json:"resources,omitempty"`
+	// ResourcesInherited is true when Resources is the root default rather
+	// than the service's own block. The default only reaches containers
+	// raioz creates: a host process or a compose stack takes a cap only
+	// when the service declares one.
+	ResourcesInherited bool `json:"-"`
+
 	// Port is the explicit host port the user declared in raioz.yaml (`port:`).
 	// 0 means "unset — let raioz infer and allocate". See the allocator in
 	// internal/app/upcase/port_alloc.go for precedence rules.

@@ -143,8 +143,16 @@ func TestDepsToYAMLConfig(t *testing.T) {
 	if pg.Image != "postgres:16" {
 		t.Errorf("postgres.Image = %q, want postgres:16", pg.Image)
 	}
-	if len(pg.Ports) != 1 || pg.Ports[0] != "5432:5432" {
-		t.Errorf("postgres.Ports = %v", pg.Ports)
+	// The legacy `5432:5432` mapping is written as expose + publish, not
+	// carried over as `ports:`.
+	if len(pg.Ports) != 0 {
+		t.Errorf("postgres.Ports = %v, want none (legacy key)", pg.Ports)
+	}
+	if len(pg.Expose) != 1 || pg.Expose[0] != 5432 {
+		t.Errorf("postgres.Expose = %v, want [5432]", pg.Expose)
+	}
+	if !pg.Publish.Set || len(pg.Publish.Ports) != 1 || pg.Publish.Ports[0] != 5432 {
+		t.Errorf("postgres.Publish = %+v, want host port 5432", pg.Publish)
 	}
 	if len(pg.Volumes) != 1 {
 		t.Errorf("postgres.Volumes = %v", pg.Volumes)

@@ -91,6 +91,8 @@ func (m *Manager) generateCaddyfile() (string, error) {
 		}
 	}
 
+	writeFallbackBlock(&b, globalTLS, m.certsDir)
+
 	// Workspace-shared mode keeps the Caddyfile in a workspace-scoped
 	// directory (/tmp/<workspace>/proxy/) so all projects in the workspace
 	// see the same canonical file.
@@ -156,6 +158,28 @@ func writeRouteBlock(b *strings.Builder, route interfaces.ProxyRoute, domain str
 		fmt.Fprintf(b, "\treverse_proxy %s\n", target)
 	}
 
+	b.WriteString("}\n")
+}
+
+// writeFallbackBlock adds the catch-all site that answers 404 for a
+// hostname no route claims. Without it Caddy serves an empty 200 there,
+// which reads as "the service is up and returns nothing" instead of "that
+// name is not routed".
+//
+// Only the scheme the routes are served on gets one: Caddy's own
+// HTTP→HTTPS redirects keep owning port 80 in mkcert mode. ACME mode gets
+// none — a catch-all there has no certificate to present.
+func writeFallbackBlock(b *strings.Builder, tlsMode, certsDir string) {
+	switch {
+	case tlsMode == "letsencrypt":
+		return
+	case tlsMode == "mkcert" && certsDir != "":
+		b.WriteString("https:// {\n")
+		fmt.Fprintf(b, "\ttls /certs/%s /certs/%s\n", certFileName, keyFileName)
+	default:
+		b.WriteString("http:// {\n")
+	}
+	b.WriteString("\trespond \"raioz: no route for {host}\" 404\n")
 	b.WriteString("}\n")
 }
 

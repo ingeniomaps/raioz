@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -35,14 +36,13 @@ func TestList_EmptyProject(t *testing.T) {
 	}
 }
 
+// Deleting a snapshot that is not there is an error, not a silent ok: the
+// caller most likely mistyped the name.
 func TestDelete_Nonexistent(t *testing.T) {
-	dir := t.TempDir()
-	m := NewManager(dir)
+	m := NewManager(t.TempDir())
 
-	// Should not error on nonexistent snapshot
-	err := m.Delete("project", "nonexistent")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := m.Delete("project", "nonexistent"); err == nil {
+		t.Fatal("expected an error for a snapshot that does not exist")
 	}
 }
 
@@ -231,11 +231,20 @@ func TestCreate_ExportVolumeFails(t *testing.T) {
 	dir := t.TempDir()
 	m := NewManager(dir)
 
+	stubDocker(t, nil, "")
+	prevExport, prevResolve := exportVolume, volumeResolver
+	exportVolume = func(string, string) error { return errors.New("no such volume") }
+	volumeResolver = func(_, _, spec string) (string, bool, error) { return spec, true, nil }
+	t.Cleanup(func() { exportVolume, volumeResolver = prevExport, prevResolve })
+
 	_, err := m.Create("proj", "snap", map[string]string{
 		"definitely-not-a-real-volume-raioz-test": "svc",
 	})
 	if err == nil {
-		t.Skip("unexpected success — docker may have created a volume; skipping")
+		t.Fatal("a volume that cannot be exported must fail the snapshot")
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "proj", "snap")); !os.IsNotExist(statErr) {
+		t.Error("a failed snapshot must not leave its directory behind")
 	}
 }
 
@@ -273,9 +282,15 @@ func TestRestore_ImportVolumeFails(t *testing.T) {
 	}
 	writeFakeSnapshot(t, dir, "proj", "snap", vols)
 
-	err := m.Restore("proj", "snap")
-	if err == nil {
-		t.Skip("unexpected success — docker may have accepted missing archive; skipping")
+	// No daemon: mounting a volume that does not exist would create it for
+	// real on the developer's machine.
+	stubDocker(t, nil, "")
+	prev := importVolume
+	importVolume = func(string, string) error { return errors.New("no such archive") }
+	t.Cleanup(func() { importVolume = prev })
+
+	if err := m.Restore("proj", "snap"); err == nil {
+		t.Error("a volume that cannot be imported must fail the restore")
 	}
 }
 

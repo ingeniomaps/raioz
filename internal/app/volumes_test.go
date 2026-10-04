@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/models"
@@ -11,6 +12,18 @@ import (
 )
 
 func newTestDepsForVolumes(t *testing.T) (*Dependencies, *mocks.MockConfigLoader, *mocks.MockWorkspaceManager, *mocks.MockStateManager, *mocks.MockDockerRunner) {
+	t.Helper()
+	// Answer as a project that is down: the name the next up will create.
+	prevDepVolume := depVolume
+	depVolume = func(_ context.Context, project, dep, spec string) (string, bool, bool) {
+		src, _, _ := strings.Cut(spec, ":")
+		if src == "" || strings.HasPrefix(src, "/") || strings.HasPrefix(src, ".") {
+			return "", false, false
+		}
+		return "raioz-" + project + "-dep-" + dep + "_" + project + "_" + src, true, false
+	}
+	t.Cleanup(func() { depVolume = prevDepVolume })
+
 	t.Helper()
 
 	tmpDir := t.TempDir()
@@ -181,8 +194,9 @@ func TestVolumesUseCase_Remove_AllWithForce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if removedVolume != "test_redis-data" {
-		t.Errorf("expected removed volume 'test_redis-data', got %q", removedVolume)
+	// The Docker volume behind `redis-data`, not the declared name.
+	if removedVolume != "raioz-test-dep-redis_test_redis-data" {
+		t.Errorf("removed %q, want the dependency's real volume", removedVolume)
 	}
 }
 
@@ -229,15 +243,16 @@ func TestVolumesUseCase_Remove_SpecificVolume(t *testing.T) {
 
 	uc := NewVolumesUseCase(deps)
 	err := uc.Remove(context.Background(), VolumesRemoveOptions{
-		Volumes: []string{"test_pg-data"},
+		// The name written in raioz.yaml selects the volume too.
+		Volumes: []string{"pg-data"},
 		Force:   true,
 	})
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(removedVolumes) != 1 || removedVolumes[0] != "test_pg-data" {
-		t.Errorf("expected [test_pg-data], got %v", removedVolumes)
+	if len(removedVolumes) != 1 || removedVolumes[0] != "raioz-test-dep-postgres_test_pg-data" {
+		t.Errorf("removed %v, want the real postgres volume", removedVolumes)
 	}
 }
 

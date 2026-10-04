@@ -315,3 +315,38 @@ func TestInfo_JSONRoundTrip(t *testing.T) {
 		t.Errorf("round-trip mismatch: %+v", got)
 	}
 }
+
+func TestNewManager_RegistryUnderStateDir(t *testing.T) {
+	state := t.TempDir()
+	t.Setenv("RAIOZ_HOME", state)
+
+	m := NewManager()
+	if want := filepath.Join(state, "tunnels.json"); m.registryPath != want {
+		t.Errorf("registryPath = %q, want %q", m.registryPath, want)
+	}
+}
+
+func TestLoadAll_ReadsLegacyRegistry(t *testing.T) {
+	dir := t.TempDir()
+	legacy := filepath.Join(dir, "legacy.json")
+	if err := os.WriteFile(legacy, []byte(`[{"service":"api","pid":1}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m := &Manager{registryPath: filepath.Join(dir, "tunnels.json"), legacyPath: legacy}
+
+	if got := m.loadAll(); len(got) != 1 {
+		t.Fatalf("legacy registry not read: %+v", got)
+	}
+}
+
+func TestTunnelAddressPatterns(t *testing.T) {
+	bore := boreAddressRegex.FindStringSubmatch(
+		"2026-10-03T21:07:01Z  INFO bore_cli::client: listening at bore.pub:9824")
+	if bore == nil || bore[1] != "bore.pub:9824" {
+		t.Errorf("bore address = %v, want bore.pub:9824", bore)
+	}
+	cf := cloudflaredURLRegex.FindString("INF |  https://idea-emission-live.trycloudflare.com  |")
+	if cf != "https://idea-emission-live.trycloudflare.com" {
+		t.Errorf("cloudflared URL = %q", cf)
+	}
+}

@@ -23,7 +23,11 @@ var volumesListCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
-		configPath = ResolveConfigPath(configPath)
+		resolvedConfig, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		configPath = resolvedConfig
 		deps := newDependencies()
 		useCase := app.NewVolumesUseCase(deps)
 
@@ -44,7 +48,11 @@ var volumesRemoveCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
-		configPath = ResolveConfigPath(configPath)
+		resolvedConfig, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		configPath = resolvedConfig
 		all, _ := cmd.Flags().GetBool("all")
 		force, _ := cmd.Flags().GetBool("force")
 

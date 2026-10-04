@@ -5,6 +5,7 @@ import (
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/naming"
 )
 
 // applyDepVolumes resolves the dependency's `volumes:` declaration into the
@@ -41,13 +42,24 @@ func applyDepVolumes(svc interfaces.ServiceContext, service map[string]any) (map
 // map for every named volume referenced by the service. Without a
 // matching top-level declaration, docker compose rejects service-level
 // named-volume references.
-func declareTopLevelVolumes(compose map[string]any, namedVolumeMap map[string]string) {
+func declareTopLevelVolumes(
+	compose map[string]any, namedVolumeMap map[string]string, svc interfaces.ServiceContext,
+) {
 	if len(namedVolumeMap) == 0 {
 		return
 	}
+	// Labelled like the container, so `raioz clean --volumes` can tell a
+	// volume it created from every other one on the daemon. Docker cannot
+	// relabel a volume that already exists: one created before this stays
+	// unlabelled and out of clean's reach (`raioz volumes remove` still
+	// takes it).
+	labels := map[string]any{naming.LabelManaged: "true"}
+	if svc.ProjectName != "" {
+		labels[naming.LabelProject] = svc.ProjectName
+	}
 	topLevel := make(map[string]any, len(namedVolumeMap))
 	for _, prefixed := range namedVolumeMap {
-		topLevel[prefixed] = map[string]any{}
+		topLevel[prefixed] = map[string]any{"labels": labels}
 	}
 	compose["volumes"] = topLevel
 }

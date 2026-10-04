@@ -30,25 +30,36 @@ func (uc *IgnoreUseCase) Add(serviceName string, configPath string) error {
 
 	w := uc.Out
 
-	isIgnored, err := ignore.IsIgnored(serviceName)
+	// The ignore belongs to the project the command runs in, and names a
+	// service that project declares: a typo ignored nothing and said ok.
+	project, cfgDeps := uc.project(configPath)
+	if cfgDeps != nil {
+		if _, declared := cfgDeps.Services[serviceName]; !declared {
+			return errors.New(
+				errors.ErrCodeInvalidField,
+				i18n.T("error.ignore_unknown_service", serviceName),
+			).WithSuggestion(i18n.T("error.ignore_unknown_service_suggestion", joinServiceNames(cfgDeps)))
+		}
+	}
+
+	ignored, err := ignore.ForProject(project)
 	if err != nil {
 		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.ignore_check")).WithError(err)
 	}
 
-	if isIgnored {
+	if containsString(ignored, serviceName) {
 		fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("output.ignore_already_ignored", serviceName))
 		return nil
 	}
 
-	if err := ignore.AddService(serviceName); err != nil {
+	if err := ignore.AddFor(project, serviceName); err != nil {
 		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.ignore_add")).WithError(err)
 	}
 
 	fmt.Fprintf(w, "✔ %s\n", i18n.T("output.ignore_added", serviceName))
 	fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("output.ignore_next_up"))
 
-	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(configPath)
-	if deps != nil {
+	if deps := cfgDeps; deps != nil {
 		if _, exists := deps.Services[serviceName]; exists {
 			dependents := findDependents(deps, serviceName)
 			if len(dependents) > 0 {
@@ -76,20 +87,21 @@ func findDependents(deps *models.Deps, serviceName string) []string {
 }
 
 // Remove removes a service from the ignore list
-func (uc *IgnoreUseCase) Remove(serviceName string) error {
+func (uc *IgnoreUseCase) Remove(serviceName string, configPath string) error {
 	w := uc.Out
+	project, _ := uc.project(configPath)
 
-	isIgnored, err := ignore.IsIgnored(serviceName)
+	ignored, err := ignore.ForProject(project)
 	if err != nil {
 		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.ignore_check")).WithError(err)
 	}
 
-	if !isIgnored {
+	if !containsString(ignored, serviceName) {
 		fmt.Fprintf(w, "ℹ️  %s\n", i18n.T("output.ignore_not_in_list", serviceName))
 		return nil
 	}
 
-	if err := ignore.RemoveService(serviceName); err != nil {
+	if err := ignore.RemoveFor(project, serviceName); err != nil {
 		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.ignore_remove")).WithError(err)
 	}
 
@@ -100,10 +112,11 @@ func (uc *IgnoreUseCase) Remove(serviceName string) error {
 }
 
 // List lists all ignored services
-func (uc *IgnoreUseCase) List() error {
+func (uc *IgnoreUseCase) List(configPath string) error {
 	w := uc.Out
+	project, _ := uc.project(configPath)
 
-	ignoredServices, err := ignore.GetIgnoredServices()
+	ignoredServices, err := ignore.ForProject(project)
 	if err != nil {
 		return errors.New(errors.ErrCodeWorkspaceError, i18n.T("error.ignore_list")).WithError(err)
 	}
@@ -119,4 +132,27 @@ func (uc *IgnoreUseCase) List() error {
 	}
 
 	return nil
+}
+
+// project returns the name and config of the project the command runs in.
+// With no loadable config the name is empty, which addresses the legacy
+// global list.
+func (uc *IgnoreUseCase) project(configPath string) (string, *models.Deps) {
+	if uc.deps == nil || uc.deps.ConfigLoader == nil {
+		return "", nil
+	}
+	deps, _, err := uc.deps.ConfigLoader.LoadDeps(configPath)
+	if err != nil || deps == nil {
+		return "", nil
+	}
+	return deps.Project.Name, deps
+}
+
+func containsString(list []string, name string) bool {
+	for _, item := range list {
+		if item == name {
+			return true
+		}
+	}
+	return false
 }

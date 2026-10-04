@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -17,7 +16,6 @@ import (
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
-	"raioz/internal/root"
 	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
@@ -79,7 +77,10 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 	// --all is a workspace shutdown: the siblings go first so that, by the
 	// time the shared infra gate runs below, nothing is left holding it up.
 	if opts.All {
-		uc.downOtherWorkspaceProjects(ctx, deps.Workspace, projectName)
+		if err := uc.downOtherWorkspaceProjects(ctx, deps.Workspace, projectName,
+			approveStopping(opts.Yes, reasonWorkspace)); err != nil {
+			return err
+		}
 	}
 
 	output.PrintProgress(i18n.T("output.stopping_project", projectName))
@@ -144,10 +145,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
 	}); len(leftovers) > 0 {
-		output.PrintWarning(fmt.Sprintf(
-			"Project '%s' down finished but these raioz-managed containers survived: %v",
-			projectName, leftovers,
-		))
+		output.PrintWarning(i18n.T("down.leftover_containers", projectName, leftovers))
 	}
 
 	// Stop dependency compose projects. The deferred list comes from
@@ -226,18 +224,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 		naming.LabelManaged: "true",
 		naming.LabelProject: projectName,
 	}); len(leftovers) == 0 {
-		switch ws, err := uc.deps.Workspace.Resolve(projectName); {
-		case err != nil:
-			logging.WarnWithContext(ctx, "Skipping root cleanup: workspace resolve failed",
-				"project", projectName, "error", err.Error())
-		case ws == nil:
-			// Mocks (and lenient real impls) can return (nil, nil).
-		default:
-			if err := root.Delete(ws); err != nil {
-				logging.WarnWithContext(ctx, "Failed to remove root config",
-					"project", projectName, "error", err.Error())
-			}
-		}
+		uc.dropWorkspaceState(ctx, deps, projectName, projectDir, localState)
 		if err := uc.deps.StateManager.RemoveProject(projectName); err != nil {
 			logging.WarnWithContext(ctx, "Failed to deregister project from global state",
 				"project", projectName, "error", err.Error())
@@ -270,7 +257,7 @@ func stopAndRemoveContainer(ctx context.Context, name, source string) {
 			"name", name, "source", source,
 			"error", err.Error(), "output", strings.TrimSpace(string(out)))
 	}
-	rmOut, rmErr := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", name).CombinedOutput()
+	rmOut, rmErr := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", name).CombinedOutput()
 	if rmErr != nil && !strings.Contains(string(rmOut), "No such container") {
 		logging.Warn("docker rm failed",
 			"name", name, "source", source,

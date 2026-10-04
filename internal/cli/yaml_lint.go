@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"raioz/internal/config"
+	"raioz/internal/i18n"
 
 	"github.com/spf13/cobra"
 )
@@ -32,6 +33,16 @@ var yamlLintCmd = &cobra.Command{
 			return err
 		}
 		emitLintReport(cmd, path, cfg, findings)
+		// A linter that passes a typo is not doing its job: fields the
+		// schema does not know are listed, and fail the lint.
+		if unknown := config.UnknownFields(path); len(unknown) > 0 {
+			out := cmd.OutOrStdout()
+			fmt.Fprintln(out)
+			for _, msg := range unknown {
+				fmt.Fprintf(out, "  [warn] %s\n", msg)
+			}
+			return fmt.Errorf("%s", i18n.T("lint.unknown_fields", len(unknown), path))
+		}
 		return nil
 	},
 }
@@ -55,24 +66,23 @@ func emitLintReport(
 		return
 	}
 	declared := cfg.Version
-	fmt.Fprintf(out, "raioz yaml lint: %s\n", path)
+	fmt.Fprintln(out, i18n.T("lint.header", path))
 	if declared == "" {
-		fmt.Fprintf(out, "  declared version: (none) — "+
-			"add `version: %q` to your raioz.yaml to lock the schema\n",
-			config.CurrentSchemaVersion)
+		fmt.Fprintln(out, i18n.T("lint.version_none", config.CurrentSchemaVersion))
 	} else {
-		fmt.Fprintf(out, "  declared version: %s\n", declared)
+		fmt.Fprintln(out, i18n.T("lint.version", declared))
 	}
-	fmt.Fprintf(out, "  fields in use:    %d\n\n", len(findings))
+	fmt.Fprintln(out, i18n.T("lint.fields_in_use", len(findings)))
+	fmt.Fprintln(out)
 
 	for _, f := range findings {
 		switch f.Severity {
 		case "warn":
-			fmt.Fprintf(out, "  [warn] %s (since %s)\n", f.Path, f.Since)
+			fmt.Fprintf(out, "  [warn] %s\n", i18n.T("lint.since", f.Path, f.Since))
 		case "info":
 			fmt.Fprintf(out, "  [info] %s\n", f.Message)
 		default:
-			fmt.Fprintf(out, "  [ok]   %s (since %s)\n", f.Path, f.Since)
+			fmt.Fprintf(out, "  [ok]   %s\n", i18n.T("lint.since", f.Path, f.Since))
 		}
 	}
 }

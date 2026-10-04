@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"raioz/internal/naming"
 )
 
 //go:embed locales/*.json
@@ -28,7 +30,7 @@ var (
 )
 
 // Init loads all embedded locale catalogs and sets the active language.
-// Detection order: explicit lang param > saved preference > RAIOZ_LANG env > LANG/LC_ALL > "en"
+// Detection order: explicit lang param > RAIOZ_LANG env > saved preference > LANG/LC_ALL > "en"
 func Init(lang string) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -60,6 +62,11 @@ func Init(lang string) {
 
 	// Resolve language (use internal version to avoid deadlock — we already hold mu)
 	resolved := resolveLangInternal(lang)
+	if _, ok := catalogs[resolved]; !ok && lang != "" {
+		// An explicit language raioz does not ship: keep what the user
+		// normally reads, so the error that rejects it is in their language.
+		resolved = resolveLangInternal("")
+	}
 	if _, ok := catalogs[resolved]; !ok {
 		resolved = defaultLang
 	}
@@ -140,19 +147,27 @@ func SetBaseDir(dir string) {
 	raiozBaseDir = dir
 }
 
-// SavePreference persists the language preference to ~/.raioz/config.json.
+// configDirs returns where the language preference lives, most specific
+// first: the directory set with SetBaseDir, else the raioz state dir
+// (ADR-022) followed by the pre-ADR `~/.raioz`, which is still read so a
+// preference saved by an older raioz keeps working. Caller holds mu.
+func configDirs() []string {
+	if raiozBaseDir != "" {
+		return []string{raiozBaseDir}
+	}
+	dirs := []string{naming.RaiozStateDir()}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		dirs = append(dirs, filepath.Join(home, ".raioz"))
+	}
+	return dirs
+}
+
+// SavePreference persists the language preference to config.json in the
+// raioz state dir.
 func SavePreference(lang string) error {
 	mu.RLock()
-	dir := raiozBaseDir
+	dir := configDirs()[0]
 	mu.RUnlock()
-
-	if dir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to get home directory: %w", err)
-		}
-		dir = filepath.Join(home, ".raioz")
-	}
 
 	configPath := filepath.Join(dir, configFile)
 
@@ -186,28 +201,18 @@ func SavePreference(lang string) error {
 
 // loadPreferenceInternal reads preference without locking (caller must hold mu).
 func loadPreferenceInternal() string {
-	dir := raiozBaseDir
-	if dir == "" {
-		home, err := os.UserHomeDir()
+	for _, dir := range configDirs() {
+		data, err := os.ReadFile(filepath.Join(dir, configFile))
 		if err != nil {
-			return ""
+			continue
 		}
-		dir = filepath.Join(home, ".raioz")
-	}
-
-	configPath := filepath.Join(dir, configFile)
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return ""
-	}
-
-	var config map[string]any
-	if err := json.Unmarshal(data, &config); err != nil {
-		return ""
-	}
-
-	if lang, ok := config["language"].(string); ok {
-		return lang
+		var config map[string]any
+		if err := json.Unmarshal(data, &config); err != nil {
+			continue
+		}
+		if lang, ok := config["language"].(string); ok && lang != "" {
+			return lang
+		}
 	}
 	return ""
 }
@@ -218,14 +223,16 @@ func resolveLangInternal(explicit string) string {
 		return explicit
 	}
 
+	// RAIOZ_LANG env var. Above the saved preference: an env var is set
+	// for this invocation (or this shell), the preference is the default
+	// for when nothing more specific says otherwise.
+	if envLang := os.Getenv("RAIOZ_LANG"); envLang != "" {
+		return normalizeLocale(envLang)
+	}
+
 	// Saved preference (use internal version — caller holds mu)
 	if saved := loadPreferenceInternal(); saved != "" {
 		return saved
-	}
-
-	// RAIOZ_LANG env var
-	if envLang := os.Getenv("RAIOZ_LANG"); envLang != "" {
-		return normalizeLocale(envLang)
 	}
 
 	// LANG / LC_ALL

@@ -32,19 +32,6 @@ func TestInFilter_OnlyDeclared(t *testing.T) {
 	}
 }
 
-func TestCountMatching_SkipsHidden(t *testing.T) {
-	infra := map[string]models.InfraEntry{
-		"redis": {}, "postgres": {},
-	}
-	want := filterSet([]string{"redis"})
-	if countMatching(infra, want) != 1 {
-		t.Errorf("expected 1 visible dep, got %d", countMatching(infra, want))
-	}
-	if countMatching(infra, nil) != 2 {
-		t.Errorf("nil filter should show all (got %d)", countMatching(infra, nil))
-	}
-}
-
 func TestValidateStatusFilter_UnknownNameFails(t *testing.T) {
 	proj := &YAMLProject{
 		ProjectName: "demo",

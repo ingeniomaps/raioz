@@ -24,6 +24,7 @@ func allocLegacyPortsDeps(
 	depNames []string,
 	taken map[int]string,
 	result *PortAllocResult,
+	probe portProbe,
 ) error {
 	for _, name := range depNames {
 		if _, done := result.Deps[name]; done {
@@ -36,7 +37,7 @@ func allocLegacyPortsDeps(
 		if len(entry.Inline.Ports) == 0 || entry.Inline.Project != "" {
 			continue
 		}
-		mappings, err := assignLegacyDepPorts(name, entry.Inline.Ports, taken)
+		mappings, err := assignLegacyDepPorts(name, entry.Inline.Ports, taken, probe)
 		if err != nil {
 			return err
 		}
@@ -64,6 +65,7 @@ func assignLegacyDepPorts(
 	name string,
 	ports []string,
 	taken map[int]string,
+	probe portProbe,
 ) ([]DepPortMapping, error) {
 	type parsed struct {
 		host, container int
@@ -87,7 +89,7 @@ func assignLegacyDepPorts(
 				return nil, portConflictExplicitError(owner, holder, s.host)
 			}
 		} else {
-			fp, err := findFreePort(s.container, taken, owner)
+			fp, err := findFreePort(s.container, taken, owner, probe)
 			if err != nil {
 				return nil, err
 			}

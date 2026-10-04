@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"raioz/internal/i18n"
+	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
 
@@ -33,18 +35,68 @@ type Manager struct {
 	baseDir string // ~/.raioz/snapshots
 }
 
-// NewManager creates a Manager. If baseDir is empty, uses ~/.raioz/snapshots.
+// NewManager creates a Manager. An empty baseDir means the snapshots
+// directory under the raioz state dir (ADR-022).
 func NewManager(baseDir string) *Manager {
 	if baseDir == "" {
-		home, _ := os.UserHomeDir()
-		baseDir = filepath.Join(home, ".raioz", "snapshots")
+		baseDir = filepath.Join(naming.RaiozStateDir(), "snapshots")
 	}
 	return &Manager{baseDir: baseDir}
 }
 
+// legacyBaseDir is where snapshots lived before they followed the state
+// dir. Snapshots taken there are still listed, restored and deleted.
+func legacyBaseDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".raioz", "snapshots")
+}
+
+// snapshotDir returns the directory of an existing snapshot, looking in
+// the legacy store when the current one does not have it. A snapshot that
+// exists in neither resolves to the current store.
+func (m *Manager) snapshotDir(project, name string) string {
+	dir := filepath.Join(m.baseDir, project, name)
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	if legacy := legacyBaseDir(); legacy != "" && legacy != m.baseDir {
+		old := filepath.Join(legacy, project, name)
+		if _, err := os.Stat(old); err == nil {
+			return old
+		}
+	}
+	return dir
+}
+
 // Create exports all given volumes to tar.gz archives.
 func (m *Manager) Create(project, name string, volumes map[string]string) (*Snapshot, error) {
+	if err := validateName("snapshot", name); err != nil {
+		return nil, err
+	}
+
+	// Resolve every volume before writing anything: a snapshot that fails
+	// halfway must not leave a directory that looks like a snapshot.
+	type target struct{ volume, service, archive string }
+	var targets []target
+	for spec, serviceName := range volumes {
+		volumeName, ok, err := volumeResolver(project, serviceName, spec)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		targets = append(targets, target{volumeName, serviceName, volumeName + ".tar.gz"})
+	}
+
 	dir := filepath.Join(m.baseDir, project, name)
+	// A snapshot is what you go back to; replacing one silently loses it.
+	if _, err := os.Stat(filepath.Join(dir, "snapshot.json")); err == nil {
+		return nil, fmt.Errorf("%s", i18n.T("error.snapshot_exists", name))
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create snapshot directory: %w", err)
 	}
@@ -55,11 +107,26 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 		CreatedAt: time.Now(),
 	}
 
-	for volumeName, serviceName := range volumes {
-		archiveFile := volumeName + ".tar.gz"
+	// Copy with the engines stopped, for the reason restore does: a
+	// database holds part of its state in memory, and files read under it
+	// are a copy of a moment that never existed on disk.
+	using := make([]VolumeSnapshot, 0, len(targets))
+	for _, t := range targets {
+		using = append(using, VolumeSnapshot{VolumeName: t.volume})
+	}
+	resume, err := quiesce(using, "snapshot.stopping_for_create")
+	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, fmt.Errorf("failed to stop the containers using the volumes: %w", err)
+	}
+	defer resume()
+
+	for _, t := range targets {
+		volumeName, serviceName, archiveFile := t.volume, t.service, t.archive
 		archivePath := filepath.Join(dir, archiveFile)
 
 		if err := exportVolume(volumeName, archivePath); err != nil {
+			_ = os.RemoveAll(dir)
 			return nil, fmt.Errorf("failed to export volume %s: %w", volumeName, err)
 		}
 
@@ -92,18 +159,29 @@ func (m *Manager) Create(project, name string, volumes map[string]string) (*Snap
 
 // Restore imports volumes from a snapshot.
 func (m *Manager) Restore(project, name string) error {
-	dir := filepath.Join(m.baseDir, project, name)
+	if err := validateName("snapshot", name); err != nil {
+		return err
+	}
+	dir := m.snapshotDir(project, name)
 	metaPath := filepath.Join(dir, "snapshot.json")
 
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
-		return fmt.Errorf("snapshot '%s' not found for project '%s'", name, project)
+		return fmt.Errorf("%s", i18n.T("error.snapshot_not_found", name, project))
 	}
 
 	var snap Snapshot
 	if err := json.Unmarshal(data, &snap); err != nil {
 		return fmt.Errorf("invalid snapshot metadata: %w", err)
 	}
+
+	// Whatever mounts these volumes is stopped for the duration and started
+	// again afterwards, restore succeeded or not.
+	resume, err := quiesce(snap.Volumes, "snapshot.stopping_for_restore")
+	if err != nil {
+		return fmt.Errorf("failed to stop the containers using the volumes: %w", err)
+	}
+	defer resume()
 
 	for _, vol := range snap.Volumes {
 		archivePath := filepath.Join(dir, vol.ArchiveFile)
@@ -117,7 +195,26 @@ func (m *Manager) Restore(project, name string) error {
 
 // List returns all snapshots for a project.
 func (m *Manager) List(project string) ([]Snapshot, error) {
-	dir := filepath.Join(m.baseDir, project)
+	snapshots, err := listDir(filepath.Join(m.baseDir, project))
+	if err != nil {
+		return nil, err
+	}
+	if legacy := legacyBaseDir(); legacy != "" && legacy != m.baseDir {
+		seen := map[string]bool{}
+		for _, s := range snapshots {
+			seen[s.Name] = true
+		}
+		old, _ := listDir(filepath.Join(legacy, project))
+		for _, s := range old {
+			if !seen[s.Name] {
+				snapshots = append(snapshots, s)
+			}
+		}
+	}
+	return snapshots, nil
+}
+
+func listDir(dir string) ([]Snapshot, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -146,7 +243,13 @@ func (m *Manager) List(project string) ([]Snapshot, error) {
 
 // Delete removes a snapshot and frees disk space.
 func (m *Manager) Delete(project, name string) error {
-	dir := filepath.Join(m.baseDir, project, name)
+	if err := validateName("snapshot", name); err != nil {
+		return err
+	}
+	dir := m.snapshotDir(project, name)
+	if _, err := os.Stat(dir); err != nil {
+		return fmt.Errorf("%s", i18n.T("error.snapshot_not_found", name, project))
+	}
 	if err := os.RemoveAll(dir); err != nil {
 		return fmt.Errorf("remove snapshot dir %q: %w", dir, err)
 	}
@@ -154,7 +257,11 @@ func (m *Manager) Delete(project, name string) error {
 }
 
 // exportVolume creates a tar.gz of a Docker volume's contents.
-func exportVolume(volumeName, archivePath string) error {
+// exportVolume is a package var for the same reason importVolume is: a test
+// that asks the daemon to mount a volume creates it for real.
+var exportVolume = exportVolumeWithDocker
+
+func exportVolumeWithDocker(volumeName, archivePath string) error {
 	cmd := exec.Command(runtime.Binary(), "run", "--rm",
 		"-v", volumeName+":/data:ro",
 		"-v", filepath.Dir(archivePath)+":/backup",
@@ -168,7 +275,11 @@ func exportVolume(volumeName, archivePath string) error {
 }
 
 // importVolume restores a tar.gz into a Docker volume.
-func importVolume(volumeName, archivePath string) error {
+// importVolume is a package var so tests can fail it without asking the
+// daemon to mount (and thereby create) a volume.
+var importVolume = importVolumeWithDocker
+
+func importVolumeWithDocker(volumeName, archivePath string) error {
 	cmd := exec.Command(runtime.Binary(), "run", "--rm",
 		"-v", volumeName+":/data",
 		"-v", filepath.Dir(archivePath)+":/backup:ro",

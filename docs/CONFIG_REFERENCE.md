@@ -50,7 +50,7 @@ services:
 dependencies:
   postgres:
     image: postgres:16
-    ports: ["5432"]
+    publish: 5432
     env: .env.postgres
     volumes: ["pgdata:/var/lib/postgresql/data"]
 
@@ -68,6 +68,7 @@ dependencies:
 | `project` | string | yes | — | Project name. Used for Docker resource naming. Lowercase, hyphens, max 63 chars. |
 | `workspace` | string | no | — | Groups projects on same Docker network. When set, resources use `{workspace}-` prefix instead of `raioz-`. |
 | `workspaceRoot` | string | no | the yaml's own dir | Widens the path-safety containment boundary (ADR-036 H2). By default every path in the yaml must resolve inside the yaml's directory; in a multi-repo workspace where the `raioz.yaml` lives in a sub-repo and services point at sibling repos via `../`, declare `workspaceRoot:` (relative to this yaml, e.g. `..`) to move the boundary there. Paths stay HARD-contained against the declared root; the root itself may not be a system dir. See [Multi-repo workspaces](#multi-repo-workspaces). |
+| `resources` | object | no | no cap | Default memory/CPU cap for every container raioz creates itself: each `image:` dependency, each Dockerfile service and the proxy. A `resources:` block on any of them replaces it. Host services and compose stacks take a cap only from a block of their own. See [Resource limits](#resource-limits). |
 | `network` | string or object | no | auto-derived | Pin Docker network name and/or subnet. See [Network config](#network-config). |
 | `proxy` | bool or object | no | `false` | Enable Caddy reverse proxy with HTTPS. See [Proxy config](#proxy-config). |
 | `pre` | string or list | no | — | Commands to run before anything else (env rendering, secrets fetch). Failure aborts `up`. |
@@ -237,9 +238,10 @@ and starts with the native tool (go run, npm dev, etc.).
 | `watch` | bool or string | no | `false` | File watching mode. See [Watch config](#watch-config). |
 | `health` | string | no | — | Health endpoint path (e.g., `/api/health`). Probed on `127.0.0.1:<port>` after `up` and by `raioz health`; needs `port:` declared, since without it raioz assigns the host port at run time. |
 | `hostname` | string | no | service name | Custom hostname for proxy routing. |
+| `resources` | object | no | root `resources` for a Dockerfile service, else no cap | Memory/CPU cap for the service: its container (Dockerfile), each container of its stack (compose), or the process itself (host, Linux with systemd). See [Resource limits](#resource-limits). |
 | `routing` | object | no | — | Proxy routing options. See [Routing config](#routing-config). |
 | `proxy` | object | no | — | Override proxy target/port when detection can't see the service (e.g., `command:` launches its own compose stack). See [Service proxy override](#service-proxy-override). |
-| `command` | string | no | — | User-supplied launch command. Overrides runtime auto-detection. |
+| `command` | string | no | — | User-supplied launch command. Overrides runtime auto-detection. Split into arguments the way a shell does (quotes and `\` keep spaces together) but **not** run by a shell: for `&&`, pipes or variables write `sh -c "..."`. Same for `stop`. |
 | `stop` | string | no | — | User-supplied stop command, paired with `command`. Falls back to SIGTERM on the PID if absent. |
 | `profiles` | string or list | no | — | Profile tags for selective startup (`raioz up --profile X`). |
 | `git` | string | no | — | Git repository URL. Raioz clones it to `path`. |
@@ -303,6 +305,7 @@ Exactly one of `image`, `compose`, or `project` is required.
 | `project` | string | one of | — | Path to a sibling raioz project's directory. The sibling IS this dep — raioz brings it up via `raioz up` recursively when not already running, and never tumba it on `raioz down`. Mutually exclusive with `image`/`compose`. See [Sibling raioz projects](#sibling-raioz-projects-as-deps). |
 | `siblingProject` | string | no | — | Fallback marker: pair with `image:`/`compose:` and raioz skips the local declaration when the sibling project is active. Mutually exclusive with `project`. Useful for CI or contributors without the sibling repo cloned. |
 | `requiredHostname` | string | no | — | Assert the sibling's raioz.yaml declares this hostname before deferring to it. Only valid alongside `project:` or `siblingProject:`. |
+| `resources` | object | no | root `resources` for an `image:` dependency, else no cap | Memory/CPU cap for this dependency's container. On a `compose:` dependency it replaces the limits its own file sets. See [Resource limits](#resource-limits). |
 | `name` | string | no | auto-derived | Literal container name override. Use when external tooling (IDEs, backup scripts) expects a specific name. Without it, the name is `{workspace}-{dep}` (workspace mode) or `{prefix}-{project}-{dep}` (standalone). |
 | `ports` | string or list | no | — | Port mappings (e.g., `"5432"`, `"5432:5432"`). |
 | `env` | string or list | no | — | Env file paths for the container. |
@@ -475,13 +478,98 @@ proxy:
 | `mode` | string | `subdomain` | Routing mode: `subdomain` or `path`. |
 | `tls` | string | `mkcert` | TLS provider: `mkcert` (local) or `letsencrypt`. |
 | `ip` | string | `<subnet>.1.1` when `network.subnet` is set, else Docker-assigned | Pin the Caddy container's IP. Deterministic so scripts and `/etc/hosts` entries stay stable. Requires `network.subnet` — Docker won't honor `--ip` without a user-defined subnet. |
-| `publish` | bool | `true` | Bind host ports 80/443 (default). Set `false` to reach the proxy only via its container IP — lets multiple workspaces run in parallel without port contention. Requires a deterministic `ip` or `network.subnet`. **Linux-only**; on macOS/Windows, Docker routes through a VM whose bridge IPs aren't reachable from the host. |
+| `publish` | bool | `true` | Bind host ports 80/443 (default) on `127.0.0.1`; `raioz up --host 0.0.0.0` binds every interface to share the proxy on the local network. Set `false` to reach the proxy only via its container IP — lets multiple workspaces run in parallel without port contention. Requires a deterministic `ip` or `network.subnet`. **Linux-only**; on macOS/Windows, Docker routes through a VM whose bridge IPs aren't reachable from the host. |
+| `resources` | object | root `resources`, else no cap | Memory/CPU cap for the proxy container. See [Resource limits](#resource-limits). |
 
 Result: each service gets `https://{service}.{domain}` (e.g., `https://api.acme.localhost`).
 
 When `publish: false`, use `raioz hosts` to print the `/etc/hosts` line mapping every proxied hostname to the proxy container IP.
 
 ---
+
+## Resource limits
+
+raioz creates three kinds of container on its own: the proxy, every
+`image:` dependency, and every service it builds from a Dockerfile. By
+default none of them has a memory or CPU cap. `resources:` declares one:
+
+```yaml
+resources:            # default for everything raioz creates a container for
+  memory: 256m
+  cpus: 1
+
+proxy:
+  domain: acme.dev
+  resources:          # replaces the default for the proxy
+    memory: 128m
+
+services:
+  api:
+    path: ./api       # has a Dockerfile
+    resources:        # replaces the default for this service
+      memory: 512m
+
+dependencies:
+  postgres:
+    image: postgres:16
+    resources:        # replaces the default for this dependency
+      memory: 1g
+      cpus: 0.5
+  redis:
+    image: redis:7    # takes the root default
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `memory` | string | A Docker size: a number with an optional `b`/`k`/`m`/`g` unit (`256m`, `1g`). Applied as the memory limit **and** the memory+swap limit, so the container cannot spill into swap. |
+| `cpus` | number | How many CPUs the container may use (`0.5`, `2`). |
+
+- A block replaces the default whole: a dependency that declares only
+  `cpus` does not inherit the root `memory`.
+- A cap added while the container is running is applied in place on the
+  next `raioz up` (`docker update`), without restarting it. Removing a
+  block takes effect when the container is next created.
+- A workspace-shared proxy or dependency has one container for several
+  projects: the last project to run `up` sets its cap. Declare the same
+  value in each to keep it stable.
+- The root default stops at the containers raioz creates. A compose
+  service, a `compose:` dependency and a host service are capped only by
+  a `resources:` block of their own:
+
+  ```yaml
+  services:
+    stack:
+      path: ./stack     # has a docker-compose.yml
+      resources:        # each container of the stack gets this cap
+        memory: 512m
+    web:
+      path: ./web       # npm, go, make, `command:` … a host process
+      resources:
+        memory: 1g
+        cpus: 2
+  dependencies:
+    kafka:
+      compose: ./kafka.yml
+      resources:
+        memory: 1g
+  ```
+
+  - **Compose** (service or dependency): the cap goes into the overlay
+    raioz layers on top of the compose file, as `mem_limit`,
+    `memswap_limit` and `cpus`. It replaces a limit the file sets with
+    those same keys, and the file itself is never edited. On a service
+    it applies to *each* container of the stack, not to their sum.
+  - **Host service**: raioz runs the command inside a transient systemd
+    user scope (`systemd-run --user --scope`) with `MemoryMax`,
+    `MemorySwapMax=0` and `CPUQuota`. The whole process tree shares the
+    cap, and a process that goes over the memory figure is killed by the
+    kernel, as a container would be. This needs Linux, systemd and the
+    `memory`/`cpu` cgroup controllers delegated to your user session
+    (the default on current distributions). Where that is missing —
+    macOS, Windows, WSL without systemd, a session without a user
+    manager — raioz warns and starts the service without a cap. Containers
+    a host `command:` launches on its own (`make start` running
+    `docker compose up`) live in Docker's cgroup, outside the scope.
 
 ## Network config
 
@@ -847,7 +935,7 @@ duration-typed vars and exits non-zero if any are malformed
 
 | Var | Default | Effect |
 |-----|---------|--------|
-| `RAIOZ_LOG_LEVEL` | `error` | slog level: `debug`, `info`, `warn`, `error`. |
+| `RAIOZ_LOG_LEVEL` | `off` (`error` in CI) | slog level: `debug`, `info`, `warn`, `error`, `off`. Failures always reach the terminal as a formatted error; the structured line on stderr is opt-in. |
 | `RAIOZ_LOG_JSON` | `false` (auto-`true` in CI) | Emit structured JSON logs instead of text. CI detection looks at `CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, `JENKINS_URL`, `TRAVIS`, `CIRCLECI`, `CONTINUOUS_INTEGRATION`. |
 
 ### Launcher pattern (ADR-025)

@@ -113,6 +113,11 @@ type ProjectState struct {
 	Workspace     string         `json:"workspace"`
 	LastExecution time.Time      `json:"lastExecution"`
 	Services      []ServiceState `json:"services"`
+	// Path is the directory holding the project's raioz.yaml. Recorded at
+	// up so another project (or `-p <name>` from anywhere) can find its
+	// local state and run its `down` — the only teardown that covers host
+	// processes as well as containers.
+	Path string `json:"path,omitempty"`
 }
 
 // ServiceState represents the state of a single service.

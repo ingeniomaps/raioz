@@ -135,6 +135,11 @@ func replaceStaleLock(path string) (*os.File, error) {
 func Acquire(ws *workspace.Workspace) (*Lock, error) {
 	path := filepath.Join(ws.Root, lockFileName)
 
+	// The lock is often the first thing written under the workspace root.
+	if err := os.MkdirAll(ws.Root, 0700); err != nil {
+		return nil, fmt.Errorf("failed to create workspace root for the lock: %w", err)
+	}
+
 	// Try to open file with exclusive lock (O_CREAT | O_EXCL)
 	// Use 0600 permissions (read/write for owner only) for security
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)

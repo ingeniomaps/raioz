@@ -6,9 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	exectimeout "raioz/internal/exec"
+	"raioz/internal/i18n"
+	"raioz/internal/naming"
 	"raioz/internal/runtime"
 )
 
@@ -45,6 +48,7 @@ func CleanProjectWithContext(ctx context.Context, composePath string, dryRun boo
 	defer cancel()
 
 	// Remove stopped containers, networks, and images created by compose
+	removeAnonymousVolumes(timeoutCtx, []string{"compose", "-f", composePath}, nil)
 	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "compose", "-f", composePath, "down", "--remove-orphans")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -63,6 +67,36 @@ func CleanProjectWithContext(ctx context.Context, composePath string, dryRun boo
 	return actions, nil
 }
 
+type cleanScopeKey struct{}
+
+// WithCleanScope narrows what the CleanUnused* helpers may remove to the
+// resources carrying every one of these labels. The helpers never act
+// without a scope: with none given they fall back to "anything raioz
+// created", and never to the whole daemon — a prune that also takes the
+// volumes and networks of unrelated stacks is not a raioz clean.
+func WithCleanScope(ctx context.Context, labels map[string]string) context.Context {
+	return context.WithValue(ctx, cleanScopeKey{}, labels)
+}
+
+// cleanFilterArgs returns the `--filter label=k=v` arguments for the
+// scope in ctx, key-sorted so the command line is deterministic.
+func cleanFilterArgs(ctx context.Context) []string {
+	labels, _ := ctx.Value(cleanScopeKey{}).(map[string]string)
+	if len(labels) == 0 {
+		labels = map[string]string{naming.LabelManaged: "true"}
+	}
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	args := make([]string, 0, len(keys)*2)
+	for _, k := range keys {
+		args = append(args, "--filter", "label="+k+"="+labels[k])
+	}
+	return args
+}
+
 // CleanUnusedImagesWithContext removes unused Docker images with context support
 func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, error) {
 	var actions []string
@@ -73,7 +107,8 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 
 	if dryRun {
 		// List unused images
-		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "images", "--filter", "dangling=true", "-q")
+		listArgs := append([]string{"images", "--filter", "dangling=true", "-q"}, cleanFilterArgs(ctx)...)
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), listArgs...)
 		output, err := cmd.Output()
 		if err != nil {
 			if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -85,19 +120,20 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 		images := strings.Split(strings.TrimSpace(string(output)), "\n")
 		for _, img := range images {
 			if img != "" {
-				actions = append(actions, fmt.Sprintf("Would remove image: %s", img))
+				actions = append(actions, i18n.T("clean.would_remove_image", img))
 			}
 		}
 
 		if len(images) == 0 || images[0] == "" {
-			actions = append(actions, "No unused images found")
+			actions = append(actions, i18n.T("clean.no_unused_images"))
 		}
 
 		return actions, nil
 	}
 
 	// Remove unused images
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "image", "prune", "-f")
+	pruneArgs := append([]string{"image", "prune", "-f"}, cleanFilterArgs(ctx)...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), pruneArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -106,7 +142,7 @@ func CleanUnusedImagesWithContext(ctx context.Context, dryRun bool) ([]string, e
 		return actions, fmt.Errorf("failed to prune images: %w (output: %s)", err, string(output))
 	}
 
-	actions = append(actions, "Removed unused images")
+	actions = append(actions, i18n.T("clean.removed_images"))
 	return actions, nil
 }
 
@@ -120,7 +156,8 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 
 	if dryRun {
 		// List unused volumes
-		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "ls", "-q", "-f", "dangling=true")
+		listArgs := append([]string{"volume", "ls", "-q", "-f", "dangling=true"}, cleanFilterArgs(ctx)...)
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), listArgs...)
 		output, err := cmd.Output()
 		if err != nil {
 			if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -132,12 +169,12 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 		volumes := strings.Split(strings.TrimSpace(string(output)), "\n")
 		for _, vol := range volumes {
 			if vol != "" {
-				actions = append(actions, fmt.Sprintf("Would remove volume: %s", vol))
+				actions = append(actions, i18n.T("clean.would_remove_volume", vol))
 			}
 		}
 
 		if len(volumes) == 0 || volumes[0] == "" {
-			actions = append(actions, "No unused volumes found")
+			actions = append(actions, i18n.T("clean.no_unused_volumes"))
 		}
 
 		return actions, nil
@@ -148,7 +185,11 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 	}
 
 	// Remove unused volumes
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "volume", "prune", "-f")
+	// --all: raioz's volumes are named, and a plain prune only takes
+	// anonymous ones. The label scope is what keeps this from being the
+	// daemon-wide prune it would otherwise be.
+	pruneArgs := append([]string{"volume", "prune", "-f", "--all"}, cleanFilterArgs(ctx)...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), pruneArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -157,7 +198,7 @@ func CleanUnusedVolumesWithContext(ctx context.Context, dryRun bool, force bool)
 		return actions, fmt.Errorf("failed to prune volumes: %w (output: %s)", err, string(output))
 	}
 
-	actions = append(actions, "Removed unused volumes")
+	actions = append(actions, i18n.T("clean.removed_volumes"))
 	return actions, nil
 }
 
@@ -171,7 +212,8 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 
 	if dryRun {
 		// List unused networks (not raioz-* networks that might be in use)
-		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "ls", "-q", "-f", "dangling=true")
+		listArgs := append([]string{"network", "ls", "-q", "-f", "dangling=true"}, cleanFilterArgs(ctx)...)
+		cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), listArgs...)
 		output, err := cmd.Output()
 		if err != nil {
 			if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -180,28 +222,33 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 			return actions, fmt.Errorf("failed to list unused networks: %w", err)
 		}
 
-		networks := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, net := range networks {
-			if net != "" {
-				// Get network name
-				cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect", "-f", "{{.Name}}", net)
-				nameOutput, err := cmd2.Output()
-				if err == nil {
-					netName := strings.TrimSpace(string(nameOutput))
-					actions = append(actions, fmt.Sprintf("Would remove network: %s", netName))
-				}
+		// `dangling=true` is not a promise that nothing is attached: a
+		// network with containers on it showed up here and was announced
+		// as removable, though the prune below would have left it alone.
+		for _, net := range strings.Fields(string(output)) {
+			cmd2 := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "inspect",
+				"-f", "{{.Name}} {{len .Containers}}", net)
+			described, err := cmd2.Output()
+			if err != nil {
+				continue
 			}
+			fields := strings.Fields(string(described))
+			if len(fields) != 2 || fields[1] != "0" {
+				continue
+			}
+			actions = append(actions, i18n.T("clean.would_remove_network", fields[0]))
 		}
 
-		if len(networks) == 0 || networks[0] == "" {
-			actions = append(actions, "No unused networks found")
+		if len(actions) == 0 {
+			actions = append(actions, i18n.T("clean.no_unused_networks"))
 		}
 
 		return actions, nil
 	}
 
 	// Remove unused networks
-	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), "network", "prune", "-f")
+	pruneArgs := append([]string{"network", "prune", "-f"}, cleanFilterArgs(ctx)...)
+	cmd := exec.CommandContext(timeoutCtx, runtime.Binary(), pruneArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if exectimeout.IsTimeoutError(timeoutCtx, err) {
@@ -210,7 +257,7 @@ func CleanUnusedNetworksWithContext(ctx context.Context, dryRun bool) ([]string,
 		return actions, fmt.Errorf("failed to prune networks: %w (output: %s)", err, string(output))
 	}
 
-	actions = append(actions, "Removed unused networks")
+	actions = append(actions, i18n.T("clean.removed_networks"))
 	return actions, nil
 }
 

@@ -4,7 +4,6 @@ package upcase
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"raioz/internal/domain/interfaces"
@@ -22,6 +21,7 @@ import (
 type serviceDispatcher interface {
 	Start(ctx context.Context, svc interfaces.ServiceContext) error
 	GetHostPID(serviceName string) int
+	AdoptHostPID(serviceName string, pid int)
 }
 
 // startServicesParams carries the state the earlier steps already computed.
@@ -54,6 +54,13 @@ func (uc *UseCase) startServices(ctx context.Context, p startServicesParams) err
 		svc := p.deps.Services[name]
 		detection := p.detections[name]
 
+		if pid := runningHostPID(p.portAllocs, name); pid > 0 {
+			p.dispatcher.AdoptHostPID(name, pid)
+			started = append(started, name)
+			output.PrintSuccess(i18n.T("up.service_already_running", name, string(detection.Runtime)))
+			continue
+		}
+
 		svcCtx := uc.buildStartContext(name, svc, detection, p)
 
 		if err := p.dispatcher.Start(ctx, svcCtx); err != nil {
@@ -81,19 +88,9 @@ func (uc *UseCase) buildStartContext(
 	detection models.DetectResult,
 	p startServicesParams,
 ) interfaces.ServiceContext {
-	envVars := make(map[string]string)
-	if uc.deps.DiscoveryManager != nil {
-		envVars = uc.deps.DiscoveryManager.GenerateEnvVars(
-			name, detection.Runtime, p.endpoints, p.deps.Proxy,
-		)
-	}
-
-	// Inject PORT for host services so frameworks honoring $PORT (Next.js,
-	// Vite, Django, etc.) rebind to the allocator's pick. Docker services
-	// get their port via published config.
-	if alloc, ok := p.portAllocs.Services[name]; ok && alloc.IsHost() && alloc.Port > 0 {
-		envVars["PORT"] = strconv.Itoa(alloc.Port)
-	}
+	envVars := computedServiceEnv(
+		uc.deps.DiscoveryManager, name, detection, p.endpoints, p.deps.Proxy, p.portAllocs,
+	)
 
 	svcCtx := buildServiceContext(
 		name, detection, p.networkName,
@@ -114,10 +111,20 @@ func (uc *UseCase) buildStartContext(
 	if svc.ProxyOverride != nil {
 		svcCtx.ProxyTarget = svc.ProxyOverride.Target
 	}
+	svcCtx.Resources = serviceResources(svc, detection)
 
 	// Pass the service's own `env:` (inline vars + --env-file) to the
 	// runner; mirrors the deps path in orchestration.go.
 	applyServiceEnv(&svcCtx, svc.Env, p.projectDir)
 
 	return svcCtx
+}
+
+// runningHostPID returns the PID of a host service this run adopts rather
+// than starts, 0 when it has to be started.
+func runningHostPID(portAllocs *PortAllocResult, name string) int {
+	if portAllocs == nil {
+		return 0
+	}
+	return portAllocs.RunningHost[name]
 }

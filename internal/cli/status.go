@@ -34,7 +34,13 @@ var statusCmd = &cobra.Command{
 		}
 
 		// Meta-orchestrator dispatches to sub-projects.
-		resolved := ResolveConfigPath(configPath)
+		resolved, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		if configPath == "" && projectName != "" {
+			configPath = resolved
+		}
 		if handled, metaErr := tryHandleMeta(
 			ctx, resolved, "status", nil, metaProfiles, app.MetaUpOptions{},
 		); handled {

@@ -3,8 +3,6 @@ package app
 import (
 	"fmt"
 	"strings"
-
-	"raioz/internal/domain/models"
 )
 
 // filterSet turns the args slice into a presence map for O(1) checks.
@@ -28,36 +26,6 @@ func inFilter(want map[string]struct{}, name string) bool {
 	}
 	_, ok := want[name]
 	return ok
-}
-
-// countMatching returns how many keys of m pass the filter. Used to
-// decide whether to print the section header / count.
-func countMatching(m map[string]models.InfraEntry, want map[string]struct{}) int {
-	if want == nil {
-		return len(m)
-	}
-	n := 0
-	for k := range m {
-		if _, ok := want[k]; ok {
-			n++
-		}
-	}
-	return n
-}
-
-// countMatchingSvc is the services counterpart. Same shape — Go's lack of
-// generics over map value types makes the duplication unavoidable here.
-func countMatchingSvc(m map[string]models.Service, want map[string]struct{}) int {
-	if want == nil {
-		return len(m)
-	}
-	n := 0
-	for k := range m {
-		if _, ok := want[k]; ok {
-			n++
-		}
-	}
-	return n
 }
 
 // validateStatusFilter fails fast with a useful error when the filter

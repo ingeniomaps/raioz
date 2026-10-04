@@ -2,7 +2,10 @@ package config
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+
+	"raioz/internal/i18n"
 )
 
 // YAMLToDeps converts a RaiozConfig (from raioz.yaml) to the existing Deps structure.
@@ -65,6 +68,7 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 	if cfg.Proxy != nil && cfg.Proxy.Enabled {
 		deps.Proxy = true
 		deps.ProxyConfig = cfg.Proxy
+		deps.ProxyConfig.Resources = cfg.Proxy.Resources.OrDefault(cfg.Resources)
 	}
 
 	// Convert pre / preUp / post hooks
@@ -90,12 +94,23 @@ func YAMLToDeps(cfg *RaiozConfig) (*Deps, error) {
 		if err != nil {
 			return nil, fmt.Errorf("service '%s': %w", name, err)
 		}
+		service.Resources = svc.Resources.OrDefault(cfg.Resources)
+		service.ResourcesInherited = svc.Resources.IsZero()
 		deps.Services[name] = service
 	}
 
 	// Convert dependencies to infra entries
 	for name, dep := range cfg.Deps {
 		entry := yamlDependencyToInfra(dep)
+		switch {
+		case entry.Inline == nil:
+		case len(dep.Compose) == 0:
+			entry.Inline.Resources = dep.Resources.OrDefault(cfg.Resources)
+		default:
+			// A compose dependency carries its own limits; only a block
+			// declared on the dependency itself replaces them.
+			entry.Inline.Resources = dep.Resources
+		}
 		deps.Infra[name] = entry
 	}
 
@@ -308,12 +323,7 @@ func yamlDeprecationWarnings(cfg *RaiozConfig) []string {
 			continue
 		}
 		warnings = append(warnings,
-			fmt.Sprintf(
-				"dependency '%s' uses legacy `ports:`; consider migrating to "+
-					"`publish:` (host-side opt-in) and `expose:` (container-side "+
-					"declaration) for clearer semantics",
-				name,
-			),
+			i18n.T("warning.legacy_ports", name),
 		)
 	}
 	return warnings
@@ -357,6 +367,9 @@ func LoadDepsFromYAML(path string) (*Deps, []string, error) {
 	warnings := schemaVersionWarnings(cfg)
 	warnings = append(warnings, yamlDeprecationWarnings(cfg)...)
 	warnings = append(warnings, imagePinningWarnings(cfg)...)
+	if absPath, absErr := filepath.Abs(path); absErr == nil {
+		warnings = append(warnings, systemVolumeWarnings(cfg, filepath.Dir(absPath))...)
+	}
 	warnings = append(warnings, authWarnings(cfg)...)
 
 	// Strict re-parse on the raw bytes for unknown-field detection. Any

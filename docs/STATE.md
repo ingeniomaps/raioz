@@ -41,10 +41,11 @@ reads it later"):
 ├── workspaces/
 │   └── <project>/
 │       └── raioz.root.json            ← drift-detection snapshot
-└── <workspace>/
-    ├── Caddyfile                      ← regenerated each Reload
-    └── routes/
-        └── <project>.json             ← one persisted route block per project
+└── proxies/
+    └── <workspace>/                   ← or raioz-<network> without a workspace
+        ├── Caddyfile                  ← regenerated each Reload
+        └── routes/
+            └── <project>.json         ← one persisted route block per project
 
 <project>/                             ← user's project directory (cwd)
 └── .raioz.state.json                  ← LocalState — runtime overrides
@@ -58,8 +59,12 @@ reads it later"):
 
 `naming.RaiozStateDir()` resolves to (in order): `RAIOZ_HOME` →
 `$XDG_STATE_HOME/raioz` → `~/.local/state/raioz` (ADR-022).
-`WorkspaceProxyDir()` returns `<RaiozStateDir>/<workspace>/` for
-workspace-shared mode (ADR-005). The cert dir sits at the
+`WorkspaceProxyDir()` returns `<RaiozStateDir>/proxies/<workspace>/`
+for workspace-shared mode (ADR-005). Older releases kept it beside the
+state dir, at `~/.local/state/<workspace>/proxy/`; because that
+directory is the bind-mount source of a proxy that may still be
+running, raioz keeps using it while it exists, and the `down` that
+stops that proxy removes it — the next `up` lands in the new place. The cert dir sits at the
 legacy `~/.raioz/certs/` and is not migrated; the migrator
 moves runtime state, not crypto material. See "Open question"
 below.
@@ -76,7 +81,7 @@ below.
 | `state.json` | `internal/state/global.go::UpdateProjectState` | `raioz up`'s `updateGlobalState` — best-effort, once per up |
 | `Caddyfile` | `internal/proxy/caddyfile.go::generateCaddyfile` | indirect — every `Reload` and the first `Start` |
 | certs | `internal/proxy/certs.go::EnsureCerts` | proxy `Start` when `tlsMode == mkcert` and the SAN-validated cert is missing |
-| `logs/<project>/<service>.log` | `internal/orchestrate/host_runner.go::Start` (`raioz up`) and `internal/host/process.go::StartService` (`raioz restart`) | every host service launch — truncated, not appended |
+| `logs/<project>/<service>.log` | `internal/orchestrate/host_runner.go::Start` (`raioz up`, `raioz restart`, watch reloads) | every host service launch — truncated, not appended |
 
 Both host writers go through `naming.LogFile`, and so does every reader
 (`raioz logs`, `up`'s log streaming, the early-exit error tail). That is
@@ -112,6 +117,15 @@ different:
 | Mutated during | dispatcher start/stop, dev promote, ignore add/remove | `upcase.saveState` (one write per up) |
 | Schema | runtime overrides (PIDs, dev swaps, deferred siblings, compose path) | full resolved `Deps` snapshot (services, infra, env, metadata) |
 | What it answers | "what did the previous `up` actually start, and where?" | "did the YAML change since last `up`?" |
+
+**What a full `down` leaves behind.** Once no container of the project
+survives, `down` deletes `raioz.root.json`, the workspace directory if
+no file is left in it, the generated dependency compose files under
+the temp dir, and the proxy directory when the proxy stopped.
+LocalState goes too unless it records a choice the user made — a
+`raioz dev` override or an ignored service. Host logs
+(`<RaiozStateDir>/logs/<project>/`) stay on purpose: they are what you
+read after something failed.
 
 **Heuristic:** if the new info changes per-up (PIDs, dispatch
 results, sibling defer decisions), it's LocalState. If it's a

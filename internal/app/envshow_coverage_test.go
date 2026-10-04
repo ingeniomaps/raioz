@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"raioz/internal/discovery"
 	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
+	"raioz/internal/naming"
 	"raioz/internal/workspace"
 )
 
@@ -112,7 +114,7 @@ func TestResolveDiscoveryVars_Basic(t *testing.T) {
 		Project: models.Project{Name: "test"},
 		Services: map[string]models.Service{
 			"api": {
-				Source: models.SourceConfig{Path: "."},
+				Source: models.SourceConfig{Path: tmpDir},
 				Docker: &models.DockerConfig{Ports: []string{"3000"}},
 			},
 		},
@@ -124,7 +126,11 @@ func TestResolveDiscoveryVars_Basic(t *testing.T) {
 		},
 	}
 
-	entries := resolveDiscoveryVars(deps, "api", tmpDir)
+	prev := containerLookup
+	containerLookup = func() naming.ContainerLookup { return nil }
+	t.Cleanup(func() { containerLookup = prev })
+
+	entries := resolveDiscoveryVars(context.Background(), discovery.NewManager(), deps, tmpDir, "api")
 	if len(entries) == 0 {
 		t.Error("expected at least some discovery vars")
 	}

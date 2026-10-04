@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
+	"raioz/internal/docker"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -38,6 +41,7 @@ func startWatcher(
 	detections DetectionMap,
 	networkName string,
 	projectDir string,
+	envFor func(serviceName string) map[string]string,
 ) {
 	servicePaths := make(map[string]string)
 	nativeWatch := make(map[string]bool)
@@ -73,7 +77,7 @@ func startWatcher(
 		return
 	}
 
-	onRestart := buildRestartCallback(ctx, deps, dispatcher, detections, networkName, projectDir)
+	onRestart := buildRestartCallback(ctx, deps, dispatcher, detections, networkName, projectDir, envFor)
 
 	w, err := watch.New(watch.Config{
 		ServicePaths: servicePaths,
@@ -86,7 +90,7 @@ func startWatcher(
 		return
 	}
 
-	output.PrintProgressDone(fmt.Sprintf("Watching %d service(s): %v", watchCount, names))
+	output.PrintProgressDone(i18n.T("watch.watching", watchCount, names))
 	output.PrintInfo(i18n.T("output.press_ctrlc"))
 	fmt.Println()
 
@@ -113,11 +117,33 @@ func startWatcher(
 	//      `sh -c` wrapper (not the process group), orphaning grandchildren.
 	//      HostRunner.Stop does the right thing — group SIGTERM with polling
 	//      and SIGKILL fallback — so we let it drive the teardown instead.
-	stopAllServicesForShutdown(ctx, deps, dispatcher, detections, networkName)
+	//
+	// `ctx` itself is the command's context, and Ctrl+C is exactly what
+	// cancels it (ADR-026): handed down as is, every docker call of the
+	// teardown died at birth and the dependencies stayed up. The teardown
+	// runs on a context that outlives the signal, bounded by its own
+	// deadline.
+	stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
+	stopAllServicesForShutdown(stopCtx, deps, dispatcher, detections, networkName)
+	// The dispatcher stopped what it started; the project's own `down`
+	// takes the rest with it — proxy, network, state — so leaving a watch
+	// session is the same as running `raioz down`.
+	if err := ProjectDownFn(stopCtx, projectDir); err != nil {
+		logging.WarnWithContext(ctx, "Project teardown after watch failed", "error", err.Error())
+	}
+	stopCancel()
 
 	cancel()
 	w.Close()
 }
+
+// ProjectDownFn runs the full `down` of the project in projectDir. The down
+// flow lives in the app layer, which installs it at init; the default does
+// nothing.
+var ProjectDownFn = func(context.Context, string) error { return nil }
+
+// shutdownTimeout bounds the Ctrl+C teardown of a watch session.
+const shutdownTimeout = 90 * time.Second
 
 // stopAllServicesForShutdown tears down every service and dependency that was
 // started by processOrchestration. Called from the watch-mode Ctrl+C handler
@@ -155,6 +181,7 @@ func stopAllServicesForShutdown(
 		if svc.ProxyOverride != nil {
 			svcCtx.ProxyTarget = svc.ProxyOverride.Target
 		}
+		svcCtx.Resources = serviceResources(svc, det)
 		if err := dispatcher.Stop(ctx, svcCtx); err != nil {
 			logging.WarnWithContext(ctx, "Failed to stop service on shutdown",
 				"service", name, "error", err.Error())
@@ -190,10 +217,11 @@ func buildRestartCallback(
 	detections DetectionMap,
 	networkName string,
 	projectDir string,
+	envFor func(serviceName string) map[string]string,
 ) watch.RestartFunc {
 	return func(serviceName string) {
 		logging.Info("File change detected, restarting", "service", serviceName)
-		output.PrintInfo(fmt.Sprintf("[watch] restarting %s...", serviceName))
+		output.PrintInfo(i18n.T("watch.restarting", serviceName))
 
 		det, ok := detections[serviceName]
 		if !ok {
@@ -207,9 +235,18 @@ func buildRestartCallback(
 		// the host process rebinds the same port on every reload. Without
 		// this, a service that moved from 3000→3001 would regress to 3000
 		// on the next file-change restart and clash with whoever took 3000.
-		var restartEnv map[string]string
+		//
+		// The rest of the env is recomputed: a reload that dropped the
+		// discovery vars would bring the service back unable to reach
+		// its dependencies.
+		restartEnv := map[string]string{}
+		if envFor != nil {
+			for k, v := range envFor(serviceName) {
+				restartEnv[k] = v
+			}
+		}
 		if !det.IsDocker() && det.Port > 0 {
-			restartEnv = map[string]string{"PORT": strconv.Itoa(det.Port)}
+			restartEnv["PORT"] = strconv.Itoa(det.Port)
 		}
 
 		svcCtx := buildServiceContext(
@@ -227,9 +264,11 @@ func buildRestartCallback(
 		if svc.ProxyOverride != nil {
 			svcCtx.ProxyTarget = svc.ProxyOverride.Target
 		}
+		svcCtx.Resources = serviceResources(svc, det)
+		applyServiceEnv(&svcCtx, svc.Env, projectDir)
 
 		if err := dispatcher.Restart(ctx, svcCtx); err != nil {
-			output.PrintWarning(fmt.Sprintf("[watch] failed: %s: %s", serviceName, err))
+			output.PrintWarning(i18n.T("watch.failed", serviceName, err))
 			return
 		}
 
@@ -243,7 +282,7 @@ func buildRestartCallback(
 			}
 		}
 
-		output.PrintSuccess(fmt.Sprintf("[watch] %s restarted", serviceName))
+		output.PrintSuccess(i18n.T("watch.restarted", serviceName))
 	}
 }
 
@@ -253,8 +292,42 @@ func updateHostPID(projectDir, serviceName string, pid int) {
 	if localState == nil {
 		return
 	}
+	if localState.HostPIDs == nil {
+		localState.HostPIDs = make(map[string]int)
+	}
 	localState.HostPIDs[serviceName] = pid
 	// Best-effort: watch PID updates are advisory for `status` — losing
 	// one doesn't break the watched process itself.
 	_ = state.SaveLocalState(projectDir, localState)
+}
+
+// ServiceStartContext rebuilds, from the config alone, the context `up`
+// starts a service with: detection, recomputed env, ports and stop command.
+// ok is false when the name is not a service of the project.
+func ServiceStartContext(
+	ctx context.Context, dm interfaces.DiscoveryManager, deps *models.Deps, projectDir, name string,
+) (svcCtx interfaces.ServiceContext, ok bool) {
+	svc, isService := deps.Services[name]
+	det, detected := BuildDetectionMap(deps)[name]
+	if !isService || !detected {
+		return interfaces.ServiceContext{}, false
+	}
+	svcCtx = buildServiceContext(
+		name, det, deps.Network.GetName(),
+		ComputedServiceEnv(ctx, dm, docker.NewLookup(), deps, projectDir, name),
+		servicePorts(svc),
+		svc.GetDependsOn(),
+		naming.Container(deps.Project.Name, name),
+		svc.Source.Path,
+		deps.Project.Name,
+	)
+	if svc.Commands != nil && svc.Commands.Down != "" {
+		svcCtx.StopCommand = svc.Commands.Down
+	}
+	if svc.ProxyOverride != nil {
+		svcCtx.ProxyTarget = svc.ProxyOverride.Target
+	}
+	svcCtx.Resources = serviceResources(svc, det)
+	applyServiceEnv(&svcCtx, svc.Env, projectDir)
+	return svcCtx, true
 }

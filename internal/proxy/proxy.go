@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/runtime"
@@ -53,6 +54,8 @@ type Manager struct {
 	// parallelism — each workspace's proxy lives entirely on its own
 	// subnet without fighting over the host port pool.
 	publish bool
+	// resources caps the container's memory and CPU; nil = no cap.
+	resources *models.Resources
 }
 
 // isWorkspaceShared reports whether the proxy is in shared (workspace-scoped)
@@ -95,20 +98,6 @@ func NewManager(certsDir string) *Manager {
 func (m *Manager) ContainerIP() string {
 	ip, _ := m.resolveContainerIP()
 	return ip
-}
-
-// resolveContainerIP picks the IP the proxy should bind to, applying the
-// precedence rules: explicit > derived-from-subnet > none (auto-assign).
-// An invalid user IP is rejected with a descriptive error so the problem
-// surfaces before docker run.
-func (m *Manager) resolveContainerIP() (string, error) {
-	if m.containerIP != "" {
-		if err := ValidateProxyIP(m.containerIP, m.networkSubnet); err != nil {
-			return "", err
-		}
-		return m.containerIP, nil
-	}
-	return DefaultProxyIP(m.networkSubnet), nil
 }
 
 // ContainerName returns the proxy container name.
@@ -155,6 +144,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 			// fall through to the create path below
 		} else {
 			logging.InfoWithContext(ctx, "Proxy already running", "container", containerName)
+			m.updateResourceLimits(ctx, containerName)
 			return m.Reload(ctx)
 		}
 	}
@@ -204,9 +194,10 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		return fmt.Errorf("failed to generate Caddyfile: %w", err)
 	}
 
-	// Build docker run args. When publish is off we omit the -p flags
-	// entirely — Caddy still listens on 80/443 inside the container, and
-	// callers reach it via the container's network IP.
+	m.ensureDataVolume(ctx)
+
+	// Build docker run args. When publish is off we omit the -p flags:
+	// Caddy still listens on 80/443 inside, reachable by its network IP.
 	args := []string{"run", "-d",
 		"--name", containerName,
 		"--network", networkName,
@@ -214,17 +205,15 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		"-v", caddyfilePath + ":/etc/caddy/Caddyfile:ro",
 		"-v", m.caddyVolume() + ":/data",
 	}
+	args = append(args, resourceArgs(m.resources)...)
 	if runtime.Supports(runtime.HostGatewayAlias) {
 		args = append(args, "--add-host=host.docker.internal:host-gateway")
 	}
 	if m.publish {
-		httpBind := "80:80"
-		httpsBind := "443:443"
-		if m.bindHost != "" {
-			httpBind = m.bindHost + ":80:80"
-			httpsBind = m.bindHost + ":443:443"
-		}
-		args = append(args, "-p", httpBind, "-p", httpsBind)
+		// Loopback unless asked otherwise: a bare `-p 80:80` binds every
+		// interface and puts a development proxy on the local network.
+		host := m.publishHost()
+		args = append(args, "-p", host+":80:80", "-p", host+":443:443")
 	}
 
 	// Pin the proxy to a known IP inside the network when one is resolvable.
@@ -286,6 +275,7 @@ func (m *Manager) Start(ctx context.Context, networkName string) error {
 		return fmt.Errorf("failed to start proxy: %w\n%s", err, string(output))
 	}
 
+	m.waitUntilListening(ctx, proxyIP)
 	return nil
 }
 
@@ -297,7 +287,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 	stop := exec.CommandContext(ctx, runtime.Binary(), "stop", containerName)
 	_ = stop.Run()
 
-	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", containerName)
 	_ = rm.Run()
 
 	return nil
@@ -391,7 +381,7 @@ func (m *Manager) removeStaleContainer(ctx context.Context, containerName string
 	}
 	logging.InfoWithContext(ctx, "Removing stale proxy container",
 		"container", containerName, "state", state)
-	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", containerName)
 	if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
 		return fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
 	}

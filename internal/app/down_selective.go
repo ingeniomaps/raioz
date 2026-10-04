@@ -10,11 +10,11 @@ import (
 	"raioz/internal/domain/models"
 	exectimeout "raioz/internal/exec"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/refcount"
-	"raioz/internal/runtime"
 	"raioz/internal/state"
 )
 
@@ -69,9 +69,7 @@ func (uc *DownUseCase) downSelectiveServices(
 		)
 	}
 
-	output.PrintProgress(fmt.Sprintf(
-		"Stopping %d target(s) from project %q...", len(targets), projectName,
-	))
+	output.PrintProgress(i18n.T("down.selective_stopping", len(targets), projectName))
 
 	localState, _ := state.LoadLocalState(projectDir)
 
@@ -90,10 +88,7 @@ func (uc *DownUseCase) downSelectiveServices(
 		_ = state.SaveLocalState(projectDir, localState)
 	}
 
-	output.PrintSuccess(fmt.Sprintf(
-		"Stopped %d target(s) from %q (rest of project untouched)",
-		len(targets), projectName,
-	))
+	output.PrintSuccess(i18n.T("down.selective_stopped", len(targets), projectName))
 	return nil
 }
 
@@ -170,20 +165,14 @@ func stopSelectiveDep(
 
 	// Mode A: project: ../sibling — sibling is the runtime.
 	if entry.Inline != nil && entry.Inline.Project != "" {
-		output.PrintInfo(fmt.Sprintf(
-			"%s: sibling-owned (project: %s) — leaving it up. "+
-				"Run `cd %s && raioz down` to stop it from its own project.",
-			name, entry.Inline.Project, entry.Inline.Project,
-		))
+		output.PrintInfo(i18n.T("down.selective_sibling_owned",
+			name, entry.Inline.Project, entry.Inline.Project))
 		return
 	}
 	// Mode B deferred: image+siblingProject and last `up` deferred
 	// because the sibling was active. The local image was never started.
 	if localState != nil && localState.IsDeferred(name) {
-		output.PrintInfo(fmt.Sprintf(
-			"%s: deferred to sibling at up time — nothing to tear down here",
-			name,
-		))
+		output.PrintInfo(i18n.T("down.selective_deferred", name))
 		return
 	}
 
@@ -201,9 +190,7 @@ func stopSelectiveDep(
 				"dep", name, "error", err.Error())
 		}
 		if len(remaining) > 0 {
-			output.PrintInfo(fmt.Sprintf(
-				"%s: shared with sibling projects, leaving it up", name,
-			))
+			output.PrintInfo(i18n.T("down.selective_shared_kept", name))
 			return
 		}
 	}
@@ -212,9 +199,7 @@ func stopSelectiveDep(
 	// Tear down by `-p` alone: compose resolves the project from the engine
 	// labels, so the original -f fragments (TMPDIR-bound, possibly gone) are
 	// not needed. Reconstructing them and swallowing the error leaked deps.
-	args := []string{"compose", "-p", projName, "down", "--remove-orphans"}
-	cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if out, err := composeDownByName(ctx, projName); err != nil {
 		logging.WarnWithContext(ctx, "Dependency teardown failed",
 			"dep", name, "project", projName,
 			"error", err.Error(), "output", string(out))
@@ -231,7 +216,7 @@ func runStopCommand(
 	ctx context.Context,
 	serviceName, command, projectDir, servicePath string,
 ) bool {
-	parts := strings.Fields(command)
+	parts := host.SplitCommand(command)
 	if len(parts) == 0 {
 		return false
 	}

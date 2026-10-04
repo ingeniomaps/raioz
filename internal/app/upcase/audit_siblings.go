@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
 
@@ -55,10 +56,9 @@ func auditSiblingYAMLs(deps *models.Deps) error {
 	}
 
 	if len(scanned) == 0 {
-		output.PrintInfo("audit-siblings: no sibling deps to scan")
+		output.PrintInfo(i18n.T("up.audit_siblings_none"))
 	} else {
-		output.PrintInfo(fmt.Sprintf(
-			"audit-siblings: scanned %d yaml(s) — %v", len(scanned), scanned))
+		output.PrintInfo(i18n.T("up.audit_siblings_scanned", len(scanned), scanned))
 	}
 	return nil
 }

@@ -93,6 +93,11 @@ H2 a "solo blocklist" por default. Implementación:
 `validatePathSafety`/`checkInsideRoot` en
 `internal/config/path_safety.go`.
 
+`dependencies.<n>.volumes` queda fuera del rechazo de H2 a
+propósito: un bind mount existe para salir del proyecto. Cuando su
+lado host cae en la blocklist de sistema se emite un **warning**
+(`internal/config/volume_safety.go`), no un error.
+
 **Regla H3 — Image tag pinning warning.**
 
 `dependencies.<n>.image` sin tag explícito o con tag `:latest`

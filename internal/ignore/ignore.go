@@ -14,7 +14,13 @@ const ignoreFileName = "ignore.json"
 
 // IgnoreConfig represents the ignore configuration
 type IgnoreConfig struct {
-	Services []string `json:"services"` // List of ignored service names
+	// Services is the list from before ignores were per project. It still
+	// applies to every project, so nothing ignored then comes back on its
+	// own; new entries go under Projects.
+	Services []string `json:"services"`
+	// Projects maps a project to the services ignored in it. Ignoring
+	// `api` in one project says nothing about another project's `api`.
+	Projects map[string][]string `json:"projects,omitempty"`
 }
 
 // GetIgnorePath returns the path to the ignore file.
@@ -151,4 +157,77 @@ func GetIgnoredServices() ([]string, error) {
 	}
 
 	return config.Services, nil
+}
+
+// ForProject returns the services ignored in a project: its own list plus
+// the legacy global one. An empty project means the legacy list alone.
+func ForProject(project string) ([]string, error) {
+	config, err := Load()
+	if err != nil {
+		return nil, err
+	}
+	out := append([]string{}, config.Services...)
+	for _, name := range config.Projects[project] {
+		if !contains(out, name) {
+			out = append(out, name)
+		}
+	}
+	return out, nil
+}
+
+// AddFor ignores a service in one project. An empty project falls back to
+// the legacy global list.
+func AddFor(project, serviceName string) error {
+	if project == "" {
+		return AddService(serviceName)
+	}
+	config, err := Load()
+	if err != nil {
+		return err
+	}
+	if contains(config.Projects[project], serviceName) {
+		return nil
+	}
+	if config.Projects == nil {
+		config.Projects = map[string][]string{}
+	}
+	config.Projects[project] = append(config.Projects[project], serviceName)
+	return Save(config)
+}
+
+// RemoveFor stops ignoring a service in one project. The legacy global
+// entry goes too: it applied to this project, and leaving it would make
+// the removal a no-op.
+func RemoveFor(project, serviceName string) error {
+	config, err := Load()
+	if err != nil {
+		return err
+	}
+	config.Services = without(config.Services, serviceName)
+	if project != "" && config.Projects != nil {
+		config.Projects[project] = without(config.Projects[project], serviceName)
+		if len(config.Projects[project]) == 0 {
+			delete(config.Projects, project)
+		}
+	}
+	return Save(config)
+}
+
+func contains(list []string, name string) bool {
+	for _, item := range list {
+		if item == name {
+			return true
+		}
+	}
+	return false
+}
+
+func without(list []string, name string) []string {
+	out := make([]string, 0, len(list))
+	for _, item := range list {
+		if item != name {
+			out = append(out, item)
+		}
+	}
+	return out
 }

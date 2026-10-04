@@ -75,6 +75,23 @@ func (p *YAMLPublish) UnmarshalYAML(unmarshal func(any) error) error {
 	return nil
 }
 
+// IsZero lets `omitempty` drop a publish the user never wrote.
+func (p YAMLPublish) IsZero() bool { return !p.Set }
+
+// MarshalYAML writes the shortest form UnmarshalYAML reads back: a bool
+// for auto, a bare int for one port, a list for several.
+func (p YAMLPublish) MarshalYAML() (any, error) {
+	switch {
+	case p.Auto:
+		return true, nil
+	case len(p.Ports) == 1:
+		return p.Ports[0], nil
+	case len(p.Ports) > 1:
+		return p.Ports, nil
+	}
+	return false, nil
+}
+
 // YAMLDevConfig allows a dependency to specify a local path for development override.
 type YAMLDevConfig struct {
 	Path string `yaml:"path"`

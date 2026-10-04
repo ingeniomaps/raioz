@@ -36,8 +36,16 @@ func TestResolveProxyIPForHosts(t *testing.T) {
 		}
 	})
 
-	t.Run("error when neither subnet nor proxy.ip set", func(t *testing.T) {
-		deps := &models.Deps{}
+	t.Run("published proxy without a subnet is reached on the host", func(t *testing.T) {
+		got, err := resolveProxyIPForHosts(&models.Deps{})
+		if err != nil || got != "127.0.0.1" {
+			t.Errorf("got %q, %v; want 127.0.0.1", got, err)
+		}
+	})
+
+	t.Run("error when unpublished and neither subnet nor proxy.ip set", func(t *testing.T) {
+		off := false
+		deps := &models.Deps{ProxyConfig: &models.ProxyConfig{Publish: &off}}
 		if _, err := resolveProxyIPForHosts(deps); err == nil {
 			t.Error("expected error when no IP source declared")
 		}

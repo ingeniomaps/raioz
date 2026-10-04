@@ -40,6 +40,7 @@ func setI18nDescriptions() {
 	upCmd.Flags().Lookup("force-reclone").Usage = i18n.T("flag.force_reclone")
 	upCmd.Flags().Lookup("dry-run").Usage = i18n.T("flag.up.dry_run")
 	upCmd.Flags().Lookup("only").Usage = i18n.T("flag.up.only")
+	upCmd.Flags().Lookup("host").Usage = i18n.T("flag.up.host")
 
 	// --- down ---
 	downCmd.Short = i18n.T("cmd.down.short")
@@ -220,7 +221,14 @@ func setI18nDescriptions() {
 	// --- env / clone ---
 	// Both were translated and never wired here, so their help stayed
 	// English under --lang es while the Spanish sat unused in the catalog.
+	envCmd.Short = i18n.T("cmd.env.short")
 	envCmd.Long = i18n.T("cmd.env.long")
+	cloneCmd.Short = i18n.T("cmd.clone.short")
+	hostsCmd.Short = i18n.T("cmd.hosts.short")
+	switchCmd.Short = i18n.T("cmd.switch.short")
+	yamlCmd.Short = i18n.T("cmd.yaml.short")
+	yamlLintCmd.Short = i18n.T("cmd.yaml.lint.short")
+	yamlLintCmd.Long = i18n.T("cmd.yaml.lint.long")
 	cloneCmd.Flags().Lookup("branch").Usage = i18n.T("cmd.clone.flag.branch")
 	cloneCmd.Flags().Lookup("no-up").Usage = i18n.T("cmd.clone.flag.no_up")
 }

@@ -89,29 +89,11 @@ func (uc *UseCase) prepareDockerResources(ctx context.Context, deps *models.Deps
 	logging.DebugWithContext(ctx, "Docker network ready", "network", networkName)
 	output.PrintProgressDone(i18n.T("up.network_ready", networkName))
 
-	// Infra volumes: workspace prefix (shared). Service volumes: project prefix.
-	workspaceName := deps.GetWorkspaceName()
+	// Service volumes only. A dependency's named volume is created by its
+	// own compose project, under that project's prefix; ensuring one here
+	// under another name left an empty volume nothing ever mounted.
 	seenNormalized := make(map[string]bool)
 	var normalizedVolumes []string
-	for _, entry := range deps.Infra {
-		if entry.Inline == nil {
-			continue
-		}
-		named, err := uc.deps.DockerRunner.ExtractNamedVolumes(entry.Inline.Volumes)
-		if err != nil {
-			return errors.New(errors.ErrCodeVolumeError, i18n.T("error.volume_extract_infra")).WithError(err)
-		}
-		for _, volName := range named {
-			n, err := uc.deps.DockerRunner.NormalizeVolumeName(workspaceName, volName)
-			if err != nil {
-				return errors.New(errors.ErrCodeVolumeError, i18n.T("error.volume_normalize", volName)).WithError(err)
-			}
-			if !seenNormalized[n] {
-				seenNormalized[n] = true
-				normalizedVolumes = append(normalizedVolumes, n)
-			}
-		}
-	}
 	for _, svc := range deps.Services {
 		if svc.Docker == nil {
 			continue

@@ -18,7 +18,7 @@ import (
 
 var cloneCmd = &cobra.Command{
 	Use:   "clone <repo-url> [directory]",
-	Short: i18n.T("cmd.clone.short"),
+	Short: "Clone a repo and start the project",
 	Long: "Clone a git repository and start the project with raioz up.\n" +
 		"If the repo contains a raioz.yaml, everything is auto-configured.\n\n" +
 		"Examples:\n" +

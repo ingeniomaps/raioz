@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"raioz/internal/config"
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
 	"raioz/internal/i18n"
@@ -51,6 +52,9 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 	type target struct {
 		name string
 		url  string
+		// alt is the same endpoint on the container's own address, for a
+		// compose / Dockerfile service that publishes no host port.
+		alt func() string
 	}
 
 	var targets []target
@@ -65,10 +69,17 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 			unprobeable = append(unprobeable, name)
 			continue
 		}
-		targets = append(targets, target{
-			name: name,
-			url:  host.HealthURL(svc.Port, svc.HealthEndpoint),
-		})
+		t := target{name: name, url: host.HealthURL(svc.Port, svc.HealthEndpoint)}
+		if det := config.ResolveServiceDetection(svc, svc.Source.Path); det.IsDocker() {
+			project, port, endpoint := deps.Project.Name, svc.Port, svc.HealthEndpoint
+			t.alt = func() string {
+				if ip := serviceContainerIPFn(ctx, project, name); ip != "" {
+					return host.HealthURLAt(ip, port, endpoint)
+				}
+				return ""
+			}
+		}
+		targets = append(targets, t)
 	}
 
 	if len(unprobeable) > 0 {
@@ -82,14 +93,22 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 	output.PrintProgress(i18n.T("up.waiting_health_endpoints", len(targets)))
 
 	pending := make(map[string]string, len(targets))
+	alts := make(map[string]func() string, len(targets))
 	for _, t := range targets {
 		pending[t.name] = t.url
+		alts[t.name] = t.alt
 	}
 
 	deadline := time.Now().Add(endpointProbeDeadline)
 	for {
 		for name, url := range pending {
-			if endpointProbe(ctx, url) {
+			ok := endpointProbe(ctx, url)
+			if !ok && alts[name] != nil {
+				if alt := alts[name](); alt != "" {
+					ok = endpointProbe(ctx, alt)
+				}
+			}
+			if ok {
 				delete(pending, name)
 				output.PrintSuccess(i18n.T("up.health_endpoint_ok", name))
 			}

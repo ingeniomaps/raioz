@@ -9,9 +9,11 @@ import (
 
 // validateGitInput validates git branch and repo inputs to prevent command injection
 func validateGitInput(branch, repo string) error {
-	// Validate branch
-	if err := validateBranch(branch); err != nil {
-		return fmt.Errorf("invalid branch '%s': %w", branch, err)
+	// An empty branch means the remote's default one.
+	if branch != "" {
+		if err := validateBranch(branch); err != nil {
+			return fmt.Errorf("invalid branch '%s': %w", branch, err)
+		}
 	}
 
 	// Validate repo

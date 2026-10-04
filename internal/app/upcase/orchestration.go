@@ -28,13 +28,14 @@ func (uc *UseCase) processOrchestration(
 	configPath string,
 	routerOff bool,
 ) (*orchestrationResult, error) {
-	// Step 0 — kill stale host processes from a previous run, scoped
-	// to the services this `up` touches (full or `--only` subset).
+	// Step 0 — find the host services an earlier up left running, scoped
+	// to the services this `up` touches (full or `--only` subset). They
+	// are adopted, not restarted.
 	scope := make(map[string]struct{}, len(deps.Services))
 	for name := range deps.Services {
 		scope[name] = struct{}{}
 	}
-	cleanStaleHostProcesses(ctx, projectDir, deps.Project.Name, scope)
+	alreadyRunning := runningHostServices(ctx, projectDir, deps, scope)
 
 	// Step 1: Detect runtimes
 	output.PrintProgress(i18n.T("up.detecting_runtimes"))
@@ -45,27 +46,26 @@ func (uc *UseCase) processOrchestration(
 	// concurrent `raioz up` in different workspaces can't race on the
 	// same host port. allocatePortsLocked drops the lock before the
 	// sibling dispatch phase (see its doc for the deadlock it avoids).
+	for _, name := range inferDepExpose(ctx, deps) {
+		output.PrintWarning(i18n.T("up.publish_without_expose", name))
+	}
 	portAllocs, err := allocatePortsLocked(ctx, deps, detections, configPath)
 	if err != nil {
 		return nil, err
 	}
 
-	for name, alloc := range portAllocs.Services {
-		det := detections[name]
-		det.Port = alloc.Port
-		detections[name] = det
-	}
-	// For published deps, write the *first* host mapping into detection.Port
-	// so the proxy/discovery path can reach the dependency from the host.
-	// Container→container traffic still uses the DNS name + container port,
-	// handled by the discovery package.
-	for name, alloc := range portAllocs.Deps {
-		if len(alloc.Mappings) == 0 {
-			continue
+	applyPortAllocs(detections, portAllocs)
+	unreachable := unreachableHostDeps(deps, detections, portAllocs)
+	for _, service := range sortedKeys(unreachable) {
+		for _, dep := range unreachable[service] {
+			output.PrintWarning(i18n.T("up.host_service_unreachable_dep", service, dep, dep))
 		}
-		det := detections[name]
-		det.Port = alloc.Mappings[0].HostPort
-		detections[name] = det
+	}
+	for name, pid := range alreadyRunning {
+		if portAllocs.RunningHost == nil {
+			portAllocs.RunningHost = make(map[string]int)
+		}
+		portAllocs.RunningHost[name] = pid
 	}
 
 	// Create dispatcher
@@ -97,6 +97,7 @@ func (uc *UseCase) processOrchestration(
 			output.PrintProgress(i18n.T("up.starting_infra", toDispatch))
 		}
 		infraStart := time.Now()
+		devOverrides := loadDevOverrides(projectDir)
 
 		for _, name := range infraNames {
 			detection := detections[name]
@@ -116,79 +117,25 @@ func (uc *UseCase) processOrchestration(
 			}
 			dispatchedInfra = append(dispatchedInfra, name)
 
-			// Build image reference + env for the runner.
-			envVars := map[string]string{}
-			if entry.Inline != nil {
-				imageRef := entry.Inline.Image
-				if entry.Inline.Tag != "" {
-					imageRef += ":" + entry.Inline.Tag
-				}
-				envVars["RAIOZ_IMAGE"] = imageRef
-				if entry.Inline.Env != nil {
-					for k, v := range entry.Inline.Env.GetVariables() {
-						envVars[k] = v
-					}
-					for _, filePath := range entry.Inline.Env.GetFilePaths() {
-						if filePath != "" {
-							envVars["RAIOZ_ENV_FILE"] = filePath
-						}
-					}
-				}
-			}
-
-			// Build container name. Deps may be workspace-shared or have an
-			// explicit `name:` override — both cases resolved by DepContainer.
-			var nameOverride string
-			if entry.Inline != nil {
-				nameOverride = entry.Inline.Name
-			}
-			containerName := naming.DepContainer(deps.Project.Name, name, nameOverride)
-
-			// Resolve what ports (if any) this dep should publish to the host.
-			// Priority: allocator result (publish: …) → legacy ports: list →
-			// nothing at all (internal-only, containers reach it by DNS).
-			composePorts := resolveDepPublishPorts(name, entry, portAllocs)
-
-			svcCtx := buildServiceContext(
-				name, detection, networkName,
-				envVars,
-				composePorts,
-				nil, // infra has no dependsOn
-				containerName,
-				"", // no path for images
-				deps.Project.Name,
-			)
-			svcCtx.SharedDep = naming.IsSharedDep(nameOverride) // ADR-050
-
-			// ProjectDir anchors relative bind-mount sources against the
-			// project's raioz.yaml dir rather than the raioz process cwd.
-			if entry.Inline != nil && len(entry.Inline.Volumes) > 0 {
-				svcCtx.Volumes = append([]string(nil), entry.Inline.Volumes...)
-				svcCtx.ProjectDir = projectDir
-			}
-
-			// When the dep declares `compose:`, hand its files + env files
-			// straight to ImageRunner. ImageRunner branches on these: if
-			// set it uses the user's compose with a network/labels overlay
-			// layered on top; if not it generates a minimal compose from
-			// the `image:` field (legacy behavior).
-			if entry.Inline != nil && len(entry.Inline.Compose) > 0 {
-				svcCtx.ExternalComposeFiles = append([]string(nil), entry.Inline.Compose...)
-				if entry.Inline.Env != nil {
-					for _, f := range entry.Inline.Env.GetFilePaths() {
-						if f != "" {
-							svcCtx.EnvFilePaths = append(svcCtx.EnvFilePaths, f)
-						}
-					}
+			svcCtx := buildDepContext(deps, name, entry, detection, networkName, projectDir, portAllocs)
+			// A dependency promoted with `raioz dev` runs from its local
+			// path until it is reset; up brings back what was promoted,
+			// not the image.
+			if override, ok := devOverrides[name]; ok {
+				svcCtx = DevOverrideContext(svcCtx, override.LocalPath)
+				// Promoted to a host process that is still running: it
+				// is adopted like any host service, not started twice.
+				if devOverrideRunning(projectDir, name, override.LocalPath) {
+					output.PrintInfraStarted(name)
+					continue
 				}
 			}
 
 			if err := dispatcher.Start(ctx, svcCtx); err != nil {
-				imageRef := ""
-				if envVars["RAIOZ_IMAGE"] != "" {
-					imageRef = envVars["RAIOZ_IMAGE"]
-				}
-				return nil, errors.DependencyStartFailed(name, imageRef, err)
+				return nil, errors.DependencyStartFailed(name, svcCtx.EnvVars["RAIOZ_IMAGE"], err)
+			}
+			if pid := dispatcher.GetHostPID(name); pid > 0 {
+				updateHostPID(projectDir, name, pid)
 			}
 			output.PrintInfraStarted(name)
 		}
@@ -319,11 +266,33 @@ func buildEndpoints(
 		// URL scheme + legacy `ports:` fallback for inline infra deps. The
 		// allocator (above) is authoritative for ports it could map.
 		applyInlineDepEndpoint(&ep, name, deps, portAllocs)
+		applyInternalDepPort(ctx, &ep, name, deps)
+		applyProxyURL(&ep, deps, name)
 
 		endpoints[name] = ep
 	}
 
 	return endpoints
+}
+
+// removeUnusedNetworksFn drops the networks carrying the given labels that
+// no container is attached to. Declared here (this file already imports
+// internal/docker) and as a package var so tests never reach the daemon.
+var removeUnusedNetworksFn = docker.RemoveLabeledNetworks
+
+// serviceContainerIPFn resolves the address of a service's container.
+// Declared here (this file already imports internal/docker) and as a
+// package var so tests can answer without a docker daemon.
+var serviceContainerIPFn = docker.ServiceContainerIP
+
+// serviceEnvFor returns the per-service env recompute the file watcher
+// uses on every reload.
+func (uc *UseCase) serviceEnvFor(
+	ctx context.Context, deps *models.Deps, projectDir string,
+) func(string) map[string]string {
+	return func(name string) map[string]string {
+		return ComputedServiceEnv(ctx, uc.deps.DiscoveryManager, docker.NewLookup(), deps, projectDir, name)
+	}
 }
 
 // orderedServiceNames is defined in orchestration_order.go (topological sort

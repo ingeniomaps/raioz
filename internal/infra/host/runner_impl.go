@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"raioz/internal/domain/interfaces"
-	"raioz/internal/domain/models"
 	hostpkg "raioz/internal/host"
 	workspacepkg "raioz/internal/workspace"
 )
@@ -18,19 +17,6 @@ type HostRunnerImpl struct{}
 // NewHostRunner creates a new HostRunner implementation
 func NewHostRunner() interfaces.HostRunner {
 	return &HostRunnerImpl{}
-}
-
-// StartService starts a service directly on the host (without Docker)
-func (r *HostRunnerImpl) StartService(
-	ctx context.Context,
-	ws *interfaces.Workspace,
-	deps *models.Deps,
-	serviceName string,
-	svc models.Service,
-	projectDir string,
-) (*hostpkg.ProcessInfo, error) {
-	wsConcrete := (*workspacepkg.Workspace)(ws)
-	return hostpkg.StartService(ctx, wsConcrete, deps, serviceName, svc, projectDir)
 }
 
 // StopServiceWithCommand stops a host service by PID with an optional stop command

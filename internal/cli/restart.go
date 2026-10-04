@@ -32,7 +32,11 @@ var restartCmd = &cobra.Command{
 			ctx = context.Background()
 		}
 
-		configPath = ResolveConfigPath(configPath)
+		resolvedConfig, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		configPath = resolvedConfig
 
 		deps := newDependencies()
 		useCase := app.NewRestartUseCase(deps)

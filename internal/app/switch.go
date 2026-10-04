@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"raioz/internal/docker"
 	"raioz/internal/errors"
+	"raioz/internal/fsutil"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 )
@@ -54,15 +54,7 @@ func (uc *SwitchUseCase) Execute(ctx context.Context, opts SwitchOptions) error 
 		).WithSuggestion(i18n.T("error.switch_no_config_suggestion"))
 	}
 
-	baseDir, baseErr := uc.deps.Workspace.GetBaseDir()
-	if baseErr != nil {
-		return errors.New(
-			errors.ErrCodeWorkspaceError,
-			i18n.T("error.workspace_resolve"),
-		).WithError(baseErr)
-	}
-
-	conflicts, err := docker.ValidatePorts(cwdDeps, baseDir, cwdDeps.Project.Name)
+	conflicts, err := portConflictsFn(ctx, cwdDeps)
 	if err != nil {
 		return errors.New(
 			errors.ErrCodeDockerNotRunning,
@@ -126,7 +118,7 @@ func filterKeep(names, keep []string) []string {
 // portsForProject returns the deduplicated, sorted host ports a given
 // project holds in the conflict list. Display-only — used to tell the
 // user *why* a project is on the teardown list before they confirm.
-func portsForProject(conflicts []docker.PortConflict, project string) []string {
+func portsForProject(conflicts []portConflict, project string) []string {
 	seen := make(map[string]struct{})
 	var ports []string
 	for _, c := range conflicts {
@@ -141,7 +133,7 @@ func portsForProject(conflicts []docker.PortConflict, project string) []string {
 	return ports
 }
 
-func printSwitchConflicts(projects []string, conflicts []docker.PortConflict) {
+func printSwitchConflicts(projects []string, conflicts []portConflict) {
 	output.PrintSectionHeader(i18n.T("output.switch_conflicts_header"))
 	for _, name := range projects {
 		ports := portsForProject(conflicts, name)
@@ -156,6 +148,14 @@ func printSwitchConflicts(projects []string, conflicts []docker.PortConflict) {
 // — accidentally typing Enter or anything other than y/yes preserves the
 // current state. Mirrors the prompt style used in clean.go / volumes.go.
 func confirmSwitch() (bool, error) {
+	// Nobody can answer without a terminal; waiting on stdin would hang a
+	// script forever, and stopping other projects unasked is not an option.
+	if !fsutil.IsTerminal(os.Stdin) {
+		return false, errors.New(
+			errors.ErrCodeInvalidField,
+			i18n.T("error.switch_needs_confirmation"),
+		).WithSuggestion(i18n.T("error.switch_needs_confirmation_suggestion"))
+	}
 	output.PrintPrompt(i18n.T("output.switch_confirm"))
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')

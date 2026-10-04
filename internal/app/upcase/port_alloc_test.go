@@ -1,6 +1,8 @@
 package upcase
 
 import (
+	"context"
+	"errors"
 	"net"
 	"os"
 	"strings"
@@ -22,6 +24,12 @@ func TestMain(m *testing.M) {
 	prev := portInUseProbe
 	portInUseProbe = func(string) (bool, error) { return false, nil }
 	i18n.Init("en")
+	// Nor which host port a container publishes.
+	publishedHostPortFn = func(context.Context, string, int) (int, error) { return 0, nil }
+	// Never ask the machine's docker what an image exposes.
+	imageExposedPortFn = func(context.Context, string) (int, error) { return 0, errors.New("no docker in tests") }
+	// Nor remove a network from it.
+	removeUnusedNetworksFn = func(context.Context, map[string]string) ([]string, error) { return nil, nil }
 	// Host service logs live under naming.LogDir, which resolves through
 	// RaiozStateDir: without redirecting it, tests that start a host
 	// service leave a log dir inside the developer's real

@@ -33,7 +33,11 @@ const (
 	RuntimeDeno       Runtime = "deno"
 	RuntimeBun        Runtime = "bun"
 	RuntimeImage      Runtime = "image"
-	RuntimeUnknown    Runtime = "unknown"
+	// RuntimeCommand is a host service launched by the `command:` the
+	// user wrote in raioz.yaml — nothing was detected, so it carries no
+	// tool name of its own.
+	RuntimeCommand Runtime = "command"
+	RuntimeUnknown Runtime = "unknown"
 )
 
 // AllRuntimes returns every declared runtime EXCEPT RuntimeUnknown
@@ -52,6 +56,7 @@ func AllRuntimes() []Runtime {
 		RuntimeRuby, RuntimeElixir, RuntimeDart, RuntimeSwift,
 		RuntimeScala, RuntimeClojure, RuntimeZig, RuntimeGleam,
 		RuntimeHaskell, RuntimeDeno, RuntimeBun, RuntimeImage,
+		RuntimeCommand,
 	}
 }
 

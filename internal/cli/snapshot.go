@@ -40,8 +40,7 @@ var snapshotCreateCmd = &cobra.Command{
 			output.PrintInfo(i18n.T("output.snapshot_no_volumes"))
 			return nil
 		}
-		output.PrintSuccess(fmt.Sprintf(
-			"Snapshot '%s' created with %d volumes",
+		output.PrintSuccess(i18n.T("snapshot.created",
 			res.Snapshot.Name, len(res.Snapshot.Volumes)))
 		return nil
 	},
@@ -64,7 +63,7 @@ var snapshotRestoreCmd = &cobra.Command{
 		}); err != nil {
 			return err
 		}
-		output.PrintSuccess(fmt.Sprintf("Snapshot '%s' restored", args[0]))
+		output.PrintSuccess(i18n.T("snapshot.restored", args[0]))
 		return nil
 	},
 }
@@ -122,7 +121,7 @@ var snapshotDeleteCmd = &cobra.Command{
 		}); err != nil {
 			return err
 		}
-		output.PrintSuccess(fmt.Sprintf("Snapshot '%s' deleted", args[0]))
+		output.PrintSuccess(i18n.T("snapshot.deleted", args[0]))
 		return nil
 	},
 }

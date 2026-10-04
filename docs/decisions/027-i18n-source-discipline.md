@@ -40,12 +40,15 @@ fixed before the lint gate ratchet starts.
 Grep-based check that fails on raw English literals in
 `output.Print*` calls. Pattern:
 
-    output.Print<Anything>("<Uppercase letter>...
+    output.Print<Anything>("<letter>...
+    output.Print<Anything>(fmt.Sprintf("<letter>...     (same line or next)
 
-Catches `output.PrintInfo("Hello")` but ignores dynamic
-concatenation (`output.PrintInfo("hello " + name)`) — those still
-deserve i18n long-term, but the strict-literal pattern is the
-load-bearing one for the prompt class of bugs.
+Catches `output.PrintInfo("Hello")` and
+`output.PrintInfo(fmt.Sprintf("Stopped %d", n))` — the second shape
+was added after about fifty messages turned out to have slipped past
+the original literal-only pattern. Dynamic concatenation
+(`output.PrintInfo("hello " + name)`) and format-only strings
+(`"%s: %s"`) still pass.
 
 ### 3. Shrinking baseline — `scripts/i18n-source-baseline.txt`
 

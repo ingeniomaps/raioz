@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
@@ -30,7 +30,7 @@ func init() {
 		models.RuntimeElixir, models.RuntimeDart, models.RuntimeSwift,
 		models.RuntimeScala, models.RuntimeClojure, models.RuntimeZig,
 		models.RuntimeGleam, models.RuntimeHaskell, models.RuntimeDeno,
-		models.RuntimeBun,
+		models.RuntimeBun, models.RuntimeCommand,
 	}
 	for _, rt := range hostRuntimes {
 		register(rt, func(d *Dispatcher) runner { return d.host })
@@ -118,7 +118,8 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	if command == "" {
 		command = svc.Detection.StartCommand
 	}
-	if command == "" {
+	parts := host.SplitCommand(command)
+	if len(parts) == 0 {
 		return fmt.Errorf(
 			"no start command detected for '%s'. "+
 				"Add a dev script to package.json, "+
@@ -131,16 +132,14 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 	logging.InfoWithContext(ctx, "Starting host service",
 		"service", svc.Name, "command", command, "path", svc.Path)
 
-	parts := strings.Fields(command)
+	// A declared cap runs the command inside a transient systemd scope.
+	parts = append(hostLimitPrefix(ctx, svc), parts...)
+
 	// exec.Command (no ctx) by design — see Start's doc comment.
 	cmd := exec.Command(parts[0], parts[1:]...)
 	cmd.Dir = svc.Path
 
-	// Merge env vars with current environment
-	cmd.Env = os.Environ()
-	for k, v := range svc.EnvVars {
-		cmd.Env = append(cmd.Env, k+"="+v)
-	}
+	cmd.Env = hostProcessEnv(svc)
 
 	// Redirect output to log file (persists after raioz up exits)
 	logDir := naming.LogDir(svc.ProjectName)
@@ -215,12 +214,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 				// silently leak resources.
 				r.markLauncher(svc.Name)
 				if svc.StopCommand == "" {
-					output.PrintWarning(fmt.Sprintf(
-						"Service '%s' exited 0 within the settle window — likely a "+
-							"launcher that detached a container or daemon. Without "+
-							"`stop:` declared, `raioz down` cannot clean up. Add a "+
-							"`stop:` command (e.g. `make stop`) to raioz.yaml.",
-						svc.Name))
+					output.PrintWarning(i18n.T("launcher.no_stop", svc.Name))
 					logging.WarnWithContext(ctx, "Launcher pattern without stop: declared",
 						"service", svc.Name, "command", command)
 				}
@@ -257,7 +251,7 @@ func (r *HostRunner) Start(ctx context.Context, svc interfaces.ServiceContext) e
 // Otherwise, falls back to SIGTERM-then-SIGKILL of the tracked PID.
 func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) error {
 	// Custom stop command path
-	if svc.StopCommand != "" {
+	if stopParts := host.SplitCommand(svc.StopCommand); len(stopParts) > 0 {
 		// ADR-025: drain an in-progress launcher build before stop:.
 		if r.isLauncher(svc.Name) {
 			drainLauncherBeforeStop(ctx, svc)
@@ -265,8 +259,7 @@ func (r *HostRunner) Stop(ctx context.Context, svc interfaces.ServiceContext) er
 		logging.InfoWithContext(ctx, "Running custom stop command",
 			"service", svc.Name, "command", svc.StopCommand, "path", svc.Path)
 
-		parts := strings.Fields(svc.StopCommand)
-		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		cmd := exec.CommandContext(ctx, stopParts[0], stopParts[1:]...)
 		cmd.Dir = svc.Path
 
 		cmd.Env = os.Environ()

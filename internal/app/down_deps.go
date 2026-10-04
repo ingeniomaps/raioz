@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"os/exec"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/i18n"
@@ -10,7 +9,6 @@ import (
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/refcount"
-	"raioz/internal/runtime"
 )
 
 // keptSharedDep records a workspace-shared dependency that `down` left
@@ -97,9 +95,7 @@ func stopDependencyComposeProjects(
 		// a later session, a cleaned /tmp, or another host). Reconstructing
 		// the -f list and swallowing the error left deps leaking silently.
 		// --remove-orphans sweeps any container still carrying the label.
-		args := []string{"compose", "-p", projName, "down", "--remove-orphans"}
-		cmd := exec.CommandContext(ctx, runtime.Binary(), args...)
-		if out, err := cmd.CombinedOutput(); err != nil {
+		if out, err := composeDownByName(ctx, projName); err != nil {
 			logging.WarnWithContext(ctx, "Dependency teardown failed",
 				"dep", name, "project", projName,
 				"error", err.Error(), "output", string(out))

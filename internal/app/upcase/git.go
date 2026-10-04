@@ -3,6 +3,9 @@ package upcase
 import (
 	"context"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"raioz/internal/domain/interfaces"
@@ -91,6 +94,10 @@ func (uc *UseCase) processGitRepos(
 		}
 	}
 
+	if forceReclone {
+		stopGitServicesBeforeReclone(ctx, deps, projectDir)
+	}
+
 	// Clone repos for services
 	var disabledServices []string
 	for name, svc := range deps.Services {
@@ -98,6 +105,14 @@ func (uc *UseCase) processGitRepos(
 		if svc.Enabled != nil && !*svc.Enabled {
 			disabledServices = append(disabledServices, name)
 			output.PrintInfo(i18n.T("up.service_disabled_skipping", name))
+			continue
+		}
+		if svc.Source.Kind == "git" && filepath.IsAbs(svc.Source.Path) {
+			// raioz.yaml: `git:` says where `path:` comes from when it is
+			// not on disk yet.
+			if err := uc.cloneIntoDeclaredPath(ctx, name, svc, forceReclone); err != nil {
+				return err
+			}
 			continue
 		}
 		if svc.Source.Kind == "git" {
@@ -186,4 +201,50 @@ func (uc *UseCase) processGitRepos(
 	}
 
 	return nil
+}
+
+// cloneIntoDeclaredPath clones a raioz.yaml git service into its `path:`
+// when that directory is missing. An existing directory is the developer's
+// working copy and is left exactly as it is — no checkout, no pull: raioz
+// has no business moving the branch someone is editing.
+func (uc *UseCase) cloneIntoDeclaredPath(
+	ctx context.Context, name string, svc models.Service, forceReclone bool,
+) error {
+	target := svc.Source.Path
+	if _, err := os.Stat(target); err == nil && !forceReclone {
+		output.PrintInfo(i18n.T("up.git.path_present", name))
+		// Left as it is, but not in silence: the service is about to run
+		// from a branch other than the one raioz.yaml asks for.
+		if current := currentBranchFn(ctx, target); svc.Source.Branch != "" &&
+			current != "" && current != svc.Source.Branch {
+			output.PrintWarning(i18n.T("up.git.branch_differs", name, current, svc.Source.Branch))
+		}
+		return nil
+	}
+
+	output.PrintProgress(i18n.T("up.git.cloning", name))
+	src := svc.Source
+	src.Path = filepath.Base(target)
+	if err := uc.deps.GitRepository.EnsureRepoWithForce(src, filepath.Dir(target), forceReclone); err != nil {
+		logging.ErrorWithContext(logging.WithService(ctx, name), "Failed to clone service repository",
+			"repo", svc.Source.Repo, "branch", svc.Source.Branch, "target", target, "error", err.Error())
+		output.PrintProgressError(i18n.T("up.git.ensure_error", name))
+		return err
+	}
+	output.PrintProgressDone(i18n.T("up.git.cloned", name))
+	return nil
+}
+
+// currentBranchFn returns the branch checked out in dir, or "" when dir is
+// not a git work tree (or HEAD is detached). A package var so tests need no
+// repository.
+var currentBranchFn = func(ctx context.Context, dir string) string {
+	out, err := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	if branch := strings.TrimSpace(string(out)); branch != "HEAD" {
+		return branch
+	}
+	return ""
 }

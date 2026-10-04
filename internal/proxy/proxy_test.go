@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/domain/models"
 )
 
 func TestContainerName(t *testing.T) {
@@ -273,4 +275,85 @@ func TestCheckPortsAvailable_DetectsConflict(t *testing.T) {
 	}
 
 	_ = fmt.Sprintf(":%d", port) // keep fmt import used
+}
+
+func TestBusyHostPorts(t *testing.T) {
+	prev := portCheckFunc
+	portCheckFunc = func(p int) (bool, error) { return p == 80, nil }
+	defer func() { portCheckFunc = prev }()
+
+	t.Run("unpublished proxy needs no host port", func(t *testing.T) {
+		m := NewManager("")
+		m.publish = false
+		if got := m.BusyHostPorts(context.Background()); len(got) != 0 {
+			t.Errorf("BusyHostPorts = %v, want none", got)
+		}
+	})
+
+	t.Run("published proxy reports the taken port", func(t *testing.T) {
+		m := NewManager("")
+		m.projectName = "rz-busy-ports-test"
+		m.publish = true
+		got := m.BusyHostPorts(context.Background())
+		if len(got) != 1 || got[0] != 80 {
+			t.Errorf("BusyHostPorts = %v, want [80]", got)
+		}
+	})
+}
+
+func TestWriteFallbackBlock(t *testing.T) {
+	tests := []struct {
+		name     string
+		tlsMode  string
+		certsDir string
+		want     []string
+		empty    bool
+	}{
+		{"mkcert with certs answers on https", "mkcert", "/certs", []string{"https:// {", "tls /certs/", "404"}, false},
+		{"mkcert without certs answers on http", "mkcert", "", []string{"http:// {", "404"}, false},
+		{"no tls answers on http", "", "", []string{"http:// {", "404"}, false},
+		{"acme gets no catch-all", "letsencrypt", "", nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var b strings.Builder
+			writeFallbackBlock(&b, tt.tlsMode, tt.certsDir)
+			got := b.String()
+			if tt.empty {
+				if got != "" {
+					t.Fatalf("want no block, got %q", got)
+				}
+				return
+			}
+			for _, w := range tt.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("block %q is missing %q", got, w)
+				}
+			}
+		})
+	}
+}
+
+func TestResourceArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		res  *models.Resources
+		want string
+	}{
+		{"no block", nil, ""},
+		{"empty block", &models.Resources{}, ""},
+		{"memory closes swap too", &models.Resources{Memory: "256m"}, "--memory 256m --memory-swap 256m"},
+		{"cpus", &models.Resources{CPUs: 1.5}, "--cpus 1.5"},
+		{
+			"both", &models.Resources{Memory: "1g", CPUs: 2},
+			"--memory 1g --memory-swap 1g --cpus 2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := strings.Join(resourceArgs(tt.res), " "); got != tt.want {
+				t.Errorf("resourceArgs = %q, want %q", got, tt.want)
+			}
+		})
+	}
 }

@@ -33,19 +33,32 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 		return err
 	}
 	if reused {
+		updateRunningLimits(ctx, svc.ContainerName, svc.Resources)
 		return nil
 	}
 
+	// Named after the project as well as the service, so two projects with
+	// a service called `api` do not build over each other's image tag.
 	imageName := "raioz-" + svc.Name
+	if svc.ProjectName != "" {
+		imageName = naming.Container(svc.ProjectName, svc.Name)
+	}
 
 	logging.InfoWithContext(ctx, "Building Docker image",
 		"service", svc.Name, "path", svc.Path, "image", imageName)
 
 	// Build
-	buildCmd := exec.CommandContext(ctx, runtime.Binary(), "build",
-		"-t", imageName,
-		"-f", svc.Detection.Dockerfile,
-		svc.Path)
+	// The image carries the raioz labels too: every rebuild leaves the
+	// previous one dangling, and `raioz clean --images` can only tell
+	// those apart from the rest of the daemon's images by label.
+	buildArgs := []string{"build", "-t", imageName, "-f", svc.Detection.Dockerfile}
+	buildArgs = append(buildArgs, labelArgs(map[string]string{
+		naming.LabelManaged: "true",
+		naming.LabelProject: svc.ProjectName,
+		naming.LabelService: svc.Name,
+	})...)
+	buildArgs = append(buildArgs, svc.Path)
+	buildCmd := exec.CommandContext(ctx, runtime.Binary(), buildArgs...)
 	buildCmd.Dir = svc.Path
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker build failed: %w\n%s", err, string(output))
@@ -70,6 +83,8 @@ func (r *DockerfileRunner) Start(ctx context.Context, svc interfaces.ServiceCont
 	if runtime.Supports(runtime.HostGatewayAlias) {
 		args = append(args, "--add-host=host.docker.internal:host-gateway")
 	}
+
+	args = append(args, resourceRunArgs(svc.Resources)...)
 
 	// Add port mappings
 	for _, port := range svc.Ports {
@@ -148,7 +163,7 @@ func (r *DockerfileRunner) reconcileExisting(ctx context.Context, containerName 
 
 	logging.InfoWithContext(ctx, "Removing stale container",
 		"container", containerName, "state", state, "managed", managed == "true")
-	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", containerName)
 	if rmOut, rmErr := rm.CombinedOutput(); rmErr != nil {
 		return false, fmt.Errorf("docker rm %s: %w\n%s", containerName, rmErr, string(rmOut))
 	}
@@ -161,7 +176,7 @@ func (r *DockerfileRunner) Stop(ctx context.Context, svc interfaces.ServiceConte
 	stopCmd := exec.CommandContext(ctx, runtime.Binary(), "stop", svc.ContainerName)
 	_ = stopCmd.Run()
 
-	rmCmd := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", svc.ContainerName)
+	rmCmd := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", svc.ContainerName)
 	_ = rmCmd.Run()
 
 	return nil

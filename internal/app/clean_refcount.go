@@ -2,14 +2,12 @@ package app
 
 import (
 	"context"
-	"os/exec"
 	"sort"
 
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/refcount"
-	"raioz/internal/runtime"
 )
 
 // composeDownProject tears an orphaned dep's compose project down. Indirected
@@ -17,8 +15,7 @@ import (
 // goes through the injected DockerRunner port (ContainerManager.IsProjectActive),
 // so it needs no indirection here.
 var composeDownProject = func(ctx context.Context, projName string) ([]byte, error) {
-	args := []string{"compose", "-p", projName, "down", "--remove-orphans"}
-	return exec.CommandContext(ctx, runtime.Binary(), args...).CombinedOutput()
+	return composeDownByName(ctx, projName)
 }
 
 // refGCScope returns the workspaces whose stale refs clean should sweep:

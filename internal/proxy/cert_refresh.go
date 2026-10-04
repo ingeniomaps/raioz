@@ -43,7 +43,7 @@ func (m *Manager) mountedCertSource(ctx context.Context, containerName string) s
 // recreate the proxy when its read-only cert mount went stale — removeStale-
 // Container deliberately skips running containers, so it can't do this.
 func (m *Manager) forceRemoveContainer(ctx context.Context, containerName string) error {
-	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", containerName)
+	rm := exec.CommandContext(ctx, runtime.Binary(), "rm", "-f", "-v", containerName)
 	if out, err := rm.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker rm -f %s: %w\n%s", containerName, err, string(out))
 	}

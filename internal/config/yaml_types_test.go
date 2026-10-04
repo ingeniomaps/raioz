@@ -154,6 +154,41 @@ func TestYAMLPublish_IntList(t *testing.T) {
 	}
 }
 
+func TestYAMLPublish_RoundTrip(t *testing.T) {
+	type doc struct {
+		Publish YAMLPublish `yaml:"publish,omitempty"`
+	}
+	tests := []struct {
+		name string
+		in   YAMLPublish
+		want string
+	}{
+		{"unset is omitted", YAMLPublish{}, "{}\n"},
+		{"auto", YAMLPublish{Set: true, Auto: true}, "publish: true\n"},
+		{"internal only", YAMLPublish{Set: true}, "publish: false\n"},
+		{"one port", YAMLPublish{Set: true, Ports: []int{5433}}, "publish: 5433\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := yaml.Marshal(doc{Publish: tt.in})
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			if string(out) != tt.want {
+				t.Fatalf("marshal = %q, want %q", out, tt.want)
+			}
+			var back doc
+			if err := yaml.Unmarshal(out, &back); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if back.Publish.Set != tt.in.Set || back.Publish.Auto != tt.in.Auto ||
+				len(back.Publish.Ports) != len(tt.in.Ports) {
+				t.Errorf("round trip = %+v, want %+v", back.Publish, tt.in)
+			}
+		})
+	}
+}
+
 func TestProxyConfig_UnmarshalBool(t *testing.T) {
 	var p ProxyConfig
 	if err := yaml.Unmarshal([]byte("true"), &p); err != nil {

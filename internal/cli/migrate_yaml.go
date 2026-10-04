@@ -6,6 +6,7 @@ import (
 
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 
@@ -16,6 +17,7 @@ import (
 
 var migrateYAMLFrom string
 var migrateYAMLOutput string
+var migrateYAMLForce bool
 
 var migrateYAMLCmd = &cobra.Command{
 	Use:   "yaml",
@@ -50,11 +52,17 @@ var migrateYAMLCmd = &cobra.Command{
 			out = "raioz.yaml"
 		}
 
+		if _, statErr := os.Stat(out); statErr == nil && !migrateYAMLForce {
+			return errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("error.migrate_output_exists", out),
+			).WithSuggestion(i18n.T("error.migrate_output_exists_suggestion"))
+		}
 		if err := os.WriteFile(out, data, 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", out, err)
 		}
 
-		output.PrintSuccess(fmt.Sprintf("Generated %s from %s", out, from))
+		output.PrintSuccess(i18n.T("migrate.generated", out, from))
 		output.PrintInfo(i18n.T("output.migrate_yaml_delete_hint", from))
 		return nil
 	},
@@ -64,6 +72,7 @@ func init() {
 	migrateCmd.AddCommand(migrateYAMLCmd)
 	migrateYAMLCmd.Flags().StringVar(&migrateYAMLFrom, "from", "", "Path to .raioz.json (default: .raioz.json)")
 	migrateYAMLCmd.Flags().StringVarP(&migrateYAMLOutput, "output", "o", "", "Output path (default: raioz.yaml)")
+	migrateYAMLCmd.Flags().BoolVar(&migrateYAMLForce, "force", false, "Overwrite the output file if it exists")
 }
 
 // depsToYAMLConfig converts an old Deps struct to the new RaiozConfig format.
@@ -78,6 +87,23 @@ func depsToYAMLConfig(deps *models.Deps) config.RaiozConfig {
 
 	// Convert services
 	for name, svc := range deps.Services {
+		// A legacy service that only names an image has no code behind
+		// it: in raioz.yaml that is a dependency, and a service without
+		// `path:` or `git:` does not load.
+		if svc.Source.Kind == "image" {
+			imageRef := svc.Source.Image
+			if svc.Source.Tag != "" {
+				imageRef += ":" + svc.Source.Tag
+			}
+			dep := config.YAMLDependency{Image: imageRef}
+			if svc.Docker != nil {
+				dep.Expose, dep.Publish = publishFromComposePorts(svc.Docker.Ports)
+				dep.Volumes = config.YAMLStringSlice(svc.Docker.Volumes)
+			}
+			cfg.Deps[name] = dep
+			continue
+		}
+
 		yamlSvc := config.YAMLService{
 			DependsOn: config.YAMLStringSlice(svc.GetDependsOn()),
 		}
@@ -111,9 +137,9 @@ func depsToYAMLConfig(deps *models.Deps) config.RaiozConfig {
 			dep := config.YAMLDependency{
 				Image: imageRef,
 			}
-			if len(entry.Inline.Ports) > 0 {
-				dep.Ports = config.YAMLStringSlice(entry.Inline.Ports)
-			}
+			// `ports:` is the legacy spelling; the file this writes should
+			// not open with a deprecation warning.
+			dep.Expose, dep.Publish = publishFromComposePorts(entry.Inline.Ports)
 			if len(entry.Inline.Volumes) > 0 {
 				dep.Volumes = config.YAMLStringSlice(entry.Inline.Volumes)
 			}

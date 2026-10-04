@@ -37,8 +37,8 @@ func TestResolveServiceDetection_CommandOverride(t *testing.T) {
 
 	result := ResolveServiceDetection(svc, "/some/path")
 
-	if result.Runtime != models.RuntimeMake {
-		t.Errorf("runtime = %q, want %q", result.Runtime, models.RuntimeMake)
+	if result.Runtime != models.RuntimeCommand {
+		t.Errorf("runtime = %q, want %q", result.Runtime, models.RuntimeCommand)
 	}
 	if result.StartCommand != "make dev" {
 		t.Errorf("StartCommand = %q, want %q", result.StartCommand, "make dev")

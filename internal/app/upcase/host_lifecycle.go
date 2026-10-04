@@ -2,80 +2,83 @@ package upcase
 
 import (
 	"context"
+	"path/filepath"
 	"time"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/host"
+	"raioz/internal/i18n"
 	"raioz/internal/logging"
+	"raioz/internal/output"
 	"raioz/internal/state"
 )
 
-// cleanStaleHostProcesses kills host processes left over from a previous
-// run. `inScope` is the service-name subset the current `up` touches;
-// nil/empty disables the sweep (selective ups must not stomp unrelated
-// services). Within host.LauncherWaitTimeout() of state.LastUp the
-// recorded PIDs are treated as in-flight launchers, not stale — reaping
-// them would kill a still-running deploy started moments earlier.
-func cleanStaleHostProcesses(
+// runningHostServices reports which in-scope host services an earlier up
+// left running, by recorded PID, and drops the recorded PIDs that no longer
+// stand for a service. Nothing is killed: up only starts what is not
+// running, and `raioz restart` is how a running service is relaunched.
+//
+// A recorded PID counts as the service when the process is alive and,
+// where it can be told, still runs in the service's path — a PID that the
+// OS has since handed to an unrelated process is forgotten, not adopted.
+//
+// `inScope` is the service-name subset the current `up` touches;
+// nil/empty returns nothing and leaves the state alone, so a selective up
+// never disturbs the entries of services it is not starting.
+func runningHostServices(
 	ctx context.Context,
-	projectDir, projectName string,
+	projectDir string,
+	deps *models.Deps,
 	inScope map[string]struct{},
-) {
+) map[string]int {
 	if len(inScope) == 0 {
-		return
+		return nil
 	}
 	localState, err := state.LoadLocalState(projectDir)
-	if err != nil || localState == nil {
-		return
+	if err != nil || localState == nil || len(localState.HostPIDs) == 0 {
+		return nil
 	}
 
-	if len(localState.HostPIDs) == 0 {
-		return
-	}
-
-	if recentlyUpped(localState.LastUp) {
-		logging.InfoWithContext(ctx,
-			"Skipping stale-host sweep: project was upped within the "+
-				"launcher window — PIDs belong to an in-flight launcher",
-			"project", projectName,
-			"lastUp", localState.LastUp,
-		)
-		return
-	}
-
+	running := map[string]int{}
+	dropped := false
 	for name, pid := range localState.HostPIDs {
 		if _, ok := inScope[name]; !ok {
 			continue
 		}
-		if pid <= 0 {
+		if pid > 0 && isProcessAlive(pid) && pidIsService(pid, deps, projectDir, name) {
+			running[name] = pid
 			continue
 		}
-		if !isProcessAlive(pid) {
-			continue
-		}
-		logging.InfoWithContext(ctx, "Stopping stale host process",
+		logging.InfoWithContext(ctx, "Forgetting recorded host PID: not the service anymore",
 			"service", name, "pid", pid)
-		killProcessGraceful(pid)
-	}
-
-	// Clear only the in-scope PIDs from state. Out-of-scope entries
-	// (services this up isn't touching) are left intact so a parallel
-	// `up --only` doesn't strand them. Best-effort: if persist fails,
-	// next run's isProcessAlive check handles stale entries defensively.
-	for name := range inScope {
 		delete(localState.HostPIDs, name)
+		dropped = true
 	}
-	_ = state.SaveLocalState(projectDir, localState)
+	if dropped {
+		// Best-effort: a stale entry that survives is caught again by the
+		// same checks on the next run.
+		_ = state.SaveLocalState(projectDir, localState)
+	}
+	return running
 }
 
-// recentlyUpped is the freshness window used by cleanStaleHostProcesses
-// to skip reaping in-flight launcher PIDs. Bounds match the launcher's
-// container-appearance deadline so both windows expire together.
-func recentlyUpped(lastUp time.Time) bool {
-	if lastUp.IsZero() {
+// pidIsService reports whether pid still belongs to the named service: its
+// working directory is the service's path. Where that cannot be read, a
+// live recorded PID is taken at its word.
+func pidIsService(pid int, deps *models.Deps, projectDir, name string) bool {
+	svc, ok := deps.Services[name]
+	if !ok {
 		return false
 	}
-	return time.Since(lastUp) < host.LauncherWaitTimeout()
+	path := svc.Source.Path
+	switch {
+	case path == "" || path == ".":
+		path = projectDir
+	case !filepath.IsAbs(path):
+		path = filepath.Join(projectDir, path)
+	}
+	within, known := host.ProcessRunsIn(pid, path)
+	return !known || within
 }
 
 // saveHostPIDs persists project state to .raioz.state.json. Always writes,
@@ -104,9 +107,7 @@ func saveHostPIDs(
 // `down` and `status` only know the PIDs recorded here, so an unrecorded one
 // is a live process nobody can stop or even report.
 //
-// LastUp stays untouched on purpose: cleanStaleHostProcesses skips its sweep
-// while recentlyUpped(LastUp) holds, and the usual recovery is an immediate
-// retry — well inside that window.
+// LastUp stays untouched on purpose: the up did not complete.
 func savePartialHostPIDs(
 	projectDir, projectName, workspaceName, networkName string,
 	dispatcher serviceDispatcher,
@@ -149,8 +150,8 @@ func persistHostPIDs(
 	// Selective ups (`raioz up api`) only carry the chosen services in
 	// serviceNames; wiping would orphan PIDs of services brought up by a
 	// prior full `up` and leave a subsequent full `down` with no way to
-	// kill them. cleanStaleHostProcesses already removed in-scope entries
-	// before this point, so we're filling them back in with fresh PIDs.
+	// kill them. In-scope entries are overwritten below with the PIDs this
+	// run started or adopted.
 	if localState.HostPIDs == nil {
 		localState.HostPIDs = make(map[string]int)
 	}
@@ -182,19 +183,58 @@ func isProcessAlive(pid int) bool {
 	return host.IsProcessAlive(pid)
 }
 
-// killProcessGraceful sends a graceful tree kill, then force-kills if still alive.
-func killProcessGraceful(pid int) {
-	if pid <= 0 {
-		return // negative/zero PIDs are special values in kill(2) — never use them
-	}
-	// Kill the whole tree so grandchildren (e.g. `go run`'s compiled
-	// binary) also exit. Best-effort: the process may already be dead
-	// or lack permission — the probe below covers both cases.
-	_ = host.KillProcessTree(pid)
+// stopHostServiceFn stops one host service by PID. A package var so tests
+// can observe the call without a real process.
+var stopHostServiceFn = host.StopServiceWithCommandAndPath
 
-	// Brief grace period, then force-kill if still alive.
-	time.Sleep(100 * time.Millisecond)
-	if isProcessAlive(pid) {
-		_ = host.ForceKillProcessTree(pid)
+// stopGitServicesBeforeReclone stops every running host service whose
+// directory `--force-reclone` is about to delete. A process left alive
+// keeps its port with a working directory that no longer exists: the same
+// run then fails against it, raioz stops recognizing the PID as the
+// service, and no later `down` can reach it.
+func stopGitServicesBeforeReclone(ctx context.Context, deps *models.Deps, projectDir string) {
+	localState, err := state.LoadLocalState(projectDir)
+	if err != nil || localState == nil || len(localState.HostPIDs) == 0 {
+		return
 	}
+	stopped := false
+	for name, svc := range deps.Services {
+		pid, tracked := localState.HostPIDs[name]
+		if svc.Source.Kind != "git" || !tracked || pid <= 0 {
+			continue
+		}
+		if !isProcessAlive(pid) || !pidIsService(pid, deps, projectDir, name) {
+			continue
+		}
+		output.PrintInfo(i18n.T("up.git.stopping_for_reclone", name))
+		var stopCommand string
+		if svc.Commands != nil {
+			stopCommand = svc.Commands.Down
+		}
+		if err := stopHostServiceFn(ctx, pid, stopCommand, svc.Source.Path); err != nil {
+			logging.WarnWithContext(ctx, "Could not stop service before re-clone",
+				"service", name, "pid", pid, "error", err.Error())
+			continue
+		}
+		delete(localState.HostPIDs, name)
+		stopped = true
+	}
+	if stopped {
+		_ = state.SaveLocalState(projectDir, localState)
+	}
+}
+
+// devOverrideRunning reports whether a dependency promoted with `raioz dev`
+// to a host-run path still has its recorded process alive in that path.
+func devOverrideRunning(projectDir, name, localPath string) bool {
+	localState, err := state.LoadLocalState(projectDir)
+	if err != nil || localState == nil {
+		return false
+	}
+	pid := localState.HostPIDs[name]
+	if pid <= 0 || !isProcessAlive(pid) {
+		return false
+	}
+	within, known := host.ProcessRunsIn(pid, localPath)
+	return !known || within
 }

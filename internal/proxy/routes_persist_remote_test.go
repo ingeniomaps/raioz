@@ -16,6 +16,7 @@ func xdgIsolation(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", dir)
+	t.Setenv("RAIOZ_HOME", "")
 	return dir
 }
 
@@ -32,7 +33,7 @@ func TestWriteRemoteProjectRoutes_WritesAtomicallyUnderWorkspace(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	want := filepath.Join(xdg, "acme", "proxy", "routes", "api.json")
+	want := filepath.Join(xdg, "raioz", "proxies", "acme", "routes", "api.json")
 	_ = xdg
 	data, err := os.ReadFile(want)
 	if err != nil {
@@ -77,7 +78,7 @@ func TestWriteRemoteProjectRoutes_SanitizesProjectName(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	// File MUST live under the workspace's routes dir, NOT one level up.
-	routesDir := filepath.Join(xdg, "acme", "proxy", "routes")
+	routesDir := filepath.Join(xdg, "raioz", "proxies", "acme", "routes")
 	entries, err := os.ReadDir(routesDir)
 	if err != nil {
 		t.Fatalf("readdir: %v", err)

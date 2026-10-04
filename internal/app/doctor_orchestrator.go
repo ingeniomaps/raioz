@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/exec"
 
+	"raioz/internal/i18n"
 	"raioz/internal/runtime"
 )
 
@@ -20,7 +21,7 @@ func (uc *DoctorUseCase) checkCaddy(_ context.Context) DoctorCheck {
 	return DoctorCheck{
 		Name:    "Caddy",
 		Status:  "ok",
-		Message: "caddy:latest image available",
+		Message: i18n.T("doctor.caddy_available"),
 	}
 }
 
@@ -39,7 +40,7 @@ func (uc *DoctorUseCase) checkMkcert(_ context.Context) DoctorCheck {
 	return DoctorCheck{
 		Name:    "mkcert",
 		Status:  "ok",
-		Message: "installed (local HTTPS available)",
+		Message: i18n.T("doctor.mkcert_installed"),
 	}
 }
 

@@ -3,6 +3,7 @@ package upcase
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/interfaces"
@@ -239,5 +240,35 @@ func TestStartProxy_NoProxyConfig(t *testing.T) {
 
 	if pm.Domain != "" {
 		t.Errorf("Domain should be empty with nil ProxyConfig, got %q", pm.Domain)
+	}
+}
+
+func TestProxyPortsPreflight(t *testing.T) {
+	tests := []struct {
+		name    string
+		proxy   bool
+		busy    []int
+		wantErr bool
+	}{
+		{"proxy off never probes", false, []int{80}, false},
+		{"free ports pass", true, nil, false},
+		{"busy ports refuse the run", true, []int{80, 443}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pm := &mocks.MockProxyManager{
+				BusyHostPortsFunc: func(context.Context) []int { return tt.busy },
+			}
+			uc := &UseCase{deps: &Dependencies{ProxyManager: pm}}
+			deps := &models.Deps{Project: models.Project{Name: "proj"}, Proxy: tt.proxy}
+
+			err := uc.proxyPortsPreflight(context.Background(), deps, false)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("proxyPortsPreflight error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr && !strings.Contains(err.Error(), "80, 443") {
+				t.Errorf("error should name the ports, got %v", err)
+			}
+		})
 	}
 }

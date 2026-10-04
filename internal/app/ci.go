@@ -35,13 +35,8 @@ type ValidationResult struct {
 // CIOptions contains options for the CI use case
 type CIOptions struct {
 	ConfigPath   string
-	Keep         bool
-	Ephemeral    bool
-	JobID        string
-	SkipBuild    bool
 	SkipPull     bool
 	OnlyValidate bool
-	ForceReclone bool
 }
 
 // CIUseCase handles the "ci" use case
@@ -145,7 +140,10 @@ func (uc *CIUseCase) executeYAML(
 	}
 
 	for name, entry := range proj.Deps.Infra {
-		if entry.Inline != nil && entry.Inline.Image == "" {
+		// An image is one of four ways to declare a dependency; a compose
+		// fragment or a sibling project needs none.
+		if entry.Inline != nil && entry.Inline.Image == "" && len(entry.Inline.Compose) == 0 &&
+			entry.Inline.Project == "" && entry.Inline.SiblingProject == "" {
 			result.Validations = append(result.Validations, ValidationResult{
 				Check:   "dependency_images",
 				Status:  "failed",
@@ -200,6 +198,6 @@ func (uc *CIUseCase) executeYAML(
 	}
 
 	result.Success = true
-	result.Message = "CI run completed successfully"
+	result.Message = "Validation and image pull completed; nothing was started"
 	return result, nil
 }

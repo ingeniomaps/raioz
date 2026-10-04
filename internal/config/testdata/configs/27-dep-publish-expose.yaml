@@ -1,0 +1,24 @@
+# 27-dep-publish-expose — `dependencies.<n>.publish:` in its three shapes,
+# next to `expose:`.
+#
+# `publish:` is polymorphic (bool, one port, list) and is what `raioz init`
+# and `raioz migrate` now write instead of the legacy `ports:`. Each shape
+# must keep parsing, and must survive being written back out.
+
+project: publish-expose
+
+dependencies:
+  postgres:
+    image: postgres:16
+    publish: true
+  redis:
+    image: redis:7
+    expose: 6379
+    publish: 6380
+  minio:
+    image: minio/minio:RELEASE.2024-01-01T00-00-00Z
+    expose: [9000, 9001]
+    publish: [9000, 9001]
+  kafka:
+    image: bitnami/kafka:3
+    publish: false

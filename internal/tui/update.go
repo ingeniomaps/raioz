@@ -1,6 +1,10 @@
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+
+	"raioz/internal/i18n"
+)
 
 // Update handles all messages and returns the updated model + commands.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -14,7 +18,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 
 	case TickMsg:
-		return m, tea.Batch(m.pollStats(), tickCmd())
+		return m, tea.Batch(m.pollStats(), m.pollLogs(), tickCmd())
+
+	case LogsMsg:
+		m.logs[msg.Service] = msg.Lines
+		return m, nil
 
 	case StatsMsg:
 		m.updateStats(msg.Stats)
@@ -66,14 +74,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		svc := m.SelectedService()
 		if svc != "" {
-			m.statusMsg = "Restarting " + svc + "..."
+			m.statusMsg = i18n.T("dashboard.restarting", svc)
 			return m, m.restartServiceCmd(svc)
 		}
 
 	case "s":
 		svc := m.SelectedService()
 		if svc != "" {
-			m.statusMsg = "Stopping " + svc + "..."
+			m.statusMsg = i18n.T("dashboard.stopping", svc)
 			return m, m.stopServiceCmd(svc)
 		}
 

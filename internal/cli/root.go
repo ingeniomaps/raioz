@@ -2,12 +2,14 @@ package cli
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 
+	"raioz/internal/app"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
@@ -49,6 +51,10 @@ func Execute() {
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		// Format error with context if it's a RaiozError
 		fmt.Print(errors.FormatError(err))
+		var exit *app.ExitCodeError
+		if stderrors.As(err, &exit) {
+			os.Exit(exit.Code)
+		}
 		os.Exit(1)
 	}
 }
@@ -65,12 +71,12 @@ func init() {
 	logging.InitFromEnv()
 
 	// Add global flags
-	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "", "Set log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "", "Set log level (debug, info, warn, error, off)")
 	rootCmd.PersistentFlags().BoolVar(&logJSON, "log-json", false, "Output logs in JSON format")
 	rootCmd.PersistentFlags().StringVar(&langFlag, "lang", "", "Override display language (en, es)")
 
 	// Hook to update logging and language when flags are parsed
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if logLevel != "" {
 			logging.SetLevel(logging.ParseLogLevel(logLevel))
 		}
@@ -78,9 +84,14 @@ func init() {
 			logging.SetJSONFormat(true)
 		}
 		if langFlag != "" {
+			// An unknown language is a typo, not a preference: falling
+			// back in silence showed English to someone who asked for
+			// something else and never said why.
 			if err := i18n.SetLang(langFlag); err != nil {
-				logging.Warn("Failed to set language, falling back to default",
-					"lang", langFlag, "error", err)
+				return errors.New(
+					errors.ErrCodeInvalidField,
+					i18n.T("lang.invalid", langFlag, strings.Join(i18n.Available(), ", ")),
+				)
 			}
 		}
 		// ADR-021: warn (once) when the binary has no version stamps.
@@ -104,6 +115,7 @@ func init() {
 				logging.Info(n)
 			}
 		}
+		return nil
 	}
 
 	rootCmd.AddCommand(upCmd)

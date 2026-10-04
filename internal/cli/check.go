@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"raioz/internal/app"
+	"raioz/internal/config"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/state"
@@ -15,9 +16,9 @@ import (
 
 var checkCmd = &cobra.Command{
 	Use:          "check",
-	Short:        "Check for alignment issues between config and state",
+	Short:        "Validate raioz.yaml without starting anything",
 	SilenceUsage: true,
-	Long:         "Check if the current configuration aligns with the saved state.",
+	Long:         "Validate the configuration without starting anything.",
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		defer func() {
 			if panicErr := errors.RecoverPanic("raioz check"); panicErr != nil {
@@ -28,6 +29,24 @@ var checkCmd = &cobra.Command{
 		ctx := cmd.Context()
 		if ctx == nil {
 			ctx = context.Background()
+		}
+
+		if configPath == "" && projectName != "" {
+			resolved, resolveErr := ResolveProjectConfigPath(configPath, projectName)
+			if resolveErr != nil {
+				return resolveErr
+			}
+			configPath = resolved
+		}
+
+		// A meta config has no services of its own: check what it names.
+		if path := ResolveConfigPath(configPath); path != AutoDetectMarker {
+			if meta, isMeta, metaErr := config.LoadMetaConfig(path); isMeta {
+				if metaErr != nil {
+					return errors.New(errors.ErrCodeInvalidConfig, metaErr.Error())
+				}
+				return app.CheckMeta(meta)
+			}
 		}
 
 		deps := newDependencies()

@@ -124,7 +124,10 @@ func validateServices(deps *models.Deps) error {
 						"Example: {\"source\": {\"kind\": \"git\", \"repo\": \"https://github.com/user/repo.git\", ...}}",
 				).WithContext("service_name", name)
 			}
-			if svc.Source.Branch == "" {
+			// raioz.yaml: the branch defaults to the remote's, and how the
+			// service runs is detected from the checkout, like any other.
+			yamlConfig := deps.SourceFormat == models.SourceFormatYAML
+			if svc.Source.Branch == "" && !yamlConfig {
 				return errors.New(
 					errors.ErrCodeMissingField,
 					fmt.Sprintf("Service '%s': git source requires 'branch' field", name),
@@ -152,6 +155,10 @@ func validateServices(deps *models.Deps) error {
 			// If commands are specified (and no docker), service runs on host (no docker config needed)
 			if svc.Commands != nil && svc.Docker == nil {
 				// Host execution with commands - no docker validation needed
+				continue
+			}
+
+			if yamlConfig && svc.Docker == nil {
 				continue
 			}
 

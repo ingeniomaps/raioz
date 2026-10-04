@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 
 	"raioz/internal/docker"
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
+	"raioz/internal/fsutil"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
-	"raioz/internal/netutil"
 	"raioz/internal/output"
 )
 
@@ -32,23 +33,7 @@ func (uc *UseCase) startProxy(
 	serviceNames []string,
 	networkName string,
 ) error {
-	// ADR-013 / ADR-032: single Configure call; TLS string normalized
-	// through ParseTLSMode (legacy mkcert/letsencrypt aliases accepted).
-	cfg := interfaces.ProxyConfig{
-		ProjectName:   deps.Project.Name,
-		Workspace:     deps.Workspace,
-		NetworkSubnet: deps.Network.GetSubnet(),
-		ProjectDir:    deps.ProjectRoot,
-	}
-	if deps.ProxyConfig != nil {
-		cfg.Domain = deps.ProxyConfig.Domain
-		if mode, ok := interfaces.ParseTLSMode(deps.ProxyConfig.TLS); ok {
-			cfg.TLSMode = mode
-		}
-		cfg.ContainerIP = deps.ProxyConfig.IP
-		cfg.Publish = deps.ProxyConfig.Publish
-	}
-	uc.deps.ProxyManager.Configure(cfg)
+	uc.deps.ProxyManager.Configure(proxyConfigFor(deps))
 
 	output.PrintProgress(i18n.T("up.proxy.starting"))
 
@@ -86,6 +71,29 @@ func (uc *UseCase) startProxy(
 	printProxyURLs(uc.deps.ProxyManager, serviceNames)
 	printHostsHintIfUnpublished(uc.deps.ProxyManager)
 	return nil
+}
+
+// proxyConfigFor builds the manager config for a project. ADR-013 / ADR-032:
+// single Configure call; TLS string normalized through ParseTLSMode (legacy
+// mkcert/letsencrypt aliases accepted).
+func proxyConfigFor(deps *models.Deps) interfaces.ProxyConfig {
+	cfg := interfaces.ProxyConfig{
+		ProjectName:   deps.Project.Name,
+		Workspace:     deps.Workspace,
+		NetworkSubnet: deps.Network.GetSubnet(),
+		ProjectDir:    deps.ProjectRoot,
+	}
+	if deps.ProxyConfig != nil {
+		cfg.Domain = deps.ProxyConfig.Domain
+		if mode, ok := interfaces.ParseTLSMode(deps.ProxyConfig.TLS); ok {
+			cfg.TLSMode = mode
+		}
+		cfg.ContainerIP = deps.ProxyConfig.IP
+		cfg.Publish = deps.ProxyConfig.Publish
+		cfg.BindHost = deps.ProxyConfig.BindHost
+		cfg.Resources = deps.ProxyConfig.Resources
+	}
+	return cfg
 }
 
 // printHostsHintIfUnpublished surfaces the /etc/hosts entry the user needs
@@ -142,6 +150,7 @@ func (uc *UseCase) handleProxyStartFailure(
 	output.PrintError(i18n.T("up.proxy.start_failed", firstErr.Error()))
 
 	if !stdinIsInteractiveFn() {
+		output.PrintInfo(i18n.T("up.proxy.left_running"))
 		return fmt.Errorf("proxy start failed: %w", firstErr)
 	}
 
@@ -159,6 +168,7 @@ func (uc *UseCase) handleProxyStartFailure(
 		output.PrintInfo(i18n.T("up.proxy.skip_continue"))
 		return nil
 	default:
+		output.PrintInfo(i18n.T("up.proxy.left_running"))
 		return fmt.Errorf("proxy start failed: %w", firstErr)
 	}
 }
@@ -195,11 +205,7 @@ func promptProxyFailureAction() int {
 // Avoids pulling in golang.org/x/term — the character-device check is
 // portable across Linux/macOS and sufficient for our needs.
 func stdinIsInteractive() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
+	return fsutil.IsTerminal(os.Stdin)
 }
 
 // printProxyURLs lists the HTTPS URLs the proxy exposes for each service.
@@ -216,35 +222,6 @@ func printProxyURLs(pm interfaces.ProxyManager, serviceNames []string) {
 // Image classification (which deps speak binary protocols and shouldn't get
 // HTTPS routes) lives in internal/proxy/filter.go so the same heuristic is
 // shared by orchestration AND the standalone `raioz hosts` command.
-
-// shouldProxy decides whether to create a proxy route for a given service or
-// dependency name. Services always get routed (they're the user's app). Deps
-// get routed unless the image is on the known non-HTTP list AND the user
-// didn't explicitly declare routing on it. Explicit `routing:` in raioz.yaml
-// is the opt-in escape hatch for deps where the user knows they do speak
-// HTTP (e.g. a custom image that happens to reuse a DB name).
-func shouldProxy(deps *models.Deps, name string) bool {
-	if svc, isService := deps.Services[name]; isService {
-		// `proxy: false` opts a service out of routing — used for host-net
-		// services with no UI (Prometheus, exporters) where a route would be
-		// dead and misleading. Absence of the override keeps the default.
-		return svc.ProxyOverride == nil || !svc.ProxyOverride.Disabled
-	}
-	entry, isDep := deps.Infra[name]
-	if !isDep || entry.Inline == nil {
-		return true
-	}
-	if entry.Inline.Routing != nil {
-		return true
-	}
-	return !isNonHTTPImage(entry.Inline.Image)
-}
-
-// isNonHTTPImage delegates to the shared classifier in proxy/filter.go.
-// Local alias kept for readability of nearby call sites.
-func isNonHTTPImage(image string) bool {
-	return netutil.IsNonHTTPImage(image)
-}
 
 // enrichDetectionsWithExposedPorts backfills detection.Port for image-based
 // dependencies whose port is still unknown by this stage. Most official
@@ -285,20 +262,39 @@ func enrichDetectionsWithExposedPorts(
 	}
 }
 
-// proxyTargetOverride returns the user's explicit (target, port) for a
-// service or dependency if declared in raioz.yaml (`<kind>.<name>.proxy:`).
-// Empty strings / zero port signal "not set" and caller must fall back to
-// detection. This is the escape hatch for entries whose runtime raioz can't
-// fully introspect — services with `command:` that launches a hidden compose
-// stack, or dependencies using `compose:` / a non-default port.
-func proxyTargetOverride(deps *models.Deps, name string) (string, int) {
-	if svc, ok := deps.Services[name]; ok && svc.ProxyOverride != nil {
-		return svc.ProxyOverride.Target, svc.ProxyOverride.Port
+// imageExposedPortFn reads the port an image declares. Package var so
+// tests answer without a docker daemon.
+var imageExposedPortFn = docker.GetImageExposedPort
+
+// inferDepExpose fills in `expose:` for a dependency that publishes a port
+// without saying which container port it is. `publish: 6380` on redis
+// means "reach redis on host port 6380": the container side is the port
+// the image declares (6379), not 6380 again — mapping 6380→6380 publishes
+// a port nothing listens on, and `publish: true` had nothing to publish at
+// all. Returns the dependencies it could not resolve, for the caller to
+// warn about.
+func inferDepExpose(ctx context.Context, deps *models.Deps) (unresolved []string) {
+	for name, entry := range deps.Infra {
+		inline := entry.Inline
+		if inline == nil || inline.Publish == nil || len(inline.Expose) > 0 || inline.Project != "" {
+			continue
+		}
+		if !inline.Publish.Auto && len(inline.Publish.Ports) == 0 {
+			continue
+		}
+		image := docker.BuildImageName(inline.Image, inline.Tag)
+		if image == "" {
+			continue // a `compose:` dependency publishes through its own file
+		}
+		port, err := imageExposedPortFn(ctx, image)
+		if err != nil || port <= 0 {
+			unresolved = append(unresolved, name)
+			continue
+		}
+		inline.Expose = []int{port}
 	}
-	if entry, ok := deps.Infra[name]; ok && entry.Inline != nil && entry.Inline.ProxyOverride != nil {
-		return entry.Inline.ProxyOverride.Target, entry.Inline.ProxyOverride.Port
-	}
-	return "", 0
+	sort.Strings(unresolved)
+	return unresolved
 }
 
 // buildProxyRoute turns (service name, detection) into a ProxyRoute, honoring

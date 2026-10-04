@@ -25,6 +25,10 @@ type DownOptions struct {
 	// AllProjects stops every active raioz project except the cwd's.
 	// Same exclusivity rule as Conflicting.
 	AllProjects bool
+	// Yes approves up front the stopping of projects other than the cwd
+	// one (All, Conflicting, AllProjects). Without it the command lists
+	// them and asks.
+	Yes bool
 	// Services restricts the down to a subset of services / dependencies
 	// declared in raioz.yaml. Empty means "whole state" (legacy
 	// behavior). When non-empty, only these are stopped — network, proxy
@@ -61,20 +65,22 @@ func (uc *DownUseCase) Execute(ctx context.Context, opts DownOptions) error {
 		return uc.downOtherProjectsOnly(ctx, opts)
 	}
 
-	// Try orchestrated down for YAML projects first
-	if err := uc.downOrchestrated(ctx, opts); err != nil {
-		return err
-	}
-	// Check if it was handled (YAML project)
+	// What the loader has to say about the config comes first: printed
+	// after the teardown it reads as something `down` just caused.
 	configPath := opts.ConfigPath
 	if configPath == "" {
 		configPath = resolveDownConfigPath()
 	}
-	flow, deps, warnings, err := SelectFlow(uc.deps.ConfigLoader, configPath)
+	flow, deps, warnings, flowErr := SelectFlow(uc.deps.ConfigLoader, configPath)
 	for _, w := range warnings {
 		output.PrintWarning(w)
 	}
-	if err == nil && flow == FlowYAML {
+
+	// Try orchestrated down for YAML projects first
+	if err := uc.downOrchestrated(ctx, opts); err != nil {
+		return err
+	}
+	if flowErr == nil && flow == FlowYAML {
 		return nil // Already handled by downOrchestrated
 	}
 
@@ -243,10 +249,7 @@ func (uc *DownUseCase) resolveProject(ctx context.Context, opts DownOptions) (st
 			return deps.Project.Name, deps.GetWorkspaceName(), nil
 		}
 		logging.ErrorWithContext(ctx, "Could not determine project name")
-		return "", "", errors.New(
-			errors.ErrCodeInvalidConfig,
-			i18n.T("error.no_project"),
-		).WithSuggestion(i18n.T("error.no_project_suggestion"))
+		return "", "", noProjectError(uc.deps, opts.ConfigPath)
 	}
 
 	deps, _, _ := uc.deps.ConfigLoader.LoadDeps(opts.ConfigPath)

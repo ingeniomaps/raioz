@@ -3,11 +3,13 @@ package app
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
 	"raioz/internal/domain/models"
 	"raioz/internal/mocks"
+	"raioz/internal/state"
 )
 
 func cleanUCWithState(
@@ -91,5 +93,39 @@ func TestPruneStaleProjectStates_DryRunWritesNothing(t *testing.T) {
 	}
 	if len(actions) != 1 || !strings.Contains(actions[0], "gone") {
 		t.Errorf("actions = %v, want the would-be action", actions)
+	}
+}
+
+// A project of host services has no container to probe: a recorded PID that
+// is alive keeps its entry. And the container probe is asked by project
+// alone — the state's workspace is the project's own name when it declares
+// none, a label no container carries.
+func TestPruneStaleProjectStates_KeepsHostOnlyProject(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := state.SaveLocalState(projectDir, &models.LocalState{
+		Project: "hostonly", HostPIDs: map[string]int{"web": os.Getpid()},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var removed []string
+	var probedWorkspaces []string
+	uc := cleanUCWithState(t, map[string]models.ProjectState{
+		"hostonly": {Name: "hostonly", Workspace: "hostonly", Path: projectDir},
+		"nows":     {Name: "nows", Workspace: "nows"},
+	}, func(workspace, _ string) (bool, error) {
+		probedWorkspaces = append(probedWorkspaces, workspace)
+		return false, nil
+	}, &removed)
+
+	uc.pruneStaleProjectStates(context.Background(), false)
+
+	if len(removed) != 1 || removed[0] != "nows" {
+		t.Errorf("removed = %v, want only the project with nothing running", removed)
+	}
+	for _, ws := range probedWorkspaces {
+		if ws != "" {
+			t.Errorf("container probe scoped to workspace %q; it must ask by project alone", ws)
+		}
 	}
 }

@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"raioz/internal/app"
+	"raioz/internal/app/upcase"
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/naming"
 	"raioz/internal/netutil"
 
@@ -98,9 +100,11 @@ func resolveProxyIPForHosts(deps *models.Deps) (string, error) {
 	if ip := netutil.DefaultProxyIP(deps.Network.GetSubnet()); ip != "" {
 		return ip, nil
 	}
-	return "", fmt.Errorf(
-		"cannot derive proxy IP — declare network.subnet (raioz uses <subnet>.1.1) " +
-			"or proxy.ip in raioz.yaml")
+	// A proxy that publishes its ports is reached on the host itself.
+	if deps.ProxyConfig == nil || deps.ProxyConfig.Publish == nil || *deps.ProxyConfig.Publish {
+		return "127.0.0.1", nil
+	}
+	return "", fmt.Errorf("%s", i18n.T("error.hosts_no_proxy_ip"))
 }
 
 // proxiedHostnamesFromConfig replicates the orchestrator's filter so the
@@ -115,17 +119,32 @@ func proxiedHostnamesFromConfig(deps *models.Deps) []string {
 
 	var hosts []string
 	for name, svc := range deps.Services {
+		// `proxy: false` opts the service out of routing: no route, so
+		// no hostname to map.
+		if svc.ProxyOverride != nil && svc.ProxyOverride.Disabled {
+			continue
+		}
 		host := name
 		if svc.Hostname != "" {
 			host = svc.Hostname
 		}
 		hosts = append(hosts, host+"."+domain)
+		for _, alias := range svc.HostnameAliases {
+			if alias != "" {
+				hosts = append(hosts, alias+"."+domain)
+			}
+		}
 	}
 	for name, entry := range deps.Infra {
 		if entry.Inline == nil {
 			continue
 		}
-		if entry.Inline.Routing == nil && netutil.IsNonHTTPImage(entry.Inline.Image) {
+		// A sibling project routes its own hostnames; this project's
+		// proxy has no entry under the dependency's name.
+		if entry.Inline.Project != "" {
+			continue
+		}
+		if entry.Inline.Routing == nil && netutil.IsNonHTTPImage(upcase.DependencyImage(name, entry.Inline)) {
 			continue
 		}
 		hosts = append(hosts, name+"."+domain)

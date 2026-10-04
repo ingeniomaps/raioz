@@ -31,49 +31,66 @@ func TestWorkspaceProxyDir(t *testing.T) {
 	original := prefix
 	defer func() { prefix = original }()
 	prefix = "acme"
+	t.Setenv("RAIOZ_HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 
 	got := WorkspaceProxyDir()
-	if !strings.HasSuffix(got, filepath.Join("acme", "proxy")) {
-		t.Errorf("got %q, expected to end with acme/proxy", got)
+	if !strings.HasSuffix(got, filepath.Join("proxies", "acme")) {
+		t.Errorf("got %q, expected to end with proxies/acme", got)
 	}
 }
 
-// TestWorkspaceProxyDir_HonorsXDGStateHome locks in the XDG-state
-// migration: proxy state must follow $XDG_STATE_HOME so reboots and
-// Docker auto-create races can't poison it under /tmp.
-func TestWorkspaceProxyDir_HonorsXDGStateHome(t *testing.T) {
+// TestWorkspaceProxyDir_UnderStateDir locks the location in: proxy state
+// lives inside the raioz state dir (ADR-022), never beside it and never
+// under /tmp, where a reboot or a Docker auto-create race can poison it.
+func TestWorkspaceProxyDir_UnderStateDir(t *testing.T) {
 	original := prefix
 	defer func() { prefix = original }()
 	prefix = "acme"
 
 	xdg := t.TempDir()
+	t.Setenv("RAIOZ_HOME", "")
 	t.Setenv("XDG_STATE_HOME", xdg)
 
 	got := WorkspaceProxyDir()
-	want := filepath.Join(xdg, "acme", "proxy")
+	want := filepath.Join(xdg, "raioz", "proxies", "acme")
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
+
+	home := t.TempDir()
+	t.Setenv("RAIOZ_HOME", home)
+	if got, want := WorkspaceProxyDir(), filepath.Join(home, "proxies", "acme"); got != want {
+		t.Errorf("with RAIOZ_HOME: got %q, want %q", got, want)
+	}
 }
 
-// TestWorkspaceProxyDir_FallsBackToHome covers the no-XDG case (most
-// macOS / fresh Linux installs). Must land under ~/.local/state.
-func TestWorkspaceProxyDir_FallsBackToHome(t *testing.T) {
+// TestProxyDir_KeepsLegacyWhilePresent: the directory an older raioz used
+// is the bind-mount source of a proxy that may still be running, so it
+// stays the answer until the `down` that stops that proxy removes it.
+func TestProxyDir_KeepsLegacyWhilePresent(t *testing.T) {
 	original := prefix
 	defer func() { prefix = original }()
 	prefix = "acme"
 
-	t.Setenv("XDG_STATE_HOME", "")
+	xdg := t.TempDir()
+	t.Setenv("RAIOZ_HOME", "")
+	t.Setenv("XDG_STATE_HOME", xdg)
 
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		t.Skip("no home dir available on this runner")
+	legacy := filepath.Join(xdg, "acme", "proxy")
+	if err := os.MkdirAll(legacy, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := WorkspaceProxyDir(); got != legacy {
+		t.Errorf("legacy dir present: got %q, want %q", got, legacy)
 	}
 
-	got := WorkspaceProxyDir()
-	want := filepath.Join(home, ".local", "state", "acme", "proxy")
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+	if err := os.RemoveAll(legacy); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(xdg, "raioz", "proxies", "acme")
+	if got := WorkspaceProxyDir(); got != want {
+		t.Errorf("legacy dir gone: got %q, want %q", got, want)
 	}
 }
 
@@ -106,18 +123,19 @@ func TestLegacyProxyDir(t *testing.T) {
 	}
 }
 
-// TestProxyDir_HonorsXDGStateHome confirms the per-project legacy mode
-// also moved out of /tmp. Same root cause, same fix.
-func TestProxyDir_HonorsXDGStateHome(t *testing.T) {
+// TestProxyDir_UnderStateDir is the per-project (non-workspace) twin of
+// TestWorkspaceProxyDir_UnderStateDir.
+func TestProxyDir_UnderStateDir(t *testing.T) {
 	original := prefix
 	defer func() { prefix = original }()
 	prefix = "raioz"
 
 	xdg := t.TempDir()
+	t.Setenv("RAIOZ_HOME", "")
 	t.Setenv("XDG_STATE_HOME", xdg)
 
 	got := ProxyDir("billing")
-	want := filepath.Join(xdg, "raioz-billing", "proxy")
+	want := filepath.Join(xdg, "raioz", "proxies", "raioz-billing")
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

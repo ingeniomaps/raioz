@@ -40,6 +40,13 @@ type RaiozConfig struct {
 	Services      map[string]YAMLService    `yaml:"services,omitempty"`      // since: v0.1.0
 	Deps          map[string]YAMLDependency `yaml:"dependencies,omitempty"`  // since: v0.1.0
 
+	// Resources is the default memory/CPU cap for every container raioz
+	// creates itself: each `image:` dependency, each Dockerfile service
+	// and the proxy. A block on any of them replaces it. Unset = no cap.
+	// It does not reach host services nor compose stacks, which take a
+	// cap only from a block of their own.
+	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
+
 	// Router replaces raioz's internal Caddy with a sibling raioz project
 	// acting as the workspace's edge router. When set, raioz brings the
 	// router project up first, polls its `health:`, then starts consumers;
@@ -175,11 +182,18 @@ type YAMLService struct {
 	Health          string          `yaml:"health,omitempty"`          // since: v0.1.0
 	Hostname        string          `yaml:"hostname,omitempty"`        // since: v0.1.0
 	HostnameAliases YAMLStringSlice `yaml:"hostnameAliases,omitempty"` // since: v0.3.0
-	Routing         *RoutingConfig  `yaml:"routing,omitempty"`         // since: v0.1.0
-	Profiles        YAMLStringSlice `yaml:"profiles,omitempty"`        // since: v0.1.0
-	Git             string          `yaml:"git,omitempty"`             // since: v0.1.0
-	Branch          string          `yaml:"branch,omitempty"`          // since: v0.1.0
-	Auth            string          `yaml:"auth,omitempty"`            // since: v0.7.0
+
+	// Resources caps the service's memory and CPU: its container when it
+	// runs from a Dockerfile, each container of its stack when it is a
+	// compose service, and a systemd user scope around the process when
+	// it runs on the host (Linux; elsewhere raioz warns and runs it
+	// uncapped).
+	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
+	Routing   *RoutingConfig    `yaml:"routing,omitempty"`   // since: v0.1.0
+	Profiles  YAMLStringSlice   `yaml:"profiles,omitempty"`  // since: v0.1.0
+	Git       string            `yaml:"git,omitempty"`       // since: v0.1.0
+	Branch    string            `yaml:"branch,omitempty"`    // since: v0.1.0
+	Auth      string            `yaml:"auth,omitempty"`      // since: v0.7.0
 
 	// Command overrides auto-detection: raioz runs this command verbatim on the
 	// host via HostRunner, passing env vars from `env` as process environment.
@@ -332,6 +346,10 @@ type YAMLDependency struct {
 	// listens on. Both fields optional; raioz falls back to detection for
 	// whichever is left out.
 	Proxy *YAMLServiceProxy `yaml:"proxy,omitempty"` // since: v0.1.1
+
+	// Resources caps this dependency's memory and CPU. On a `compose:`
+	// dependency it replaces the limits its own file sets.
+	Resources *models.Resources `yaml:"resources,omitempty"` // since: v0.16.0
 
 	// Project points at a sibling raioz project that *is* this dependency
 	// (mode A of ADR-008). Path is relative to this raioz.yaml. When

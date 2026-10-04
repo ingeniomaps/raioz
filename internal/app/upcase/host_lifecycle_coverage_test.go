@@ -14,19 +14,6 @@ import (
 	"raioz/internal/state"
 )
 
-// --- killProcessGraceful -----------------------------------------------------
-
-func TestKillProcessGracefulInvalidPID(t *testing.T) {
-	// Negative PIDs are silently ignored (kill(-1) would signal ALL user processes)
-	killProcessGraceful(-1)
-	killProcessGraceful(0)
-}
-
-func TestKillProcessGracefulNonexistentPID(t *testing.T) {
-	// Use a very high PID unlikely to exist
-	killProcessGraceful(999999999)
-}
-
 // --- isProcessRunning --------------------------------------------------------
 
 // --- saveHostPIDs with service names -----------------------------------------
@@ -70,19 +57,6 @@ func TestSaveHostPIDsCreatesNewState(t *testing.T) {
 }
 
 // --- cleanStaleHostProcesses with stale alive PID ----------------------------
-
-func TestCleanStaleHostProcessesWithHighPID(t *testing.T) {
-	dir := t.TempDir()
-	ls := &models.LocalState{
-		Project:  "p",
-		HostPIDs: map[string]int{"svc": 999999999},
-	}
-	if err := state.SaveLocalState(dir, ls); err != nil {
-		t.Fatal(err)
-	}
-	// Dead PID → should just skip, no crash
-	cleanStaleHostProcesses(context.Background(), dir, "p", map[string]struct{}{"svc": {}})
-}
 
 // --- isProcessAlive with PID 0 -----------------------------------------------
 

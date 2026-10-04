@@ -9,6 +9,7 @@ import (
 	"raioz/internal/config"
 	"raioz/internal/detect"
 	"raioz/internal/domain/models"
+	"raioz/internal/errors"
 	"raioz/internal/i18n"
 	"raioz/internal/output"
 
@@ -20,6 +21,8 @@ type InitScanOptions struct {
 	Dir        string
 	OutputPath string
 	Project    string
+	// Force lets init replace an existing output file.
+	Force bool
 }
 
 // InitScanUseCase handles auto-scanning a directory to generate raioz.yaml.
@@ -46,7 +49,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 		projectName = filepath.Base(dir)
 	}
 
-	output.PrintInfo(fmt.Sprintf("Scanning %s...", dir))
+	output.PrintInfo(i18n.T("init.scanning", dir))
 	fmt.Println()
 
 	cfg := config.RaiozConfig{
@@ -79,8 +82,8 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 			continue
 		}
 		yamlDep := config.YAMLDependency{
-			Image: dep.Image,
-			Ports: config.YAMLStringSlice{dep.Port},
+			Image:   dep.Image,
+			Publish: config.YAMLPublish{Set: true, Auto: true},
 		}
 		// Auto-detect .env.{name} file (e.g., .env.postgres)
 		envFile := ".env." + dep.Name
@@ -130,6 +133,14 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 		outPath = filepath.Join(dir, "raioz.yaml")
 	}
 
+	// A raioz.yaml is hand-edited; never replace one unasked.
+	if _, statErr := os.Stat(outPath); statErr == nil && !opts.Force {
+		return errors.New(
+			errors.ErrCodeInvalidConfig,
+			i18n.T("error.migrate_output_exists", outPath),
+		).WithSuggestion(i18n.T("error.migrate_output_exists_suggestion"))
+	}
+
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to generate YAML: %w", err)
@@ -143,10 +154,7 @@ func (uc *InitScanUseCase) Execute(opts InitScanOptions) error {
 		return fmt.Errorf("failed to write %s: %w", outPath, err)
 	}
 
-	output.PrintSuccess(fmt.Sprintf(
-		"Generated %s with %d services and %d dependencies",
-		outPath, len(cfg.Services), len(cfg.Deps),
-	))
+	output.PrintSuccess(i18n.T("init.generated", outPath, len(cfg.Services), len(cfg.Deps)))
 	return nil
 }
 
@@ -192,8 +200,8 @@ func (uc *InitScanUseCase) scanRootCompose(dir string, cfg *config.RaiozConfig) 
 				continue
 			}
 			cfg.Deps[dep.Name] = config.YAMLDependency{
-				Image: dep.Image,
-				Ports: config.YAMLStringSlice{dep.Port},
+				Image:   dep.Image,
+				Publish: config.YAMLPublish{Set: true, Auto: true},
 			}
 			output.PrintInfo(fmt.Sprintf("  %s → %s (from %s)", dep.Name, dep.Image, dep.Source))
 		}

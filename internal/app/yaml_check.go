@@ -16,14 +16,28 @@ func CheckYAML(proj *YAMLProject) error {
 
 	issues := 0
 
+	// What the loader noticed is shown. An ignored field also fails the
+	// check — it is a typo the user asked check to find; the rest
+	// (unpinned image, legacy `ports:`) is advice.
+	unknown := make(map[string]bool)
+	for _, w := range config.UnknownFields(proj.ConfigPath) {
+		unknown[w] = true
+	}
+	for _, warning := range proj.Warnings {
+		output.PrintWarning(warning)
+		if unknown[warning] {
+			issues++
+		}
+	}
+
 	// Check service paths exist (honoring yaml `command:`/`compose:` overrides).
 	for name, svc := range proj.Deps.Services {
 		result := config.ResolveServiceDetection(svc, svc.Source.Path)
 		if result.Runtime == models.RuntimeUnknown {
 			if svc.Source.Path != "" {
-				output.PrintWarning(fmt.Sprintf("%s: no runtime detected at %s", name, svc.Source.Path))
+				output.PrintWarning(i18n.T("check.no_runtime_at", name, svc.Source.Path))
 			} else {
-				output.PrintWarning(fmt.Sprintf("%s: no runtime declared (command/compose/path)", name))
+				output.PrintWarning(i18n.T("check.no_runtime_declared", name))
 			}
 			issues++
 		} else {
@@ -49,7 +63,7 @@ func CheckYAML(proj *YAMLProject) error {
 	for name, svc := range proj.Deps.Services {
 		for _, dep := range svc.GetDependsOn() {
 			if !known[dep] {
-				output.PrintError(fmt.Sprintf("%s depends on '%s' which is not defined", name, dep))
+				output.PrintError(i18n.T("check.unknown_dependency", name, dep))
 				issues++
 			}
 		}
@@ -87,6 +101,6 @@ func CheckYAML(proj *YAMLProject) error {
 	// non-zero exit code, and avoid the "no state found" hint that implies
 	// everything is fine. The actual issue list has already been printed
 	// above — the error here is just the signal.
-	output.PrintWarning(fmt.Sprintf("%d issue(s) found", issues))
+	output.PrintWarning(i18n.T("check.issues_found", issues))
 	return fmt.Errorf("%d check issue(s) found", issues)
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"raioz/internal/config"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/host"
@@ -59,10 +60,7 @@ func (uc *HealthUseCase) Execute(ctx context.Context, opts HealthOptions) error 
 
 	proj := ResolveYAMLProject(uc.deps, opts.ConfigPath)
 	if proj == nil {
-		return errors.New(
-			errors.ErrCodeInvalidConfig,
-			i18n.T("error.no_project"),
-		).WithSuggestion(i18n.T("error.no_project_suggestion"))
+		return noProjectError(uc.deps, opts.ConfigPath)
 	}
 
 	return uc.reportHealth(ctx, proj)
@@ -107,7 +105,24 @@ func (uc *HealthUseCase) reportHealth(ctx context.Context, proj *YAMLProject) er
 func (uc *HealthUseCase) collectHealth(ctx context.Context, proj *YAMLProject) []healthVerdict {
 	var out []healthVerdict
 
+	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
+	localState, _ := state.LoadLocalState(projectDir)
+
 	for _, name := range sortedKeysInfra(proj.Deps.Infra) {
+		if dep, owned := siblingOwnedDependency(name, proj.Deps.Infra[name], projectDir, localState); owned {
+			out = append(out, healthVerdict{
+				name: name, kind: "dependency", status: dep.Status,
+				healthy: dep.Status == statusRunning, detail: dep.Image,
+			})
+			continue
+		}
+		if dep, onHost := hostDevDependency(name, proj.Deps.Infra[name], localState); onHost {
+			out = append(out, healthVerdict{
+				name: name, kind: "dependency", status: dep.Status, healthy: true,
+				detail: fmt.Sprintf("pid:%d", localState.HostPIDs[name]),
+			})
+			continue
+		}
 		st := proj.ContainerState(ctx, name)
 		v := healthVerdict{
 			name:    name,
@@ -124,17 +139,15 @@ func (uc *HealthUseCase) collectHealth(ctx context.Context, proj *YAMLProject) [
 		out = append(out, v)
 	}
 
-	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
-	localState, _ := state.LoadLocalState(projectDir)
 	for _, name := range sortedKeysServices(proj.Deps.Services) {
-		out = append(out, uc.serviceVerdict(ctx, name, proj.Deps.Services[name], localState))
+		out = append(out, uc.serviceVerdict(ctx, proj, name, proj.Deps.Services[name], localState))
 	}
 	return out
 }
 
 // serviceVerdict resolves one service, strongest signal first.
 func (uc *HealthUseCase) serviceVerdict(
-	ctx context.Context, name string, svc models.Service, localState *models.LocalState,
+	ctx context.Context, proj *YAMLProject, name string, svc models.Service, localState *models.LocalState,
 ) healthVerdict {
 	v := healthVerdict{name: name, kind: "service", status: statusStopped}
 
@@ -143,7 +156,19 @@ func (uc *HealthUseCase) serviceVerdict(
 	if svc.HealthEndpoint != "" && svc.Port > 0 {
 		url := host.HealthURL(svc.Port, svc.HealthEndpoint)
 		v.detail = url
-		if healthEndpointProbe(ctx, url) {
+		ok := healthEndpointProbe(ctx, url)
+		det := config.ResolveServiceDetection(svc, svc.Source.Path)
+		if !ok && det.IsDocker() {
+			// A container that publishes no host port answers on its own
+			// address, not on loopback.
+			if ip := serviceContainerIP(ctx, proj.ProjectName, name); ip != "" {
+				alt := host.HealthURLAt(ip, svc.Port, svc.HealthEndpoint)
+				if ok = healthEndpointProbe(ctx, alt); ok {
+					v.detail = alt
+				}
+			}
+		}
+		if ok {
 			v.status, v.healthy = "healthy", true
 		} else {
 			v.status = "unhealthy"
@@ -160,6 +185,17 @@ func (uc *HealthUseCase) serviceVerdict(
 			}
 			return v
 		}
+	}
+
+	if det := config.ResolveServiceDetection(svc, svc.Source.Path); det.IsDocker() {
+		// A compose / Dockerfile service has no PID to look at.
+		st := proj.ContainerState(ctx, name)
+		v.status = st.Status
+		v.healthy = st.Status == statusRunning && st.Restarts == 0
+		if st.Restarts > 0 {
+			v.detail = fmt.Sprintf("restarts:%d", st.Restarts)
+		}
+		return v
 	}
 
 	if localState != nil {

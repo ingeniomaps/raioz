@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"raioz/internal/i18n"
-	"raioz/internal/logging"
 	"raioz/internal/output"
 
 	upcase "raioz/internal/app/upcase"
@@ -21,6 +20,7 @@ type UpOptions struct {
 	Attach       bool   // Stay foreground streaming logs (no file watching)
 	Watch        bool   // Stay foreground file-watching services with watch: true
 	Exclusive    bool   // Stop other projects before starting this one
+	Yes          bool   // Approve up front what Exclusive would stop
 	// RouterOff forces the bundled Caddy to start even when
 	// RAIOZ_ROUTER_ACTIVE=1 is inherited from the shell.
 	RouterOff bool
@@ -58,7 +58,10 @@ func NewUpUseCase(deps *Dependencies) *UpUseCase {
 // Execute executes the up use case
 func (uc *UpUseCase) Execute(ctx context.Context, opts UpOptions) error {
 	if opts.Exclusive {
-		uc.stopOtherProjects(ctx, opts.ConfigPath)
+		proceed, err := uc.stopOtherProjects(ctx, opts.ConfigPath, opts.Yes)
+		if err != nil || !proceed {
+			return err
+		}
 	}
 
 	options := upcase.Options{
@@ -76,17 +79,13 @@ func (uc *UpUseCase) Execute(ctx context.Context, opts UpOptions) error {
 	return uc.useCase.Execute(ctx, options)
 }
 
-// stopOtherProjects stops all running projects except the current one.
-func (uc *UpUseCase) stopOtherProjects(ctx context.Context, configPath string) {
-	globalState, err := uc.deps.StateManager.LoadGlobalState()
-	if err != nil {
-		return
-	}
-
-	if len(globalState.ActiveProjects) == 0 {
-		return
-	}
-
+// stopOtherProjects stops every other running project, once the user has
+// approved the list. proceed is false when they declined: an exclusive up
+// that could not clear the others does not start, rather than come up next
+// to what it was asked to replace.
+func (uc *UpUseCase) stopOtherProjects(
+	ctx context.Context, configPath string, yes bool,
+) (proceed bool, err error) {
 	// Determine current project name from config
 	currentProject := ""
 	if configPath != "" {
@@ -96,29 +95,21 @@ func (uc *UpUseCase) stopOtherProjects(ctx context.Context, configPath string) {
 		}
 	}
 
-	stopped := 0
-	for _, name := range globalState.ActiveProjects {
-		if name == currentProject {
-			continue
-		}
-
-		logging.InfoWithContext(ctx,
-			i18n.T("up.exclusive_stopping"),
-			"project", name,
-		)
-
-		downUC := NewDownUseCase(uc.deps)
-		if err := downUC.Execute(ctx, DownOptions{ProjectName: name}); err != nil {
-			logging.WarnWithContext(ctx,
-				i18n.T("up.exclusive_stop_failed"),
-				"project", name, "error", err.Error(),
-			)
-			continue
-		}
-		stopped++
+	declined := false
+	approve := approveStopping(yes, reasonExclusive)
+	stopped, err := DownAllOtherProjects(ctx, currentProject, func(names []string) (bool, error) {
+		ok, approveErr := approve(names)
+		declined = !ok && approveErr == nil
+		return ok, approveErr
+	})
+	if err != nil {
+		return false, err
 	}
-
-	if stopped > 0 {
-		output.PrintSuccess(i18n.T("up.exclusive_stopped", stopped))
+	if declined {
+		return false, nil
 	}
+	if len(stopped) > 0 {
+		output.PrintSuccess(i18n.T("up.exclusive_stopped", len(stopped)))
+	}
+	return true, nil
 }

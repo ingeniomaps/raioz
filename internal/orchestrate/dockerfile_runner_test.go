@@ -162,7 +162,7 @@ func TestDockerfileRunner_Start_RemovesStoppedContainer(t *testing.T) {
 	}
 
 	got := readFakeDockerArgs(t, argsFile)
-	if !strings.Contains(got, "rm -f raioz-proj-api") {
+	if !strings.Contains(got, "rm -f -v raioz-proj-api") {
 		t.Errorf("expected stale container removal; got: %q", got)
 	}
 	if !strings.Contains(got, "run -d --name raioz-proj-api") {
@@ -208,7 +208,7 @@ func TestDockerfileRunner_Start_ReplacesUnmanagedRunningContainer(t *testing.T) 
 	}
 
 	got := readFakeDockerArgs(t, argsFile)
-	if !strings.Contains(got, "rm -f raioz-proj-api") {
+	if !strings.Contains(got, "rm -f -v raioz-proj-api") {
 		t.Errorf("unlabeled container must be replaced, not reused; got: %q", got)
 	}
 	if !strings.Contains(got, "run -d --name raioz-proj-api") {
@@ -253,7 +253,9 @@ func TestDockerfileRunner_Start_AbsentContainerBuildsAndRuns(t *testing.T) {
 	if strings.Contains(got, "rm -f") {
 		t.Errorf("absent container must not trigger removal; got: %q", got)
 	}
-	if !strings.Contains(got, "build -t raioz-api") || !strings.Contains(got, "run -d") {
+	// The image carries the project in its name, so another project's
+	// `api` does not build over it.
+	if !strings.Contains(got, "build -t raioz-proj-api") || !strings.Contains(got, "run -d") {
 		t.Errorf("expected build and run; got: %q", got)
 	}
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,117 +12,28 @@ import (
 	"syscall"
 	"time"
 
+	"raioz/internal/app/upcase"
 	"raioz/internal/audit"
 	"raioz/internal/config"
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/errors"
+	"raioz/internal/fsutil"
 	"raioz/internal/i18n"
 	"raioz/internal/logging"
 	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/runtime"
-	"raioz/internal/state"
 )
 
 // StatusYAML shows status for a YAML orchestrated project. When `filter` is
 // non-empty, only services / dependencies in that list are reported and any
 // unknown name returns an error so the user notices the typo.
 func (uc *StatusUseCase) StatusYAML(ctx context.Context, proj *YAMLProject, filter []string) error {
-	if err := validateStatusFilter(proj, filter); err != nil {
+	report, err := uc.collectStatus(ctx, proj, filter)
+	if err != nil {
 		return err
 	}
-	want := filterSet(filter)
-
-	fmt.Println()
-	output.PrintSectionHeader(proj.ProjectName)
-
-	// Dependencies
-	visibleInfra := countMatching(proj.Deps.Infra, want)
-	if visibleInfra > 0 {
-		output.PrintSubsection(fmt.Sprintf("Dependencies (%d)", visibleInfra))
-		for name, entry := range proj.Deps.Infra {
-			if !inFilter(want, name) {
-				continue
-			}
-			status := formatContainerStatus(proj.ContainerState(ctx, name))
-			cpu, mem := proj.ContainerStats(ctx, name)
-			image := ""
-			if entry.Inline != nil {
-				image = entry.Inline.Image
-				if entry.Inline.Tag != "" {
-					image += ":" + entry.Inline.Tag
-				}
-			}
-			fmt.Printf("    %-18s %-10s %-8s %-10s %s\n", name, status, cpu, mem, image)
-		}
-	}
-
-	// Services
-	visibleSvc := countMatchingSvc(proj.Deps.Services, want)
-	if visibleSvc > 0 {
-		output.PrintSubsection(fmt.Sprintf("Services (%d)", visibleSvc))
-
-		projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
-		localState, _ := state.LoadLocalState(projectDir)
-
-		for name, svc := range proj.Deps.Services {
-			if !inFilter(want, name) {
-				continue
-			}
-			// Honor yaml overrides (command:, compose:) before scanning disk.
-			result := config.ResolveServiceDetection(svc, svc.Source.Path)
-			runtime := string(result.Runtime)
-			if runtime == "" {
-				runtime = "unknown"
-			}
-
-			// Priority 0: when the user declared `proxy.target`, THAT
-			// container is the source of truth — bypass the PID/compose
-			// heuristics that go false-negative for launchers that exit
-			// 0 after `docker run -d`.
-			status := statusStopped
-			pidInfo := ""
-			if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {
-				if st, ok := dockerStateProbe(ctx, svc.ProxyOverride.Target); ok {
-					// Verbatim, restart count included. Collapsing every
-					// non-running state into "stopped" hid `restarting`,
-					// and reporting the status alone hid the crash loop
-					// that spends most of its cycle in `running`.
-					status = formatContainerStatus(st)
-					goto print
-				}
-			}
-
-			// Fallback: process alive via saved PID. A live PID is not
-			// the same as a live service — see hostServiceStatus.
-			if localState != nil {
-				if pid, ok := localState.HostPIDs[name]; ok && pid > 0 {
-					if isHostProcessAlive(pid) {
-						status = hostServiceStatus(ctx, svc.Port)
-						pidInfo = fmt.Sprintf("pid:%d", pid)
-					}
-				}
-			}
-		print:
-
-			// Check if it has a dev override
-			devLabel := ""
-			if localState != nil && localState.IsDevOverridden(name) {
-				devLabel = " (dev)"
-			}
-
-			fmt.Printf("    %-18s %-10s %-10s %-10s%s\n", name, runtime, status, pidInfo, devLabel)
-		}
-	}
-
-	// Proxy
-	if proj.Deps.Proxy && uc.deps.ProxyManager != nil {
-		running, _ := uc.deps.ProxyManager.Status(ctx)
-		if running {
-			output.PrintInfo(i18n.T("output.proxy_running"))
-		}
-	}
-
-	fmt.Println()
+	printStatusReport(report)
 	return nil
 }
 
@@ -135,9 +47,10 @@ func (uc *RestartUseCase) RestartYAML(
 	services := opts.Services
 	if len(services) == 0 {
 		if !opts.All {
-			output.PrintWarning(
-				"No services specified. Use service names or --all")
-			return nil
+			return errors.New(
+				errors.ErrCodeInvalidField,
+				i18n.T("error.restart_no_services"),
+			)
 		}
 		services = collectYAMLServiceNames(proj)
 		if opts.IncludeInfra {
@@ -146,6 +59,19 @@ func (uc *RestartUseCase) RestartYAML(
 		if len(services) == 0 {
 			output.PrintWarning(i18n.T("warning.no_services_to_restart"))
 			return nil
+		}
+	}
+
+	// A name the project does not declare has nothing to restart; asking
+	// docker for it only returns "No such container".
+	for _, name := range services {
+		_, isService := proj.Deps.Services[name]
+		_, isDep := proj.Deps.Infra[name]
+		if !isService && !isDep {
+			return errors.New(
+				errors.ErrCodeInvalidConfig,
+				i18n.T("env.service_not_found", name),
+			).WithSuggestion(i18n.T("logs.available", strings.Join(logTargets(proj), ", ")))
 		}
 	}
 
@@ -188,9 +114,27 @@ func (uc *RestartUseCase) RestartYAML(
 			continue
 		}
 
-		containerName := naming.Container(proj.ProjectName, name)
+		if opts.ForceRecreate {
+			output.PrintProgress(i18n.T("output.recreating_service", name))
+			build := uc.startContextFor(ctx, proj, name)
+			if recreateErr := recreateTargetFn(ctx, uc.deps.DockerRunner, build); recreateErr != nil {
+				output.PrintProgressError(name + ": " + recreateErr.Error())
+				failed = append(failed, name)
+			} else {
+				output.PrintProgressDone(name)
+			}
+			continue
+		}
+
+		// Resolve by label: the canonical name misses workspace deps and
+		// any compose entry that sets its own `container_name:`. Nothing
+		// found falls back to it, so docker reports what is missing.
+		containers := proj.liveContainerNames(ctx, name)
+		if len(containers) == 0 {
+			containers = []string{naming.Container(proj.ProjectName, name)}
+		}
 		output.PrintProgress(i18n.T("output.restarting_service", name))
-		cmd := exec.CommandContext(ctx, runtime.Binary(), "restart", containerName)
+		cmd := exec.CommandContext(ctx, runtime.Binary(), append([]string{"restart"}, containers...)...)
 		if out, restartErr := cmd.CombinedOutput(); restartErr != nil {
 			output.PrintProgressError(name + ": " + strings.TrimSpace(string(out)))
 			failed = append(failed, name)
@@ -238,9 +182,15 @@ func collectYAMLDepNames(proj *YAMLProject) []string {
 }
 
 // isYAMLHostService reports whether the named entry in a YAML project runs
-// as a host process — i.e. has a `command:` or `commands:` block, no Docker.
-// Used to pick the right restart path. Returns false for unknown names so
-// the docker fallback can produce its own (admittedly ugly) error.
+// as a host process. Used to pick the right restart path. Returns false for
+// unknown names so the docker fallback can produce its own (admittedly
+// ugly) error.
+//
+// A declared `command:` / `commands:` is not the only signal: a host
+// runtime auto-detected from the directory (`runtime: npm`, a bare
+// package.json) declares no command, yet `up` launched it on the host.
+// Classify it with the same ResolveServiceDetection that up and status
+// use, so the three commands agree on where the service runs.
 func isYAMLHostService(proj *YAMLProject, name string) bool {
 	svc, ok := proj.Deps.Services[name]
 	if !ok {
@@ -249,16 +199,18 @@ func isYAMLHostService(proj *YAMLProject, name string) bool {
 	if svc.Docker != nil {
 		return false
 	}
-	return svc.Source.Command != "" || svc.Commands != nil
+	if svc.Source.Command != "" || svc.Commands != nil {
+		return true
+	}
+	det := config.ResolveServiceDetection(svc, svc.Source.Path)
+	return det.IsHost()
 }
 
 // ExecYAML runs a command in a container of a YAML orchestrated project.
 func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, command []string, interactive bool) error {
-	containerName := fmt.Sprintf("raioz-%s-%s", proj.ProjectName, serviceName)
-
 	// Check if it's a Docker container or host service
-	status := proj.ContainerStatus(ctx, serviceName)
-	if status == "stopped" {
+	containerName := proj.liveContainerName(ctx, serviceName)
+	if containerName == "" {
 		// Might be a host service — exec in the directory
 		if svc, ok := proj.Deps.Services[serviceName]; ok && svc.Source.Path != "" {
 			output.PrintInfo(i18n.T("output.exec_in_dir", svc.Source.Path))
@@ -268,19 +220,21 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 			}
 			cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 			cmd.Dir = svc.Source.Path
-			cmd.Stdin = nil // Will be set by cobra for interactive
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if fsutil.IsTerminal(os.Stdin) {
+				cmd.Stdin = os.Stdin
+			}
 			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("exec in service dir: %w", err)
+				return execError("exec in service dir", err)
 			}
 			return nil
 		}
-		return fmt.Errorf("service '%s' is not running", serviceName)
+		return errors.New(errors.ErrCodeInvalidField, i18n.T("error.exec_service_not_running", serviceName)).
+			WithSuggestion(i18n.T("error.exec_service_not_running_suggestion"))
 	}
 
-	isTTY := false
-	if fileInfo, err := os.Stdin.Stat(); err == nil {
-		isTTY = fileInfo.Mode()&os.ModeCharDevice != 0
-	}
+	isTTY := fsutil.IsTerminal(os.Stdin)
 
 	args := []string{"exec"}
 	if interactive && isTTY {
@@ -300,9 +254,31 @@ func ExecYAML(ctx context.Context, proj *YAMLProject, serviceName string, comman
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker exec: %w", err)
+		return execError("docker exec", err)
 	}
 	return nil
+}
+
+// ExitCodeError is an error that asks the process to exit with a specific
+// code: the one the command the user ran through raioz exited with. A
+// script calling `raioz exec svc test ...` needs that code, not a flat 1.
+type ExitCodeError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitCodeError) Error() string { return e.Err.Error() }
+func (e *ExitCodeError) Unwrap() error { return e.Err }
+
+// execError wraps a failed command, keeping its exit code when it ran and
+// exited by itself.
+func execError(what string, err error) error {
+	wrapped := fmt.Errorf("%s: %w", what, err)
+	var exit *exec.ExitError
+	if stderrors.As(err, &exit) && exit.ExitCode() > 0 {
+		return &ExitCodeError{Code: exit.ExitCode(), Err: wrapped}
+	}
+	return wrapped
 }
 
 // isHostProcessAlive checks if a process with the given PID is running.
@@ -315,3 +291,17 @@ func isHostProcessAlive(pid int) bool {
 }
 
 // CheckYAML validates a YAML project config.
+
+// startContextFor returns the builder of the context `up` would start name
+// with — a dependency or a container service.
+func (uc *RestartUseCase) startContextFor(
+	ctx context.Context, proj *YAMLProject, name string,
+) func() (interfaces.ServiceContext, bool) {
+	projectDir, _ := filepath.Abs(filepath.Dir(proj.ConfigPath))
+	return func() (interfaces.ServiceContext, bool) {
+		if _, isDep := proj.Deps.Infra[name]; isDep {
+			return upcase.DependencyContext(ctx, proj.Deps, name, projectDir)
+		}
+		return upcase.ServiceStartContext(ctx, uc.deps.DiscoveryManager, proj.Deps, projectDir, name)
+	}
+}

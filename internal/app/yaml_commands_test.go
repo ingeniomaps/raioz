@@ -2,9 +2,12 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"testing"
 
+	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
 )
 
@@ -74,6 +77,8 @@ func TestCheckYAML_UnknownDependsOn(t *testing.T) {
 	}
 }
 
+// Asked to restart nothing, restart says so and fails: a script that got
+// its argument list wrong must not read that as a successful restart.
 func TestRestartYAML_Empty(t *testing.T) {
 	initI18nForTest(t)
 	proj := &YAMLProject{
@@ -81,8 +86,20 @@ func TestRestartYAML_Empty(t *testing.T) {
 		Deps:        &models.Deps{},
 	}
 	uc := &RestartUseCase{}
-	if err := uc.RestartYAML(context.Background(), proj, RestartOptions{}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := uc.RestartYAML(context.Background(), proj, RestartOptions{}); err == nil {
+		t.Fatal("expected an error when no service and no --all are given")
+	}
+}
+
+// exec hands back the exit code of the command it ran.
+func TestExecError_KeepsExitCode(t *testing.T) {
+	failing := exec.Command("sh", "-c", "exit 3").Run()
+	var exit *ExitCodeError
+	if err := execError("docker exec", failing); !errors.As(err, &exit) || exit.Code != 3 {
+		t.Errorf("got %v, want an ExitCodeError with code 3", err)
+	}
+	if err := execError("docker exec", errors.New("not started")); errors.As(err, &exit) {
+		t.Errorf("a command that never ran has no exit code to keep: %v", err)
 	}
 }
 
@@ -97,5 +114,45 @@ func TestLogsYAML_NoServices(t *testing.T) {
 	}
 	if err := LogsYAML(context.Background(), proj, nil, false, 0); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// --force-recreate goes through the recreate path for container targets,
+// and a failure there fails the command.
+func TestRestartYAML_ForceRecreate(t *testing.T) {
+	initI18nForTest(t)
+	proj := &YAMLProject{
+		ProjectName: "test",
+		ConfigPath:  "raioz.yaml",
+		Deps: &models.Deps{
+			Infra: map[string]models.InfraEntry{"kv": {Inline: &models.Infra{Image: "redis", Tag: "7"}}},
+		},
+	}
+	prev := recreateTargetFn
+	t.Cleanup(func() { recreateTargetFn = prev })
+
+	var recreated int
+	recreateTargetFn = func(
+		context.Context, interfaces.DockerRunner, func() (interfaces.ServiceContext, bool),
+	) error {
+		recreated++
+		return nil
+	}
+	uc := &RestartUseCase{deps: &Dependencies{}}
+	opts := RestartOptions{Services: []string{"kv"}, ForceRecreate: true}
+	if err := uc.RestartYAML(context.Background(), proj, opts); err != nil {
+		t.Fatalf("recreate succeeded, restart must too: %v", err)
+	}
+	if recreated != 1 {
+		t.Fatalf("recreate calls = %d, want 1", recreated)
+	}
+
+	recreateTargetFn = func(
+		context.Context, interfaces.DockerRunner, func() (interfaces.ServiceContext, bool),
+	) error {
+		return errors.New("boom")
+	}
+	if err := uc.RestartYAML(context.Background(), proj, opts); err == nil {
+		t.Error("a failed recreate must fail the restart")
 	}
 }

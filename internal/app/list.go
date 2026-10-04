@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
 	"raioz/internal/i18n"
+	"raioz/internal/naming"
 	"raioz/internal/output"
 	"raioz/internal/state"
 )
@@ -38,6 +40,9 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 	if err != nil {
 		return errors.New(errors.ErrCodeStateLoadError, i18n.T("error.list_load_state")).WithError(err)
 	}
+
+	// The stored status is whatever up wrote; answer with what is true now.
+	uc.refreshLiveStatus(context.Background(), globalState)
 
 	// Apply filters
 	filteredState := uc.applyFilters(globalState, opts)
@@ -78,20 +83,6 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 		output.PrintKeyValue(i18n.T("output.label_last_execution"), formatTime(projectState.LastExecution))
 		output.PrintKeyValue(i18n.T("output.label_active_services"), fmt.Sprintf("%d", len(projectState.Services)))
 
-		// Enrich with live host PID checks
-		hostPIDs := uc.loadHostPIDs(projectState.Workspace)
-		for i := range projectState.Services {
-			svc := &projectState.Services[i]
-			if svc.Status != "running" {
-				// Check if host process is alive via PID
-				if pid, ok := hostPIDs[svc.Name]; ok && pid > 0 {
-					if processAlive(pid) {
-						svc.Status = "running"
-					}
-				}
-			}
-		}
-
 		// Show service summary
 		if len(projectState.Services) > 0 {
 			runningCount := 0
@@ -117,6 +108,45 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 	}
 
 	return nil
+}
+
+// refreshLiveStatus overwrites each service's recorded status with its
+// live one. A service is running when its recorded host PID is alive or a
+// container carrying its labels is — the two ways raioz launches things.
+func (uc *ListUseCase) refreshLiveStatus(ctx context.Context, globalState *models.GlobalState) {
+	for name, project := range globalState.Projects {
+		hostPIDs := uc.projectHostPIDs(project)
+		for i := range project.Services {
+			svc := &project.Services[i]
+			svc.Status = statusStopped
+			if pid := hostPIDs[svc.Name]; pid > 0 && processAlive(pid) {
+				svc.Status = statusRunning
+				continue
+			}
+			for _, container := range containerLookup().FindByLabels(ctx, map[string]string{
+				naming.LabelManaged: "true",
+				naming.LabelProject: project.Name,
+				naming.LabelService: svc.Name,
+			}) {
+				if st, ok := dockerStateProbe(ctx, container); ok && st.Status == statusRunning {
+					svc.Status = statusRunning
+					break
+				}
+			}
+		}
+		globalState.Projects[name] = project
+	}
+}
+
+// projectHostPIDs reads the host PIDs a project recorded at up: from its
+// own directory when the state knows it, else from the workspace root.
+func (uc *ListUseCase) projectHostPIDs(project models.ProjectState) map[string]int {
+	if project.Path != "" {
+		if ls, err := state.LoadLocalState(project.Path); err == nil && ls != nil {
+			return ls.HostPIDs
+		}
+	}
+	return uc.loadHostPIDs(project.Workspace)
 }
 
 // applyFilters applies name and status filters to the global state
@@ -164,25 +194,25 @@ func (uc *ListUseCase) applyFilters(globalState *models.GlobalState, opts ListOp
 
 func formatTime(t time.Time) string {
 	if t.IsZero() {
-		return "never"
+		return i18n.T("time.never")
 	}
 	now := time.Now()
 	diff := now.Sub(t)
 
 	if diff < time.Minute {
-		return "just now"
+		return i18n.T("time.just_now")
 	}
 	if diff < time.Hour {
 		minutes := int(diff.Minutes())
-		return fmt.Sprintf("%d minute(s) ago", minutes)
+		return i18n.T("time.minutes_ago", minutes)
 	}
 	if diff < 24*time.Hour {
 		hours := int(diff.Hours())
-		return fmt.Sprintf("%d hour(s) ago", hours)
+		return i18n.T("time.hours_ago", hours)
 	}
 	if diff < 7*24*time.Hour {
 		days := int(diff.Hours() / 24)
-		return fmt.Sprintf("%d day(s) ago", days)
+		return i18n.T("time.days_ago", days)
 	}
 
 	return t.Format("2006-01-02 15:04:05")

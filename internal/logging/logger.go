@@ -14,7 +14,14 @@ const (
 	LogLevelInfo  LogLevel = "info"
 	LogLevelWarn  LogLevel = "warn"
 	LogLevelError LogLevel = "error"
+	// LogLevelOff emits nothing. It is the interactive default: a failure
+	// already reaches the user as a formatted error, and the structured
+	// line beside it only repeats it in a form meant for debugging.
+	LogLevelOff LogLevel = "off"
 )
+
+// levelOff sits above every level slog emits.
+const levelOff = slog.LevelError + 4
 
 var (
 	// Logger is the global logger instance
@@ -73,6 +80,8 @@ func parseLevel(level LogLevel) slog.Level {
 		return slog.LevelWarn
 	case "error":
 		return slog.LevelError
+	case "off":
+		return levelOff
 	default:
 		return slog.LevelInfo
 	}

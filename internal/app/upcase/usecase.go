@@ -104,6 +104,11 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		return err
 	}
 
+	// --host widens where a published proxy listens (default: loopback).
+	if opts.Host != "" && deps.ProxyConfig != nil {
+		deps.ProxyConfig.BindHost = opts.Host
+	}
+
 	// Filters: profile, feature flags, ignore list, --only
 	deps, err = uc.applyFilters(deps, opts.Profile, opts.Only)
 	if err != nil {
@@ -143,6 +148,12 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 	if opts.DryRun {
 		uc.showDryRunSummary(deps, appliedOverrides)
 		return nil
+	}
+
+	// A proxy that cannot have its host ports refuses the run here, while
+	// nothing exists yet — no hook has run, no network, no container.
+	if err := uc.proxyPortsPreflight(ctx, deps, opts.RouterOff); err != nil {
+		return err
 	}
 
 	// Pre-hook: runs before anything else (env rendering, secrets fetch, etc.).
@@ -244,6 +255,12 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 
 	orchResult, err = uc.processOrchestration(ctx, deps, ws, projectDir, opts.ConfigPath, opts.RouterOff)
 	if err != nil {
+		// A run that failed before attaching anything leaves the network it
+		// just created with nothing on it. One with containers attached is
+		// left alone: `raioz down` owns that teardown.
+		if _, rmErr := removeUnusedNetworksFn(ctx, networkLabelsFor(deps)); rmErr != nil {
+			logging.WarnWithContext(ctx, "Could not drop the unused network", "error", rmErr.Error())
+		}
 		return err
 	}
 	serviceNames = orchResult.serviceNames
@@ -284,7 +301,7 @@ func (uc *UseCase) Execute(ctx context.Context, opts Options) (err error) {
 		case opts.Watch:
 			// File-watch services with `watch: true` and auto-restart.
 			startWatcher(ctx, deps, orchResult.dispatcher, orchResult.detections,
-				orchResult.networkName, projectDir)
+				orchResult.networkName, projectDir, uc.serviceEnvFor(ctx, deps, projectDir))
 		}
 	}
 

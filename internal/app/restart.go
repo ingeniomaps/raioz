@@ -66,10 +66,7 @@ func (uc *RestartUseCase) Execute(ctx context.Context, opts RestartOptions) erro
 	var workspaceName string
 	if projectName == "" {
 		if deps == nil {
-			return errors.New(
-				errors.ErrCodeInvalidConfig,
-				i18n.T("error.no_project"),
-			).WithSuggestion(i18n.T("error.no_project_suggestion"))
+			return noProjectError(uc.deps, opts.ConfigPath)
 		}
 		projectName = deps.Project.Name
 		workspaceName = deps.GetWorkspaceName()
