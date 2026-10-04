@@ -66,15 +66,21 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 		return nil
 	}
 
-	output.PrintSectionHeader(i18n.T("output.active_projects_header"))
+	// Projects with something running first; the ones raioz still has on
+	// record with nothing running go under their own header, so a leftover
+	// entry does not read as an active project.
+	running, idle := splitByLiveness(filteredState)
+	if len(running) > 0 {
+		output.PrintSectionHeader(i18n.T("output.active_projects_header"))
+	}
 
-	for i, projectName := range filteredState.ActiveProjects {
-		projectState, exists := filteredState.Projects[projectName]
-		if !exists {
-			continue
-		}
+	for i, projectName := range append(running, idle...) {
+		projectState := filteredState.Projects[projectName]
 
-		if i > 0 {
+		switch {
+		case i == len(running):
+			output.PrintSectionHeader(i18n.T("output.idle_projects_header"))
+		case i > 0:
 			fmt.Println()
 		}
 
@@ -108,6 +114,30 @@ func (uc *ListUseCase) Execute(opts ListOptions) error {
 	}
 
 	return nil
+}
+
+// splitByLiveness separates the listed projects into those with at least
+// one service running and those with none, each in listing order.
+func splitByLiveness(st *models.GlobalState) (running, idle []string) {
+	for _, name := range st.ActiveProjects {
+		project, exists := st.Projects[name]
+		if !exists {
+			continue
+		}
+		live := false
+		for _, svc := range project.Services {
+			if svc.Status == statusRunning {
+				live = true
+				break
+			}
+		}
+		if live {
+			running = append(running, name)
+		} else {
+			idle = append(idle, name)
+		}
+	}
+	return running, idle
 }
 
 // refreshLiveStatus overwrites each service's recorded status with its

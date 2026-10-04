@@ -170,6 +170,7 @@
   "output.no_projects_match_filters": "No hay proyectos que coincidan con los filtros especificados",
   "output.no_active_projects": "No se encontraron proyectos activos",
   "output.active_projects_header": "Proyectos Activos",
+  "output.idle_projects_header": "Registrados, sin nada corriendo",
   "output.ignore_already_ignored": "El servicio '%s' ya está ignorado",
   "output.ignore_added": "Servicio '%s' agregado a la lista de ignorados",
   "output.ignore_next_up": "El servicio no será iniciado en el próximo 'raioz up'",

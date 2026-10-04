@@ -170,6 +170,7 @@
   "output.no_projects_match_filters": "No projects match the specified filters",
   "output.no_active_projects": "No active projects found",
   "output.active_projects_header": "Active Projects",
+  "output.idle_projects_header": "Registered, nothing running",
   "output.ignore_already_ignored": "Service '%s' is already ignored",
   "output.ignore_added": "Service '%s' added to ignore list",
   "output.ignore_next_up": "The service will not be started on the next 'raioz up'",
