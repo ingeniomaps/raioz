@@ -172,29 +172,59 @@ Landed in this commit:
   persisting launcher mode in LocalState would couple the state
   schema to a transient runner concern.
 
-## Post-kill cwd sweep: the invoker's chain is protected
+## Post-kill sweep: marked processes only
 
 The launcher family's daemons (nx daemon, vite, esbuild watchers)
-double-fork into a new session before raioz records a PID, so
-`kill -PGID` on down can't reach them. `host.KillOrphansByCwd`
-is the safety net: it SIGTERMs every process whose cwd is the
-service path or below (Linux-only, ≥4 path components).
+detach into a new session before raioz records a PID, so
+`kill -PGID` on down can't reach them. `host.KillOrphansByCwd` is the
+safety net (Linux-only, ≥4 path components).
 
-Sweeping by cwd has one structural false positive: when the
-service declares `path: .`, the service path IS the project dir —
-and the shell that ran `raioz down` from inside the project has
-its cwd right there. Interactive shells ignore SIGTERM, which
-masked the bug; non-interactive ones (scripts, CI, `bash -c`
-wrappers) died with the down half-reported and any chained `&&`
-steps silently skipped (issue 022).
+It first swept by working directory alone: every process whose cwd was
+the service path or below got SIGTERM. That was too wide. With
+`path: .` the service path is the project dir, where the user's
+editor, other shells, a `tail -f` and the rest of a pipeline also
+run — `raioz restart bff | grep …` typed inside the service killed its
+own `grep`, raioz died of SIGPIPE, and the service was left stopped.
+An earlier amendment excluded the invoker's ancestor chain; everything
+else in the directory was still fair game, and that was documented as
+the contract. It should not have been.
 
-The sweep therefore excludes the calling process **and its full
-ancestor chain** (`ancestorPIDs`, a `/proc/<pid>/stat` ppid walk).
-This costs nothing in coverage: the daemons the sweep exists for
-re-parent to init and are never raioz's ancestors. Unrelated
-sibling processes rooted in the service dir (an editor, a manual
-`tail -f`) are still swept — that's the documented contract of
-cwd-based cleanup, not collateral.
+The sweep now needs **two** things to match:
+
+- **The marker.** The host runner starts every service with
+  `RAIOZ_HOST_SERVICE=<project>/<service>` in its environment
+  (`host.ServiceMarkerEnv`). The whole tree inherits it, detached
+  daemons included, and the sweep reads it from `/proc/<pid>/environ`.
+  A process raioz did not start does not carry it.
+- **The directory.** The cwd must still be the service path or below.
+  The marker alone would follow a terminal opened from inside a
+  service wherever the user took it.
+
+The calling process and its ancestor chain stay excluded
+(`ancestorPIDs`): a `raioz restart` typed in a terminal that a service
+spawned carries that service's marker.
+
+The sweep also waits. It sends SIGTERM, gives the processes the same
+grace period as the tracked group and forces the ones still there, so
+a relaunch finds the port free.
+
+Cost: a service started by a raioz older than this change has no
+marker, so its detached daemons are not swept on the first `down` after
+upgrading. They were started before the upgrade; the next `up` marks
+everything.
+
+## Stop is a barrier
+
+`raioz restart` used to SIGTERM the tracked group and start the new
+process straight away. The tracked PID is usually a wrapper (`sh -c`, a
+package manager) that dies at once, while the server behind it takes
+seconds to release its port; the new process then died with
+`EADDRINUSE` after `restart` had already reported success.
+
+`host.StopProcessTree` is the one way to stop a host service now, for
+restart, down and the watcher alike: SIGTERM the group, wait until
+**no process of the group** is left (not just the leader), SIGKILL after
+the grace period, and only then return.
 
 ## Alternatives considered
 
@@ -222,7 +252,7 @@ cwd-based cleanup, not collateral.
   `internal/orchestrate/host_runner_launcher.go`,
   `internal/docker/wait.go`,
   `internal/host/process_helpers.go`,
-  `internal/host/proctree_unix.go` (cwd sweep + ancestor
+  `internal/host/proctree_unix.go` (marker + cwd sweep, ancestor
   exclusion), `internal/app/down_launcher_sweep.go`.
 - Tests: `internal/docker/wait_test.go`,
   `internal/host/launcher_timeout_test.go`,
