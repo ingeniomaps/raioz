@@ -3,9 +3,11 @@ package env
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"raioz/internal/domain/models"
+	"raioz/internal/i18n"
 	"raioz/internal/workspace"
 )
 
@@ -263,5 +265,37 @@ func TestEnsureEnvDirs_Idempotent(t *testing.T) {
 	}
 	if err := EnsureEnvDirs(ws); err != nil {
 		t.Fatalf("second call: %v", err)
+	}
+}
+
+// The comment heading global.env follows the interface language, like
+// every other text raioz writes.
+func TestWriteGlobalEnvVariables_HeaderFollowsLanguage(t *testing.T) {
+	deps := &models.Deps{Env: models.EnvConfig{UseGlobal: true, Variables: map[string]string{"FOO": "bar"}}}
+	for lang, want := range map[string]string{
+		"en": "# Global environment variables",
+		"es": "# Variables de entorno globales",
+	} {
+		t.Run(lang, func(t *testing.T) {
+			t.Cleanup(func() { _ = i18n.SetLang("en") })
+			i18n.Init("en")
+			if err := i18n.SetLang(lang); err != nil {
+				t.Fatal(err)
+			}
+			ws := makeTestWS(t)
+			if err := WriteGlobalEnvVariables(ws, deps, t.TempDir()); err != nil {
+				t.Fatalf("WriteGlobalEnvVariables: %v", err)
+			}
+			data, err := os.ReadFile(filepath.Join(ws.EnvDir, "global.env"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(string(data), want) {
+				t.Errorf("header = %q, want it to start with %q", strings.SplitN(string(data), "\n", 2)[0], want)
+			}
+			if parseEnvContent(string(data))["FOO"] != "bar" {
+				t.Error("the variables must still be written under the header")
+			}
+		})
 	}
 }

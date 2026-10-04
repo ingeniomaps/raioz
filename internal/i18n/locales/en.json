@@ -839,6 +839,8 @@
   "error.git_branch_missing": "branch %q does not exist in %s",
   "error.git_clone_needs_auth": "%s asks for credentials: it is private, or it does not exist. For a private repository add `auth: gh`, `auth: ssh` or `auth: inherit` to the service",
   "error.git_clone_auth_failed": "%s rejected the credentials of `auth: %s` — %s",
+  "env.global_header_title": "Global environment variables (env.files + env.variables)",
+  "env.global_header_scope": "Applied to every service when useGlobal: true",
   "env.template_generating": "Generating .env from template for service '%s'...",
   "env.template_created": "Created .env for service '%s' with %d variables",
   "env.template_updated": "Updated .env for service '%s' (merged with global and service variables)",

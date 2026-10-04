@@ -9,6 +9,7 @@ import (
 
 	"raioz/internal/domain/models"
 	raiozErr "raioz/internal/errors"
+	"raioz/internal/i18n"
 	"raioz/internal/workspace"
 )
 
@@ -174,13 +175,13 @@ func WriteGlobalEnvVariables(ws *workspace.Workspace, deps *models.Deps, project
 	}
 	defer file.Close()
 
-	if _, err := fmt.Fprintf(file, "# Variables de entorno globales (env.files + env.variables)\n"); err != nil {
+	if _, err := fmt.Fprintf(file, "# %s\n", i18n.T("env.global_header_title")); err != nil {
 		return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to write to global.env").
 			WithContext("file", globalPath).
 			WithSuggestion("Check disk space and file permissions").
 			WithError(err)
 	}
-	if _, err := fmt.Fprintf(file, "# Se aplica a todos los servicios si useGlobal: true\n\n"); err != nil {
+	if _, err := fmt.Fprintf(file, "# %s\n\n", i18n.T("env.global_header_scope")); err != nil {
 		return raiozErr.New(raiozErr.ErrCodeInvalidConfig, "failed to write to global.env").
 			WithContext("file", globalPath).
 			WithSuggestion("Check disk space and file permissions").

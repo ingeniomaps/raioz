@@ -839,6 +839,8 @@
   "error.git_branch_missing": "la rama %q no existe en %s",
   "error.git_clone_needs_auth": "%s pide credenciales: es privado, o no existe. Para un repositorio privado agrega `auth: gh`, `auth: ssh` o `auth: inherit` al servicio",
   "error.git_clone_auth_failed": "%s rechazó las credenciales de `auth: %s` — %s",
+  "env.global_header_title": "Variables de entorno globales (env.files + env.variables)",
+  "env.global_header_scope": "Se aplica a todos los servicios si useGlobal: true",
   "env.template_generating": "Generando .env desde la plantilla para el servicio '%s'...",
   "env.template_created": ".env creado para el servicio '%s' con %d variables",
   "env.template_updated": "El .env del servicio '%s' se actualizó (combinado con las variables globales y del servicio)",
