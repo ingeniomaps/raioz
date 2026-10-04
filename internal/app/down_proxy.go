@@ -74,7 +74,7 @@ func (uc *DownUseCase) handleSharedProxyDown(ctx context.Context, deps *models.D
 	// reflects only genuinely-live projects.
 	uc.pruneOrphanRouteFiles(ctx, deps.Workspace, deps.Project.Name)
 
-	// Both signals must agree before we tumba: routes can be stale from a
+	// Both signals must agree before we tear it down: routes can be stale from a
 	// crash and labels can be stale during a partial up, so either alone is
 	// too aggressive. `force` drops the route half — the stale-file case.
 	noRouteFiles := uc.deps.ProxyManager.RemainingProjects() == 0

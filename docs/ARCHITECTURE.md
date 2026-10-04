@@ -227,7 +227,7 @@ Every raioz-managed container is stamped with labels
 unrelated project that happens to share a prefix.
 
 Shared dependencies intentionally **omit** `com.raioz.project` so a
-`raioz down` on any one project doesn't tumba them; the last project
+`raioz down` on any one project doesn't tear them down; the last project
 leaving the workspace does. See `internal/naming/labels.go`.
 
 ### host
@@ -343,7 +343,7 @@ every project in the workspace. Each project's routes are persisted
 at `/tmp/<workspace>/proxy/routes/<project>.json`; the shared
 Caddyfile is the union of every project's file. `raioz down` removes
 only the current project's routes and reloads Caddy. Only the last
-project leaving the workspace tumba the proxy.
+project leaving the workspace tears down the proxy.
 
 `Reload` must NOT use `docker cp` to push the Caddyfile (the bind
 mount is read-only and `cp` fails with "device or resource busy"). It

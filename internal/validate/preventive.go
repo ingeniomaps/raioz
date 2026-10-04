@@ -16,10 +16,10 @@ import (
 // ValidateBeforeUp performs all validations needed before running 'raioz up'
 // This includes preflight checks, configuration validation, and preventive checks
 func ValidateBeforeUp(ctx context.Context, deps *models.Deps, ws *workspace.Workspace) error {
-	// Step 1: Preflight checks (Docker, Git, disk space, network)
+	// Step 1: Preflight checks (Docker, Git, disk space)
 	if err := PreflightCheckWithContext(ctx); err != nil {
 		return errors.New(
-			errors.ErrCodeDockerNotInstalled,
+			errors.ErrCodePreflightFailed,
 			"Preflight checks failed",
 		).WithSuggestion(
 			"Ensure Docker is installed and running, Git is installed, and you have sufficient disk space. " +

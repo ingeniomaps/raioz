@@ -181,7 +181,9 @@ func validateServices(deps *models.Deps) error {
 				).WithContext("service_name", name)
 			}
 
-			if svc.Docker.Dockerfile == "" && svc.Docker.Command == "" {
+			// raioz.yaml detects the runtime from the checkout; its docker
+			// block only carries `ports:` and the like, never the launch.
+			if !yamlConfig && svc.Docker.Dockerfile == "" && svc.Docker.Command == "" {
 				return errors.New(
 					errors.ErrCodeMissingField,
 					fmt.Sprintf("Service '%s': git source requires either 'dockerfile' or 'command' in docker config", name),

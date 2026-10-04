@@ -131,7 +131,7 @@ func (uc *DownUseCase) downOrchestrated(ctx context.Context, opts DownOptions) (
 	containerPrefix := naming.ContainerPrefix(projectName)
 	stopContainersByPrefix(ctx, containerPrefix)
 
-	// Also tumba a container named exactly `<prefix>-<project>` (no trailing
+	// Also remove a container named exactly `<prefix>-<project>` (no trailing
 	// service dash). Services declared with `command: make start` — or any
 	// user-owned launch script — commonly set container_name that way, and
 	// the prefix sweep above skips them because `name=<prefix>-<project>-`

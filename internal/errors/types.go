@@ -18,17 +18,15 @@ const (
 	// Docker errors
 	ErrCodeDockerNotInstalled ErrorCode = "DOCKER_NOT_INSTALLED"
 	ErrCodeDockerNotRunning   ErrorCode = "DOCKER_NOT_RUNNING"
+	ErrCodePreflightFailed    ErrorCode = "PREFLIGHT_FAILED"
 	ErrCodePortConflict       ErrorCode = "PORT_CONFLICT"
 	ErrCodeImagePullFailed    ErrorCode = "IMAGE_PULL_FAILED"
 	ErrCodeNetworkError       ErrorCode = "NETWORK_ERROR"
 	ErrCodeVolumeError        ErrorCode = "VOLUME_ERROR"
 
 	// Git errors
-	ErrCodeGitNotInstalled    ErrorCode = "GIT_NOT_INSTALLED"
-	ErrCodeGitCloneFailed     ErrorCode = "GIT_CLONE_FAILED"
-	ErrCodeGitBranchNotFound  ErrorCode = "GIT_BRANCH_NOT_FOUND"
-	ErrCodeGitConflict        ErrorCode = "GIT_CONFLICT"
-	ErrCodeNetworkUnavailable ErrorCode = "NETWORK_UNAVAILABLE"
+	ErrCodeGitNotInstalled ErrorCode = "GIT_NOT_INSTALLED"
+	ErrCodeGitCloneFailed  ErrorCode = "GIT_CLONE_FAILED"
 
 	// Workspace errors
 	ErrCodeWorkspaceError   ErrorCode = "WORKSPACE_ERROR"

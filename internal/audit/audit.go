@@ -27,8 +27,6 @@ const (
 type EventType string
 
 const (
-	EventTypeDependencyAdded  EventType = "dependency_added"
-	EventTypeConfigChanged    EventType = "config_changed"
 	EventTypeConflictResolved EventType = "conflict_resolved"
 	EventTypeServiceAssisted  EventType = "service_assisted"
 	EventTypeDriftDetected    EventType = "drift_detected"

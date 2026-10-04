@@ -159,38 +159,6 @@ func TestSave(t *testing.T) {
 	})
 }
 
-func TestIsIgnored(t *testing.T) {
-	tmpDir := t.TempDir()
-	os.Setenv("RAIOZ_HOME", tmpDir)
-	defer os.Unsetenv("RAIOZ_HOME")
-
-	t.Run("service not ignored", func(t *testing.T) {
-		ignored, err := IsIgnored("service1")
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-		if ignored {
-			t.Error("Expected service not to be ignored")
-		}
-	})
-
-	t.Run("service is ignored", func(t *testing.T) {
-		// Add service to ignore list
-		err := AddService("service1")
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		ignored, err := IsIgnored("service1")
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-		if !ignored {
-			t.Error("Expected service to be ignored")
-		}
-	})
-}
-
 func TestAddService(t *testing.T) {
 	tmpDir := t.TempDir()
 	os.Setenv("RAIOZ_HOME", tmpDir)
@@ -203,8 +171,8 @@ func TestAddService(t *testing.T) {
 		}
 
 		// Verify it was added
-		ignored, _ := IsIgnored("service1")
-		if !ignored {
+		services, _ := ForProject("")
+		if !contains(services, "service1") {
 			t.Error("Expected service to be ignored")
 		}
 	})
@@ -218,7 +186,7 @@ func TestAddService(t *testing.T) {
 		}
 
 		// Verify it's still in the list (only once)
-		services, _ := GetIgnoredServices()
+		services, _ := ForProject("")
 		count := 0
 		for _, s := range services {
 			if s == "service2" {
@@ -227,66 +195,6 @@ func TestAddService(t *testing.T) {
 		}
 		if count != 1 {
 			t.Errorf("Expected service2 to appear once, found %d times", count)
-		}
-	})
-}
-
-func TestRemoveService(t *testing.T) {
-	tmpDir := t.TempDir()
-	os.Setenv("RAIOZ_HOME", tmpDir)
-	defer os.Unsetenv("RAIOZ_HOME")
-
-	t.Run("remove existing service", func(t *testing.T) {
-		// Add service first
-		AddService("service1")
-
-		// Remove it
-		err := RemoveService("service1")
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-
-		// Verify it was removed
-		ignored, _ := IsIgnored("service1")
-		if ignored {
-			t.Error("Expected service not to be ignored")
-		}
-	})
-
-	t.Run("remove non-existent service is no-op", func(t *testing.T) {
-		err := RemoveService("nonexistent")
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-	})
-}
-
-func TestGetIgnoredServices(t *testing.T) {
-	tmpDir := t.TempDir()
-	os.Setenv("RAIOZ_HOME", tmpDir)
-	defer os.Unsetenv("RAIOZ_HOME")
-
-	t.Run("empty list", func(t *testing.T) {
-		services, err := GetIgnoredServices()
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-		if len(services) != 0 {
-			t.Errorf("Expected empty list, got %v", services)
-		}
-	})
-
-	t.Run("list with services", func(t *testing.T) {
-		// Add services
-		AddService("service1")
-		AddService("service2")
-
-		services, err := GetIgnoredServices()
-		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
-		}
-		if len(services) != 2 {
-			t.Errorf("Expected 2 services, got %d", len(services))
 		}
 	})
 }

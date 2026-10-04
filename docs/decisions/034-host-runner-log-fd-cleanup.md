@@ -101,7 +101,7 @@ Landed in this commit:
 
 - **Restructure `Start` into a `launchSettling` helper that returns
   a launch result enum + per-result cleanup goroutines** (the
-  issue 061 "alternativa más limpia"). Rejected: more surface area
+  issue 061 "the cleaner alternative"). Rejected: more surface area
   changes for the same end state. The drain goroutine already had
   the only piece of state that needed to know about cleanup (the
   fd); promoting it to owner adds zero new types.

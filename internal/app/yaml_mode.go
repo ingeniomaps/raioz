@@ -152,12 +152,6 @@ func (p *YAMLProject) liveContainerNames(ctx context.Context, name string) []str
 	return nil
 }
 
-// ContainerStatus returns the status of a specific container, discarding
-// the restart count. For callers that only branch on liveness.
-func (p *YAMLProject) ContainerStatus(ctx context.Context, name string) string {
-	return p.ContainerState(ctx, name).Status
-}
-
 // ContainerState returns the runtime state of a specific container. Routes
 // both the canonical-name probe and the label-based fallback
 // through naming.ResolveContainer — the single resolver shared by proxy,

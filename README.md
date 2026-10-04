@@ -180,7 +180,7 @@ Every service gets `https://<name>.acme.localhost`. Uses Caddy + mkcert. The dom
 
 ### Workspace-shared proxy
 
-When `workspace:` is declared, a single Caddy instance fronts every project in the workspace. Each project adds its own routes on `raioz up`; `raioz down` removes only that project's routes. The last project leaving tumba the proxy.
+When `workspace:` is declared, a single Caddy instance fronts every project in the workspace. Each project adds its own routes on `raioz up`; `raioz down` removes only that project's routes. The last project leaving tears down the proxy.
 
 ```yaml
 workspace: acme-corp
@@ -318,7 +318,7 @@ acme-proxy                 # Caddy (workspace-shared)
 
 ### Reliable teardown via container labels
 
-Every container raioz creates is stamped with labels (`com.raioz.managed=true`, `com.raioz.project=<p>`, `com.raioz.service=<s>`, `com.raioz.kind=service|dependency|proxy`). `raioz down` sweeps by label, never by name prefix — so it can't tumba containers from an unrelated project that happens to share a name.
+Every container raioz creates is stamped with labels (`com.raioz.managed=true`, `com.raioz.project=<p>`, `com.raioz.service=<s>`, `com.raioz.kind=service|dependency|proxy`). `raioz down` sweeps by label, never by name prefix — so it can't tear down containers from an unrelated project that happens to share a name.
 
 ### Process lifecycle
 
@@ -433,7 +433,7 @@ there first" in a comment:
   up` reads the sibling's raioz.yaml, runs `raioz up` recursively in
   its directory if it's not already running, and streams the output
   prefixed with `[sibling: <name>]`. `raioz down` of the consumer never
-  tumba al hermano — the sibling has its own lifecycle.
+  tears down the sibling — the sibling has its own lifecycle.
 - **`siblingProject: ../sibling`** + `image:` (mode B) — fallback
   pattern for CI or contributors without the sibling repo cloned. When
   the sibling is up, raioz skips the local image and stamps the dep as

@@ -71,7 +71,7 @@ Invariants:
 
 - Teams compose their projects naturally without forcing every
   shared service into a Docker image.
-- Lifecycle isolation: consumer can't accidentally tumba the
+- Lifecycle isolation: consumer can't accidentally tear down the
   sibling.
 - Cycle detection prevents infinite recursion.
 

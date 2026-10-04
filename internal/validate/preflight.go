@@ -13,7 +13,11 @@ import (
 	"raioz/internal/runtime"
 )
 
-// PreflightCheckWithContext performs all preflight checks before executing commands with context support
+// PreflightCheckWithContext performs the checks nothing can run without:
+// Docker installed and running, Git installed, disk space. Whether the
+// network is up is not one of them — a project that clones nothing starts
+// fine offline; `up` asks the git hosts of a project that does clone, and
+// only warns.
 func PreflightCheckWithContext(ctx context.Context) error {
 	var checkErrors []error
 
@@ -34,11 +38,6 @@ func PreflightCheckWithContext(ctx context.Context) error {
 
 	// Check disk space
 	if err := checkDiskSpace(); err != nil {
-		checkErrors = append(checkErrors, err)
-	}
-
-	// Check network connectivity (basic check)
-	if err := checkNetworkConnectivityWithContext(ctx); err != nil {
 		checkErrors = append(checkErrors, err)
 	}
 
@@ -179,33 +178,6 @@ func checkDiskSpace() error {
 		).WithContext("available_gb", availableGB).WithContext("path", wd)
 	}
 
-	return nil
-}
-
-// checkNetworkConnectivityWithContext performs a basic network connectivity check with context support
-func checkNetworkConnectivityWithContext(ctx context.Context) error {
-	// Create context with timeout (3 seconds for network check)
-	timeoutCtx, cancel := exectimeout.WithTimeoutFromContext(ctx, 3*time.Second)
-	defer cancel()
-
-	// Try to ping a well-known host (using curl/wget to check connectivity)
-	// This is a basic check - we'll use curl if available, otherwise skip
-	cmd := exec.CommandContext(timeoutCtx, "curl", "-s", "--max-time", "3", "https://www.google.com")
-	if err := cmd.Run(); err != nil {
-		// If curl fails, try with wget
-		cmd2 := exec.CommandContext(timeoutCtx, "wget", "--spider", "--timeout=3", "--quiet", "https://www.google.com")
-		if err2 := cmd2.Run(); err2 != nil {
-			// If both fail, return warning (not error) as network might not be needed
-			// Don't treat timeout as error for network check (it's just a warning)
-			return errors.New(
-				errors.ErrCodeNetworkUnavailable,
-				"Network connectivity check failed (may be needed for git clones)",
-			).WithSuggestion(
-				"Ensure you have internet connectivity if using git-based services. "+
-					"This check can be skipped if using only image-based services.",
-			).WithContext("check", "connectivity test")
-		}
-	}
 	return nil
 }
 

@@ -22,7 +22,6 @@ const (
 	DockerNetworkTimeout     = 30 * time.Second
 	DockerVolumeTimeout      = 30 * time.Second
 	DockerLogsTimeout        = 2 * time.Minute
-	DockerStatsTimeout       = 30 * time.Second
 
 	// General operations
 	DefaultTimeout = 5 * time.Minute

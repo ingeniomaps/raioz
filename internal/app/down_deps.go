@@ -27,7 +27,7 @@ type keptSharedDep struct {
 //
 // Shared dependencies (workspace-scoped or with an explicit `name:` override)
 // are skipped while OTHER raioz projects in the same workspace still have
-// live containers — the last project out tumba the shared deps. Without
+// live containers — the last project out tears down the shared deps. Without
 // this guard, project A's down would rip postgres out from under project B.
 //
 // `deferredDeps` lists dep names whose dispatch was skipped at up time

@@ -9,6 +9,8 @@ import (
 
 	"raioz/internal/domain/models"
 	raiozErr "raioz/internal/errors"
+	"raioz/internal/i18n"
+	"raioz/internal/output"
 	pathvalidate "raioz/internal/path"
 	"raioz/internal/workspace"
 )
@@ -58,7 +60,7 @@ func GenerateEnvFromTemplate(
 	}
 
 	// Log that we're generating .env from template
-	fmt.Printf("📝 Generating .env from template for service '%s'...\n", serviceName)
+	output.PrintInfo(i18n.T("env.template_generating", serviceName))
 
 	// Read template content
 	templateContent, err := os.ReadFile(templatePath)
@@ -239,7 +241,7 @@ func GenerateEnvFromTemplate(
 				WithSuggestion("Check file permissions and disk space").
 				WithError(err)
 		}
-		fmt.Printf("✅ .env file updated for service '%s' (merged with global + service-specific variables)\n", serviceName)
+		output.PrintInfo(i18n.T("env.template_updated", serviceName))
 	} else {
 		// .env doesn't exist, create it from template + global + service-specific
 		if err := writeEnvFile(envFilePath, newVars); err != nil {
@@ -249,7 +251,7 @@ func GenerateEnvFromTemplate(
 				WithSuggestion("Check file permissions and disk space").
 				WithError(err)
 		}
-		fmt.Printf("✅ .env file created for service '%s' with %d variables\n", serviceName, len(newVars))
+		output.PrintInfo(i18n.T("env.template_created", serviceName, len(newVars)))
 	}
 
 	return nil

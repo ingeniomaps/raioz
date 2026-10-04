@@ -306,13 +306,6 @@ func infraNames(deps *models.Deps) string {
 	return names
 }
 
-func infraPorts(entry models.InfraEntry) []string {
-	if entry.Inline != nil {
-		return entry.Inline.Ports
-	}
-	return nil
-}
-
 // liveDependency returns the container currently running the dependency,
 // "" when there is none.
 func (uc *DevUseCase) liveDependency(ctx context.Context, cfgDeps *models.Deps, name string) string {

@@ -179,10 +179,13 @@ carrier — the value is one of:
   ssh-agent, OS keychain, Kerberos, smart card). Whatever
   `git clone <repo>` would do in the dev's shell is what raioz
   does.
-- `gh` / `ssh`: provider placeholders in fase 1 — fail at clone
-  with a "not implemented" error that points at `inherit` as the
-  working alternative. The functional implementations land in
-  fase 2 / fase 3 of issue 067.
+- `gh`: the GitHub CLI's session answers for that one clone
+  (`gh auth git-credential` as a per-invocation credential helper;
+  the dev's git config is not modified and the token never reaches
+  a command line).
+- `ssh`: the clone goes over SSH with the dev's agent or
+  `~/.ssh/config`, in batch mode — no passphrase prompt, and a host
+  key that changes is refused (`StrictHostKeyChecking=accept-new`).
 
 The yaml carries the **selector**; the credentials live in the
 dev's environment. A teammate who clones the repo and runs
