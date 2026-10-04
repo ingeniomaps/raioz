@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"raioz/internal/app/upcase"
 	"raioz/internal/config"
 	"raioz/internal/domain/models"
 	"raioz/internal/errors"
@@ -153,27 +154,33 @@ func (uc *HealthUseCase) serviceVerdict(
 
 	// The declared endpoint wins: the user wrote it to say what healthy
 	// means for this service, and no inference beats that.
-	if svc.HealthEndpoint != "" && svc.Port > 0 {
-		url := host.HealthURL(svc.Port, svc.HealthEndpoint)
-		v.detail = url
-		ok := healthEndpointProbe(ctx, url)
-		det := config.ResolveServiceDetection(svc, svc.Source.Path)
-		if !ok && det.IsDocker() {
+	containerPort := upcase.ContainerHealthPort(svc)
+	if svc.HealthEndpoint != "" && (svc.Port > 0 || containerPort > 0) {
+		ok := false
+		if svc.Port > 0 {
+			v.detail = host.HealthURL(svc.Port, svc.HealthEndpoint)
+			ok = healthEndpointProbe(ctx, v.detail)
+		}
+		if !ok && containerPort > 0 {
 			// A container that publishes no host port answers on its own
 			// address, not on loopback.
-			if ip := serviceContainerIP(ctx, proj.ProjectName, name); ip != "" {
-				alt := host.HealthURLAt(ip, svc.Port, svc.HealthEndpoint)
-				if ok = healthEndpointProbe(ctx, alt); ok {
+			alt := upcase.ContainerHealthURL(ctx, proj.ProjectName, name, svc, serviceContainerIP, containerIPByName)
+			if alt != "" {
+				if ok = healthEndpointProbe(ctx, alt); ok || v.detail == "" {
 					v.detail = alt
 				}
 			}
 		}
 		if ok {
 			v.status, v.healthy = "healthy", true
-		} else {
-			v.status = "unhealthy"
+			return v
 		}
-		return v
+		if v.detail != "" {
+			v.status = "unhealthy"
+			return v
+		}
+		// No address to ask yet (the container is not there): fall back
+		// to what the runtime says below.
 	}
 
 	if svc.ProxyOverride != nil && svc.ProxyOverride.Target != "" {

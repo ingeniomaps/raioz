@@ -38,8 +38,10 @@ var endpointProbe = host.ProbeHTTP
 // own wait runs out, because a slow boot and a broken service look
 // identical from here and the user may well want the rest of the stack.
 //
-// Only services that also declare `port:` can be probed: without it raioz
-// allocates the host port at run time and there is no address to hit.
+// A service needs an address to be probed: `port:` gives the loopback
+// one, and a container — the service's own, or the one `proxy.target:`
+// names — gives its network address. With neither there is nothing to
+// hit: raioz allocates the host port at run time.
 //
 // That case is logged at debug, not warned. Declaring `health:` without
 // `port:` is the common shape — a service behind the proxy is reached at
@@ -65,18 +67,19 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 		if !ok || svc.HealthEndpoint == "" {
 			continue
 		}
-		if svc.Port <= 0 {
+		svc, project := svc, deps.Project.Name
+		canAskContainer := ContainerHealthPort(svc) > 0
+		if svc.Port <= 0 && !canAskContainer {
 			unprobeable = append(unprobeable, name)
 			continue
 		}
-		t := target{name: name, url: host.HealthURL(svc.Port, svc.HealthEndpoint)}
-		if det := config.ResolveServiceDetection(svc, svc.Source.Path); det.IsDocker() {
-			project, port, endpoint := deps.Project.Name, svc.Port, svc.HealthEndpoint
+		t := target{name: name}
+		if svc.Port > 0 {
+			t.url = host.HealthURL(svc.Port, svc.HealthEndpoint)
+		}
+		if canAskContainer {
 			t.alt = func() string {
-				if ip := serviceContainerIPFn(ctx, project, name); ip != "" {
-					return host.HealthURLAt(ip, port, endpoint)
-				}
-				return ""
+				return ContainerHealthURL(ctx, project, name, svc, serviceContainerIPFn, containerIPFn)
 			}
 		}
 		targets = append(targets, t)
@@ -102,10 +105,13 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 	deadline := time.Now().Add(endpointProbeDeadline)
 	for {
 		for name, url := range pending {
-			ok := endpointProbe(ctx, url)
+			ok := url != "" && endpointProbe(ctx, url)
 			if !ok && alts[name] != nil {
 				if alt := alts[name](); alt != "" {
-					ok = endpointProbe(ctx, alt)
+					if ok = endpointProbe(ctx, alt); !ok && url == "" {
+						// Nothing on loopback to name in the warning.
+						pending[name] = alt
+					}
 				}
 			}
 			if ok {
@@ -129,6 +135,50 @@ func waitForServiceEndpoints(ctx context.Context, deps *models.Deps, serviceName
 	for _, name := range sortedNames(keysOf(pending)) {
 		output.PrintWarning(i18n.T("up.health_endpoint_timeout", name, pending[name]))
 	}
+}
+
+// ContainerHealthPort is the port a service's health endpoint answers on
+// inside its container: the one `proxy.port:` declares when the service
+// names its container with `proxy.target:`, `port:` otherwise. Zero when
+// the service runs in no container raioz can address.
+func ContainerHealthPort(svc models.Service) int {
+	if o := svc.ProxyOverride; o != nil && o.Target != "" {
+		if o.Port > 0 {
+			return o.Port
+		}
+		return svc.Port
+	}
+	if det := config.ResolveServiceDetection(svc, svc.Source.Path); det.IsDocker() {
+		return svc.Port
+	}
+	return 0
+}
+
+// ContainerHealthURL is the service's `health:` endpoint on its container's
+// own address, "" when no container answers for it. A container that
+// publishes no host port is only reachable there: loopback says nothing
+// about it. `proxy.target:` wins over the container raioz would look for
+// by label, because it is the user saying which container serves.
+func ContainerHealthURL(
+	ctx context.Context, project, name string, svc models.Service,
+	byLabel func(ctx context.Context, project, service string) string,
+	byName func(ctx context.Context, container string) string,
+) string {
+	port := ContainerHealthPort(svc)
+	if port <= 0 {
+		return ""
+	}
+	ip := ""
+	if o := svc.ProxyOverride; o != nil && o.Target != "" {
+		ip = byName(ctx, o.Target)
+	}
+	if ip == "" {
+		ip = byLabel(ctx, project, name)
+	}
+	if ip == "" {
+		return ""
+	}
+	return host.HealthURLAt(ip, port, svc.HealthEndpoint)
 }
 
 func sortedNames(names []string) []string {

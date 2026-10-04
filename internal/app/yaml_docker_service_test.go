@@ -139,6 +139,39 @@ func TestServiceVerdict_DockerServiceEndpointOnContainerAddress(t *testing.T) {
 	}
 }
 
+// A service that names its container with `proxy.target:` is probed there
+// and on `proxy.port:`, with or without a `port:` of its own.
+func TestServiceVerdict_EndpointOnProxyTargetContainer(t *testing.T) {
+	initI18nForTest(t)
+	proj := dockerServiceProject(t)
+
+	prevIP := containerIPByName
+	containerIPByName = func(_ context.Context, name string) string {
+		if name == "acme-edge" {
+			return "10.213.0.9"
+		}
+		return ""
+	}
+	t.Cleanup(func() { containerIPByName = prevIP })
+	prevLabel := serviceContainerIP
+	serviceContainerIP = func(context.Context, string, string) string { return "" }
+	t.Cleanup(func() { serviceContainerIP = prevLabel })
+	prevProbe := healthEndpointProbe
+	healthEndpointProbe = func(_ context.Context, url string) bool { return strings.Contains(url, "10.213.0.9:9000") }
+	t.Cleanup(func() { healthEndpointProbe = prevProbe })
+
+	for _, port := range []int{8080, 0} {
+		svc := proj.Deps.Services["site"]
+		svc.Port, svc.HealthEndpoint = port, "/healthz"
+		svc.ProxyOverride = &models.ServiceProxyOverride{Target: "acme-edge", Port: 9000}
+
+		v := NewHealthUseCase(&Dependencies{}).serviceVerdict(context.Background(), proj, "site", svc, nil)
+		if !v.healthy || v.detail != "http://10.213.0.9:9000/healthz" {
+			t.Errorf("port %d: verdict = %+v, want healthy on the target container", port, v)
+		}
+	}
+}
+
 // --json prints the same facts as the table, as JSON and nothing else.
 func TestStatusJSON(t *testing.T) {
 	initI18nForTest(t)

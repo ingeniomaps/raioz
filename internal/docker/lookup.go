@@ -53,8 +53,14 @@ func ServiceContainerIP(ctx context.Context, project, service string) string {
 	if len(names) == 0 {
 		return ""
 	}
+	return ContainerIP(ctx, names[0])
+}
+
+// ContainerIP returns the network address of the container with the given
+// name, "" when there is no such container or it has no address.
+func ContainerIP(ctx context.Context, name string) string {
 	out, err := exec.CommandContext(ctx, runtime.Binary(), "inspect", "--format",
-		"{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}", names[0]).Output()
+		"{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}", name).Output()
 	if err != nil {
 		return ""
 	}
