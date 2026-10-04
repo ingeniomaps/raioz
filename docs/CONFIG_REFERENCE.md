@@ -234,7 +234,8 @@ and starts with the native tool (go run, npm dev, etc.).
 | `path` | string | yes | — | Relative path to service directory. |
 | `dependsOn` | string or list | no | — | Dependencies or services that must start first. |
 | `env` | string or list | no | — | Env file paths (relative to project root). |
-| `ports` | string or list | no | auto-detected | Port mappings (e.g., `"3000"`, `"3000:8080"`). |
+| `ports` | string or list | no | auto-detected | Port mappings (e.g., `"3000"`, `"3000:8080"`). On a Dockerfile service they are published as written and replace what `port:` would publish. |
+| `port` | int | no | allocated at run time | The host port the service is on. A host service is told to listen there (`PORT`); a Dockerfile service's container is published on `127.0.0.1:<port>`, mapped to the port its image exposes (the same number when it exposes none). |
 | `watch` | bool or string | no | `false` | File watching mode. See [Watch config](#watch-config). |
 | `health` | string | no | — | Health endpoint path (e.g., `/api/health`). Probed after `up` and by `raioz health`: on `127.0.0.1:<port>`, and, when that does not answer and the service runs in a container, on the container's own address — the container `proxy.target:` names at `proxy.port:` when declared, else the service's own at `port:`. So a container that publishes no host port is still probed. A host service needs `port:`: without it raioz assigns the port at run time and there is no address to ask. |
 | `hostname` | string | no | service name | Custom hostname for proxy routing. |
@@ -264,8 +265,8 @@ ADR-036's "secrets never in yaml" policy guarantees that.
 |-------|----------|
 | omit (default) | Strict / public-only. Credential helper, askpass, and custom SSH command are all disabled; private repos fail fast. |
 | `inherit` | Raioz drops the hardening for this clone and delegates to the dev's global git config (credential helper, ssh-agent, OS keychain, Kerberos, …). Whatever `git clone <repo>` would do in the dev's shell is what raioz does. |
-| `gh` | Placeholder in fase 1 — fails at clone time with a "not implemented" error. The functional GitHub CLI integration lands in fase 2 of issue 067. |
-| `ssh` | Placeholder in fase 1 — fails at clone time. The functional SSH URL-rewriting integration lands in fase 3. |
+| `gh` | Uses the GitHub CLI's session: raioz registers `gh auth git-credential` as the credential helper for that one clone, without touching your git config. Needs `gh` on PATH and `gh auth login` done. The token never appears on a command line. |
+| `ssh` | Clones over SSH with your ssh-agent or `~/.ssh/config`. An `https://` URL for github.com, gitlab.com or bitbucket.org is rewritten to its `git@host:owner/repo.git` form; anything else is used as written. Never prompts: a key that needs a passphrase and is not in the agent fails fast. |
 
 ```yaml
 services:
@@ -282,6 +283,14 @@ project repo — a teammate who clones it and runs `raioz up` uses
 in the yaml would either commit a secret (incident) or make the
 yaml unusable across machines. Both are worse than asking the dev
 to configure git globally once.
+
+A token in a `.env` file is not a mechanism: raioz does not read
+credentials from the project. Use `gh`, or `inherit` with a credential
+helper.
+
+When a clone is refused for lack of credentials, raioz says which of
+the three to add; when the declared one is rejected, it says how to set
+that one up.
 
 **Validation:**
 - Unknown values (`auth: github`, `auth: GH`, etc.) abort
