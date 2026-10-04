@@ -4,6 +4,30 @@ All notable changes to this project are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.2](https://github.com/ingeniomaps/raioz/compare/v0.16.1...v0.16.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **app:** pass check before the first clone ([b1e6870](https://github.com/ingeniomaps/raioz/commit/b1e6870627f57b38510e7a05aa74508e0460bee4))
+* **env:** translate the .env template messages ([e4b2ccd](https://github.com/ingeniomaps/raioz/commit/e4b2ccda733598ffbd4e0ac6119a799da39bce9e))
+* **env:** write global.env's header in the UI language ([f2a3578](https://github.com/ingeniomaps/raioz/commit/f2a357802471e640e9530f67b651cc90e596811d))
+* **git:** say what a failed clone needs ([e1026ef](https://github.com/ingeniomaps/raioz/commit/e1026ef8800fb42cbd0f0956e6e2510dd9602171))
+* **orchestrate:** publish a Dockerfile service's port ([cc34b85](https://github.com/ingeniomaps/raioz/commit/cc34b85e26ddcccdc754fb75cb31ba18e7e1ff52))
+* **upcase:** start without a network ([407e482](https://github.com/ingeniomaps/raioz/commit/407e48249e3c6bc8bc69e097af798a753650adf2))
+* **validate:** accept ports on a git service ([a52be81](https://github.com/ingeniomaps/raioz/commit/a52be8112fd551701c849f4ab213a8044476b34d))
+
+
+### Refactor
+
+* remove code no command reaches ([835bf8b](https://github.com/ingeniomaps/raioz/commit/835bf8bc6d83c57e027dce16825fd35af57c32c5))
+
+
+### Documentation
+
+* describe gh and ssh auth as they work ([dfc17e9](https://github.com/ingeniomaps/raioz/commit/dfc17e9b63af3140a3e45aa2fa0aaf42003e19d5))
+* replace Spanish words in English text ([8be2dcd](https://github.com/ingeniomaps/raioz/commit/8be2dcd7df40b600b2684748071d808213d33994))
+
 ## [0.16.1](https://github.com/ingeniomaps/raioz/compare/v0.16.0...v0.16.1) (2026-10-04)
 
 
