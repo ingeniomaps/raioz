@@ -95,13 +95,25 @@ func StopServiceWithCommandAndPath(ctx context.Context, pid int, stopCommand str
 	return killTrackedProcess(ctx, pid)
 }
 
+// StopProcessTree terminates the process group led by pid and returns
+// once every process in it is gone, forcing the ones that outlive the
+// grace period. A caller that relaunches the service right after needs
+// that barrier: the wrapper raioz tracks dies at once, the server holding
+// the port may take seconds.
+func StopProcessTree(ctx context.Context, pid int) error {
+	if pid <= 0 {
+		return nil
+	}
+	return killTrackedProcess(ctx, pid)
+}
+
 // killTrackedProcess terminates a host service started by raioz.
 // HostRunner.Start always calls SetNewProcessGroup, so the tracked PID
 // is the leader of its own group and KillProcessTree reaches every
 // descendant via `kill -PGID`. A direct SIGTERM to the PID covers the
 // legacy / test case where Setpgid wasn't applied (kill(-pid) is a
-// no-op when no group with that PGID exists). Polls until the leader
-// is reaped or stopShutdownDeadline expires, then escalates to
+// no-op when no group with that PGID exists). Polls until the whole
+// group is gone or stopShutdownDeadline expires, then escalates to
 // ForceKillProcessTree + direct os.Process.Kill as last resort.
 //
 // Before the v0.8.3 fix this function sent SIGTERM only to the lone
@@ -123,11 +135,19 @@ func killTrackedProcess(ctx context.Context, pid int) error {
 	}
 
 	deadline := time.Now().Add(stopShutdownDeadline)
-	for IsProcessAlive(pid) {
+	for IsProcessGroupAlive(pid) {
 		if !time.Now().Before(deadline) {
 			_ = ForceKillProcessTree(pid)
 			if proc != nil {
 				_ = proc.Kill()
+			}
+			// SIGKILL is not instantaneous either: give the kernel a
+			// moment to tear the group down before saying it is gone.
+			for range 40 {
+				if !IsProcessGroupAlive(pid) {
+					break
+				}
+				time.Sleep(50 * time.Millisecond)
 			}
 			return nil
 		}

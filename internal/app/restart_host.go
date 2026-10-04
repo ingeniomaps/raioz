@@ -77,8 +77,12 @@ func (uc *RestartUseCase) restartHostService(
 				"service", name, "error", err.Error())
 		}
 	} else if pid > 0 {
-		if err := host.KillProcessTree(pid); err != nil {
-			logging.WarnWithContext(ctx, "Failed to kill process tree",
+		// Wait for the whole group to be gone: the wrapper raioz tracks
+		// exits at once, the server behind it can take seconds to release
+		// its port, and a relaunch that races it dies with EADDRINUSE
+		// after restart already reported success.
+		if err := host.StopProcessTree(ctx, pid); err != nil {
+			logging.WarnWithContext(ctx, "Failed to stop process tree",
 				"service", name, "pid", pid, "error", err.Error())
 		}
 		// Same launcher-pattern sweep as down: nx/vite/etc. daemons that

@@ -45,6 +45,42 @@ func forceKillProcessTree(pid int) error {
 	return nil
 }
 
+// isProcessGroupAlive probes the group with signal 0. A pid that leads no
+// group (ESRCH) falls back to the process itself.
+func isProcessGroupAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	if err := syscall.Kill(-pid, syscall.Signal(0)); err == nil || err == syscall.EPERM {
+		return true
+	}
+	return isProcessAlive(pid)
+}
+
+// forceKillPID sends SIGKILL to one process, for a swept orphan that leads
+// no group of its own.
+func forceKillPID(pid int) {
+	if pid > 0 {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
+}
+
+// hasServiceMarker reports whether the process was started — directly or
+// through any number of forks — as the host service the marker names.
+func hasServiceMarker(pid, marker string) bool {
+	data, err := os.ReadFile("/proc/" + pid + "/environ")
+	if err != nil {
+		return false
+	}
+	want := ServiceMarkerEnv + "=" + marker
+	for _, kv := range strings.Split(string(data), "\x00") {
+		if kv == want {
+			return true
+		}
+	}
+	return false
+}
+
 func isProcessAlive(pid int) bool {
 	if pid <= 0 {
 		return false
@@ -119,7 +155,7 @@ func parentPID(pid int) (int, bool) {
 
 // killOrphansByCwd is the Linux implementation. macOS has no /proc, so the
 // runtime check returns nil and the function is a no-op there.
-func killOrphansByCwd(servicePath string) []int {
+func killOrphansByCwd(servicePath, marker string) []int {
 	if runtime.GOOS != "linux" {
 		return nil
 	}
@@ -135,10 +171,9 @@ func killOrphansByCwd(servicePath string) []int {
 	if err != nil {
 		return nil
 	}
-	// Excluding the ancestor chain (not just self) keeps the sweep from
-	// SIGTERMing the shell that invoked raioz from inside the project —
-	// the normal way to run `raioz down` when the service declares
-	// `path: .`. See docs/decisions/025-launcher-pattern-container-wait.md.
+	// The ancestor chain is excluded as well as self: a `raioz restart`
+	// run from a terminal inside a host service carries that service's
+	// marker. See docs/decisions/025-launcher-pattern-container-wait.md.
 	protected := ancestorPIDs()
 	var killed []int
 	for _, e := range entries {
@@ -156,9 +191,12 @@ func killOrphansByCwd(servicePath string) []int {
 		if cwd != clean && !strings.HasPrefix(cwd, clean+string(filepath.Separator)) {
 			continue
 		}
-		// SIGTERM only — caller decides whether to escalate. We don't
-		// wait or re-probe: the parent kill already ran, and this sweep
-		// is best-effort cleanup, not a barrier.
+		// Only what raioz started as this service: the directory is also
+		// where the user's own editor, shells and tools run.
+		if !hasServiceMarker(e.Name(), marker) {
+			continue
+		}
+		// SIGTERM here; KillOrphansByCwd waits and escalates.
 		if err := syscall.Kill(pid, syscall.SIGTERM); err == nil {
 			killed = append(killed, pid)
 		}

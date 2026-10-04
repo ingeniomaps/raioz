@@ -111,6 +111,10 @@ var depVolume = docker.DepVolume
 // file, and is a package var so tests can answer without a docker daemon.
 var serviceContainerIP = docker.ServiceContainerIP
 
+// containerIPByName resolves a container's address from its name; same
+// reasons as serviceContainerIP.
+var containerIPByName = docker.ContainerIP
+
 // stopComposeServices tears down compose-based yaml services by invoking
 // `docker compose -f <files> down` under the same COMPOSE_PROJECT_NAME scope
 // used at `up` time. Required because the default prefix-based cleanup only

@@ -307,7 +307,7 @@ func TestDownUseCase_stopHostProcesses_SweepsLauncherOrphans(t *testing.T) {
 
 	var sweptPaths []string
 	prev := killOrphansByCwdFn
-	killOrphansByCwdFn = func(path string) []int {
+	killOrphansByCwdFn = func(path, _ string) []int {
 		sweptPaths = append(sweptPaths, path)
 		return nil
 	}

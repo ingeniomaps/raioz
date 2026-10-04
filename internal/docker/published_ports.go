@@ -55,11 +55,16 @@ func ListManagedPublishedPorts(ctx context.Context) ([]PublishedPort, error) {
 	return ports, nil
 }
 
+// maxPublishedRange bounds how many ports one folded range expands to; a
+// wider one is listed by its first port.
+const maxPublishedRange = 1024
+
 // parsePublishedHostPorts extracts the host side of every published
 // mapping in a `docker ps` Ports column, deduplicated and sorted. An entry
 // with no "->" is a port the container exposes but does not publish.
 //
 //	0.0.0.0:36379->6379/tcp, [::]:36379->6379/tcp, 8025/tcp  →  [36379]
+//	0.0.0.0:5671-5672->5671-5672/tcp                         →  [5671 5672]
 func parsePublishedHostPorts(column string) []int {
 	seen := map[int]bool{}
 	for _, entry := range strings.Split(column, ",") {
@@ -71,10 +76,20 @@ func parsePublishedHostPorts(column string) []int {
 		if i < 0 {
 			continue
 		}
-		// A range (8000-8002) is listed by its first port only: raioz
-		// never publishes ranges, and a foreign one is still a holder.
-		first, _, _ := strings.Cut(hostSide[i+1:], "-")
-		if port, err := strconv.Atoi(first); err == nil && port > 0 {
+		// `docker ps` folds consecutive mappings into a range
+		// (5671-5672->5671-5672/tcp): every port in it is held.
+		first, last, isRange := strings.Cut(hostSide[i+1:], "-")
+		from, err := strconv.Atoi(first)
+		if err != nil || from <= 0 {
+			continue
+		}
+		to := from
+		if isRange {
+			if n, err := strconv.Atoi(last); err == nil && n >= from && n-from < maxPublishedRange {
+				to = n
+			}
+		}
+		for port := from; port <= to; port++ {
 			seen[port] = true
 		}
 	}

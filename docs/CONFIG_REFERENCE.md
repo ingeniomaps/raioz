@@ -236,7 +236,7 @@ and starts with the native tool (go run, npm dev, etc.).
 | `env` | string or list | no | — | Env file paths (relative to project root). |
 | `ports` | string or list | no | auto-detected | Port mappings (e.g., `"3000"`, `"3000:8080"`). |
 | `watch` | bool or string | no | `false` | File watching mode. See [Watch config](#watch-config). |
-| `health` | string | no | — | Health endpoint path (e.g., `/api/health`). Probed on `127.0.0.1:<port>` after `up` and by `raioz health`; needs `port:` declared, since without it raioz assigns the host port at run time. |
+| `health` | string | no | — | Health endpoint path (e.g., `/api/health`). Probed after `up` and by `raioz health`: on `127.0.0.1:<port>`, and, when that does not answer and the service runs in a container, on the container's own address — the container `proxy.target:` names at `proxy.port:` when declared, else the service's own at `port:`. So a container that publishes no host port is still probed. A host service needs `port:`: without it raioz assigns the port at run time and there is no address to ask. |
 | `hostname` | string | no | service name | Custom hostname for proxy routing. |
 | `resources` | object | no | root `resources` for a Dockerfile service, else no cap | Memory/CPU cap for the service: its container (Dockerfile), each container of its stack (compose), or the process itself (host, Linux with systemd). See [Resource limits](#resource-limits). |
 | `routing` | object | no | — | Proxy routing options. See [Routing config](#routing-config). |
@@ -978,3 +978,9 @@ Raioz injects service discovery env vars automatically:
 | Host → container | `POSTGRES_HOST=localhost` |
 | Container → container | `POSTGRES_HOST=postgres` |
 | With proxy | `API_URL=https://api.acme.localhost` |
+
+Every host service is also started with `RAIOZ_HOST_SERVICE=<project>/<service>`.
+The whole process tree inherits it, and it is how `raioz down` and
+`raioz restart` tell a process they launched — including a daemon that
+detached into its own session — from anything else running in the
+service's directory. Nothing the service's `env:` sets overrides it.

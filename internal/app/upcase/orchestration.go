@@ -285,6 +285,10 @@ var removeUnusedNetworksFn = docker.RemoveLabeledNetworks
 // package var so tests can answer without a docker daemon.
 var serviceContainerIPFn = docker.ServiceContainerIP
 
+// containerIPFn resolves the address of a container by name, for a
+// service whose `proxy.target:` says which container answers for it.
+var containerIPFn = docker.ContainerIP
+
 // serviceEnvFor returns the per-service env recompute the file watcher
 // uses on every reload.
 func (uc *UseCase) serviceEnvFor(

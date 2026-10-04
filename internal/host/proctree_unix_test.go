@@ -3,6 +3,7 @@
 package host
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -62,6 +64,7 @@ func TestKillOrphansByCwd_KillsProcessRootedInPath(t *testing.T) {
 
 	cmd := exec.Command("sleep", "30")
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), ServiceMarkerEnv+"=proj/svc")
 	SetNewProcessGroup(cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -70,7 +73,7 @@ func TestKillOrphansByCwd_KillsProcessRootedInPath(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 
-	killed := KillOrphansByCwd(dir)
+	killed := KillOrphansByCwd(dir, "proj/svc")
 	if !slices.Contains(killed, pid) {
 		_ = ForceKillProcessTree(pid)
 		<-done
@@ -94,7 +97,7 @@ func TestKillOrphansByCwd_KillsProcessRootedInPath(t *testing.T) {
 // chain and survives.
 func TestKillOrphansByCwd_SparesAncestors(t *testing.T) {
 	if os.Getenv("RAIOZ_TEST_SWEEP_HELPER") == "1" {
-		killed := KillOrphansByCwd(os.Getenv("RAIOZ_TEST_SWEEP_DIR"))
+		killed := KillOrphansByCwd(os.Getenv("RAIOZ_TEST_SWEEP_DIR"), "proj/svc")
 		fmt.Printf("SWEPT=%v\n", killed)
 		return
 	}
@@ -108,6 +111,9 @@ func TestKillOrphansByCwd_SparesAncestors(t *testing.T) {
 	cmd.Dir = os.TempDir() // child's own cwd stays outside the swept path
 	cmd.Env = append(os.Environ(),
 		"RAIOZ_TEST_SWEEP_HELPER=1", "RAIOZ_TEST_SWEEP_DIR="+dir)
+	// The invoker carries the marker too — a terminal opened from inside
+	// the service — which is the case the ancestor exclusion is for.
+	t.Setenv(ServiceMarkerEnv, "proj/svc")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("helper failed: %v\n%s", err, out)
@@ -140,4 +146,83 @@ func parseSweptPIDs(out string) ([]int, bool) {
 		return pids, true
 	}
 	return nil, false
+}
+
+// The service directory is also where the user's editor, shells and tools
+// run. Only what raioz started as that service is swept: same directory
+// without the marker, or another service's marker, is left alone.
+func TestKillOrphansByCwd_SparesUnmarkedProcesses(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("cwd sweep walks /proc; linux only")
+	}
+	dir := deepSweepDir(t)
+
+	start := func(env ...string) (*exec.Cmd, chan error) {
+		cmd := exec.Command("sleep", "30")
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), env...)
+		SetNewProcessGroup(cmd)
+		if err := cmd.Start(); err != nil {
+			t.Fatalf("Start: %v", err)
+		}
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		t.Cleanup(func() { _ = ForceKillProcessTree(cmd.Process.Pid); <-done })
+		return cmd, done
+	}
+	editor, _ := start()
+	other, _ := start(ServiceMarkerEnv + "=proj/other")
+
+	killed := KillOrphansByCwd(dir, "proj/svc")
+	if len(killed) != 0 {
+		t.Errorf("nothing carries the marker, yet swept %v", killed)
+	}
+	for name, cmd := range map[string]*exec.Cmd{"unmarked": editor, "other service": other} {
+		if !IsProcessAlive(cmd.Process.Pid) {
+			t.Errorf("%s process in the service dir was killed", name)
+		}
+	}
+	if got := KillOrphansByCwd(dir, ""); got != nil {
+		t.Errorf("an empty marker must sweep nothing, got %v", got)
+	}
+}
+
+// StopProcessTree returns only when the whole group is gone: the leader
+// exits on SIGTERM at once while a child that ignores it holds on, and a
+// relaunch needs the child's port.
+func TestStopProcessTree_WaitsForTheWholeGroup(t *testing.T) {
+	marker := filepath.Join(t.TempDir(), "child.pid")
+	// The child ignores SIGTERM; the leader dies with it.
+	script := `(trap "" TERM; echo $BASHPID > ` + marker + `; sleep 60) & wait`
+	cmd := exec.Command("bash", "-c", script)
+	SetNewProcessGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	go func() { _ = cmd.Wait() }()
+
+	var child int
+	for range 100 {
+		if data, err := os.ReadFile(marker); err == nil {
+			if child, _ = strconv.Atoi(strings.TrimSpace(string(data))); child > 0 {
+				break
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if child == 0 {
+		_ = ForceKillProcessTree(cmd.Process.Pid)
+		t.Fatal("child never reported its pid")
+	}
+
+	if err := StopProcessTree(context.Background(), cmd.Process.Pid); err != nil {
+		t.Fatalf("StopProcessTree: %v", err)
+	}
+	if IsProcessAlive(child) {
+		_ = syscall.Kill(child, syscall.SIGKILL)
+		t.Error("StopProcessTree returned while a process of the group was still alive")
+	}
+	if IsProcessGroupAlive(cmd.Process.Pid) {
+		t.Error("the group is reported alive after StopProcessTree")
+	}
 }

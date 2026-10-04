@@ -15,7 +15,7 @@ func withKillOrphansHook(t *testing.T, killedFor map[string][]int) []string {
 	t.Helper()
 	var calls []string
 	prev := killOrphansByCwdFn
-	killOrphansByCwdFn = func(path string) []int {
+	killOrphansByCwdFn = func(path, _ string) []int {
 		calls = append(calls, path)
 		return killedFor[path]
 	}
@@ -29,7 +29,7 @@ func TestSweepLauncherOrphans_KillsByResolvedPath(t *testing.T) {
 	abs := filepath.Clean(filepath.Join(projectDir, "api"))
 	var calls []string
 	prev := killOrphansByCwdFn
-	killOrphansByCwdFn = func(path string) []int {
+	killOrphansByCwdFn = func(path, _ string) []int {
 		calls = append(calls, path)
 		return []int{4242}
 	}
@@ -52,7 +52,7 @@ func TestSweepLauncherOrphans_NilDeps(t *testing.T) {
 	_ = withKillOrphansHook(t, nil)
 	prev := killOrphansByCwdFn
 	called := false
-	killOrphansByCwdFn = func(string) []int { called = true; return nil }
+	killOrphansByCwdFn = func(string, string) []int { called = true; return nil }
 	t.Cleanup(func() { killOrphansByCwdFn = prev })
 
 	sweepLauncherOrphans(context.Background(), nil, "/proj", "api")
@@ -65,7 +65,7 @@ func TestSweepLauncherOrphans_NilDeps(t *testing.T) {
 func TestSweepLauncherOrphans_UnknownService(t *testing.T) {
 	prev := killOrphansByCwdFn
 	called := false
-	killOrphansByCwdFn = func(string) []int { called = true; return nil }
+	killOrphansByCwdFn = func(string, string) []int { called = true; return nil }
 	t.Cleanup(func() { killOrphansByCwdFn = prev })
 
 	deps := &models.Deps{Services: map[string]models.Service{}}
@@ -79,7 +79,7 @@ func TestSweepLauncherOrphans_UnknownService(t *testing.T) {
 func TestSweepLauncherOrphans_EmptyPath(t *testing.T) {
 	prev := killOrphansByCwdFn
 	called := false
-	killOrphansByCwdFn = func(string) []int { called = true; return nil }
+	killOrphansByCwdFn = func(string, string) []int { called = true; return nil }
 	t.Cleanup(func() { killOrphansByCwdFn = prev })
 
 	deps := &models.Deps{

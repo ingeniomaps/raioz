@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"raioz/internal/domain/interfaces"
+	"raioz/internal/host"
 )
 
 // lastValue returns the value a process would see for key: the last
@@ -80,5 +81,18 @@ func TestHostProcessEnv(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Every host service is started with the marker down and restart use to
+// recognise a detached process as its own; nothing the user sets wins.
+func TestHostProcessEnv_ServiceMarker(t *testing.T) {
+	svc := interfaces.ServiceContext{
+		Name: "web", ProjectName: "shop",
+		EnvVars: map[string]string{host.ServiceMarkerEnv: "spoofed"},
+	}
+	env := hostProcessEnv(svc)
+	if got, want := env[len(env)-1], host.ServiceMarkerEnv+"=shop/web"; got != want {
+		t.Errorf("last entry = %q, want %q", got, want)
 	}
 }
