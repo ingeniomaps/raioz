@@ -835,6 +835,7 @@
   "flag.up.host": "Dirección del host donde el proxy publicado enlaza 80/443 (por defecto 127.0.0.1; 0.0.0.0 lo comparte en la red)",
   "up.git.branch_differs": "%s: la copia de trabajo está en la rama '%s' pero raioz.yaml declara '%s'. Se deja como está; cambia de rama a mano, o usa --force-reclone para reemplazarla",
   "snapshot.stopping_for_create": "Deteniendo %s mientras se copian sus volúmenes",
+  "warning.git_hosts_unreachable": "no se puede alcanzar %s: clonar o actualizar los servicios git alojados ahí puede fallar",
   "warning.host_resources_unenforced": "servicio %q: `resources:` no se puede aplicar a su proceso de host (%s); corre sin tope",
   "host_limits.reason_os": "limitar un proceso de host requiere Linux con systemd",
   "host_limits.reason_systemd": "`systemd-run --user --scope` no está disponible",

@@ -18,6 +18,7 @@ const (
 	// Docker errors
 	ErrCodeDockerNotInstalled ErrorCode = "DOCKER_NOT_INSTALLED"
 	ErrCodeDockerNotRunning   ErrorCode = "DOCKER_NOT_RUNNING"
+	ErrCodePreflightFailed    ErrorCode = "PREFLIGHT_FAILED"
 	ErrCodePortConflict       ErrorCode = "PORT_CONFLICT"
 	ErrCodeImagePullFailed    ErrorCode = "IMAGE_PULL_FAILED"
 	ErrCodeNetworkError       ErrorCode = "NETWORK_ERROR"

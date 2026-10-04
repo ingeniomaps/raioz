@@ -2,6 +2,7 @@ package upcase
 
 import (
 	"context"
+	"strings"
 
 	"raioz/internal/domain/interfaces"
 	"raioz/internal/domain/models"
@@ -15,15 +16,17 @@ import (
 
 // validate handles validate.All, workspace permissions, port validation, and dependency conflicts
 func (uc *UseCase) validate(ctx context.Context, deps *models.Deps, ws *interfaces.Workspace, dryRun bool) error {
-	// Step 1: Preflight checks (Docker, Git, disk space, network) - as documented
+	// Step 1: Preflight checks (Docker, Git, disk space). The failure that
+	// stopped it carries its own code and message underneath.
 	if err := uc.deps.Validator.PreflightCheckWithContext(ctx); err != nil {
 		return errors.New(
-			errors.ErrCodeDockerNotInstalled,
+			errors.ErrCodePreflightFailed,
 			i18n.T("error.preflight_failed_detail"),
 		).WithSuggestion(
 			i18n.T("error.preflight_suggestion_detail"),
 		).WithError(err)
 	}
+	warnUnreachableGitHosts(ctx, deps)
 
 	// Step 2: Perform comprehensive configuration validation
 	if err := uc.deps.Validator.All(deps); err != nil {
@@ -188,4 +191,26 @@ func checkProxyAddress(deps *models.Deps) error {
 		).WithSuggestion(i18n.T("error.proxy_unpublished_needs_ip_suggestion"))
 	}
 	return nil
+}
+
+// unreachableGitHostsFn is a package var so tests never dial out.
+var unreachableGitHostsFn = netutil.UnreachableGitHosts
+
+// warnUnreachableGitHosts tells the user when a host one of the project's
+// git services is cloned from does not answer. It only warns: the checkout
+// may already be on disk, and a project with no git service is not asked
+// at all — it starts the same with or without a network.
+func warnUnreachableGitHosts(ctx context.Context, deps *models.Deps) {
+	var repos []string
+	for _, svc := range deps.Services {
+		if svc.Source.Kind == "git" && svc.Source.Repo != "" {
+			repos = append(repos, svc.Source.Repo)
+		}
+	}
+	if len(repos) == 0 {
+		return
+	}
+	if down := unreachableGitHostsFn(ctx, repos); len(down) > 0 {
+		output.PrintWarning(i18n.T("warning.git_hosts_unreachable", strings.Join(down, ", ")))
+	}
 }
