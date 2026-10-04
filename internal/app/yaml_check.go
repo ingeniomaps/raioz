@@ -46,9 +46,16 @@ func CheckYAML(proj *YAMLProject) error {
 	}
 
 	// Check dependency images
-	for name, entry := range proj.Deps.Infra {
-		if entry.Inline != nil && entry.Inline.Image != "" {
+	for _, name := range sortedKeysInfra(proj.Deps.Infra) {
+		entry := proj.Deps.Infra[name]
+		switch {
+		case entry.Inline == nil:
+		case entry.Inline.Image != "":
 			output.PrintSuccess(fmt.Sprintf("%s: %s", name, entry.Inline.Image))
+		case len(entry.Inline.Compose) > 0:
+			// A compose dependency names no image of its own; leaving it
+			// out made the report look like the dependency was missing.
+			output.PrintSuccess(fmt.Sprintf("%s: %s", name, models.RuntimeCompose))
 		}
 	}
 
